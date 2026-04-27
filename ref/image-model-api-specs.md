@@ -14,7 +14,6 @@
 | Qwen-Image Edit 阿里系 | `qwen-image-2.0-pro`、`qwen-image-edit-max`、`qwen-image-edit-plus` | 1-3 张 | 1-6 张；旧 `qwen-image-edit` 固定 1 张 | 2.0 总像素 `512*512` 到 `2048*2048`；edit max/plus 宽高 `[512,2048]` | DashScope / 百炼 multimodal generation | 官方 |
 | OpenAI | `gpt-image-2` | 多图编辑已支持；按 GPT Image edit 接口保守按 16 张设计 | 1 张常用 | 任意满足约束的尺寸，最长边不超过 3840，像素数 655,360 到 8,294,400 | `/v1/images/generations`、`/v1/images/edits` | 官方 |
 | Gemini / Nano Banana | `gemini-2.5-flash-image` | 3 张 | 最多 10 张 | 固定约 1024px 档，多种比例 | `models/{model}:generateContent` | 官方 |
-| Gemini / Nano Banana 2 | `gemini-3.1-flash-image-preview` | 14 张 | 受输出 token 限制 | 1K/2K 等，支持更多比例 | `models/{model}:generateContent` | 官方 |
 | Gemini / Nano Banana Pro | `gemini-3-pro-image-preview` | 14 张 | 受输出 token 限制 | 最高 4K | `models/{model}:generateContent` | 官方 |
 | FLUX.2 / BFL | `flux-2-pro-preview`、`flux-2-pro`、`flux-2-max`、`flux-2-flex` | API 8 张；`klein` 4 张；playground 10 张 | 通常单图 | 最高 4MP | `https://api.bfl.ai/v1/{model}` + polling | 官方 |
 | Midjourney | 无官方 public API | 无官方规格 | 无官方规格 | 无官方规格 | 仅 Web/Discord 产品；第三方 API 风险高 | 无官方 API |
@@ -137,7 +136,6 @@ Content-Type: application/json
 常用模型：
 
 - `gemini-2.5-flash-image`：Nano Banana
-- `gemini-3.1-flash-image-preview`：Nano Banana 2
 - `gemini-3-pro-image-preview`：Nano Banana Pro
 
 ### 请求格式
@@ -173,7 +171,6 @@ Content-Type: application/json
 | 模型 | 参考图上限 | 文件限制 | 输出 |
 | --- | ---: | --- | --- |
 | `gemini-2.5-flash-image` | 3 张 | inline / console 7MB；GCS 30MB | 最多 10 张；约 1024px 档 |
-| `gemini-3.1-flash-image-preview` | 14 张 | inline / console 7MB；GCS 30MB | 受 32,768 output tokens 限制 |
 | `gemini-3-pro-image-preview` | 14 张 | inline / console 7MB；GCS 30MB | 1K/2K/4K |
 
 支持格式：
@@ -515,7 +512,6 @@ Midjourney 目前没有官方 public API。市面上的 Midjourney API 多为非
 const referenceImageLimits = {
   'openai:gpt-image-2': 16,
   'google:gemini-2.5-flash-image': 3,
-  'google:gemini-3.1-flash-image-preview': 14,
   'google:gemini-3-pro-image-preview': 14,
   'bytedance:seedream-4.0': 10,
   'alibaba:qwen-image-edit': 3,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, useTemplateRef } from 'vue'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
+import BoxIcon from './BoxIcon.vue'
 
 const props = defineProps<{
   open?: boolean
@@ -64,26 +65,29 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
     <span class="ratio-label">比例</span>
     <div class="ratio-anchor">
       <button class="ratio-trigger" type="button" @click="toggleOpen">
+        <BoxIcon name="crop" size="14" />
         <span>{{ displayValue }}</span>
-        <i>⌄</i>
+        <BoxIcon class="ratio-chevron" name="chevron-down" size="16" />
       </button>
 
-      <div v-if="isOpen" class="ratio-menu">
-        <button
-          v-for="option in options"
-          :key="option"
-          class="ratio-option"
-          :class="{ selected: option === value }"
-          type="button"
-          @click="selectRatio(option)"
-        >
-          <span class="ratio-shape" :style="ratioStyle(option)" />
-          <span class="ratio-copy">
-            <strong>{{ option }}</strong>
-            <small>{{ option === '原图比例' ? '跟随参考图 1' : '常用比例' }}</small>
-          </span>
-        </button>
-      </div>
+      <Transition name="menu-pop">
+        <div v-if="isOpen" class="ratio-menu">
+          <button
+            v-for="option in options"
+            :key="option"
+            class="ratio-option"
+            :class="{ selected: option === value }"
+            type="button"
+            @click="selectRatio(option)"
+          >
+            <span class="ratio-shape" :style="ratioStyle(option)" />
+            <span class="ratio-copy">
+              <strong>{{ option }}</strong>
+              <small>{{ option === '原图比例' ? '跟随参考图 1' : '常用比例' }}</small>
+            </span>
+          </button>
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -97,8 +101,11 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 }
 
 .ratio-label {
+  overflow: hidden;
   color: var(--lb-muted);
   font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ratio-anchor {
@@ -108,17 +115,18 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 
 .ratio-trigger {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 4px;
   width: 100%;
   min-height: 28px;
   padding: 0 7px;
-  border-color: var(--lb-border);
-  background: var(--lb-surface);
+  border-color: transparent;
+  background: var(--lb-field);
   color: var(--lb-text);
   font-size: 11px;
   text-align: left;
+  white-space: nowrap;
 }
 
 .ratio-trigger span {
@@ -127,9 +135,8 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   white-space: nowrap;
 }
 
-.ratio-trigger i {
+.ratio-chevron {
   color: var(--lb-muted);
-  font-style: normal;
 }
 
 .ratio-picker.is-open .ratio-trigger {
@@ -145,10 +152,10 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   width: 230px;
   max-height: 230px;
   overflow-y: auto;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--lb-border-strong);
   border-radius: 8px;
-  background: var(--lb-surface-2);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+  background: var(--lb-overlay);
+  box-shadow: 0 12px 32px var(--lb-shadow);
 }
 
 .ratio-option {
@@ -177,7 +184,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   max-height: 28px;
   min-height: 12px;
   justify-self: center;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--lb-hairline);
   border-radius: 3px;
   background: linear-gradient(135deg, rgba(47, 140, 255, 0.58), rgba(174, 181, 194, 0.12));
 }
@@ -203,5 +210,26 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 .ratio-copy small {
   color: var(--lb-muted);
   font-size: 10px;
+}
+
+.menu-pop-enter-active,
+.menu-pop-leave-active {
+  transition:
+    opacity 130ms ease,
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: bottom left;
+}
+
+.menu-pop-enter-from,
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: translateY(5px) scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-pop-enter-active,
+  .menu-pop-leave-active {
+    transition: none;
+  }
 }
 </style>

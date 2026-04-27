@@ -1,19 +1,24 @@
-import { computed, reactive, shallowRef } from 'vue'
+import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 import { defaultModelConfigs, providerCapabilities } from '../data/providerCapabilities'
+import { generateImagesWithProvider, testImageConfig } from '../services/imageApiClient'
 import {
   type AppView,
   type ChatTurn,
   type GeneratedImage,
+  type GenerationLoadingState,
   type ModelConfig,
-  type PreviewMode,
+  type MockServerConfig,
+  type PlacementTarget,
   type ReferenceImage,
   type ReferenceSource,
   type RuntimeName,
+  type SettingsTestState,
   type SettingsView
 } from '../types/lightyear'
 import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
+import { createCanvasImageFromApiAsset } from '../utils/imagePixels'
 import { createMockCanvasImage } from '../utils/mockImages'
 
 const referenceLabels: Record<ReferenceSource, string> = {
@@ -25,70 +30,152 @@ const referenceLabels: Record<ReferenceSource, string> = {
   generated: '生成结果'
 }
 
-const generatedTones = ['blue', 'green', 'amber', 'pink'] as const
+type StoredSettings = {
+  activeConfigId: string
+  configs: ModelConfig[]
+  mockServer: MockServerConfig
+}
+
+const settingsStorageKey = 'lightyear-banana.settings.v1'
+const defaultMockServer: MockServerConfig = {
+  enabled: false,
+  baseUrl: 'http://127.0.0.1:38321'
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function cloneAsGenerated(image: CapturedCanvasImage, modelConfigId: string, index: number): GeneratedImage {
+function cloneDefaultConfigs() {
+  return defaultModelConfigs.map((config) => ({ ...config }))
+}
+
+function isModelConfig(value: unknown): value is ModelConfig {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const config = value as Partial<ModelConfig>
+  return (
+    typeof config.id === 'string' &&
+    typeof config.name === 'string' &&
+    typeof config.provider === 'string' &&
+    config.provider in providerCapabilities &&
+    typeof config.model === 'string' &&
+    typeof config.apiKey === 'string' &&
+    typeof config.baseUrl === 'string' &&
+    typeof config.enabled === 'boolean'
+  )
+}
+
+function normalizeConfigs(value: unknown) {
+  if (!Array.isArray(value)) {
+    return cloneDefaultConfigs()
+  }
+
+  const storedConfigs = value.filter(isModelConfig).map((config) => ({ ...config }))
+  if (!storedConfigs.length) {
+    return cloneDefaultConfigs()
+  }
+
+  const storedById = new Map(storedConfigs.map((config) => [config.id, config]))
+  const defaultIds = new Set(defaultModelConfigs.map((config) => config.id))
+  const defaults = defaultModelConfigs.map((config) => ({ ...config, ...storedById.get(config.id) }))
+  const customConfigs = storedConfigs.filter((config) => !defaultIds.has(config.id))
+
+  return [...defaults, ...customConfigs]
+}
+
+function normalizeMockServer(value: unknown): MockServerConfig {
+  if (!value || typeof value !== 'object') {
+    return { ...defaultMockServer }
+  }
+
+  const source = value as Partial<MockServerConfig>
   return {
-    ...image,
-    id: createId(`generated-${index}`),
-    label: `生成图 ${index}`,
-    modelConfigId
+    enabled: typeof source.enabled === 'boolean' ? source.enabled : defaultMockServer.enabled,
+    baseUrl: typeof source.baseUrl === 'string' && source.baseUrl.trim() ? source.baseUrl : defaultMockServer.baseUrl
   }
 }
 
-function readRatioSize(ratio: string, references: ReferenceImage[]) {
-  if (ratio === '原图比例') {
-    const source = references[0]?.image
-    if (source) {
-      const width = 512
-      const height = Math.max(256, Math.round((width * source.height) / source.width))
-      return { width, height }
-    }
+function readStoredSettings(): StoredSettings {
+  const fallbackConfigs = cloneDefaultConfigs()
+  const fallback: StoredSettings = {
+    activeConfigId: fallbackConfigs[0]?.id ?? '',
+    configs: fallbackConfigs,
+    mockServer: { ...defaultMockServer }
   }
 
-  const [ratioWidth, ratioHeight] = ratio.split(':').map(Number)
-  if (ratioWidth && ratioHeight) {
-    const longSide = 512
-    if (ratioWidth >= ratioHeight) {
-      return {
-        width: longSide,
-        height: Math.max(256, Math.round((longSide * ratioHeight) / ratioWidth))
-      }
+  try {
+    const raw = localStorage.getItem(settingsStorageKey)
+    if (!raw) {
+      return fallback
     }
+
+    const parsed = JSON.parse(raw) as Partial<StoredSettings>
+    const configs = normalizeConfigs(parsed.configs)
+    const activeConfigId =
+      typeof parsed.activeConfigId === 'string' && configs.some((config) => config.id === parsed.activeConfigId)
+        ? parsed.activeConfigId
+        : configs[0]?.id ?? ''
 
     return {
-      width: Math.max(256, Math.round((longSide * ratioWidth) / ratioHeight)),
-      height: longSide
+      activeConfigId,
+      configs,
+      mockServer: normalizeMockServer(parsed.mockServer)
     }
+  } catch {
+    return fallback
   }
+}
 
-  return { width: 512, height: 512 }
+function writeStoredSettings(settings: StoredSettings) {
+  try {
+    localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
+  } catch {
+    // localStorage can be unavailable in restricted runtimes.
+  }
 }
 
 export function useLightyearBanana(runtime: RuntimeName) {
+  const storedSettings = readStoredSettings()
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
   const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : '浏览器预览')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
-  const prompt = shallowRef('请生成一个极简风格的产品海报，保留主体材质和光线层次。')
+  const prompt = shallowRef('')
   const references = shallowRef<ReferenceImage[]>([])
   const turns = shallowRef<ChatTurn[]>([])
-  const configs = shallowRef<ModelConfig[]>(defaultModelConfigs.map((config) => ({ ...config })))
-  const activeConfigId = shallowRef(configs.value[0]?.id ?? '')
-  const selectedPreviewMode = shallowRef<PreviewMode>('full-canvas')
+  const configs = shallowRef<ModelConfig[]>(storedSettings.configs)
+  const activeConfigId = shallowRef(storedSettings.activeConfigId)
   const size = shallowRef('4k')
   const quality = shallowRef('高')
   const count = shallowRef(3)
   const ratio = shallowRef('原图比例')
   const editingConfigId = shallowRef(activeConfigId.value)
+  const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
+  const toastMessage = shallowRef('')
+  const generationLoading = reactive<GenerationLoadingState>({
+    active: false,
+    references: [],
+    prompt: '',
+    elapsedSeconds: 0
+  })
+  const mockServer = reactive<MockServerConfig>(storedSettings.mockServer)
+  let toastTimer: ReturnType<typeof setTimeout> | undefined
+  let generationTimer: ReturnType<typeof setInterval> | undefined
 
-  const settingsDraft = reactive<ModelConfig>({ ...(configs.value[0] ?? defaultModelConfigs[0]) })
+  const settingsDraft = reactive<ModelConfig>({
+    ...(configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? defaultModelConfigs[0])
+  })
 
   const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
   const activeConfig = computed(
@@ -99,6 +186,80 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const enabledConfigs = computed(() => configs.value.filter((config) => config.enabled))
   const referenceLimit = computed(() => activeCapability.value.referenceLimit)
   const canAddReference = computed(() => references.value.length < referenceLimit.value)
+  const canSend = computed(() => Boolean(prompt.value.trim()) || references.value.length > 0)
+
+  watch(
+    [configs, activeConfigId, () => mockServer.enabled, () => mockServer.baseUrl],
+    () => {
+      writeStoredSettings({
+        activeConfigId: activeConfigId.value,
+        configs: configs.value.map((config) => ({ ...config })),
+        mockServer: { ...mockServer }
+      })
+    },
+    { deep: true }
+  )
+
+  function readCapabilityForConfig(configId: string) {
+    const config = configs.value.find((item) => item.id === configId) ?? activeConfig.value
+
+    return providerCapabilities[config.provider]
+  }
+
+  function readUpscaleSize(options: string[]) {
+    return (
+      options.find((option) => option === '4k') ??
+      options.find((option) => option === '2048x2048') ??
+      options.find((option) => option === '2048*2048') ??
+      options.find((option) => option === '4MP') ??
+      options.at(-1) ??
+      size.value
+    )
+  }
+
+  function readHighestQuality(options: string[]) {
+    return (
+      options.find((option) => option === '最高') ??
+      options.find((option) => option === '高') ??
+      options.at(-1) ??
+      quality.value
+    )
+  }
+
+  function showToast(message: string) {
+    toastMessage.value = message
+    if (toastTimer) {
+      clearTimeout(toastTimer)
+    }
+    toastTimer = setTimeout(() => {
+      toastMessage.value = ''
+      toastTimer = undefined
+    }, 1800)
+  }
+
+  function stopGenerationLoading() {
+    if (generationTimer) {
+      clearInterval(generationTimer)
+      generationTimer = undefined
+    }
+
+    generationLoading.active = false
+    generationLoading.references = []
+    generationLoading.prompt = ''
+    generationLoading.elapsedSeconds = 0
+  }
+
+  function startGenerationLoading(cleanPrompt: string, sentReferences: ReferenceImage[]) {
+    stopGenerationLoading()
+    const startedAt = Date.now()
+    generationLoading.active = true
+    generationLoading.references = sentReferences
+    generationLoading.prompt = cleanPrompt
+    generationLoading.elapsedSeconds = 0
+    generationTimer = setInterval(() => {
+      generationLoading.elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000)
+    }, 250)
+  }
 
   function resetSettingsDraft(configId = editingConfigId.value) {
     const source = configs.value.find((config) => config.id === configId) ?? activeConfig.value
@@ -156,7 +317,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
           ? await canvasPrimitiveService.captureSelectionImage()
           : createMockCanvasImage(createId('selection'), '选区', 'green', 280, 220)
         addReferenceImage(source, image)
-        selectedPreviewMode.value = 'reference-selection'
         return
       }
 
@@ -190,77 +350,103 @@ export function useLightyearBanana(runtime: RuntimeName) {
     ratio.value = capability.ratioOptions.includes(ratio.value) ? ratio.value : '原图比例'
   }
 
-  function buildGeneratedImages() {
-    const targetCount = Math.min(count.value, activeCapability.value.countOptions.at(-1) ?? count.value)
-    const outputSize = readRatioSize(ratio.value, references.value)
-
-    return Array.from({ length: targetCount }, (_, index) => {
-      const base = createMockCanvasImage(
-        createId('result'),
-        `生成图 ${index + 1}`,
-        generatedTones[index % generatedTones.length],
-        outputSize.width,
-        outputSize.height
+  async function buildGeneratedImagesFromApi(apiImages: Array<{ previewUrl: string; label: string }>) {
+    return Promise.all(
+      apiImages.map((apiImage, index) =>
+        createCanvasImageFromApiAsset({
+          id: createId(`generated-${index + 1}`),
+          label: apiImage.label,
+          modelConfigId: activeConfig.value.id,
+          previewUrl: apiImage.previewUrl
+        })
       )
-
-      return cloneAsGenerated(base, activeConfig.value.id, index + 1)
-    })
+    )
   }
 
   async function sendPrompt() {
     const cleanPrompt = prompt.value.trim()
-    if (!cleanPrompt) {
-      status.value = '请输入提示词'
+    const hasReferences = references.value.length > 0
+    if (!cleanPrompt && !hasReferences) {
+      status.value = '请输入提示词或添加参考图'
+      return
+    }
+    const requestPrompt = cleanPrompt || '根据参考图生成'
+    const sentReferences = references.value.map((reference) => ({ ...reference }))
+
+    if (!mockServer.enabled && !activeConfig.value.apiKey.trim()) {
+      status.value = '请输入 API Key'
+      showToast('请输入 API Key')
       return
     }
 
-    await runAction(async () => {
-      const results = buildGeneratedImages()
-      const turn: ChatTurn = {
-        id: createId('turn'),
-        prompt: cleanPrompt,
-        references: references.value.map((reference) => ({ ...reference })),
-        responseText: `${activeConfig.value.name} 已生成 ${results.length} 张图`,
-        elapsedLabel: '耗费 1m 12s',
-        previewMode: selectedPreviewMode.value,
-        results
-      }
+    if (activeCapability.value.supportsBaseUrl && !activeConfig.value.baseUrl.trim() && !mockServer.enabled) {
+      status.value = '请输入 Base URL'
+      showToast('请输入 Base URL')
+      return
+    }
 
-      turns.value = [...turns.value, turn]
-      status.value = '生成完成'
+    prompt.value = ''
+    references.value = []
+    startGenerationLoading(requestPrompt, sentReferences)
+    await runAction(async () => {
+      try {
+        const startedAt = Date.now()
+        const results = await buildGeneratedImagesFromApi(
+          await generateImagesWithProvider({
+            config: activeConfig.value,
+            count: count.value,
+            mockServer: { ...mockServer },
+            prompt: requestPrompt,
+            quality: quality.value,
+            ratio: ratio.value,
+            references: sentReferences,
+            size: size.value
+          })
+        )
+        const turn: ChatTurn = {
+          id: createId('turn'),
+          prompt: requestPrompt,
+          references: sentReferences,
+          responseText: `${activeConfig.value.name} 已生成 ${results.length} 张图`,
+          elapsedLabel: `耗费 ${Math.max(1, Math.round((Date.now() - startedAt) / 1000))}s`,
+          results
+        }
+
+        turns.value = [...turns.value, turn]
+        status.value = '生成完成'
+      } finally {
+        stopGenerationLoading()
+      }
     })
   }
 
-  async function placeImage(image: GeneratedImage, mode: PreviewMode) {
+  async function placeImage(image: GeneratedImage, target: PlacementTarget) {
     await runAction(async () => {
       if (!canUsePhotoshop.value) {
         status.value = '浏览器预览无法置入 Photoshop'
         return
       }
 
-      if (mode === 'reference-selection') {
-        const referenceSelection = references.value.find((reference) => reference.source === 'selection')
-        if (referenceSelection) {
-          const bounds = referenceSelection.image.sourceBounds
-          await canvasPrimitiveService.insertImage(image, {
-            left: bounds.left,
-            top: bounds.top,
-            width: bounds.right - bounds.left,
-            height: bounds.bottom - bounds.top
-          })
-          status.value = '已置入参考图选区'
-          return
-        }
+      if (target.type === 'reference-selection') {
+        const bounds = target.bounds
+        await canvasPrimitiveService.insertImage(image, {
+          left: bounds.left,
+          top: bounds.top,
+          width: bounds.right - bounds.left,
+          height: bounds.bottom - bounds.top
+        })
+        status.value = `已置入参考图片 ${target.referenceIndex + 1} 的选区`
+        return
       }
 
-      if (mode === 'current-selection') {
+      if (target.type === 'current-selection') {
         await canvasPrimitiveService.insertImageToSelection(image)
         status.value = '已置入当前选区'
         return
       }
 
       await canvasPrimitiveService.insertImageToFullCanvas(image)
-      status.value = '已置入全图'
+      status.value = '已置入全画布'
     })
   }
 
@@ -268,12 +454,25 @@ export function useLightyearBanana(runtime: RuntimeName) {
     addReferenceImage('generated', image)
   }
 
-  function previewImage(image: GeneratedImage) {
-    status.value = `预览 ${image.label}`
-  }
-
   function upscaleImage(image: GeneratedImage) {
-    status.value = `${image.label} 已加入超分队列`
+    const nextConfigId = configs.value.some((config) => config.id === image.modelConfigId) ? image.modelConfigId : activeConfigId.value
+    const capability = readCapabilityForConfig(nextConfigId)
+
+    activeConfigId.value = nextConfigId
+    size.value = readUpscaleSize(capability.sizeOptions)
+    quality.value = readHighestQuality(capability.qualityOptions)
+    count.value = capability.countOptions.includes(1) ? 1 : capability.countOptions[0] ?? 1
+    ratio.value = capability.ratioOptions.includes('原图比例') ? '原图比例' : capability.ratioOptions[0] ?? ratio.value
+    prompt.value = '提升分辨率'
+    references.value = [
+      {
+        id: createId('reference'),
+        source: 'generated',
+        label: image.label,
+        image
+      }
+    ]
+    status.value = `${image.label} 已填入超分参数`
   }
 
   function openSettings(configId = activeConfig.value.id) {
@@ -309,16 +508,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
     settingsView.value = 'detail'
   }
 
-  function restoreSettingsDraft() {
-    if (settingsDraftIsNew.value) {
-      createConfig()
-      return
-    }
-
-    editConfig(editingConfigId.value)
-    status.value = '已还原配置'
-  }
-
   function createConfig() {
     const next: ModelConfig = {
       id: createId('config'),
@@ -346,7 +535,33 @@ export function useLightyearBanana(runtime: RuntimeName) {
       )
     }
     settingsView.value = 'list'
-    status.value = '配置已保存'
+    status.value = '保存成功'
+    showToast('保存成功')
+  }
+
+  function toggleConfigEnabled(enabled: boolean) {
+    settingsDraft.enabled = enabled
+    settingsTestState.value = { status: 'idle', message: '' }
+
+    if (settingsDraftIsNew.value) {
+      return
+    }
+
+    configs.value = configs.value.map((config) =>
+      config.id === editingConfigId.value ? { ...config, enabled } : config
+    )
+
+    if (!enabled && activeConfigId.value === editingConfigId.value) {
+      activeConfigId.value = configs.value.find((config) => config.enabled)?.id ?? editingConfigId.value
+    }
+
+    if (enabled) {
+      activeConfigId.value = editingConfigId.value
+    }
+
+    const message = enabled ? '已启用配置' : '已停用配置'
+    status.value = message
+    showToast(message)
   }
 
   function deleteConfig() {
@@ -369,8 +584,50 @@ export function useLightyearBanana(runtime: RuntimeName) {
     settingsView.value = 'list'
   }
 
-  function testConfig() {
-    status.value = '配置格式可用'
+  async function testConfig() {
+    const capability = providerCapabilities[settingsDraft.provider]
+    if (!mockServer.enabled && !settingsDraft.apiKey.trim()) {
+      settingsTestState.value = { status: 'error', message: '请输入 API Key' }
+      status.value = '请输入 API Key'
+      return
+    }
+
+    if (capability.supportsBaseUrl && !settingsDraft.baseUrl.trim() && !mockServer.enabled) {
+      settingsTestState.value = { status: 'error', message: '请输入 Base URL' }
+      status.value = '请输入 Base URL'
+      return
+    }
+
+    settingsTestState.value = { status: 'testing', message: '正在测试 API' }
+    status.value = '正在测试 API'
+
+    if (mockServer.enabled) {
+      try {
+        await testImageConfig({ ...settingsDraft }, { ...mockServer })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'API 配置不可用'
+        settingsTestState.value = { status: 'error', message }
+        status.value = message
+        return
+      }
+    } else {
+      await wait(650)
+
+      const mockShouldFail = /fail|error/i.test(`${settingsDraft.apiKey} ${settingsDraft.baseUrl}`)
+      if (mockShouldFail) {
+        settingsTestState.value = { status: 'error', message: 'API 配置不可用' }
+        status.value = 'API 配置不可用'
+        return
+      }
+    }
+
+    settingsTestState.value = { status: 'success', message: 'API 配置可用' }
+    status.value = 'API 配置可用'
+  }
+
+  function updateMockServer(patch: Partial<MockServerConfig>) {
+    Object.assign(mockServer, patch)
+    settingsTestState.value = { status: 'idle', message: '' }
   }
 
   function updateSettingsDraft(patch: Partial<ModelConfig>) {
@@ -381,9 +638,17 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
 
     Object.assign(settingsDraft, patch)
+    settingsTestState.value = { status: 'idle', message: '' }
   }
 
   refreshDocument()
+
+  onUnmounted(() => {
+    if (toastTimer) {
+      clearTimeout(toastTimer)
+    }
+    stopGenerationLoading()
+  })
 
   return {
     activeCapability,
@@ -392,6 +657,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     activeView,
     busy,
     canAddReference,
+    canSend,
     canUsePhotoshop,
     clearReferences,
     closeSettingsDetail,
@@ -405,9 +671,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
     editingCapability,
     editingConfigId,
     enabledConfigs,
+    generationLoading,
+    mockServer,
     openSettings,
     placeImage,
-    previewImage,
     prompt,
     providerCapabilities,
     quality,
@@ -416,21 +683,23 @@ export function useLightyearBanana(runtime: RuntimeName) {
     references,
     refreshDocument,
     removeReference,
-    restoreSettingsDraft,
     saveConfig,
-    selectedPreviewMode,
     selectConfig,
     sendPrompt,
     settingsDraft,
     settingsDraftIsNew,
+    settingsTestState,
     settingsView,
     size,
     status,
     testConfig,
+    toastMessage,
+    toggleConfigEnabled,
     turns,
     addReference,
     upscaleImage,
     updateSettingsDraft,
+    updateMockServer,
     useResultAsReference
   }
 }

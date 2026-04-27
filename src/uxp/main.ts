@@ -9,6 +9,7 @@ const LOG_PREFIX = '[Lightyear Banana]'
 const uxpGlobal = globalThis as typeof globalThis & {
   Element?: typeof Element
   SVGElement?: typeof SVGElement
+  __LIGHTYEAR_BROWSER_PREVIEW__?: boolean
   require?: UxpRequire
 }
 
@@ -69,7 +70,7 @@ function mountPanel() {
   try {
     console.log(`${LOG_PREFIX} mounting Vue panel`)
     writeBootState('正在启动面板')
-    app = createApp(App, { runtime: 'photoshop-uxp' })
+    app = createApp(App, { runtime: uxpGlobal.__LIGHTYEAR_BROWSER_PREVIEW__ ? 'browser' : 'photoshop-uxp' })
     app.mount(mountNode)
     console.log(`${LOG_PREFIX} Vue panel mounted`)
     console.log(`${LOG_PREFIX} panel text`, document.body.textContent?.replace(/\s+/g, ' ').trim())

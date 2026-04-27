@@ -15,7 +15,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
   gemini: {
     id: 'gemini',
     name: 'Google Gemini',
-    modelOptions: ['gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'],
+    modelOptions: ['gemini-3-pro-image-preview', 'gemini-2.5-flash-image'],
     referenceLimit: 14,
     sizeOptions: ['1k', '2k', '4k'],
     qualityOptions: ['自动', '高'],
@@ -82,10 +82,10 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
 
 export const defaultModelConfigs: ModelConfig[] = [
   {
-    id: 'nano-banana-2',
-    name: 'Nano Banana 2',
+    id: 'nano-banana-pro',
+    name: 'Nano Banana Pro',
     provider: 'gemini',
-    model: 'gemini-3.1-flash-image-preview',
+    model: 'gemini-3-pro-image-preview',
     apiKey: '',
     baseUrl: '',
     enabled: true
@@ -136,4 +136,3 @@ export const defaultModelConfigs: ModelConfig[] = [
     enabled: false
   }
 ]
-

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ReferenceImage } from '../../types/lightyear'
+import BoxIcon from './BoxIcon.vue'
 
 defineProps<{
   index: number
@@ -18,7 +19,9 @@ const emit = defineEmits<{
     <div class="image-wrap">
       <img :src="reference.image.previewUrl" :alt="reference.label" />
       <span class="badge">{{ index }}</span>
-      <button v-if="removable" class="remove-button" type="button" @click="emit('remove', reference.id)">×</button>
+      <button v-if="removable" class="remove-button" type="button" @click="emit('remove', reference.id)">
+        <BoxIcon name="x" size="13" />
+      </button>
     </div>
     <figcaption>{{ reference.label }}</figcaption>
   </figure>
@@ -42,9 +45,9 @@ const emit = defineEmits<{
   width: 56px;
   height: 56px;
   overflow: hidden;
-  border: 1px solid var(--lb-border);
+  border: 0;
   border-radius: 7px;
-  background: var(--lb-surface);
+  background: var(--lb-field);
 }
 
 .is-small .image-wrap {
@@ -75,6 +78,9 @@ img {
 }
 
 .remove-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
   top: 3px;
   right: 3px;
@@ -85,7 +91,7 @@ img {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: rgba(12, 14, 18, 0.78);
+  background: var(--lb-card-deep);
   color: var(--lb-text);
   font-size: 13px;
   line-height: 17px;
@@ -98,4 +104,3 @@ figcaption {
   white-space: nowrap;
 }
 </style>
-

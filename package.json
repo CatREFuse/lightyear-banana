@@ -9,6 +9,7 @@
     "build:web": "vue-tsc -b && vite build",
     "build:uxp": "vue-tsc -b && vite build --config vite.uxp.config.ts",
     "build:uxp:watch": "vite build --config vite.uxp.config.ts --watch",
+    "mock:image-api": "node scripts/mock-image-api-server.mjs",
     "package:uxp": "npm run verify:uxp && cd dist/ps-uxp && zip -r -q ../${npm_package_name}-${npm_package_version}.ccx .",
     "verify:uxp": "npm run build:uxp && node scripts/verify-uxp-build.mjs",
     "preview": "vite preview"

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720" role="img" aria-label="CC0 room light">
+  <rect width="960" height="720" fill="#e7e3da"/>
+  <rect x="0" y="472" width="960" height="248" fill="#c9b9a1"/>
+  <rect x="110" y="106" width="270" height="352" rx="18" fill="#f6f1e8"/>
+  <rect x="142" y="138" width="206" height="288" rx="12" fill="#a9c0cf"/>
+  <rect x="548" y="138" width="244" height="332" rx="34" fill="#2b2d32"/>
+  <rect x="588" y="178" width="164" height="250" rx="22" fill="#e9dfcd"/>
+  <ellipse cx="670" cy="522" rx="236" ry="46" fill="#a99474"/>
+  <circle cx="720" cy="274" r="94" fill="#f5c857"/>
+  <path d="M602 528h136" stroke="#2b2d32" stroke-width="28" stroke-linecap="round"/>
+</svg>

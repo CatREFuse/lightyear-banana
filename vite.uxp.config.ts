@@ -31,6 +31,36 @@ function uxpPostBuildPlugin(): Plugin {
         html = html.replace(/\s*<\/body>/, `\n    ${scripts.join('\n    ')}\n  </body>`)
       }
       writeFileSync(panelPath, html)
+      writeFileSync(
+        path.join(uxpOutDir, 'browser-preview.html'),
+        `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lightyear Banana Preview</title>
+  </head>
+  <body>
+    <div id="app" style="min-height: 100vh; background: #15181f; color: #f5f7fb">正在启动</div>
+    <script>
+      window.__LIGHTYEAR_BROWSER_PREVIEW__ = true
+      window.require = function (name) {
+        if (name !== 'uxp') return {}
+        return {
+          entrypoints: {
+            setup(config) {
+              const panel = config && config.panels && config.panels.panel
+              if (panel && typeof panel.create === 'function') panel.create()
+            }
+          }
+        }
+      }
+    </script>
+    ${scripts.join('\n    ')}
+  </body>
+</html>
+`
+      )
 
       mkdirSync(uxpOutDir, { recursive: true })
       copyFileSync(manifestSource, manifestTarget)

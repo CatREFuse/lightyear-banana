@@ -6,9 +6,36 @@ export type AppView = 'workspace' | 'settings'
 
 export type SettingsView = 'list' | 'detail'
 
+export type SettingsTestStatus = 'idle' | 'testing' | 'success' | 'error'
+
+export type SettingsTestState = {
+  status: SettingsTestStatus
+  message: string
+}
+
+export type MockServerConfig = {
+  enabled: boolean
+  baseUrl: string
+}
+
+export type GenerationLoadingState = {
+  active: boolean
+  references: ReferenceImage[]
+  prompt: string
+  elapsedSeconds: number
+}
+
 export type ReferenceSource = 'visible' | 'selection' | 'layer' | 'upload' | 'clipboard' | 'generated'
 
-export type PreviewMode = 'reference-selection' | 'current-selection' | 'full-canvas'
+export type PlacementTarget =
+  | {
+      type: 'reference-selection'
+      referenceId: string
+      referenceIndex: number
+      bounds: CapturedCanvasImage['sourceBounds']
+    }
+  | { type: 'full-canvas' }
+  | { type: 'current-selection' }
 
 export type ImageProviderId =
   | 'openai'
@@ -58,6 +85,5 @@ export type ChatTurn = {
   references: ReferenceImage[]
   responseText: string
   elapsedLabel: string
-  previewMode: PreviewMode
   results: GeneratedImage[]
 }
