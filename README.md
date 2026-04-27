@@ -25,6 +25,8 @@ dist/ps-uxp/manifest.json
 
 ## 关键文档
 
+- [技术原型功能需求](docs/lightyear-banana-prototype-requirements.md)
+- [技术原型交互规格](docs/lightyear-banana-interaction-spec.md)
 - [Photoshop 画板交互原语参考](docs/canvas-primitives-reference.md)
 - [UXP 开发最佳实践报告](docs/uxp-development-best-practices-report.md)
 - [UXP cookbook](docs/uxp-cookbook.md)
