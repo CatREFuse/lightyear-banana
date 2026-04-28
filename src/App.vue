@@ -1,15 +1,20 @@
 <script setup lang="ts">
+import { shallowRef } from 'vue'
 import LightyearPanel from './components/lightyear/LightyearPanel.vue'
-import type { RuntimeName } from './types/lightyear'
+import type { DesktopPlatform, RuntimeName } from './types/lightyear'
 
 const props = withDefaults(
   defineProps<{
     runtime?: RuntimeName
+    platform?: DesktopPlatform
   }>(),
   {
-    runtime: 'browser'
+    runtime: 'browser',
+    platform: 'darwin'
   }
 )
+
+const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
 </script>
 
 <template>
@@ -20,8 +25,28 @@ const props = withDefaults(
       'is-electron-app': props.runtime === 'electron'
     }"
   >
+    <div v-if="props.runtime === 'browser'" class="preview-platform-switch" aria-label="窗口系统">
+      <button
+        type="button"
+        :class="{ selected: previewPlatform === 'darwin' }"
+        @click="previewPlatform = 'darwin'"
+      >
+        macOS
+      </button>
+      <button
+        type="button"
+        :class="{ selected: previewPlatform === 'win32' }"
+        @click="previewPlatform = 'win32'"
+      >
+        Windows
+      </button>
+    </div>
     <div class="plugin-preview-frame">
-      <LightyearPanel :runtime="props.runtime" />
+      <LightyearPanel
+        :runtime="props.runtime"
+        :desktop-platform="props.runtime === 'browser' ? previewPlatform : props.platform"
+        :show-window-controls="props.runtime === 'browser'"
+      />
     </div>
   </main>
 </template>
@@ -52,15 +77,46 @@ const props = withDefaults(
 }
 
 .app-preview-shell.is-plugin-preview {
+  position: relative;
   display: flex;
   justify-content: center;
   overflow: hidden;
-  padding: 24px;
+  padding: 58px 24px 24px;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     #0f1115;
   background-size: 28px 28px;
+}
+
+.preview-platform-switch {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 10;
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid rgba(168, 179, 196, 0.18);
+  border-radius: 8px;
+  background: rgba(27, 34, 44, 0.84);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  transform: translateX(-50%);
+}
+
+.preview-platform-switch button {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lb-muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.preview-platform-switch button.selected {
+  background: var(--lb-accent-soft);
+  color: var(--lb-text);
 }
 
 .is-plugin-preview .plugin-preview-frame {
@@ -75,7 +131,7 @@ const props = withDefaults(
 
 @media (max-width: 430px) {
   .app-preview-shell.is-plugin-preview {
-    padding: 0;
+    padding: 42px 0 0;
   }
 
   .is-plugin-preview .plugin-preview-frame {

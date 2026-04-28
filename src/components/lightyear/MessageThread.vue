@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 type PlacementOption = {
-  icon: 'selection' | 'image' | 'crop'
+  icon: 'selection' | 'image' | 'crop' | 'expand-alt'
   id: string
   label: string
   target: PlacementTarget
@@ -56,6 +56,12 @@ function readPlacementOptions(turn: ChatTurn): PlacementOption[] {
 
   return [
     ...referenceOptions,
+    {
+      icon: 'expand-alt',
+      id: 'original-size',
+      label: '原尺寸（置入）',
+      target: { type: 'original-size' }
+    },
     {
       icon: 'image',
       id: 'full-canvas',
@@ -112,12 +118,12 @@ watch(
           <p>{{ turn.prompt }}</p>
         </section>
 
-        <section class="assistant-message">
+        <section class="assistant-message" :class="{ 'is-error': turn.tone === 'error' }">
           <div class="response-header">
             <span>{{ turn.elapsedLabel }}</span>
           </div>
           <p class="response-text">{{ turn.responseText }}</p>
-          <div class="result-grid">
+          <div v-if="turn.results.length" class="result-grid">
             <article v-for="image in turn.results" :key="image.id" class="result-card">
               <img :src="image.previewUrl" :alt="image.label" />
               <div class="result-actions">
@@ -292,6 +298,24 @@ watch(
   margin: 0;
   color: var(--lb-secondary);
   font-size: 12px;
+}
+
+.assistant-message.is-error {
+  width: fit-content;
+  max-width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 111, 126, 0.32);
+  border-radius: 8px;
+  background: rgba(236, 81, 93, 0.11);
+}
+
+.assistant-message.is-error .response-header {
+  color: #ff9aa8;
+}
+
+.assistant-message.is-error .response-text {
+  color: #ffd7dc;
+  line-height: 1.45;
 }
 
 .result-grid {

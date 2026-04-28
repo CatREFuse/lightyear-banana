@@ -6,6 +6,7 @@ import {
   type ChatTurn,
   type GeneratedImage,
   type GenerationLoadingState,
+  type MacPermissionPane,
   type ModelConfig,
   type MockServerConfig,
   type PlacementTarget,
@@ -13,7 +14,10 @@ import {
   type ReferenceSource,
   type RuntimeName,
   type SettingsTestState,
-  type SettingsView
+  type SettingsView,
+  type WindowDeployResult,
+  type WindowDeploySide,
+  type WindowDeployState
 } from '../types/lightyear'
 import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
@@ -55,6 +59,25 @@ function wait(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms)
   })
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(message))
+    }, ms)
+
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => {
+        clearTimeout(timer)
+      })
+  })
+}
+
+function readErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
 }
 
 function createId(prefix: string) {
@@ -158,7 +181,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Lightyear App' : '浏览器预览')
+  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Lightyear App' : 'Photoshop 已连接')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
   const prompt = shallowRef('')
@@ -170,8 +193,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const quality = shallowRef('高')
   const count = shallowRef(3)
   const ratio = shallowRef('原图比例')
+  const installPluginUrl = shallowRef('')
   const editingConfigId = shallowRef(activeConfigId.value)
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
+  const windowDeployState = shallowRef<WindowDeployState>({ status: 'idle', message: '' })
   const toastMessage = shallowRef('')
   const generationLoading = reactive<GenerationLoadingState>({
     active: false,
@@ -287,7 +312,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
 
     documentLabel.value = readActiveDocumentLabel()
-    status.value = canUsePhotoshop.value ? 'Photoshop 已连接' : '浏览器预览'
+    status.value = canUsePhotoshop.value || runtime === 'browser' ? 'Photoshop 已连接' : '等待 Photoshop 插件'
   }
 
   async function refreshElectronDocument() {
@@ -298,8 +323,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
     try {
       const bridgeStatus = await getElectronBridgeStatus()
-      documentLabel.value = bridgeStatus.photoshop.documentLabel ?? (bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : '等待 Photoshop 插件')
-      status.value = bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : '等待 Photoshop 插件'
+      installPluginUrl.value = bridgeStatus.uxpPackage?.downloadUrl ?? ''
+      documentLabel.value = bridgeStatus.photoshop.documentLabel ?? (bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接')
+      status.value = bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接'
     } catch (error) {
       status.value = error instanceof Error ? error.message : 'Lightyear App 未连接'
     }
@@ -432,8 +458,8 @@ export function useLightyearBanana(runtime: RuntimeName) {
     references.value = []
     startGenerationLoading(requestPrompt, sentReferences)
     await runAction(async () => {
+      const startedAt = Date.now()
       try {
-        const startedAt = Date.now()
         const results = await buildGeneratedImagesFromApi(
           await generateImagesWithProvider({
             config: activeConfig.value,
@@ -457,6 +483,22 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
         turns.value = [...turns.value, turn]
         status.value = '生成完成'
+      } catch (error) {
+        const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
+        const failedTurn: ChatTurn = {
+          id: createId('turn'),
+          prompt: requestPrompt,
+          references: sentReferences,
+          responseText: message,
+          elapsedLabel: `失败 · ${Math.max(1, Math.round((Date.now() - startedAt) / 1000))}s`,
+          results: [],
+          tone: 'error'
+        }
+
+        turns.value = [...turns.value, failedTurn]
+        status.value = message
+        showToast(message)
+        throw new Error(message)
       } finally {
         stopGenerationLoading()
       }
@@ -468,7 +510,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
       if (canUseElectronBridge.value) {
         await invokeElectronBridge('canvas.placeImage', {
           image: serializeCanvasImage(image),
-          target: serializePlacementTarget(target)
+          target: serializePlacementTarget(target, image)
         })
         status.value = '已置入 Photoshop'
         return
@@ -494,6 +536,17 @@ export function useLightyearBanana(runtime: RuntimeName) {
       if (target.type === 'current-selection') {
         await canvasPrimitiveService.insertImageToSelection(image)
         status.value = '已置入当前选区'
+        return
+      }
+
+      if (target.type === 'original-size') {
+        await canvasPrimitiveService.insertImage(image, {
+          left: 0,
+          top: 0,
+          width: image.width,
+          height: image.height
+        })
+        status.value = '已按原尺寸置入'
         return
       }
 
@@ -682,6 +735,54 @@ export function useLightyearBanana(runtime: RuntimeName) {
     settingsTestState.value = { status: 'idle', message: '' }
   }
 
+  async function deployWindows(side: WindowDeploySide) {
+    if (!isElectronRuntime || !canUseElectronBridge.value) {
+      const message = '请在 Lightyear App 中使用'
+      windowDeployState.value = { status: 'error', message }
+      status.value = message
+      return
+    }
+
+    windowDeployState.value = { status: 'deploying', message: '正在部署窗口' }
+    status.value = '正在部署窗口'
+
+    try {
+      const result = await withTimeout(
+        invokeElectronBridge<WindowDeployResult>('app.deployWindows', { side }),
+        10000,
+        '窗口部署超时'
+      )
+      const message = result.photoshopAdjusted ? result.message : `App 已部署，${result.message}`
+      windowDeployState.value = {
+        status: result.photoshopAdjusted ? 'success' : 'error',
+        message
+      }
+      status.value = message
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '窗口部署失败'
+      windowDeployState.value = { status: 'error', message }
+      status.value = message
+    }
+  }
+
+  async function openMacPermissionSettings(pane: MacPermissionPane) {
+    if (!isElectronRuntime || !canUseElectronBridge.value) {
+      const message = '请在 Lightyear App 中使用'
+      status.value = message
+      return
+    }
+
+    try {
+      const result = await invokeElectronBridge<{ message: string }>('app.openMacPermissionSettings', { pane })
+      status.value = result.message
+      showToast(result.message)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '无法打开系统设置'
+      status.value = message
+      showToast(message)
+    }
+  }
+
   function updateSettingsDraft(patch: Partial<ModelConfig>) {
     if (patch.provider && patch.provider !== settingsDraft.provider) {
       const capability = providerCapabilities[patch.provider]
@@ -738,7 +839,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
     editingConfigId,
     enabledConfigs,
     generationLoading,
+    installPluginUrl,
     mockServer,
+    openMacPermissionSettings,
     openSettings,
     placeImage,
     prompt,
@@ -763,9 +866,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
     toggleConfigEnabled,
     turns,
     addReference,
+    deployWindows,
     upscaleImage,
     updateSettingsDraft,
     updateMockServer,
+    windowDeployState,
     useResultAsReference
   }
 }

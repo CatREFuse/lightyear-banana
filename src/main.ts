@@ -1,8 +1,10 @@
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
-import type { RuntimeName } from './types/lightyear'
+import type { DesktopPlatform, RuntimeName } from './types/lightyear'
 
-const runtime: RuntimeName = new URLSearchParams(window.location.search).get('runtime') === 'electron' ? 'electron' : 'browser'
+const params = new URLSearchParams(window.location.search)
+const runtime: RuntimeName = params.get('runtime') === 'electron' ? 'electron' : 'browser'
+const platform: DesktopPlatform = params.get('platform') === 'win32' ? 'win32' : 'darwin'
 
-createApp(App, { runtime }).mount('#app')
+createApp(App, { runtime, platform }).mount('#app')

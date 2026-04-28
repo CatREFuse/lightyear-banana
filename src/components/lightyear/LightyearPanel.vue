@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import { useLightyearBanana } from '../../composables/useLightyearBanana'
-import type { RuntimeName } from '../../types/lightyear'
+import type { DesktopPlatform, RuntimeName } from '../../types/lightyear'
 import ComposerDock from './ComposerDock.vue'
 import BoxIcon from './BoxIcon.vue'
 import MessageThread from './MessageThread.vue'
@@ -10,6 +10,8 @@ import SettingsPanel from './SettingsPanel.vue'
 
 const props = defineProps<{
   runtime: RuntimeName
+  desktopPlatform: DesktopPlatform
+  showWindowControls?: boolean
 }>()
 
 const {
@@ -26,12 +28,15 @@ const {
   count,
   createConfig,
   deleteConfig,
+  deployWindows,
   editConfig,
   editingCapability,
   editingConfigId,
   enabledConfigs,
   generationLoading,
+  installPluginUrl,
   mockServer,
+  openMacPermissionSettings,
   openSettings,
   placeImage,
   prompt,
@@ -57,6 +62,7 @@ const {
   upscaleImage,
   updateSettingsDraft,
   updateMockServer,
+  windowDeployState,
   useResultAsReference
 } = useLightyearBanana(props.runtime)
 
@@ -96,11 +102,16 @@ function handleHeaderBack() {
   <main class="lightyear-shell" :class="`theme-${themeMode}`">
     <PanelHeader
       :in-settings="activeView === 'settings'"
+      :install-plugin-url="installPluginUrl"
       :status="status"
-      :titlebar-inset="props.runtime === 'electron'"
+      :titlebar-inset="props.runtime === 'electron' || props.showWindowControls"
+      :desktop-platform="props.desktopPlatform"
+      :show-window-controls="props.showWindowControls"
       :theme-mode="themeMode"
       :title="navigationTitle"
+      :window-deploy-state="windowDeployState"
       @back="handleHeaderBack"
+      @deploy-window="deployWindows"
       @open-settings="openSettings()"
       @toggle-theme="toggleTheme"
     />
@@ -113,6 +124,7 @@ function handleHeaderBack() {
         :editing-capability="editingCapability"
         :editing-config-id="editingConfigId"
         :mock-server="mockServer"
+        :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
         :provider-capabilities="providerCapabilities"
         :settings-draft-is-new="settingsDraftIsNew"
         :settings-draft="settingsDraft"
@@ -122,6 +134,7 @@ function handleHeaderBack() {
         @create="createConfig"
         @delete="deleteConfig"
         @edit="editConfig"
+        @open-mac-permission-settings="openMacPermissionSettings"
         @save="saveConfig"
         @test="testConfig"
         @toggle-enabled="toggleConfigEnabled"

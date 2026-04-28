@@ -2,9 +2,40 @@ import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 
 export type RuntimeName = 'browser' | 'electron' | 'photoshop-uxp'
 
+export type DesktopPlatform = 'darwin' | 'win32'
+
 export type AppView = 'workspace' | 'settings'
 
 export type SettingsView = 'list' | 'detail'
+
+export type WindowDeploySide = 'left' | 'right'
+
+export type WindowDeployStatus = 'idle' | 'deploying' | 'success' | 'error'
+
+export type WindowDeployState = {
+  status: WindowDeployStatus
+  message: string
+}
+
+export type WindowDeployResult = {
+  side: WindowDeploySide
+  panelBounds: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  photoshopBounds: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  photoshopAdjusted: boolean
+  message: string
+}
+
+export type MacPermissionPane = 'accessibility' | 'automation' | 'screenCapture'
 
 export type SettingsTestStatus = 'idle' | 'testing' | 'success' | 'error'
 
@@ -34,6 +65,7 @@ export type PlacementTarget =
       referenceIndex: number
       bounds: CapturedCanvasImage['sourceBounds']
     }
+  | { type: 'original-size' }
   | { type: 'full-canvas' }
   | { type: 'current-selection' }
 
@@ -86,4 +118,5 @@ export type ChatTurn = {
   responseText: string
   elapsedLabel: string
   results: GeneratedImage[]
+  tone?: 'normal' | 'error'
 }

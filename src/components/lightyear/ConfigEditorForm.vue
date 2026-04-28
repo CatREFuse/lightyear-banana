@@ -319,6 +319,7 @@ h2 {
   border: 1px solid var(--lb-border);
   border-radius: 8px;
   background: var(--lb-card);
+  cursor: pointer;
 }
 
 .toggle-copy {
@@ -359,6 +360,7 @@ h2 {
   height: 24px;
   border-radius: 999px;
   background: var(--lb-surface-2);
+  cursor: pointer;
   box-shadow: inset 0 0 0 1px var(--lb-hairline);
   transition:
     background-color 160ms ease,

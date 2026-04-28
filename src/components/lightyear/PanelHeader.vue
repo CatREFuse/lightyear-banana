@@ -1,26 +1,85 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
+import type { DesktopPlatform, WindowDeploySide, WindowDeployState } from '../../types/lightyear'
 import BoxIcon from './BoxIcon.vue'
 
 const props = defineProps<{
   inSettings: boolean
+  installPluginUrl: string
   status: string
   themeMode: 'dark' | 'light'
   title: string
+  desktopPlatform: DesktopPlatform
+  windowDeployState: WindowDeployState
   titlebarInset?: boolean
+  showWindowControls?: boolean
 }>()
 
+const deployMenuOpen = shallowRef(false)
+const deployMenuWrap = useTemplateRef<HTMLElement>('deployMenuWrap')
 const connectionTone = computed(() => (props.status.includes('已连接') ? 'connected' : 'waiting'))
+const deployDisabled = computed(() => props.windowDeployState.status === 'deploying')
+const showInstallPlugin = computed(() => Boolean(props.installPluginUrl) && props.status.includes('未连接'))
 
 const emit = defineEmits<{
   back: []
+  deployWindow: [side: WindowDeploySide]
   openSettings: []
   toggleTheme: []
 }>()
+
+function toggleDeployMenu() {
+  if (deployDisabled.value) {
+    return
+  }
+
+  deployMenuOpen.value = !deployMenuOpen.value
+}
+
+function selectDeploySide(side: WindowDeploySide) {
+  deployMenuOpen.value = false
+  emit('deployWindow', side)
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!deployMenuOpen.value) {
+    return
+  }
+
+  const target = event.target
+  if (target instanceof Node && deployMenuWrap.value?.contains(target)) {
+    return
+  }
+
+  deployMenuOpen.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', handleDocumentPointerDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', handleDocumentPointerDown)
+})
 </script>
 
 <template>
-  <header class="panel-header" :class="{ 'has-titlebar-inset': titlebarInset }">
+  <header
+    class="panel-header"
+    :class="[
+      `is-${desktopPlatform}`,
+      {
+        'has-titlebar-inset': titlebarInset,
+        'has-simulated-controls': showWindowControls
+      }
+    ]"
+  >
+    <div v-if="showWindowControls" class="window-controls" aria-hidden="true">
+      <span class="window-control is-close"></span>
+      <span class="window-control is-minimize"></span>
+      <span class="window-control is-maximize"></span>
+    </div>
+
     <div class="title-block">
       <button v-if="inSettings" class="icon-button" type="button" @click="emit('back')">
         <BoxIcon name="arrow-back" size="16" />
@@ -28,12 +87,23 @@ const emit = defineEmits<{
       </button>
       <span class="heading-copy">
         <h1>{{ title }}</h1>
+        <span
+          v-if="status && desktopPlatform === 'win32'"
+          class="connection-status"
+          :class="`is-${connectionTone}`"
+          role="status"
+          :aria-label="status"
+        >
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span>{{ status }}</span>
+          <a v-if="showInstallPlugin" class="install-plugin-link" :href="installPluginUrl" download>安装插件</a>
+        </span>
       </span>
     </div>
 
     <div class="header-actions">
       <span
-        v-if="status"
+        v-if="status && desktopPlatform !== 'win32'"
         class="connection-status"
         :class="`is-${connectionTone}`"
         role="status"
@@ -41,17 +111,45 @@ const emit = defineEmits<{
       >
         <span class="connection-dot" aria-hidden="true"></span>
         <span>{{ status }}</span>
+        <a v-if="showInstallPlugin" class="install-plugin-link" :href="installPluginUrl" download>安装插件</a>
       </span>
-      <button v-if="!inSettings" class="icon-button" type="button" @click="emit('openSettings')">
+      <div v-if="!inSettings" ref="deployMenuWrap" class="deploy-menu-wrap">
+        <button
+          class="icon-button icon-only"
+          type="button"
+          title="部署窗口"
+          aria-label="部署窗口"
+          :aria-expanded="deployMenuOpen"
+          :disabled="deployDisabled"
+          @click="toggleDeployMenu"
+        >
+          <BoxIcon name="expand-alt" size="16" />
+        </button>
+        <Transition name="deploy-menu">
+          <div v-if="deployMenuOpen" class="deploy-menu" role="menu" aria-label="部署窗口">
+            <button type="button" role="menuitem" @click="selectDeploySide('left')">
+              <BoxIcon name="arrow-back" size="14" />
+              <span>左侧</span>
+            </button>
+            <button type="button" role="menuitem" @click="selectDeploySide('right')">
+              <span>右侧</span>
+              <BoxIcon name="chevron-right" size="14" />
+            </button>
+          </div>
+        </Transition>
+      </div>
+      <button v-if="!inSettings" class="icon-button icon-only" type="button" title="设置" aria-label="设置" @click="emit('openSettings')">
         <BoxIcon name="cog" size="16" />
-        <span>设置</span>
       </button>
-      <button class="icon-button" type="button" @click="emit('toggleTheme')">
+      <button
+        class="icon-button icon-only"
+        type="button"
+        :title="themeMode === 'dark' ? '浅色' : '深色'"
+        :aria-label="themeMode === 'dark' ? '浅色' : '深色'"
+        @click="emit('toggleTheme')"
+      >
         <Transition name="theme-symbol" mode="out-in">
           <BoxIcon :key="themeMode" :name="themeMode === 'dark' ? 'sun' : 'moon'" size="16" />
-        </Transition>
-        <Transition name="theme-symbol" mode="out-in">
-          <span :key="themeMode">{{ themeMode === 'dark' ? '浅色' : '深色' }}</span>
         </Transition>
       </button>
     </div>
@@ -75,6 +173,10 @@ const emit = defineEmits<{
   padding-top: 44px;
 }
 
+.panel-header.has-titlebar-inset.is-win32 {
+  padding-top: 60px;
+}
+
 .title-block,
 .header-actions {
   display: flex;
@@ -83,9 +185,14 @@ const emit = defineEmits<{
   gap: 8px;
 }
 
+.header-actions {
+  margin-left: auto;
+}
+
 .heading-copy {
   display: grid;
   min-width: 0;
+  gap: 5px;
 }
 
 h1 {
@@ -111,16 +218,101 @@ h1 {
   white-space: nowrap;
 }
 
-.has-titlebar-inset .connection-status {
+.has-titlebar-inset.is-darwin .connection-status {
   position: absolute;
   top: 14px;
   right: 12px;
   max-width: 180px;
 }
 
+.has-titlebar-inset.is-win32 .title-block {
+  position: absolute;
+  top: 13px;
+  right: 118px;
+  left: 12px;
+}
+
+.window-controls {
+  position: absolute;
+  top: 14px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.panel-header.is-darwin .window-controls {
+  left: 12px;
+}
+
+.panel-header.is-win32 .window-controls {
+  right: 12px;
+  gap: 0;
+}
+
+.window-control {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.window-control.is-close {
+  background: #ff5f57;
+}
+
+.window-control.is-minimize {
+  background: #ffbd2e;
+}
+
+.window-control.is-maximize {
+  background: #28c840;
+}
+
+.panel-header.is-win32 .window-control {
+  position: relative;
+  width: 36px;
+  height: 24px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.panel-header.is-win32 .window-control::before {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--lb-muted);
+  font-size: 13px;
+}
+
+.panel-header.is-win32 .window-control.is-close::before {
+  content: "×";
+}
+
+.panel-header.is-win32 .window-control.is-minimize::before {
+  content: "−";
+}
+
+.panel-header.is-win32 .window-control.is-maximize::before {
+  content: "□";
+  font-size: 10px;
+}
+
 .connection-status span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.install-plugin-link {
+  flex: 0 0 auto;
+  color: var(--lb-accent);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.install-plugin-link:hover {
+  color: var(--lb-text);
 }
 
 .connection-dot {
@@ -163,7 +355,9 @@ h1 {
 }
 
 .has-titlebar-inset .icon-button,
-.has-titlebar-inset .connection-status {
+.has-titlebar-inset .connection-status,
+.has-titlebar-inset .install-plugin-link,
+.has-titlebar-inset .window-controls {
   -webkit-app-region: no-drag;
 }
 
@@ -171,6 +365,74 @@ h1 {
   border-color: transparent;
   background: var(--lb-surface-2);
   color: var(--lb-text);
+}
+
+.icon-button.icon-only {
+  justify-content: center;
+  width: 28px;
+  padding: 0;
+}
+
+.icon-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.deploy-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.deploy-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 118px;
+  overflow: hidden;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-overlay);
+  box-shadow: 0 14px 34px var(--lb-shadow);
+}
+
+.deploy-menu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lb-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.deploy-menu button + button {
+  box-shadow: inset 0 1px var(--lb-hairline);
+}
+
+.deploy-menu button:hover {
+  background: var(--lb-hover);
+}
+
+.deploy-menu-enter-active,
+.deploy-menu-leave-active {
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.deploy-menu-enter-from,
+.deploy-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-3px) scale(0.98);
 }
 
 .theme-symbol-enter-active,

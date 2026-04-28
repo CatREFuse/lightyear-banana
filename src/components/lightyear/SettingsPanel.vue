@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type {
   ImageProviderId,
+  MacPermissionPane,
   MockServerConfig,
   ModelConfig,
   ProviderCapability,
@@ -22,6 +23,7 @@ const props = defineProps<{
   configs: ModelConfig[]
   editingCapability: ProviderCapability
   editingConfigId: string
+  macPermissionSettingsAvailable: boolean
   mockServer: MockServerConfig
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   settingsDraftIsNew: boolean
@@ -35,6 +37,7 @@ const emit = defineEmits<{
   create: []
   delete: []
   edit: [id: string]
+  openMacPermissionSettings: [pane: MacPermissionPane]
   save: []
   test: []
   toggleEnabled: [enabled: boolean]
@@ -86,6 +89,22 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   <main class="settings-panel">
     <Transition :name="transitionName" mode="out-in">
       <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
+        <section v-if="macPermissionSettingsAvailable" class="permission-card" aria-label="macOS 权限">
+          <div class="permission-heading">
+            <strong>
+              <BoxIcon name="selection" size="14" />
+              macOS 权限
+            </strong>
+            <small>允许 App 调整 Photoshop 窗口</small>
+          </div>
+
+          <div class="permission-actions">
+            <button type="button" @click="emit('openMacPermissionSettings', 'accessibility')">辅助功能</button>
+            <button type="button" @click="emit('openMacPermissionSettings', 'automation')">自动化</button>
+            <button type="button" @click="emit('openMacPermissionSettings', 'screenCapture')">屏幕录制</button>
+          </div>
+        </section>
+
         <section class="mock-server-card" aria-label="Mock Server">
           <label class="mock-toggle">
             <span>
@@ -187,7 +206,8 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--lb-workspace);
 }
 
@@ -195,8 +215,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   display: grid;
   align-content: start;
   gap: 12px;
-  min-height: 100%;
-  overflow-y: auto;
+  min-height: min-content;
   padding: 12px;
 }
 
@@ -205,6 +224,65 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   color: var(--lb-secondary);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.permission-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-card);
+}
+
+.permission-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.permission-heading strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--lb-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission-heading small {
+  overflow: hidden;
+  color: var(--lb-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.permission-actions button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-surface-2);
+  color: var(--lb-text);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.permission-actions button:hover {
+  background: var(--lb-hover);
 }
 
 .mock-server-card {
@@ -221,6 +299,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  cursor: pointer;
 }
 
 .mock-toggle span:first-child {
@@ -264,6 +343,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   height: 24px;
   border-radius: 999px;
   background: var(--lb-surface-2);
+  cursor: pointer;
   box-shadow: inset 0 0 0 1px var(--lb-border);
 }
 

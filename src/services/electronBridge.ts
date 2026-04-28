@@ -11,6 +11,10 @@ type BridgeStatus = {
     connected: boolean
     documentLabel?: string
   }
+  uxpPackage?: {
+    fileName: string
+    downloadUrl: string
+  }
 }
 
 type ElectronBridgeApi = {
@@ -84,7 +88,7 @@ export function serializeCanvasImage(image: CapturedCanvasImage): SerializedCanv
   }
 }
 
-export function serializePlacementTarget(target: PlacementTarget) {
+export function serializePlacementTarget(target: PlacementTarget, image?: CapturedCanvasImage) {
   if (target.type === 'reference-selection') {
     const bounds = target.bounds
     return {
@@ -94,6 +98,18 @@ export function serializePlacementTarget(target: PlacementTarget) {
         top: bounds.top,
         width: bounds.right - bounds.left,
         height: bounds.bottom - bounds.top
+      }
+    }
+  }
+
+  if (target.type === 'original-size' && image) {
+    return {
+      type: 'bounds',
+      bounds: {
+        left: 0,
+        top: 0,
+        width: image.width,
+        height: image.height
       }
     }
   }
