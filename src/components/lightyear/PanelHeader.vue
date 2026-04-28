@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import BoxIcon from './BoxIcon.vue'
 
-defineProps<{
+const props = defineProps<{
   inSettings: boolean
   status: string
   themeMode: 'dark' | 'light'
   title: string
+  titlebarInset?: boolean
 }>()
+
+const connectionTone = computed(() => (props.status.includes('已连接') ? 'connected' : 'waiting'))
 
 const emit = defineEmits<{
   back: []
@@ -16,7 +20,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <header class="panel-header">
+  <header class="panel-header" :class="{ 'has-titlebar-inset': titlebarInset }">
     <div class="title-block">
       <button v-if="inSettings" class="icon-button" type="button" @click="emit('back')">
         <BoxIcon name="arrow-back" size="16" />
@@ -24,11 +28,20 @@ const emit = defineEmits<{
       </button>
       <span class="heading-copy">
         <h1>{{ title }}</h1>
-        <small v-if="status">{{ status }}</small>
       </span>
     </div>
 
     <div class="header-actions">
+      <span
+        v-if="status"
+        class="connection-status"
+        :class="`is-${connectionTone}`"
+        role="status"
+        :aria-label="status"
+      >
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span>{{ status }}</span>
+      </span>
       <button v-if="!inSettings" class="icon-button" type="button" @click="emit('openSettings')">
         <BoxIcon name="cog" size="16" />
         <span>设置</span>
@@ -48,12 +61,18 @@ const emit = defineEmits<{
 <style scoped>
 .panel-header {
   display: flex;
+  position: relative;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 12px 12px 8px;
   border-bottom: 1px solid var(--lb-hairline);
   background: var(--lb-bg);
+}
+
+.panel-header.has-titlebar-inset {
+  -webkit-app-region: drag;
+  padding-top: 44px;
 }
 
 .title-block,
@@ -67,7 +86,6 @@ const emit = defineEmits<{
 .heading-copy {
   display: grid;
   min-width: 0;
-  gap: 2px;
 }
 
 h1 {
@@ -81,13 +99,53 @@ h1 {
   white-space: nowrap;
 }
 
-.heading-copy small {
-  overflow: hidden;
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 132px;
   color: var(--lb-muted);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.has-titlebar-inset .connection-status {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  max-width: 180px;
+}
+
+.connection-status span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connection-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #697283;
+}
+
+.connection-status.is-connected {
+  color: var(--lb-secondary);
+}
+
+.connection-status.is-connected .connection-dot {
+  background: #43d17a;
+  box-shadow:
+    0 0 0 2px rgba(67, 209, 122, 0.16),
+    0 0 14px rgba(67, 209, 122, 0.74);
+  animation: connection-glow 2.8s ease-in-out infinite;
+}
+
+.connection-status.is-waiting .connection-dot {
+  background: #748093;
+  box-shadow: 0 0 0 2px rgba(116, 128, 147, 0.13);
 }
 
 .icon-button {
@@ -102,6 +160,11 @@ h1 {
   color: var(--lb-muted);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.has-titlebar-inset .icon-button,
+.has-titlebar-inset .connection-status {
+  -webkit-app-region: no-drag;
 }
 
 .icon-button:hover {
@@ -123,10 +186,31 @@ h1 {
   transform: translateY(2px) scale(0.92);
 }
 
+@keyframes connection-glow {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.9);
+    box-shadow:
+      0 0 0 2px rgba(67, 209, 122, 0.12),
+      0 0 8px rgba(67, 209, 122, 0.42);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow:
+      0 0 0 4px rgba(67, 209, 122, 0.2),
+      0 0 18px rgba(67, 209, 122, 0.88);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .theme-symbol-enter-active,
-  .theme-symbol-leave-active {
+  .theme-symbol-leave-active,
+  .connection-status.is-connected .connection-dot {
     transition: none;
+    animation: none;
   }
 }
 </style>

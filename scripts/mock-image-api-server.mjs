@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const port = Number(process.env.LIGHTYEAR_MOCK_IMAGE_API_PORT ?? 38321)
+const port = Number(process.env.LIGHTYEAR_MOCK_IMAGE_API_PORT ?? 38322)
 const host = process.env.LIGHTYEAR_MOCK_IMAGE_API_HOST ?? '127.0.0.1'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import LightyearPanel from './components/lightyear/LightyearPanel.vue'
-
-type RuntimeName = 'browser' | 'photoshop-uxp'
+import type { RuntimeName } from './types/lightyear'
 
 const props = withDefaults(
   defineProps<{
@@ -14,7 +13,13 @@ const props = withDefaults(
 </script>
 
 <template>
-  <main class="app-preview-shell" :class="{ 'is-plugin-preview': props.runtime === 'browser' }">
+  <main
+    class="app-preview-shell"
+    :class="{
+      'is-plugin-preview': props.runtime === 'browser',
+      'is-electron-app': props.runtime === 'electron'
+    }"
+  >
     <div class="plugin-preview-frame">
       <LightyearPanel :runtime="props.runtime" />
     </div>
@@ -26,12 +31,24 @@ const props = withDefaults(
   width: 100%;
   height: 100%;
   min-height: 100%;
+  background: var(--lb-bg);
 }
 
 .plugin-preview-frame {
   width: 100%;
   height: 100%;
   min-height: 0;
+}
+
+.app-preview-shell.is-electron-app {
+  overflow: hidden;
+}
+
+.is-electron-app .plugin-preview-frame {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--lb-bg);
 }
 
 .app-preview-shell.is-plugin-preview {

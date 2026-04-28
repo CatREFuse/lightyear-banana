@@ -1,6 +1,6 @@
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 
-export type RuntimeName = 'browser' | 'photoshop-uxp'
+export type RuntimeName = 'browser' | 'electron' | 'photoshop-uxp'
 
 export type AppView = 'workspace' | 'settings'
 

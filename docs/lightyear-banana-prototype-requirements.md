@@ -437,7 +437,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 验收标准：
 
-- 默认监听 `127.0.0.1:38321`。
+- 默认监听 `127.0.0.1:38322`。
 - 支持通过环境变量修改端口和延迟范围。
 - 支持 `/mock/manual` 查看能力。
 - 支持 `/mock-images/cats/*.jpg` 返回 fixture。

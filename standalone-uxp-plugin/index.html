@@ -1,0 +1,163 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="main.js"></script>
+  </head>
+  <body>
+    <main id="pluginShell" class="lightyear-shell theme-dark">
+      <header class="panel-header">
+        <div class="title-block">
+          <sp-action-button id="backButton" quiet class="icon-button is-hidden">返回</sp-action-button>
+          <span class="heading-copy">
+            <sp-heading id="titleText" size="S">Lightyear Banana v0.1</sp-heading>
+            <sp-detail id="runtimeStatus">正在启动</sp-detail>
+          </span>
+        </div>
+
+        <div class="header-actions">
+          <sp-action-button id="settingsButton" quiet class="icon-button">设置</sp-action-button>
+          <sp-action-button id="themeButton" quiet class="icon-button">浅色</sp-action-button>
+        </div>
+      </header>
+
+      <section id="settingsRoute" class="settings-route is-hidden" aria-label="设置">
+        <section class="mock-server-card" aria-label="Mock Server">
+          <div class="settings-row">
+            <span>
+              <sp-body>Mock Server</sp-body>
+              <sp-detail>发送到本地验证链路</sp-detail>
+            </span>
+            <sp-detail>未启用</sp-detail>
+          </div>
+        </section>
+
+        <section class="config-list" aria-label="配置列表">
+          <div class="section-header">
+            <sp-heading size="XS">配置列表</sp-heading>
+            <sp-action-button quiet>新建配置</sp-action-button>
+          </div>
+          <button class="config-row selected" type="button">
+            <span>
+              <strong>Mock Image</strong>
+              <small>本地生成预览</small>
+            </span>
+            <em>启用</em>
+          </button>
+          <button class="config-row" type="button">
+            <span>
+              <strong>Copy Reference</strong>
+              <small>复制参考图</small>
+            </span>
+            <em>启用</em>
+          </button>
+        </section>
+      </section>
+
+      <section id="workspaceRoute" class="workspace-route" aria-label="生成工作区">
+        <section id="threadContent" class="thread" aria-label="当前对话">
+          <div class="empty-state">
+            <sp-detail>暂无生成结果</sp-detail>
+          </div>
+        </section>
+
+        <div class="toast-anchor" aria-live="polite">
+          <div id="statusToast" class="toast is-hidden">
+            <sp-detail id="statusLine">等待操作</sp-detail>
+          </div>
+        </div>
+
+        <section class="composer" aria-label="生成输入">
+          <div class="reference-header">
+            <sp-detail>参考图 <span id="referenceCount">0 / 4</span></sp-detail>
+            <div class="reference-actions">
+              <sp-action-button id="clearReferencesButton" quiet class="clear-reference">清空</sp-action-button>
+              <div class="add-wrap">
+                <sp-action-button id="addReferenceButton" quiet class="add-reference-inline">添加参考</sp-action-button>
+                <div id="referenceMenu" class="floating-menu reference-menu is-hidden">
+                  <sp-action-button id="captureVisibleButton" quiet>可见图层</sp-action-button>
+                  <sp-action-button id="captureSelectionButton" quiet>选区</sp-action-button>
+                  <sp-action-button id="captureLayerButton" quiet>当前选中图层</sp-action-button>
+                  <sp-action-button id="uploadReferenceButton" quiet>上传文件</sp-action-button>
+                  <sp-action-button id="clipboardReferenceButton" quiet>剪贴板</sp-action-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="referenceList" class="reference-strip"></div>
+
+          <sp-textarea id="promptInput" class="prompt-input" placeholder="输入提示词"></sp-textarea>
+
+          <div class="control-grid">
+            <label class="field-stack is-wide">
+              <sp-detail>模型</sp-detail>
+              <sp-picker id="modelDropdown">
+                <sp-menu slot="options">
+                  <sp-menu-item value="mock-image" selected>Mock Image</sp-menu-item>
+                  <sp-menu-item value="copy-reference">Copy Reference</sp-menu-item>
+                </sp-menu>
+              </sp-picker>
+            </label>
+            <label class="field-stack">
+              <sp-detail>尺寸</sp-detail>
+              <sp-picker id="sizeDropdown">
+                <sp-menu slot="options">
+                  <sp-menu-item value="512" selected>512</sp-menu-item>
+                  <sp-menu-item value="768">768</sp-menu-item>
+                  <sp-menu-item value="1024">1024</sp-menu-item>
+                </sp-menu>
+              </sp-picker>
+            </label>
+            <label class="field-stack">
+              <sp-detail>质量</sp-detail>
+              <sp-picker id="qualityDropdown">
+                <sp-menu slot="options">
+                  <sp-menu-item value="standard" selected>标准</sp-menu-item>
+                  <sp-menu-item value="high">高</sp-menu-item>
+                </sp-menu>
+              </sp-picker>
+            </label>
+            <label class="field-stack">
+              <sp-detail>数量</sp-detail>
+              <sp-picker id="quantityDropdown">
+                <sp-menu slot="options">
+                  <sp-menu-item value="1" selected>1</sp-menu-item>
+                  <sp-menu-item value="2">2</sp-menu-item>
+                  <sp-menu-item value="4">4</sp-menu-item>
+                </sp-menu>
+              </sp-picker>
+            </label>
+            <label class="field-stack">
+              <sp-detail>比例</sp-detail>
+              <sp-picker id="ratioDropdown">
+                <sp-menu slot="options">
+                  <sp-menu-item value="source" selected>原图</sp-menu-item>
+                  <sp-menu-item value="1:1">1:1</sp-menu-item>
+                  <sp-menu-item value="4:3">4:3</sp-menu-item>
+                  <sp-menu-item value="3:4">3:4</sp-menu-item>
+                  <sp-menu-item value="16:9">16:9</sp-menu-item>
+                  <sp-menu-item value="9:16">9:16</sp-menu-item>
+                </sp-menu>
+              </sp-picker>
+            </label>
+            <label class="field-stack is-hidden">
+              <sp-detail>目标</sp-detail>
+              <sp-picker id="targetDropdown">
+                <sp-menu slot="options">
+                  <sp-menu-item value="full-canvas" selected>全画布</sp-menu-item>
+                  <sp-menu-item value="current-selection">当前选区</sp-menu-item>
+                  <sp-menu-item value="reference-bounds">参考图位置</sp-menu-item>
+                </sp-menu>
+              </sp-picker>
+            </label>
+          </div>
+
+          <sp-detail id="generationStatus">等待生成</sp-detail>
+          <sp-button id="generateButton" variant="primary" class="send-button" disabled>发送</sp-button>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

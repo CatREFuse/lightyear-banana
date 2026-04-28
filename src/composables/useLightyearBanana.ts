@@ -20,6 +20,15 @@ import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
 import { createCanvasImageFromApiAsset } from '../utils/imagePixels'
 import { createMockCanvasImage } from '../utils/mockImages'
+import {
+  deserializeCanvasImage,
+  getElectronBridgeStatus,
+  hasElectronBridge,
+  invokeElectronBridge,
+  onElectronBridgeEvent,
+  serializeCanvasImage,
+  serializePlacementTarget
+} from '../services/electronBridge'
 
 const referenceLabels: Record<ReferenceSource, string> = {
   visible: '可见图层',
@@ -39,7 +48,7 @@ type StoredSettings = {
 const settingsStorageKey = 'lightyear-banana.settings.v1'
 const defaultMockServer: MockServerConfig = {
   enabled: false,
-  baseUrl: 'http://127.0.0.1:38321'
+  baseUrl: 'http://127.0.0.1:38322'
 }
 
 function wait(ms: number) {
@@ -145,10 +154,11 @@ function writeStoredSettings(settings: StoredSettings) {
 
 export function useLightyearBanana(runtime: RuntimeName) {
   const storedSettings = readStoredSettings()
+  const isElectronRuntime = runtime === 'electron'
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : '浏览器预览')
+  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Lightyear App' : '浏览器预览')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
   const prompt = shallowRef('')
@@ -171,6 +181,8 @@ export function useLightyearBanana(runtime: RuntimeName) {
   })
   const mockServer = reactive<MockServerConfig>(storedSettings.mockServer)
   let toastTimer: ReturnType<typeof setTimeout> | undefined
+  let bridgeStatusTimer: ReturnType<typeof setInterval> | undefined
+  let removeBridgeListener: (() => void) | undefined
   let generationTimer: ReturnType<typeof setInterval> | undefined
 
   const settingsDraft = reactive<ModelConfig>({
@@ -178,6 +190,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   })
 
   const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
+  const canUseElectronBridge = computed(() => isElectronRuntime && hasElectronBridge())
   const activeConfig = computed(
     () => configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? defaultModelConfigs[0]
   )
@@ -268,15 +281,39 @@ export function useLightyearBanana(runtime: RuntimeName) {
   }
 
   function refreshDocument() {
+    if (isElectronRuntime) {
+      status.value = hasElectronBridge() ? 'Lightyear App 已连接' : 'Lightyear App 未连接'
+      return
+    }
+
     documentLabel.value = readActiveDocumentLabel()
     status.value = canUsePhotoshop.value ? 'Photoshop 已连接' : '浏览器预览'
+  }
+
+  async function refreshElectronDocument() {
+    if (!canUseElectronBridge.value) {
+      status.value = 'Lightyear App 未连接'
+      return
+    }
+
+    try {
+      const bridgeStatus = await getElectronBridgeStatus()
+      documentLabel.value = bridgeStatus.photoshop.documentLabel ?? (bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : '等待 Photoshop 插件')
+      status.value = bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : '等待 Photoshop 插件'
+    } catch (error) {
+      status.value = error instanceof Error ? error.message : 'Lightyear App 未连接'
+    }
   }
 
   async function runAction(action: () => Promise<void>) {
     busy.value = true
     try {
       await action()
-      refreshDocument()
+      if (isElectronRuntime) {
+        await refreshElectronDocument()
+      } else {
+        refreshDocument()
+      }
     } catch (error) {
       status.value = error instanceof Error ? error.message : '操作失败'
     } finally {
@@ -305,25 +342,31 @@ export function useLightyearBanana(runtime: RuntimeName) {
   async function addReference(source: ReferenceSource) {
     await runAction(async () => {
       if (source === 'visible') {
-        const image = canUsePhotoshop.value
-          ? await canvasPrimitiveService.captureVisibleImage()
-          : createMockCanvasImage(createId('visible'), '可见图层', 'blue')
+        const image = canUseElectronBridge.value
+          ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureVisible'))
+          : canUsePhotoshop.value
+            ? await canvasPrimitiveService.captureVisibleImage()
+            : createMockCanvasImage(createId('visible'), '可见图层', 'blue')
         addReferenceImage(source, image)
         return
       }
 
       if (source === 'selection') {
-        const image = canUsePhotoshop.value
-          ? await canvasPrimitiveService.captureSelectionImage()
-          : createMockCanvasImage(createId('selection'), '选区', 'green', 280, 220)
+        const image = canUseElectronBridge.value
+          ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureSelection'))
+          : canUsePhotoshop.value
+            ? await canvasPrimitiveService.captureSelectionImage()
+            : createMockCanvasImage(createId('selection'), '选区', 'green', 280, 220)
         addReferenceImage(source, image)
         return
       }
 
       if (source === 'layer') {
-        const image = canUsePhotoshop.value
-          ? await canvasPrimitiveService.captureSelectedLayerImage()
-          : createMockCanvasImage(createId('layer'), '选择图层', 'amber', 320, 260)
+        const image = canUseElectronBridge.value
+          ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureLayer'))
+          : canUsePhotoshop.value
+            ? await canvasPrimitiveService.captureSelectedLayerImage()
+            : createMockCanvasImage(createId('layer'), '选择图层', 'amber', 320, 260)
         addReferenceImage(source, image)
         return
       }
@@ -422,6 +465,15 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
   async function placeImage(image: GeneratedImage, target: PlacementTarget) {
     await runAction(async () => {
+      if (canUseElectronBridge.value) {
+        await invokeElectronBridge('canvas.placeImage', {
+          image: serializeCanvasImage(image),
+          target: serializePlacementTarget(target)
+        })
+        status.value = '已置入 Photoshop'
+        return
+      }
+
       if (!canUsePhotoshop.value) {
         status.value = '浏览器预览无法置入 Photoshop'
         return
@@ -641,12 +693,26 @@ export function useLightyearBanana(runtime: RuntimeName) {
     settingsTestState.value = { status: 'idle', message: '' }
   }
 
-  refreshDocument()
+  if (isElectronRuntime) {
+    refreshElectronDocument()
+    bridgeStatusTimer = setInterval(() => {
+      void refreshElectronDocument()
+    }, 3000)
+    removeBridgeListener = onElectronBridgeEvent(() => {
+      void refreshElectronDocument()
+    })
+  } else {
+    refreshDocument()
+  }
 
   onUnmounted(() => {
     if (toastTimer) {
       clearTimeout(toastTimer)
     }
+    if (bridgeStatusTimer) {
+      clearInterval(bridgeStatusTimer)
+    }
+    removeBridgeListener?.()
     stopGenerationLoading()
   })
 

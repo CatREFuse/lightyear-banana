@@ -97,6 +97,7 @@ function handleHeaderBack() {
     <PanelHeader
       :in-settings="activeView === 'settings'"
       :status="status"
+      :titlebar-inset="props.runtime === 'electron'"
       :theme-mode="themeMode"
       :title="navigationTitle"
       @back="handleHeaderBack"

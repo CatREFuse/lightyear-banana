@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "node scripts/electron-dev.mjs",
     "build": "npm run build:web",
     "build:web": "vue-tsc -b && vite build",
     "build:uxp": "vue-tsc -b && vite build --config vite.uxp.config.ts",
@@ -12,7 +13,8 @@
     "mock:image-api": "node scripts/mock-image-api-server.mjs",
     "package:uxp": "npm run verify:uxp && cd dist/ps-uxp && zip -r -q ../${npm_package_name}-${npm_package_version}.ccx .",
     "verify:uxp": "npm run build:uxp && node scripts/verify-uxp-build.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:electron": "electron electron/main.js"
   },
   "dependencies": {
     "vue": "^3.5.32"
@@ -21,6 +23,7 @@
     "@types/node": "^24.12.2",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/tsconfig": "^0.9.1",
+    "electron": "^39.0.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.10",
     "vue-tsc": "^3.2.7"

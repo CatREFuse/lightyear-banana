@@ -11,7 +11,7 @@ node scripts/mock-image-api-server.mjs
 默认地址：
 
 ```text
-http://127.0.0.1:38321
+http://127.0.0.1:38322
 ```
 
 成功生图响应默认会随机等待 3 到 5 秒。可以用环境变量调整：
@@ -25,7 +25,7 @@ node scripts/mock-image-api-server.mjs
 也可以指定端口：
 
 ```bash
-LIGHTYEAR_MOCK_IMAGE_API_PORT=38321 node scripts/mock-image-api-server.mjs
+LIGHTYEAR_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
 ```
 
 前端设置页打开 `Mock Server` 后，OpenAI、Google Gemini、Qwen-Image、Kling、Seedream、自定义 OpenAI 兼容配置都会请求这个本地地址。
@@ -90,7 +90,7 @@ OpenAI 和 OpenAI compatible 返回 Image API 结构：
   "created": 1777280000,
   "data": [
     {
-      "url": "http://127.0.0.1:38321/mock-images/cats/cat-17.jpg"
+      "url": "http://127.0.0.1:38322/mock-images/cats/cat-17.jpg"
     }
   ]
 }
@@ -133,7 +133,7 @@ Qwen-Image 返回 DashScope 多模态同步结构：
           "role": "assistant",
           "content": [
             {
-              "image": "http://127.0.0.1:38321/mock-images/cats/cat-08.jpg"
+              "image": "http://127.0.0.1:38322/mock-images/cats/cat-08.jpg"
             }
           ]
         }
@@ -164,7 +164,7 @@ Kling 返回 DashScope 异步任务结构。创建任务后前端会读取 `task
     "task_status": "SUCCEEDED",
     "results": [
       {
-        "url": "http://127.0.0.1:38321/mock-images/cats/cat-12.jpg"
+        "url": "http://127.0.0.1:38322/mock-images/cats/cat-12.jpg"
       }
     ]
   }
@@ -178,7 +178,7 @@ Seedream 返回 ModelArk 图像生成的 OpenAI 风格结构：
   "created": 1777280000,
   "data": [
     {
-      "url": "http://127.0.0.1:38321/mock-images/cats/cat-04.jpg"
+      "url": "http://127.0.0.1:38322/mock-images/cats/cat-04.jpg"
     }
   ]
 }
@@ -226,7 +226,7 @@ Qwen-Image 和 Kling 使用 DashScope 风格错误：
 OpenAI good case：
 
 ```bash
-curl -s http://127.0.0.1:38321/v1/images/generations \
+curl -s http://127.0.0.1:38322/v1/images/generations \
   -H "Authorization: Bearer mock-good-openai" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-image-2","prompt":"test","n":1,"size":"1024x1024"}'
@@ -235,7 +235,7 @@ curl -s http://127.0.0.1:38321/v1/images/generations \
 Gemini bad case：
 
 ```bash
-curl -s http://127.0.0.1:38321/v1beta/models/gemini-3-pro-image-preview:generateContent \
+curl -s http://127.0.0.1:38322/v1beta/models/gemini-3-pro-image-preview:generateContent \
   -H "x-goog-api-key: mock-bad-key" \
   -H "Content-Type: application/json" \
   -d '{"contents":[{"parts":[{"text":"test"}]}]}'
@@ -244,7 +244,7 @@ curl -s http://127.0.0.1:38321/v1beta/models/gemini-3-pro-image-preview:generate
 Kling good case：
 
 ```bash
-curl -s http://127.0.0.1:38321/api/v1/services/aigc/multimodal-generation/generation \
+curl -s http://127.0.0.1:38322/api/v1/services/aigc/multimodal-generation/generation \
   -H "Authorization: Bearer mock-good-kling" \
   -H "Content-Type: application/json" \
   -d '{"model":"kling/kling-v3-omni-image-generation","input":{"messages":[{"role":"user","content":[{"text":"test"}]}]},"parameters":{"n":1}}'
