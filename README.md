@@ -6,9 +6,12 @@
 
 ## 安装
 
-### 方式一：完整桌面版（macOS）
+### 方式一：完整桌面版
 
-下载 `Lightyear-Banana-0.1.0-mac.zip`，解压后把 `Lightyear Banana.app` 拖到 `应用程序` 文件夹。
+下载对应系统的压缩包：
+
+- **macOS**：`Lightyear-Banana-0.1.0-mac.zip` — 解压后把 `Lightyear Banana.app` 拖到应用程序文件夹
+- **Windows**：`Lightyear-Banana-0.1.0-win.zip` — 解压后运行 `Lightyear Banana.exe`
 
 双击启动后，Electron 工作台会自动打开。按照界面指引在 Photoshop 中加载 UXP 插件即可连通。
 
@@ -42,8 +45,12 @@
 
 ## 系统要求
 
-- macOS 14 及以上
+- macOS 14 及以上，或 Windows 10 及以上
 - Photoshop 2026（27.3.0 及以上）
 - 部分功能在非 Photoshop 环境下不可用（置入图片、抓取画布等）
 
+## 本地调试
 
+开发者可启动内置 Mock Server 模拟生图接口，无需真实 API Key 即可验证完整流程。
+
+在设置中打开 Mock Server 开关，然后使用面板顶部提供的 mock key 发起请求。
