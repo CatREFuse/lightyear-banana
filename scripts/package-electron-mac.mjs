@@ -79,7 +79,7 @@ if (!existsSync(electronApp)) {
 rmSync(outDir, { force: true, recursive: true })
 rmSync(archivePath, { force: true })
 mkdirSync(outDir, { recursive: true })
-cpSync(electronApp, appPath, { recursive: true })
+run('ditto', [electronApp, appPath])
 
 rmSync(path.join(resourcesDir, 'default_app.asar'), { force: true })
 generateBananaIcon()
