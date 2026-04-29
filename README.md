@@ -1,53 +1,53 @@
 # Lightyear Banana
 
-Photoshop + Electron 生图工作台实验项目。Electron 承载主工作台和本地 Bridge，UXP 插件只负责连接状态和 Photoshop 画板操作。
+在 Photoshop 里用 AI 生成图片。
 
-## 已验证
+把 Photoshop 画布、选区和图层当作参考图，连接多个 AI 生图模型，生成结果直接置入文档。
 
-- `npm run verify:uxp` 能生成并校验 `dist/ps-uxp`。
-- UXP Developer Tools 能加载 `dist/ps-uxp/manifest.json`。
-- Photoshop 2026 `27.3.0` 能执行 `增效工具 > Lightyear Banana > 创建图层`。
-- Electron App 能从 `http://127.0.0.1:38321/app/?runtime=electron` 加载 Web 工作台。
-- UXP 插件能通过本地 HTTP long-poll Bridge 连接 Electron App。
-- Electron Renderer 能读取 Photoshop 连接状态，并通过 Bridge 发起 Photoshop 操作。
-- Mock Image API 默认运行在 `http://127.0.0.1:38322`，用于本地调试生图流程。
+## 安装
 
-## 常用命令
+### 方式一：完整桌面版（macOS）
 
-```bash
-npm install
-npm run dev
-npm run mock:image-api
-npm run start:electron
-npm run dev:electron
-npm run build:web
-npm run verify:uxp
-node standalone-uxp-plugin/verify.mjs
-node standalone-uxp-plugin/smoke-test.mjs
-node standalone-uxp-plugin/package.mjs
-```
+下载 `Lightyear-Banana-0.1.0-mac.zip`，解压后把 `Lightyear Banana.app` 拖到 `应用程序` 文件夹。
 
-加载到 Photoshop 时选择：
+双击启动后，Electron 工作台会自动打开。按照界面指引在 Photoshop 中加载 UXP 插件即可连通。
 
-```text
-dist/ps-uxp/manifest.json
-```
+### 方式二：仅 UXP 插件
 
-## 关键文档
+如果只需要 Photoshop 面板，下载 `lightyear-banana-0.1.0.ccx`。
 
-- [开发参考入口](ref/README.md)
-- [Electron Web App + UXP Bridge 架构](ref/electron-bridge-architecture.md)
-- [技术原型功能需求](docs/lightyear-banana-prototype-requirements.md)
-- [技术原型交互规格](docs/lightyear-banana-interaction-spec.md)
-- [Photoshop 画板交互原语参考](docs/canvas-primitives-reference.md)
-- [UXP 开发最佳实践报告](docs/uxp-development-best-practices-report.md)
-- [UXP cookbook](docs/uxp-cookbook.md)
-- [研究记录](docs/research-notes.md)
+打开 Adobe Creative Cloud 桌面端，把 `.ccx` 文件拖入窗口即可安装。或者通过 UXP Developer Tools 加载。
 
-## 独立 UXP 子插件
+## 使用
 
-`standalone-uxp-plugin/` 是一个无需 Vite 构建的独立 Photoshop UXP 插件原型。加载到 Photoshop 时选择：
+1. 在 Photoshop 中打开或新建一个文档。
+2. 打开 Lightyear Banana 面板（菜单 > 增效工具 > Lightyear Banana）。
+3. 从画布添加参考图 —— 可见图层、当前选区或选中图层。
+4. 输入提示词，选择模型和参数。
+5. 点击发送，等待 AI 生成。
+6. 生成结果可以直接置入 Photoshop 文档，也可以作为下一轮的参考图。
 
-```text
-standalone-uxp-plugin/manifest.json
-```
+## 支持的模型
+
+- OpenAI（GPT Image）
+- Google Gemini
+- 字节跳动 Seedream
+- 阿里通义 Qwen
+- 快手 Kling
+- 兼容 OpenAI 接口的自定义模型
+
+## 配置 API Key
+
+在面板中切换到设置页，新建模型配置，填入对应服务的 API Key 即可使用。
+
+## 系统要求
+
+- macOS 14 及以上
+- Photoshop 2026（27.3.0 及以上）
+- 部分功能在非 Photoshop 环境下不可用（置入图片、抓取画布等）
+
+## 本地调试
+
+开发者可启动内置 Mock Server 模拟生图接口，无需真实 API Key 即可验证完整流程。
+
+在设置中打开 Mock Server 开关，然后使用面板顶部提供的 mock key 发起请求。
