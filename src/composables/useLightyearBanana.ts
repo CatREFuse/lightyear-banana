@@ -1,5 +1,5 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
-import { defaultModelConfigs, providerCapabilities } from '../data/providerCapabilities'
+import { defaultModelConfigs, providerCapabilities, readProviderCapability } from '../data/providerCapabilities'
 import { generateImagesWithProvider, testImageConfig } from '../services/imageApiClient'
 import {
   type AppView,
@@ -178,6 +178,11 @@ function writeStoredSettings(settings: StoredSettings) {
 export function useLightyearBanana(runtime: RuntimeName) {
   const storedSettings = readStoredSettings()
   const isElectronRuntime = runtime === 'electron'
+  const initialConfig =
+    storedSettings.configs.find((config) => config.id === storedSettings.activeConfigId) ??
+    storedSettings.configs[0] ??
+    defaultModelConfigs[0]
+  const initialCapability = readProviderCapability(initialConfig)
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
@@ -189,10 +194,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const turns = shallowRef<ChatTurn[]>([])
   const configs = shallowRef<ModelConfig[]>(storedSettings.configs)
   const activeConfigId = shallowRef(storedSettings.activeConfigId)
-  const size = shallowRef('4k')
-  const quality = shallowRef('高')
-  const count = shallowRef(3)
-  const ratio = shallowRef('原图比例')
+  const size = shallowRef(readDefaultSize(initialCapability.sizeOptions))
+  const quality = shallowRef(readDefaultQuality(initialCapability.qualityOptions))
+  const count = shallowRef(initialCapability.countOptions.includes(1) ? 1 : initialCapability.countOptions[0] ?? 1)
+  const ratio = shallowRef(initialCapability.ratioOptions.includes('原图比例') ? '原图比例' : initialCapability.ratioOptions[0] ?? '')
   const installPluginUrl = shallowRef('')
   const editingConfigId = shallowRef(activeConfigId.value)
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
@@ -211,7 +216,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   let generationTimer: ReturnType<typeof setInterval> | undefined
 
   const settingsDraft = reactive<ModelConfig>({
-    ...(configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? defaultModelConfigs[0])
+    ...initialConfig
   })
 
   const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
@@ -219,8 +224,8 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const activeConfig = computed(
     () => configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? defaultModelConfigs[0]
   )
-  const activeCapability = computed(() => providerCapabilities[activeConfig.value.provider])
-  const editingCapability = computed(() => providerCapabilities[settingsDraft.provider])
+  const activeCapability = computed(() => readProviderCapability(activeConfig.value))
+  const editingCapability = computed(() => readProviderCapability(settingsDraft))
   const enabledConfigs = computed(() => configs.value.filter((config) => config.enabled))
   const referenceLimit = computed(() => activeCapability.value.referenceLimit)
   const canAddReference = computed(() => references.value.length < referenceLimit.value)
@@ -241,26 +246,45 @@ export function useLightyearBanana(runtime: RuntimeName) {
   function readCapabilityForConfig(configId: string) {
     const config = configs.value.find((item) => item.id === configId) ?? activeConfig.value
 
-    return providerCapabilities[config.provider]
+    return readProviderCapability(config)
   }
 
-  function readUpscaleSize(options: string[]) {
+  function readDefaultSize(options: string[]): string {
     return (
-      options.find((option) => option === '4k') ??
-      options.find((option) => option === '2048x2048') ??
-      options.find((option) => option === '2048*2048') ??
-      options.find((option) => option === '4MP') ??
-      options.at(-1) ??
-      size.value
+      options.find((option) => option === 'auto') ??
+      options.find((option) => option === '1024x1024') ??
+      options.find((option) => option === '1024*1024') ??
+      options.find((option) => option === '1K') ??
+      options.find((option) => option === '1k') ??
+      options.find((option) => option === '默认') ??
+      options[0] ??
+      ''
     )
   }
 
-  function readHighestQuality(options: string[]) {
+  function readUpscaleSize(options: string[]): string {
+    return (
+      options.find((option) => option === '4K') ??
+      options.find((option) => option === '4k') ??
+      options.find((option) => option === '2048x2048') ??
+      options.find((option) => option === '2048*2048') ??
+      options.find((option) => option === '1920x1088') ??
+      options.find((option) => option === '1088x1920') ??
+      options.find((option) => option !== 'auto') ??
+      ''
+    )
+  }
+
+  function readDefaultQuality(options: string[]): string {
+    return options.find((option) => option === '自动') ?? options[0] ?? ''
+  }
+
+  function readHighestQuality(options: string[]): string {
     return (
       options.find((option) => option === '最高') ??
       options.find((option) => option === '高') ??
       options.at(-1) ??
-      quality.value
+      ''
     )
   }
 
@@ -413,7 +437,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   function selectConfig(configId: string) {
     activeConfigId.value = configId
     const capability = activeCapability.value
-    size.value = capability.sizeOptions.at(-1) ?? size.value
+    size.value = readDefaultSize(capability.sizeOptions)
     quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : capability.qualityOptions[0] ?? '自动'
     count.value = capability.countOptions.includes(count.value) ? count.value : capability.countOptions[0] ?? 1
     ratio.value = capability.ratioOptions.includes(ratio.value) ? ratio.value : '原图比例'

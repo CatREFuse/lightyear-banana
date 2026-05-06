@@ -1,6 +1,6 @@
 # 生图 API Mock Server 手册
 
-更新时间：2026-04-27
+更新时间：2026-05-06
 
 ## 启动
 
@@ -28,7 +28,7 @@ node scripts/mock-image-api-server.mjs
 LIGHTYEAR_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
 ```
 
-前端设置页打开 `Mock Server` 后，OpenAI、Google Gemini、Qwen-Image、Kling、Seedream、自定义 OpenAI 兼容配置都会请求这个本地地址。
+前端设置页打开 `Mock Server` 后，OpenAI、Google Gemini、Qwen-Image、Kling、Seedream、FLUX、自定义 OpenAI 兼容配置都会请求这个本地地址。
 
 关闭 `Mock Server` 时，前端会按 Provider 直接请求真实 API。自定义 OpenAI 兼容配置使用配置里的 Base URL。
 
@@ -37,13 +37,14 @@ LIGHTYEAR_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
 | Provider | 前端模型声明 | Mock endpoint |
 | --- | --- | --- |
 | OpenAI | `gpt-image-2` | `POST /v1/images/generations`、`POST /v1/images/edits` |
-| Google Gemini | `gemini-3-pro-image-preview`、`gemini-2.5-flash-image` | `POST /v1beta/models/{model}:generateContent` |
-| Qwen-Image | `qwen-image-2.0-pro`、`qwen-image-edit-max`、`qwen-image-edit-plus` | `POST /api/v1/services/aigc/multimodal-generation/generation` |
-| Kling | `kling/kling-v3-image-generation`、`kling/kling-v3-omni-image-generation` | `POST /api/v1/services/aigc/multimodal-generation/generation`、`GET /api/v1/tasks/{task_id}` |
+| Google Gemini | `gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`、`gemini-2.5-flash-image` | `POST /v1beta/models/{model}:generateContent` |
+| Qwen-Image | `qwen-image-2.0-pro`、`qwen-image-2.0`、`qwen-image-edit-max`、`qwen-image-edit-plus` | `POST /api/v1/services/aigc/multimodal-generation/generation` |
+| Kling | `kling/kling-v3-image-generation`、`kling/kling-v3-omni-image-generation` | `POST /api/v1/services/aigc/image-generation/generation`、`GET /api/v1/tasks/{task_id}` |
 | Seedream | `seedream-4-0-250828` | `POST /api/v3/images/generations` |
+| FLUX | `flux-2-pro-preview`、`flux-2-pro`、`flux-2-max`、`flux-2-flex`、`flux-2-klein-9b-preview`、`flux-2-klein-9b`、`flux-2-klein-4b` | `POST /v1/flux-2-*`、`GET /v1/get_result?id={task_id}` |
 | OpenAI compatible | `custom-image-model` | `POST /v1/images/generations`、`POST /v1/images/edits` |
 
-模型声明已经同步到 `src/data/providerCapabilities.ts`。Google 模型以当前官方图像生成文档可查到的 `gemini-3-pro-image-preview` 和 `gemini-2.5-flash-image` 为准。
+模型声明已经同步到 `src/data/providerCapabilities.ts`。Google 模型以当前官方图像生成文档可查到的 Nano Banana 2、Nano Banana Pro 和 Nano Banana 为准。
 
 ## API Key
 
@@ -57,6 +58,7 @@ Good case：
 | Qwen-Image | `mock-good-qwen` |
 | Kling | `mock-good-kling` |
 | Seedream | `mock-good-seedream` |
+| FLUX | `mock-good-flux` |
 | OpenAI compatible | `mock-good-compatible` |
 
 Bad case：
@@ -73,7 +75,7 @@ Bad case：
 
 ## 返回结构
 
-Mock Server 使用项目内 20 张 CC0 猫咪照片作为返回结果。每次成功请求都会随机抽样，Kling 的创建任务和任务结果会保持同一组随机图片：
+Mock Server 使用项目内 20 张 CC0 猫咪照片作为返回结果。每次成功请求都会随机抽样，Kling 和 FLUX 的创建任务与任务结果会保持同一组随机图片：
 
 ```text
 public/mock-images/cats/cat-01.jpg
@@ -162,11 +164,44 @@ Kling 返回 DashScope 异步任务结构。创建任务后前端会读取 `task
   "request_id": "...",
   "output": {
     "task_status": "SUCCEEDED",
-    "results": [
+    "choices": [
       {
-        "url": "http://127.0.0.1:38322/mock-images/cats/cat-12.jpg"
+        "finish_reason": "stop",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "image": "http://127.0.0.1:38322/mock-images/cats/cat-12.jpg",
+              "type": "image"
+            }
+          ]
+        }
       }
     ]
+  }
+}
+```
+
+FLUX 返回 BFL 异步任务结构。创建任务后前端读取 `polling_url` 并继续轮询：
+
+```json
+{
+  "id": "mock-flux-...",
+  "polling_url": "http://127.0.0.1:38322/v1/get_result?id=mock-flux-...",
+  "cost": 1,
+  "input_mp": 0,
+  "output_mp": 1.05
+}
+```
+
+任务结果：
+
+```json
+{
+  "id": "mock-flux-...",
+  "status": "Ready",
+  "result": {
+    "sample": "http://127.0.0.1:38322/mock-images/cats/cat-04.jpg"
   }
 }
 ```
@@ -244,10 +279,20 @@ curl -s http://127.0.0.1:38322/v1beta/models/gemini-3-pro-image-preview:generate
 Kling good case：
 
 ```bash
-curl -s http://127.0.0.1:38322/api/v1/services/aigc/multimodal-generation/generation \
+curl -s http://127.0.0.1:38322/api/v1/services/aigc/image-generation/generation \
   -H "Authorization: Bearer mock-good-kling" \
+  -H "X-DashScope-Async: enable" \
   -H "Content-Type: application/json" \
-  -d '{"model":"kling/kling-v3-omni-image-generation","input":{"messages":[{"role":"user","content":[{"text":"test"}]}]},"parameters":{"n":1}}'
+  -d '{"model":"kling/kling-v3-omni-image-generation","input":{"messages":[{"role":"user","content":[{"text":"test"}]}]},"parameters":{"n":1,"result_type":"single","aspect_ratio":"1:1","resolution":"1k"}}'
+```
+
+FLUX good case：
+
+```bash
+curl -s http://127.0.0.1:38322/v1/flux-2-pro-preview \
+  -H "x-key: mock-good-flux" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"test","width":1024,"height":1024,"output_format":"jpeg"}'
 ```
 
 ## 调研来源
@@ -256,7 +301,10 @@ curl -s http://127.0.0.1:38322/api/v1/services/aigc/multimodal-generation/genera
 - OpenAI GPT Image model page: https://developers.openai.com/api/docs/models/gpt-image-2
 - Google Gemini image generation: https://ai.google.dev/gemini-api/docs/image-generation
 - Google Gemini API error format: https://ai.google.dev/gemini-api/docs/troubleshooting
-- Alibaba Cloud Qwen image edit API: https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-guide
+- Alibaba Cloud Qwen image API: https://help.aliyun.com/zh/model-studio/qwen-image-api
+- Alibaba Cloud Qwen image edit API: https://help.aliyun.com/zh/model-studio/qwen-image-edit-api
+- Alibaba Cloud Kling image API: https://help.aliyun.com/zh/model-studio/kling-image-generation-api-reference
 - BytePlus Seedream model page: https://docs.byteplus.com/en/docs/modelark/1824718
 - BytePlus Image Generation API: https://docs.byteplus.com/en/docs/ModelArk/1541523
+- BFL FLUX.2 API docs: https://docs.bfl.ai/flux_2
 - Adobe UXP manifest and permissions: https://developer.adobe.com/photoshop/uxp/2022/guides/uxp_guide/uxp-misc/manifest-v5/

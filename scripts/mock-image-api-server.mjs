@@ -15,6 +15,7 @@ const generationDelayMinMs = Number(process.env.LIGHTYEAR_MOCK_IMAGE_API_DELAY_M
 const generationDelayMaxMs = Number(process.env.LIGHTYEAR_MOCK_IMAGE_API_DELAY_MAX_MS ?? 5000)
 
 const goodKeys = {
+  flux: new Set(['mock-good', 'mock-good-flux']),
   gemini: new Set(['mock-good', 'mock-good-gemini']),
   kling: new Set(['mock-good', 'mock-good-kling']),
   openai: new Set(['mock-good', 'mock-good-openai']),
@@ -34,10 +35,11 @@ const badKeyModes = new Map([
 ])
 
 const klingTasks = new Map()
+const fluxTasks = new Map()
 
 function sendJson(response, status, payload) {
   response.writeHead(status, {
-    'Access-Control-Allow-Headers': 'authorization,content-type,x-dashscope-async,x-goog-api-key',
+    'Access-Control-Allow-Headers': 'authorization,content-type,x-dashscope-async,x-goog-api-key,x-key',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json; charset=utf-8'
@@ -72,7 +74,7 @@ function sendStaticAsset(requestUrl, response, method) {
 
 function sendOptions(response) {
   response.writeHead(204, {
-    'Access-Control-Allow-Headers': 'authorization,content-type,x-dashscope-async,x-goog-api-key',
+    'Access-Control-Allow-Headers': 'authorization,content-type,x-dashscope-async,x-goog-api-key,x-key',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
     'Access-Control-Allow-Origin': '*'
   })
@@ -108,7 +110,14 @@ function getGeminiKey(requestUrl, headers) {
 }
 
 function getKey(provider, requestUrl, headers) {
-  return provider === 'gemini' ? getGeminiKey(requestUrl, headers) : getBearer(headers)
+  if (provider === 'gemini') {
+    return getGeminiKey(requestUrl, headers)
+  }
+  if (provider === 'flux') {
+    return headers['x-key'] ?? ''
+  }
+
+  return getBearer(headers)
 }
 
 function createProviderError(provider, mode) {
@@ -201,6 +210,15 @@ function inferProvider(pathname, json, raw) {
   if (pathname.includes('/api/v1/tasks/')) {
     return 'kling'
   }
+  if (pathname.includes('/v1/get_result')) {
+    return 'flux'
+  }
+  if (pathname.includes('/v1/flux-')) {
+    return 'flux'
+  }
+  if (pathname.includes('/api/v1/services/aigc/image-generation/generation')) {
+    return 'kling'
+  }
   if (pathname.includes('/api/v1/services/aigc/multimodal-generation/generation')) {
     return String(model).startsWith('kling/') ? 'kling' : 'qwen'
   }
@@ -219,17 +237,22 @@ function readCount(provider, json, raw) {
     return clampCount(Number(json.generationConfig?.candidateCount ?? 1), provider)
   }
 
+  if (provider === 'seedream') {
+    return clampCount(Number(json.sequential_image_generation_options?.max_images ?? 1), provider)
+  }
+
   return clampCount(Number(json.n ?? raw.match(/name="n"\r?\n\r?\n(\d+)/)?.[1] ?? 1), provider)
 }
 
 function clampCount(count, provider) {
   const limits = {
+    flux: 1,
     gemini: 10,
     kling: 9,
-    openai: 1,
+    openai: 10,
     qwen: 6,
     seedream: 15,
-    'custom-openai': 4
+    'custom-openai': 10
   }
   const max = limits[provider] ?? 1
   return Math.max(1, Math.min(Number.isFinite(count) ? count : 1, max))
@@ -368,10 +391,47 @@ function createKlingResult(requestUrl, taskId) {
       submit_time: new Date().toISOString(),
       scheduled_time: new Date().toISOString(),
       end_time: new Date().toISOString(),
-      results: fixtureIndexes.map((fixtureIndex) => ({ url: createFixtureUrl(requestUrl, fixtureIndex) }))
+      choices: [
+        {
+          finish_reason: 'stop',
+          message: {
+            role: 'assistant',
+            content: fixtureIndexes.map((fixtureIndex) => ({
+              image: createFixtureUrl(requestUrl, fixtureIndex),
+              type: 'image'
+            }))
+          }
+        }
+      ]
     },
     usage: {
       image_count: fixtureIndexes.length
+    }
+  }
+}
+
+function createFluxTask(requestUrl) {
+  const taskId = `mock-flux-${randomUUID()}`
+  fluxTasks.set(taskId, selectFixtureIndexes(1)[0])
+
+  return {
+    id: taskId,
+    polling_url: `${requestUrl.origin}/v1/get_result?id=${taskId}`,
+    cost: 1,
+    input_mp: 0,
+    output_mp: 1.05
+  }
+}
+
+function createFluxResult(requestUrl) {
+  const taskId = requestUrl.searchParams.get('id') ?? ''
+  const fixtureIndex = fluxTasks.get(taskId) ?? selectFixtureIndexes(1)[0]
+
+  return {
+    id: taskId,
+    status: 'Ready',
+    result: {
+      sample: createFixtureUrl(requestUrl, fixtureIndex)
     }
   }
 }
@@ -386,8 +446,11 @@ function sendManual(response) {
     endpoints: [
       'POST /v1/images/generations',
       'POST /v1/images/edits',
+      'POST /v1/flux-2-*',
+      'GET /v1/get_result?id={task_id}',
       'POST /v1beta/models/{model}:generateContent',
       'POST /api/v1/services/aigc/multimodal-generation/generation',
+      'POST /api/v1/services/aigc/image-generation/generation',
       'GET /api/v1/tasks/{task_id}',
       'POST /api/v3/images/generations'
     ]
@@ -427,6 +490,11 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (request.method === 'GET' && pathname.startsWith('/v1/get_result')) {
+    await sendGeneratedJson(response, 200, createFluxResult(requestUrl))
+    return
+  }
+
   if (request.method !== 'POST') {
     sendJson(response, 404, { error: { message: 'Not found', type: 'invalid_request_error', code: 'not_found' } })
     return
@@ -450,6 +518,11 @@ const server = createServer(async (request, response) => {
 
   if (provider === 'seedream') {
     await sendGeneratedJson(response, 200, createSeedreamResponse(requestUrl, count))
+    return
+  }
+
+  if (provider === 'flux') {
+    await sendGeneratedJson(response, 200, createFluxTask(requestUrl))
     return
   }
 

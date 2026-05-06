@@ -78,6 +78,14 @@ export type ImageProviderId =
   | 'flux'
   | 'custom-openai'
 
+export type ProviderCapabilityModelOverride = {
+  referenceLimit?: number
+  sizeOptions?: string[]
+  qualityOptions?: string[]
+  countOptions?: number[]
+  ratioOptions?: string[]
+}
+
 export type ProviderCapability = {
   id: ImageProviderId
   name: string
@@ -88,6 +96,7 @@ export type ProviderCapability = {
   countOptions: number[]
   ratioOptions: string[]
   supportsBaseUrl: boolean
+  modelOverrides?: Record<string, ProviderCapabilityModelOverride>
 }
 
 export type ModelConfig = {

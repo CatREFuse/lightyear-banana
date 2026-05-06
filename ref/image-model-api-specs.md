@@ -1,6 +1,6 @@
 # 主流生图模型 API 规格参考
 
-更新时间：2026-04-24
+更新时间：2026-05-06
 
 本文件记录主流图像生成/编辑模型的 API 形态、参考图上限、输出尺寸、调用方式和接入注意事项。优先采官方文档；官方公开文档不完整时，会标明来源边界。
 
@@ -12,8 +12,9 @@
 | Kling 可灵/快手系 | `kling/kling-v3-image-generation`、`kling/kling-v3-omni-image-generation` | 参考图 + 主体总数不超过 10 | 单图 1-9；组图 2-9 | `1k`、`2k`，Omni 支持 `4k` | 阿里云百炼代理的可灵 API | 准官方/平台托管 |
 | Qwen-Image 阿里系 | `qwen-image-2.0-pro` 文生图 | 文生图无参考图 | 1-6 张 | 总像素 `512*512` 到 `2048*2048` | DashScope / 百炼 multimodal generation | 官方 |
 | Qwen-Image Edit 阿里系 | `qwen-image-2.0-pro`、`qwen-image-edit-max`、`qwen-image-edit-plus` | 1-3 张 | 1-6 张；旧 `qwen-image-edit` 固定 1 张 | 2.0 总像素 `512*512` 到 `2048*2048`；edit max/plus 宽高 `[512,2048]` | DashScope / 百炼 multimodal generation | 官方 |
-| OpenAI | `gpt-image-2` | 多图编辑已支持；按 GPT Image edit 接口保守按 16 张设计 | 1 张常用 | 任意满足约束的尺寸，最长边不超过 3840，像素数 655,360 到 8,294,400 | `/v1/images/generations`、`/v1/images/edits` | 官方 |
+| OpenAI | `gpt-image-2` | 多图编辑已支持；按 GPT Image edit 接口保守按 16 张设计 | 1-10 张 | `auto`、`1024x1024`、`1536x1024`、`1024x1536` | `/v1/images/generations`、`/v1/images/edits` | 官方 |
 | Gemini / Nano Banana | `gemini-2.5-flash-image` | 3 张 | 最多 10 张 | 固定约 1024px 档，多种比例 | `models/{model}:generateContent` | 官方 |
+| Gemini / Nano Banana 2 | `gemini-3.1-flash-image-preview` | 14 张 | 受输出 token 限制 | 1K/2K/4K，多种比例 | `models/{model}:generateContent` | 官方 |
 | Gemini / Nano Banana Pro | `gemini-3-pro-image-preview` | 14 张 | 受输出 token 限制 | 最高 4K | `models/{model}:generateContent` | 官方 |
 | FLUX.2 / BFL | `flux-2-pro-preview`、`flux-2-pro`、`flux-2-max`、`flux-2-flex` | API 8 张；`klein` 4 张；playground 10 张 | 通常单图 | 最高 4MP | `https://api.bfl.ai/v1/{model}` + polling | 官方 |
 | Midjourney | 无官方 public API | 无官方规格 | 无官方规格 | 无官方规格 | 仅 Web/Discord 产品；第三方 API 风险高 | 无官方 API |
@@ -48,7 +49,7 @@ type ImageGenerationRequest = {
 
 关键差异：
 
-- OpenAI 使用 multipart `image[]` 传多张图。
+- OpenAI 使用 multipart `image` 传一张或多张参考图。
 - Gemini 使用 `contents[].parts[]`，图片以 `inline_data` 或 file data 进入同一消息。
 - Qwen 和 Kling 的百炼接口使用 `input.messages[0].content[]`，图片对象是 `{"image": "url-or-base64"}`。
 - BFL 使用 `input_image`、`input_image_2`、`input_image_3` 这样的编号字段。
@@ -80,7 +81,7 @@ Content-Type: multipart/form-data
 {
   "model": "gpt-image-2",
   "prompt": "A product poster with precise Chinese and English typography",
-  "size": "2048x2048",
+  "size": "1536x1024",
   "quality": "high",
   "output_format": "png"
 }
@@ -108,7 +109,7 @@ curl -s -X POST "https://api.openai.com/v1/images/edits" \
 | 参考图 | 官方 guide 明确展示 `gpt-image-2` 多图编辑；OpenAI Image edit 接口对 GPT image models 的数组输入上限按 16 张设计 |
 | mask | 多图输入时 mask 作用在第一张图 |
 | input fidelity | `gpt-image-2` 自动高保真处理输入图，不允许手动设置 `input_fidelity` |
-| 尺寸 | 最长边不超过 3840px，边长为 16 的倍数，长短边比不超过 3:1，总像素 655,360 到 8,294,400 |
+| 尺寸 | Image API 公开枚举使用 `auto`、`1024x1024`、`1536x1024`、`1024x1536` |
 | 质量 | `low`、`medium`、`high`、`auto` |
 | 格式 | `png`、`jpeg`、`webp` |
 | 透明背景 | `gpt-image-2` 当前不支持 `background: "transparent"` |
@@ -135,8 +136,9 @@ Content-Type: application/json
 
 常用模型：
 
-- `gemini-2.5-flash-image`：Nano Banana
+- `gemini-3.1-flash-image-preview`：Nano Banana 2
 - `gemini-3-pro-image-preview`：Nano Banana Pro
+- `gemini-2.5-flash-image`：Nano Banana
 
 ### 请求格式
 
@@ -171,6 +173,7 @@ Content-Type: application/json
 | 模型 | 参考图上限 | 文件限制 | 输出 |
 | --- | ---: | --- | --- |
 | `gemini-2.5-flash-image` | 3 张 | inline / console 7MB；GCS 30MB | 最多 10 张；约 1024px 档 |
+| `gemini-3.1-flash-image-preview` | 14 张 | inline / console 7MB；GCS 30MB | 1K/2K/4K |
 | `gemini-3-pro-image-preview` | 14 张 | inline / console 7MB；GCS 30MB | 1K/2K/4K |
 
 支持格式：
@@ -330,7 +333,7 @@ https://dashscope-intl.aliyuncs.com/api/v1
 | 输入图格式 | JPG、JPEG、PNG、BMP、TIFF、WEBP、GIF；GIF 只处理第一帧 |
 | 输入图尺寸 | 建议宽高 384 到 3072 像素 |
 | 输入图大小 | 不超过 10MB |
-| 文生图输出数量 | `qwen-image-2.0` 系列 1-6；`qwen-image-max/plus` 固定 1 |
+| 文生图输出数量 | `qwen-image-2.0`、`qwen-image-2.0-pro` 系列 1-6；`qwen-image-max/plus` 固定 1 |
 | 编辑输出数量 | `qwen-image-2.0`、`edit-max`、`edit-plus` 1-6；旧 `qwen-image-edit` 固定 1 |
 | 文生图输出尺寸 | `qwen-image-2.0` 总像素 `512*512` 到 `2048*2048` |
 | 编辑输出尺寸 | `qwen-image-2.0` 总像素 `512*512` 到 `2048*2048`；`edit-max/plus` 宽高 `[512,2048]` |
@@ -355,6 +358,7 @@ Qwen 的 `content` 中只能有一个 `text`。文生图和图像编辑虽然共
 ```http
 POST https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/generation
 Authorization: Bearer $DASHSCOPE_API_KEY
+X-DashScope-Async: enable
 Content-Type: application/json
 ```
 
@@ -390,7 +394,7 @@ kling/kling-v3-omni-image-generation
   },
   "parameters": {
     "n": 4,
-    "result_type": "series",
+    "result_type": "single",
     "aspect_ratio": "1:1",
     "resolution": "1k",
     "watermark": false
@@ -405,7 +409,7 @@ kling/kling-v3-omni-image-generation
 | prompt 长度 | 2500 字符以内 |
 | text 数量 | 仅支持一个 `text` |
 | 参考图 | `image` URL，支持多张 |
-| 参考图 + 主体 | 参考图片数量和 `element_list` 数组长度之和不超过 10 |
+| 参考图 + 主体 | 参考图片数量和 `element_list` 数组长度之和不超过 10；V3 基础模型按单参考图设计，V3 Omni 才使用多参考图能力 |
 | 输入图格式 | JPEG、JPG、PNG；不支持透明通道 |
 | 输入图尺寸 | 宽高 `[300,8000]` 像素 |
 | 输入图比例 | 1:2.5 到 2.5:1 |
@@ -413,6 +417,7 @@ kling/kling-v3-omni-image-generation
 | 单图数量 | 1-9 |
 | 组图数量 | Omni 的 `series` 模式 2-9，默认 4 |
 | 分辨率 | V3 支持 `1k`、`2k`；V3 Omni 支持 `1k`、`2k`、`4k` |
+| 比例 | `16:9`、`9:16`、`1:1` |
 | 输出格式 | PNG URL |
 | URL 有效期 | 30 天 |
 
@@ -452,6 +457,8 @@ Content-Type: application/json
   "prompt": "The person from image 1 is petting the cat from image 2",
   "input_image": "https://example.com/person.jpg",
   "input_image_2": "https://example.com/cat.jpg",
+  "width": 1536,
+  "height": 1024,
   "seed": 42,
   "output_format": "jpeg"
 }
@@ -485,6 +492,7 @@ Content-Type: application/json
 
 - 输入图支持 URL 或 Base64。
 - 主图字段是 `input_image`，额外参考图是 `input_image_2` 到 `input_image_8`。
+- 文生图和编辑都用 `width`、`height` 控制输出尺寸；产品层应提供明确像素尺寸，不要把 `1MP`、`2MP` 当作 API 参数。
 - 单张输入图最大 20MB 或 20MP。
 - 编辑输出默认匹配输入图尺寸并对齐到 16 的倍数。
 - 输出最高 4MP，建议最高 2MP。
@@ -512,6 +520,7 @@ Midjourney 目前没有官方 public API。市面上的 Midjourney API 多为非
 const referenceImageLimits = {
   'openai:gpt-image-2': 16,
   'google:gemini-2.5-flash-image': 3,
+  'google:gemini-3.1-flash-image-preview': 14,
   'google:gemini-3-pro-image-preview': 14,
   'bytedance:seedream-4.0': 10,
   'alibaba:qwen-image-edit': 3,
@@ -551,6 +560,7 @@ type ProviderWireFormat =
 - OpenAI Image generation guide: https://developers.openai.com/api/docs/guides/image-generation
 - OpenAI Image API reference: https://platform.openai.com/docs/api-reference/images/create-edit
 - Gemini image generation: https://ai.google.dev/gemini-api/docs/image-generation
+- Gemini models: https://ai.google.dev/gemini-api/docs/models
 - Vertex AI image limits: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/multimodal/image-understanding
 - BytePlus Seedream 4.0: https://docs.byteplus.com/en/docs/modelark/1824718
 - BytePlus Image generation API: https://docs.byteplus.com/en/docs/ModelArk/1541523
