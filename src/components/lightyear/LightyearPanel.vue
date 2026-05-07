@@ -36,7 +36,6 @@ const {
   enabledConfigs,
   generationLoading,
   installPluginUrl,
-  mockServer,
   openMacPermissionSettings,
   openSettings,
   placeImage,
@@ -62,7 +61,6 @@ const {
   toggleConfigEnabled,
   upscaleImage,
   updateSettingsDraft,
-  updateMockServer,
   windowDeployState,
   useResultAsReference
 } = useLightyearBanana(props.runtime)
@@ -121,7 +119,6 @@ function handleHeaderBack() {
       :configs="configs"
       :editing-capability="editingCapability"
       :editing-config-id="editingConfigId"
-      :mock-server="mockServer"
       :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
       :provider-capabilities="providerCapabilities"
       :settings-draft-is-new="settingsDraftIsNew"
@@ -137,7 +134,6 @@ function handleHeaderBack() {
       @test="testConfig"
       @toggle-enabled="toggleConfigEnabled"
       @update-draft="updateSettingsDraft"
-      @update-mock-server="updateMockServer"
     />
 
     <section v-else class="workspace-route" aria-label="生成工作区">

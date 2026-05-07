@@ -63,17 +63,39 @@ Windows：
 
 你可以直接编辑默认配置，也可以点击“新建配置”添加自己的模型。云端模型需要填写对应服务的 API Key。Codex Image Server 只需要填写 Base URL。
 
-当前内置配置：
-
-- Nano Banana Pro：Google Gemini
-- GPT Image 2：OpenAI
-- Seedream 4.0：ByteDance Seedream
-- Qwen Image Edit：Alibaba Qwen
-- Kling V3：Kuaishou Kling
-- Codex Image Server：本机 Codex
-- 自定义 OpenAI 兼容
+默认配置只启用 Codex Image Server，地址为 `http://127.0.0.1:17341`。设置页里的 Codex Image Server 配置提供了改造说明入口，用于把本机 Codex 的生图能力暴露成可调用的本地服务。
 
 保存配置后，回到工作台，在底部“模型”菜单中选择要使用的配置。
+
+## Codex Image Server Skill
+
+本仓库提供了一个可复用 skill，位置在 `skills/codex-image-server/`。它用于把 Codex 的 `image_generation` 能力封装成本地 HTTP image server，供 Photoshop 插件、设计工具或内部图像工作流调用。
+
+这个 skill 会指导 agent 完成这些工作：
+
+- 检查目标 Codex 安装或源码形态。
+- 添加本地 HTTP 服务，提供 `/healthz`、`/v1/capabilities`、`/v1/images/generate` 和 `/v1/images/:id/file`。
+- 支持 `gpt-image-2` 自定义分辨率，最长边 3840px，宽高为 16 的倍数，比例不超过 3:1。
+- 单次请求最多生成 4 张图。
+- 通过 `AbortSignal` 支持取消，并在取消后清理 `codex exec` 进程组。
+- 使用原始参考图文件作为 Codex image input。
+- 删除占位图、假数据和本地假服务路径。
+
+可直接发布或安装这个 skill：
+
+```bash
+clawhub publish skills/codex-image-server \
+  --slug codex-image-server \
+  --name "Codex Image Server" \
+  --version 0.1.0 \
+  --tags codex,image-generation,image-server,photoshop
+```
+
+验证本地 image server：
+
+```bash
+node skills/codex-image-server/scripts/smoke-test.mjs http://127.0.0.1:17341
+```
 
 ## 生成图片
 

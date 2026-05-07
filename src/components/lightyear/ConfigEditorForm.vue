@@ -11,8 +11,6 @@ import type {
   ProviderCapability,
   SettingsTestState
 } from '../../types/lightyear'
-import { canUseApiKeyPresets } from '../../env/lightyearEnvironment'
-import { mockApiKeyPresets } from '../../data/mockApiKeys'
 import BoxIcon from './BoxIcon.vue'
 import type { BoxIconName } from './boxIcons'
 import ControlSelect from './ControlSelect.vue'
@@ -26,12 +24,10 @@ type SelectOption = {
 const props = defineProps<{
   activeConfigName?: string
   editingCapability: ProviderCapability
-  mockServerEnabled: boolean
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   settingsDraft: ModelConfig
   settingsDraftIsNew: boolean
   settingsTestState: SettingsTestState
-  showApiKeyPresets: boolean
 }>()
 
 const emit = defineEmits<{
@@ -67,11 +63,8 @@ const providerOptions = computed<SelectOption[]>(() =>
 const modelOptions = computed<SelectOption[]>(() =>
   props.editingCapability.modelOptions.map((model) => ({ value: model, label: model }))
 )
-const visibleMockApiKeyPresets = canUseApiKeyPresets ? mockApiKeyPresets : []
-const mockApiKeyInputTitle = canUseApiKeyPresets
-  ? 'Mock Server 可使用 mock-good，也可使用 mock-bad-key、mock-expired、mock-permission-denied、mock-rate-limited、mock-quota-exceeded、mock-server-error、mock-timeout 测试失败路径'
-  : undefined
-const mockKeysLabel = canUseApiKeyPresets ? 'Mock Keys' : ''
+const codexImageServerGuideUrl =
+  'https://github.com/CatREFuse/lightyear-banana/tree/codex/fix-api-provider-config#codex-image-server-skill'
 const subtitle = computed(() => (props.settingsDraftIsNew ? '保存后可在输入区选择' : props.activeConfigName ?? '当前配置'))
 const isComfyUi = computed(() => props.settingsDraft.provider === 'comfyui')
 const isCodexImageServer = computed(() => props.settingsDraft.provider === 'codex-image-server')
@@ -279,10 +272,14 @@ function parseNodeIds(value: string) {
           :value="settingsDraft.apiKey"
           type="password"
           placeholder="••••••••••••••••"
-          :title="mockServerEnabled && props.showApiKeyPresets ? mockApiKeyInputTitle : undefined"
           @input="emit('updateDraft', { apiKey: ($event.target as HTMLInputElement).value })"
         />
       </label>
+
+      <a v-if="isCodexImageServer" class="guide-link" :href="codexImageServerGuideUrl" target="_blank" rel="noreferrer">
+        <BoxIcon name="copy-alt" size="14" />
+        Codex Image Server 改造说明
+      </a>
 
       <section v-if="isComfyUi" class="comfy-panel" aria-label="ComfyUI">
         <div class="comfy-heading">
@@ -382,25 +379,6 @@ function parseNodeIds(value: string) {
               @input="updateComfyUiSettings({ pollIntervalMs: Number(($event.target as HTMLInputElement).value) })"
             />
           </label>
-        </div>
-      </section>
-
-      <section v-if="mockServerEnabled && props.showApiKeyPresets && canUseApiKeyPresets" class="mock-key-panel" :aria-label="mockKeysLabel">
-        <span class="label-heading">
-          <BoxIcon name="key" size="14" />
-          {{ mockKeysLabel }}
-        </span>
-        <div class="mock-key-grid">
-          <button
-            v-for="preset in visibleMockApiKeyPresets"
-            :key="preset.key"
-            type="button"
-            :title="preset.title"
-            @click="emit('updateDraft', { apiKey: preset.key })"
-          >
-            <strong>{{ preset.key }}</strong>
-            <small>{{ preset.label }}</small>
-          </button>
         </div>
       </section>
 
@@ -588,51 +566,27 @@ label {
   gap: 5px;
 }
 
-.mock-key-panel {
-  display: grid;
-  gap: 6px;
-}
-
-.mock-key-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.mock-key-grid button {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-  padding: 7px 8px;
-  border-color: transparent;
-  background: var(--lb-field);
-  text-align: left;
-}
-
-.mock-key-grid button:hover {
-  background: var(--lb-hover);
-}
-
-.mock-key-grid strong,
-.mock-key-grid small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mock-key-grid strong {
-  color: var(--lb-text);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.mock-key-grid small {
-  color: var(--lb-muted);
-  font-size: 10px;
-}
-
 .form-control {
   display: grid;
+}
+
+.guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--lb-field);
+  color: var(--lb-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.guide-link:hover {
+  background: var(--lb-hover);
+  color: var(--lb-text);
 }
 
 label span,

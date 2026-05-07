@@ -86,14 +86,11 @@ function uxpPostBuildPlugin(): Plugin {
 
 export default defineConfig(({ mode }) => {
   const lightyearEnvironment = resolveLightyearEnvironment(mode)
-  const enableDevApiFeatures = lightyearEnvironment !== 'production'
 
   return {
     base: './',
     define: {
-      __LIGHTYEAR_APP_ENV__: JSON.stringify(lightyearEnvironment),
-      __LIGHTYEAR_ENABLE_API_KEY_PRESETS__: JSON.stringify(enableDevApiFeatures),
-      __LIGHTYEAR_ENABLE_MOCK_API__: JSON.stringify(enableDevApiFeatures)
+      __LIGHTYEAR_APP_ENV__: JSON.stringify(lightyearEnvironment)
     },
     publicDir: false,
     plugins: [vue(), uxpPostBuildPlugin()],
@@ -103,7 +100,7 @@ export default defineConfig(({ mode }) => {
       },
       outDir: uxpOutDir,
       emptyOutDir: true,
-      sourcemap: enableDevApiFeatures,
+      sourcemap: lightyearEnvironment !== 'production',
       rollupOptions: {
         input: fileURLToPath(new URL('./uxp-panel.html', import.meta.url)),
         output: {

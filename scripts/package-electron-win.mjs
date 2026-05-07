@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -58,9 +58,6 @@ if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
 rmSync(outDir, { force: true, recursive: true })
 rmSync(archivePath, { force: true })
 mkdirSync(outDir, { recursive: true })
-rmSync(path.join(projectRoot, 'dist', 'mock-images'), { force: true, recursive: true })
-cpSync(path.join(projectRoot, 'public', 'mock-images'), path.join(projectRoot, 'dist', 'mock-images'), { recursive: true })
-
 console.log(`Packaging Windows Electron v${electronVersion}...`)
 
 const appPaths = await packager({

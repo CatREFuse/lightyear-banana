@@ -8,11 +8,6 @@ import { dirname, extname, join, normalize } from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
 import {
-  defaultMockImageApiHost,
-  defaultMockImageApiPort,
-  listenMockImageApiServer
-} from './mockImageApiServer.js'
-import {
   defaultCodexImageServerHost,
   defaultCodexImageServerPort,
   listenCodexImageServer
@@ -48,7 +43,6 @@ const MAC_PERMISSION_URLS = {
 
 const state = {
   server: null,
-  mockServer: null,
   codexImageServer: null,
   uxpLastSeen: 0,
   uxpQueue: [],
@@ -92,11 +86,6 @@ function readBridgeStatus() {
       host: BRIDGE_HOST,
       port: BRIDGE_PORT,
       running: Boolean(state.server)
-    },
-    mockServer: {
-      host: defaultMockImageApiHost,
-      port: defaultMockImageApiPort,
-      running: Boolean(state.mockServer)
     },
     codexImageServer: {
       host: defaultCodexImageServerHost,
@@ -551,23 +540,6 @@ function startBridgeServer() {
   })
 }
 
-async function startBuiltInMockServer() {
-  if (state.mockServer) {
-    return
-  }
-
-  try {
-    state.mockServer = await listenMockImageApiServer()
-  } catch (error) {
-    if (error?.code === 'EADDRINUSE') {
-      console.warn(`Mock Server port already in use: http://${defaultMockImageApiHost}:${defaultMockImageApiPort}`)
-      return
-    }
-
-    throw error
-  }
-}
-
 async function startBuiltInCodexImageServer() {
   if (state.codexImageServer) {
     return
@@ -651,7 +623,6 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
 app.whenReady().then(async () => {
   await startBridgeServer()
   await startBuiltInCodexImageServer()
-  await startBuiltInMockServer()
   await createMainWindow()
 
   app.on('activate', () => {
@@ -669,6 +640,5 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   state.server?.close()
-  state.mockServer?.close()
   state.codexImageServer?.close()
 })

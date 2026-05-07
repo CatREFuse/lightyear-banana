@@ -3,15 +3,12 @@ import { computed } from 'vue'
 import type {
   ImageProviderId,
   MacPermissionPane,
-  MockServerConfig,
   ModelConfig,
   ProviderCapability,
   SettingsTestState,
   SettingsView
 } from '../../types/lightyear'
 import { providerRequiresApiKey } from '../../data/providerCapabilities'
-import { canUseApiKeyPresets, canUseMockApi } from '../../env/lightyearEnvironment'
-import { mockApiKeyPresets } from '../../data/mockApiKeys'
 import BoxIcon from './BoxIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
 
@@ -26,7 +23,6 @@ const props = defineProps<{
   editingCapability: ProviderCapability
   editingConfigId: string
   macPermissionSettingsAvailable: boolean
-  mockServer: MockServerConfig
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   settingsDraftIsNew: boolean
   settingsDraft: ModelConfig
@@ -44,22 +40,9 @@ const emit = defineEmits<{
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
-  updateMockServer: [patch: Partial<MockServerConfig>]
 }>()
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
-const visibleMockApiKeyPresets = canUseApiKeyPresets ? mockApiKeyPresets : []
-const mockServerLabel = canUseMockApi ? 'Mock Server' : ''
-const mockKeysLabel = canUseApiKeyPresets ? 'Mock Keys' : ''
-const mockServerStatusLabel = canUseMockApi
-  ? {
-      enabled: '本地端口已启用',
-      disabled: '发送到真实 API'
-    }
-  : {
-      enabled: '',
-      disabled: ''
-    }
 const configRows = computed(() =>
   props.configs.map((config) => ({
     config,
@@ -79,8 +62,8 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
 
   const capability = props.providerCapabilities[config.provider]
   const apiLooksUnavailable =
-    (providerRequiresApiKey(config.provider) && !props.mockServer.enabled && !config.apiKey.trim()) ||
-    (capability.supportsBaseUrl && !config.baseUrl.trim() && !props.mockServer.enabled) ||
+    (providerRequiresApiKey(config.provider) && !config.apiKey.trim()) ||
+    (capability.supportsBaseUrl && !config.baseUrl.trim()) ||
     /fail|error/i.test(`${config.apiKey} ${config.baseUrl}`)
 
   if (apiLooksUnavailable) {
@@ -119,51 +102,6 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
           </div>
         </section>
 
-        <section v-if="canUseMockApi" class="mock-server-card" :aria-label="mockServerLabel">
-          <label class="mock-toggle">
-            <span>
-              <strong>
-                <BoxIcon name="cog" size="14" />
-                {{ mockServerLabel }}
-              </strong>
-              <small>{{ mockServer.enabled ? mockServerStatusLabel.enabled : mockServerStatusLabel.disabled }}</small>
-            </span>
-            <input
-              class="mock-toggle-input"
-              :checked="mockServer.enabled"
-              type="checkbox"
-              @change="emit('updateMockServer', { enabled: ($event.target as HTMLInputElement).checked })"
-            />
-            <span class="mock-toggle-track" aria-hidden="true">
-              <span class="mock-toggle-thumb"></span>
-            </span>
-          </label>
-
-          <label v-if="mockServer.enabled" class="mock-url">
-            <span>
-              <BoxIcon name="key" size="14" />
-              本地地址
-            </span>
-            <input
-              :value="mockServer.baseUrl"
-              type="text"
-              @input="emit('updateMockServer', { baseUrl: ($event.target as HTMLInputElement).value })"
-            />
-          </label>
-
-          <section v-if="mockServer.enabled && canUseApiKeyPresets" class="mock-key-summary" :aria-label="mockKeysLabel">
-            <span>
-              <BoxIcon name="key" size="14" />
-              {{ mockKeysLabel }}
-            </span>
-            <div class="mock-key-row">
-              <code v-for="preset in visibleMockApiKeyPresets" :key="preset.key" :title="preset.title">
-                {{ preset.key }}
-              </code>
-            </div>
-          </section>
-        </section>
-
         <div class="config-list">
           <div class="section-header">
             <h2>配置列表</h2>
@@ -200,8 +138,6 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
           :active-config-name="activeConfig?.name"
           :editing-capability="editingCapability"
           :provider-capabilities="providerCapabilities"
-          :mock-server-enabled="mockServer.enabled"
-          :show-api-key-presets="canUseApiKeyPresets"
           :settings-draft-is-new="settingsDraftIsNew"
           :settings-draft="settingsDraft"
           :settings-test-state="settingsTestState"
@@ -298,132 +234,6 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
 
 .permission-actions button:hover {
   background: var(--lb-hover);
-}
-
-.mock-server-card {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--lb-border);
-  border-radius: 8px;
-  background: var(--lb-card);
-}
-
-.mock-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.mock-toggle span:first-child {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mock-toggle strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  color: var(--lb-text);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mock-toggle small {
-  overflow: hidden;
-  color: var(--lb-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mock-toggle-input {
-  position: absolute;
-  width: 1px;
-  min-height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.mock-toggle-track {
-  position: relative;
-  flex: 0 0 auto;
-  width: 42px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--lb-surface-2);
-  cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--lb-border);
-}
-
-.mock-toggle-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 3px 8px var(--lb-shadow);
-  transition: transform 160ms ease;
-}
-
-.mock-toggle-input:checked + .mock-toggle-track {
-  background: var(--lb-accent);
-}
-
-.mock-toggle-input:checked + .mock-toggle-track .mock-toggle-thumb {
-  transform: translateX(18px);
-}
-
-.mock-url {
-  display: grid;
-  gap: 5px;
-}
-
-.mock-url span,
-.mock-key-summary > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--lb-muted);
-  font-size: 11px;
-}
-
-.mock-url input {
-  min-height: 30px;
-  border: 0;
-  background: var(--lb-field);
-}
-
-.mock-key-summary {
-  display: grid;
-  gap: 6px;
-}
-
-.mock-key-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.mock-key-row code {
-  max-width: 100%;
-  overflow: hidden;
-  padding: 3px 6px;
-  border-radius: 6px;
-  background: var(--lb-field);
-  color: var(--lb-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .config-list {

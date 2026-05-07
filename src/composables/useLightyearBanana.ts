@@ -1,7 +1,6 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
 import { defaultModelConfigs, providerCapabilities, providerRequiresApiKey, readProviderCapability } from '../data/providerCapabilities'
-import { canUseMockApi, productionMockServer, readEffectiveMockServer } from '../env/lightyearEnvironment'
 import { generateImagesWithProvider, testImageConfig } from '../services/imageApiClient'
 import {
   type AppView,
@@ -10,7 +9,6 @@ import {
   type GenerationLoadingState,
   type MacPermissionPane,
   type ModelConfig,
-  type MockServerConfig,
   type PlacementTarget,
   type ReferenceImage,
   type ReferenceSource,
@@ -25,7 +23,6 @@ import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
 import { createCanvasImageFromApiAsset } from '../utils/imagePixels'
-import { createMockCanvasImage } from '../utils/mockImages'
 import {
   deserializeCanvasImage,
   getElectronBridgeStatus,
@@ -50,20 +47,19 @@ const referenceLabels: Record<ReferenceSource, string> = {
 type StoredSettings = {
   activeConfigId: string
   configs: ModelConfig[]
-  mockServer: MockServerConfig
 }
 
 const settingsStorageKey = 'lightyear-banana.settings.v1'
-const defaultMockServer: MockServerConfig = {
-  enabled: false,
-  baseUrl: 'http://127.0.0.1:38322'
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
-}
+const retiredBundledConfigIds = new Set([
+  'nano-banana-pro',
+  'gpt-image-2',
+  'seedream-4',
+  'qwen-image-edit',
+  'kling-v3',
+  'flux-2-pro-preview',
+  'local-comfyui',
+  'custom-openai'
+])
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
   return new Promise<T>((resolve, reject) => {
@@ -111,17 +107,6 @@ function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string)
   return providerCapabilities[provider].supportsBaseUrl ? fallback : ''
 }
 
-function readGenerationMockServer(provider: ModelConfig['provider'], mockServer: MockServerConfig): MockServerConfig {
-  if (provider === 'codex-image-server') {
-    return {
-      enabled: false,
-      baseUrl: ''
-    }
-  }
-
-  return { ...mockServer }
-}
-
 function isModelConfig(value: unknown): value is ModelConfig {
   if (!value || typeof value !== 'object') {
     return false
@@ -153,33 +138,16 @@ function normalizeConfigs(value: unknown) {
   const storedById = new Map(storedConfigs.map((config) => [config.id, config]))
   const defaultIds = new Set(defaultModelConfigs.map((config) => config.id))
   const defaults = defaultModelConfigs.map((config) => cloneModelConfig({ ...config, ...storedById.get(config.id) }))
-  const customConfigs = storedConfigs.filter((config) => !defaultIds.has(config.id))
+  const customConfigs = storedConfigs.filter((config) => !defaultIds.has(config.id) && !retiredBundledConfigIds.has(config.id))
 
   return [...defaults, ...customConfigs]
-}
-
-function normalizeMockServer(value: unknown): MockServerConfig {
-  if (!canUseMockApi) {
-    return { ...productionMockServer }
-  }
-
-  if (!value || typeof value !== 'object') {
-    return { ...defaultMockServer }
-  }
-
-  const source = value as Partial<MockServerConfig>
-  return {
-    enabled: typeof source.enabled === 'boolean' ? source.enabled : defaultMockServer.enabled,
-    baseUrl: typeof source.baseUrl === 'string' && source.baseUrl.trim() ? source.baseUrl : defaultMockServer.baseUrl
-  }
 }
 
 function readStoredSettings(): StoredSettings {
   const fallbackConfigs = cloneDefaultConfigs()
   const fallback: StoredSettings = {
     activeConfigId: fallbackConfigs[0]?.id ?? '',
-    configs: fallbackConfigs,
-    mockServer: { ...defaultMockServer }
+    configs: fallbackConfigs
   }
 
   try {
@@ -194,8 +162,7 @@ function readStoredSettings(): StoredSettings {
 
       return {
         activeConfigId,
-        configs,
-        mockServer: normalizeMockServer(parsed.mockServer)
+        configs
       }
     }
 
@@ -213,8 +180,7 @@ function readStoredSettings(): StoredSettings {
 
     return {
       activeConfigId,
-      configs,
-      mockServer: normalizeMockServer(parsed.mockServer)
+      configs
     }
   } catch {
     return fallback
@@ -259,8 +225,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const windowDeployState = shallowRef<WindowDeployState>({ status: 'idle', message: '' })
   const toastMessage = shallowRef('')
   const generationLoading = shallowRef<GenerationLoadingState[]>([])
-  const mockServer = reactive<MockServerConfig>(storedSettings.mockServer)
-  const effectiveMockServer = computed(() => readEffectiveMockServer(mockServer))
   let toastTimer: ReturnType<typeof setTimeout> | undefined
   let bridgeStatusTimer: ReturnType<typeof setInterval> | undefined
   let removeBridgeListener: (() => void) | undefined
@@ -286,12 +250,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const canSend = computed(() => Boolean(prompt.value.trim()) || references.value.length > 0)
 
   watch(
-    [configs, activeConfigId, () => effectiveMockServer.value.enabled, () => effectiveMockServer.value.baseUrl],
+    [configs, activeConfigId],
     () => {
       writeStoredSettings({
         activeConfigId: activeConfigId.value,
-        configs: configs.value.map(cloneModelConfig),
-        mockServer: { ...effectiveMockServer.value }
+        configs: configs.value.map(cloneModelConfig)
       })
     },
     { deep: true }
@@ -517,12 +480,15 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
   async function addReference(source: ReferenceSource) {
     await runAction(async () => {
+      if (!canUseElectronBridge.value && !canUsePhotoshop.value) {
+        status.value = '请在 Lightyear App 或 Photoshop 面板中添加参考'
+        return
+      }
+
       if (source === 'visible') {
         const image = canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureVisible'))
-          : canUsePhotoshop.value
-            ? await canvasPrimitiveService.captureVisibleReferenceImage()
-            : createMockCanvasImage(createId('visible'), '可见图层', 'blue')
+          : await canvasPrimitiveService.captureVisibleReferenceImage()
         addReferenceImage(source, image)
         return
       }
@@ -530,9 +496,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
       if (source === 'selection') {
         const image = canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureSelection'))
-          : canUsePhotoshop.value
-            ? await canvasPrimitiveService.captureSelectionReferenceImage()
-            : createMockCanvasImage(createId('selection'), '选区', 'green', 280, 220)
+          : await canvasPrimitiveService.captureSelectionReferenceImage()
         addReferenceImage(source, image)
         return
       }
@@ -540,15 +504,12 @@ export function useLightyearBanana(runtime: RuntimeName) {
       if (source === 'layer') {
         const image = canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureLayer'))
-          : canUsePhotoshop.value
-            ? await canvasPrimitiveService.captureSelectedLayerReferenceImage()
-            : createMockCanvasImage(createId('layer'), '选择图层', 'amber', 320, 260)
+          : await canvasPrimitiveService.captureSelectedLayerReferenceImage()
         addReferenceImage(source, image)
         return
       }
 
-      const tone = source === 'clipboard' ? 'violet' : 'gray'
-      addReferenceImage(source, createMockCanvasImage(createId(source), referenceLabels[source], tone))
+      status.value = `${referenceLabels[source]}暂不可用`
     })
   }
 
@@ -617,16 +578,15 @@ export function useLightyearBanana(runtime: RuntimeName) {
     const requestQuality = quality.value
     const requestRatio = ratio.value
     const requestSize = size.value
-    const requestMockServer = readGenerationMockServer(requestConfig.provider, effectiveMockServer.value)
     let requestCanvasSize: { width: number; height: number } | undefined
 
-    if (providerRequiresApiKey(requestConfig.provider) && !requestMockServer.enabled && !requestConfig.apiKey.trim()) {
+    if (providerRequiresApiKey(requestConfig.provider) && !requestConfig.apiKey.trim()) {
       status.value = '请输入 API Key'
       showToast('请输入 API Key')
       return
     }
 
-    if (requestCapability.supportsBaseUrl && !requestConfig.baseUrl.trim() && !requestMockServer.enabled) {
+    if (requestCapability.supportsBaseUrl && !requestConfig.baseUrl.trim()) {
       status.value = '请输入 Base URL'
       showToast('请输入 Base URL')
       return
@@ -656,7 +616,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
             config: requestConfig,
             count: requestCount,
             canvasSize: requestCanvasSize,
-            mockServer: requestMockServer,
             prompt: requestPrompt,
             quality: requestQuality,
             ratio: requestRatio,
@@ -911,7 +870,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
       status.value = '正在测试本机服务'
 
       try {
-        await testImageConfig({ ...settingsDraft, apiKey: '' }, { enabled: false, baseUrl: '' })
+        await testImageConfig({ ...settingsDraft, apiKey: '' })
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : ''
         const message = /api key|token|unauthorized|401/i.test(rawMessage)
@@ -927,13 +886,13 @@ export function useLightyearBanana(runtime: RuntimeName) {
       return
     }
 
-    if (providerRequiresApiKey(settingsDraft.provider) && !effectiveMockServer.value.enabled && !settingsDraft.apiKey.trim()) {
+    if (providerRequiresApiKey(settingsDraft.provider) && !settingsDraft.apiKey.trim()) {
       setSettingsTestState({ status: 'error', message: '请输入 API Key' }, { resetAfterMs: 3000 })
       status.value = '请输入 API Key'
       return
     }
 
-    if (capability.supportsBaseUrl && !settingsDraft.baseUrl.trim() && !effectiveMockServer.value.enabled) {
+    if (capability.supportsBaseUrl && !settingsDraft.baseUrl.trim()) {
       setSettingsTestState({ status: 'error', message: '请输入 Base URL' }, { resetAfterMs: 3000 })
       status.value = '请输入 Base URL'
       return
@@ -942,39 +901,17 @@ export function useLightyearBanana(runtime: RuntimeName) {
     setSettingsTestState({ status: 'testing', message: '正在测试 API' })
     status.value = '正在测试 API'
 
-    if (effectiveMockServer.value.enabled || settingsDraft.provider === 'comfyui' || !canUseMockApi) {
-      try {
-        await testImageConfig({ ...settingsDraft }, { ...effectiveMockServer.value })
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'API 配置不可用'
-        setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
-        status.value = message
-        return
-      }
-    } else {
-      await wait(650)
-
-      const mockShouldFail = /fail|error/i.test(`${settingsDraft.apiKey} ${settingsDraft.baseUrl}`)
-      if (mockShouldFail) {
-        setSettingsTestState({ status: 'error', message: 'API 配置不可用' }, { resetAfterMs: 3000 })
-        status.value = 'API 配置不可用'
-        return
-      }
+    try {
+      await testImageConfig({ ...settingsDraft })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'API 配置不可用'
+      setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
+      status.value = message
+      return
     }
 
     setSettingsTestState({ status: 'success', message: 'API 配置可用' }, { resetAfterMs: 3000 })
     status.value = 'API 配置可用'
-  }
-
-  function updateMockServer(patch: Partial<MockServerConfig>) {
-    if (!canUseMockApi) {
-      Object.assign(mockServer, productionMockServer)
-      setSettingsTestState({ status: 'idle', message: '' })
-      return
-    }
-
-    Object.assign(mockServer, patch)
-    setSettingsTestState({ status: 'idle', message: '' })
   }
 
   async function deployWindows(side: WindowDeploySide) {
@@ -1092,7 +1029,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
     enabledConfigs,
     generationLoading,
     installPluginUrl,
-    mockServer: effectiveMockServer,
     openMacPermissionSettings,
     openSettings,
     placeImage,
@@ -1121,7 +1057,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
     deployWindows,
     upscaleImage,
     updateSettingsDraft,
-    updateMockServer,
     windowDeployState,
     useResultAsReference
   }

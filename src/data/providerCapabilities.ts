@@ -147,84 +147,12 @@ export function providerRequiresApiKey(provider: ImageProviderId) {
 
 export const defaultModelConfigs: ModelConfig[] = [
   {
-    id: 'nano-banana-pro',
-    name: 'Nano Banana 2',
-    provider: 'gemini',
-    model: 'gemini-3.1-flash-image-preview',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'gpt-image-2',
-    name: 'GPT Image 2',
-    provider: 'openai',
-    model: 'gpt-image-2',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'seedream-4',
-    name: 'Seedream 4.0',
-    provider: 'seedream',
-    model: 'seedream-4-0-250828',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'qwen-image-edit',
-    name: 'Qwen Image 2.0 Pro',
-    provider: 'qwen',
-    model: 'qwen-image-2.0-pro',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'kling-v3',
-    name: 'Kling V3',
-    provider: 'kling',
-    model: 'kling/kling-v3-omni-image-generation',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'flux-2-pro-preview',
-    name: 'FLUX.2 Pro Preview',
-    provider: 'flux',
-    model: 'flux-2-pro-preview',
-    apiKey: '',
-    baseUrl: '',
-    enabled: false
-  },
-  {
-    id: 'local-comfyui',
-    name: '本地 ComfyUI',
-    provider: 'comfyui',
-    model: 'workflow-api-json',
-    apiKey: '',
-    baseUrl: 'http://127.0.0.1:8000',
-    enabled: true
-  },
-  {
     id: 'codex-image-server',
     name: 'Codex Image Server',
     provider: 'codex-image-server',
     model: 'gpt-image-2',
     apiKey: '',
     baseUrl: 'http://127.0.0.1:17341',
-    enabled: false
-  },
-  {
-    id: 'custom-openai',
-    name: '自定义 OpenAI 兼容',
-    provider: 'custom-openai',
-    model: 'custom-image-model',
-    apiKey: '',
-    baseUrl: 'https://api.example.com/v1',
-    enabled: false
+    enabled: true
   }
 ]

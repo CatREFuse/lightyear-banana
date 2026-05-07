@@ -83,7 +83,8 @@ const forbiddenProductionStrings = [
   'mock-rate-limited',
   'mock-quota-exceeded',
   'mock-server-error',
-  'mock-timeout'
+  'mock-timeout',
+  'mock:image-api'
 ]
 
 for (const scriptFile of scriptFiles) {

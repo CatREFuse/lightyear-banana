@@ -14,7 +14,6 @@
     "build:uxp:prod": "vue-tsc -b && vite build --config vite.uxp.config.ts --mode production",
     "build:uxp:watch": "vite build --config vite.uxp.config.ts --mode development --watch",
     "codex:image-server": "node scripts/codex-image-server.mjs",
-    "mock:image-api": "node scripts/mock-image-api-server.mjs",
     "package:electron:mac": "npm run build:web && node scripts/package-electron-mac.mjs",
     "package:electron:win": "npm run build:web && node scripts/package-electron-win.mjs",
     "package:uxp": "npm run verify:uxp && node -e \"const fs=require('node:fs');fs.rmSync('dist/'+process.env.npm_package_name+'-'+process.env.npm_package_version+'.ccx',{force:true})\" && cd dist/ps-uxp && zip -r -q ../${npm_package_name}-${npm_package_version}.ccx .",

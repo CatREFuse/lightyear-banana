@@ -95,10 +95,6 @@ cpSync(path.join(projectRoot, 'electron'), path.join(appResourcesDir, 'electron'
 
 const sourceDist = path.join(projectRoot, 'dist')
 const packagedDist = path.join(appResourcesDir, 'dist')
-const sourceMockImages = path.join(projectRoot, 'public', 'mock-images')
-const distMockImages = path.join(sourceDist, 'mock-images')
-rmSync(distMockImages, { force: true, recursive: true })
-cpSync(sourceMockImages, distMockImages, { recursive: true })
 mkdirSync(packagedDist, { recursive: true })
 for (const entry of readdirSync(sourceDist)) {
   if (

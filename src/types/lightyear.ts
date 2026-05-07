@@ -44,11 +44,6 @@ export type SettingsTestState = {
   message: string
 }
 
-export type MockServerConfig = {
-  enabled: boolean
-  baseUrl: string
-}
-
 export type GenerationLoadingState = {
   id: string
   references: ReferenceImage[]

@@ -19,15 +19,12 @@ function resolveLightyearEnvironment(mode: string): LightyearEnvironment {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const lightyearEnvironment = resolveLightyearEnvironment(mode)
-  const enableDevApiFeatures = lightyearEnvironment !== 'production'
 
   return {
     define: {
-      __LIGHTYEAR_APP_ENV__: JSON.stringify(lightyearEnvironment),
-      __LIGHTYEAR_ENABLE_API_KEY_PRESETS__: JSON.stringify(enableDevApiFeatures),
-      __LIGHTYEAR_ENABLE_MOCK_API__: JSON.stringify(enableDevApiFeatures)
+      __LIGHTYEAR_APP_ENV__: JSON.stringify(lightyearEnvironment)
     },
     plugins: [vue()],
-    publicDir: enableDevApiFeatures ? 'public' : false
+    publicDir: 'public'
   }
 })

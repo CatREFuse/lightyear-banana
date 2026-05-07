@@ -1,6 +1,5 @@
 import { normalizeComfyUiSettings } from '../data/comfyUiDefaults'
-import { canUseMockApi } from '../env/lightyearEnvironment'
-import type { ComfyUiNodeMapping, ImageProviderId, MockServerConfig, ModelConfig, ReferenceImage } from '../types/lightyear'
+import type { ComfyUiNodeMapping, ImageProviderId, ModelConfig, ReferenceImage } from '../types/lightyear'
 
 export type NormalizedImageResult = {
   previewUrl: string
@@ -11,7 +10,6 @@ export type ImageGenerationParams = {
   canvasSize?: { width: number; height: number }
   config: ModelConfig
   count: number
-  mockServer: MockServerConfig
   prompt: string
   quality: string
   ratio: string
@@ -123,11 +121,7 @@ async function fetchJson(url: string, init: RequestInit) {
   return payload
 }
 
-function resolveBaseUrl(config: ModelConfig, mockServer: MockServerConfig) {
-  if (canUseMockApi && mockServer.enabled) {
-    return mockServer.baseUrl
-  }
-
+function resolveBaseUrl(config: ModelConfig) {
   if (config.provider === 'custom-openai' || config.provider === 'comfyui' || config.provider === 'codex-image-server') {
     return config.baseUrl || providerBaseUrls[config.provider] || ''
   }
@@ -135,8 +129,8 @@ function resolveBaseUrl(config: ModelConfig, mockServer: MockServerConfig) {
   return providerBaseUrls[config.provider] ?? config.baseUrl
 }
 
-function resolveOpenAiLikePath(config: ModelConfig, mockServer: MockServerConfig, hasReferences: boolean) {
-  if (config.provider !== 'custom-openai' || (canUseMockApi && mockServer.enabled)) {
+function resolveOpenAiLikePath(config: ModelConfig, hasReferences: boolean) {
+  if (config.provider !== 'custom-openai') {
     return hasReferences ? '/v1/images/edits' : providerPaths[config.provider] ?? '/v1/images/generations'
   }
 
@@ -168,22 +162,6 @@ function createAuthHeaders(config: ModelConfig): Record<string, string> {
   return {
     Authorization: `Bearer ${config.apiKey}`,
     'Content-Type': 'application/json'
-  }
-}
-
-function resolveRequestConfig(config: ModelConfig, mockServer: MockServerConfig): ModelConfig {
-  if (!canUseMockApi || !mockServer.enabled) {
-    return config
-  }
-
-  const apiKey = config.apiKey.trim()
-  if (apiKey.startsWith('mock-')) {
-    return config
-  }
-
-  return {
-    ...config,
-    apiKey: 'mock-good'
   }
 }
 
@@ -330,41 +308,6 @@ function buildCodexImageServerRequest(params: ImageGenerationParams) {
   return payload
 }
 
-function isCodexMockPayload(payload: unknown) {
-  const record = payload as Record<string, unknown>
-  const id = typeof record.id === 'string' ? record.id : ''
-  const path = typeof record.path === 'string' ? record.path : ''
-  const url = typeof record.url === 'string' ? record.url : ''
-
-  return (
-    id.startsWith('mock-codex-') ||
-    path.includes('/tmp/lightyear-banana/mock-codex-') ||
-    url.includes('/mock-images/') ||
-    url.includes('/v1/images/mock-codex-')
-  )
-}
-
-async function assertNotCodexMockServer(baseUrl: string) {
-  let response: Response
-  try {
-    response = await fetch(joinUrl(baseUrl, '/mock/manual'), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    })
-  } catch {
-    return
-  }
-
-  if (!response.ok) {
-    return
-  }
-
-  const payload = await readResponseJson(response)
-  if ((payload as any)?.server === 'Lightyear Banana Image API Mock Server') {
-    throw new ImageApiError('当前 Base URL 是 Mock Server', 409)
-  }
-}
-
 function readDataUrlParts(value: string) {
   const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(value)
   if (!match) {
@@ -431,8 +374,8 @@ function buildFluxRequest(params: ImageGenerationParams) {
   return payload
 }
 
-function readComfyUiBaseUrl(config: ModelConfig, mockServer: MockServerConfig) {
-  return resolveBaseUrl(config, mockServer)
+function readComfyUiBaseUrl(config: ModelConfig) {
+  return resolveBaseUrl(config)
 }
 
 async function blobToDataUrl(blob: Blob) {
@@ -591,8 +534,8 @@ function readOpenAiQuality(quality: string) {
 }
 
 async function requestOpenAiLike(params: ImageGenerationParams) {
-  const path = resolveOpenAiLikePath(params.config, params.mockServer, Boolean(params.references.length))
-  const url = joinUrl(resolveBaseUrl(params.config, params.mockServer), path)
+  const path = resolveOpenAiLikePath(params.config, Boolean(params.references.length))
+  const url = joinUrl(resolveBaseUrl(params.config), path)
 
   if (!params.references.length) {
     return fetchJson(url, {
@@ -624,17 +567,13 @@ async function requestOpenAiLike(params: ImageGenerationParams) {
 }
 
 async function requestCodexImageServer(params: ImageGenerationParams) {
-  const baseUrl = resolveBaseUrl(params.config, params.mockServer)
-  await assertNotCodexMockServer(baseUrl)
+  const baseUrl = resolveBaseUrl(params.config)
   const payload = await fetchJson(joinUrl(baseUrl, providerPaths['codex-image-server'] ?? ''), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
     body: JSON.stringify(buildCodexImageServerRequest(params))
   })
-  if (isCodexMockPayload(payload)) {
-    throw new ImageApiError('Codex Image Server 返回了 Mock 结果', 409)
-  }
 
   const data = Array.isArray((payload as any).data) ? (payload as any).data : undefined
   const imageItems = data?.length ? data : (payload as any).url ? [payload] : []
@@ -675,7 +614,7 @@ async function requestCodexImageServer(params: ImageGenerationParams) {
 }
 
 async function requestGemini(params: ImageGenerationParams) {
-  return fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), `/v1beta/models/${params.config.model}:generateContent`), {
+  return fetchJson(joinUrl(resolveBaseUrl(params.config), `/v1beta/models/${params.config.model}:generateContent`), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
@@ -684,7 +623,7 @@ async function requestGemini(params: ImageGenerationParams) {
 }
 
 async function requestDashScope(params: ImageGenerationParams) {
-  const payload = await fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), providerPaths[params.config.provider] ?? ''), {
+  const payload = await fetchJson(joinUrl(resolveBaseUrl(params.config), providerPaths[params.config.provider] ?? ''), {
     method: 'POST',
     headers:
       params.config.provider === 'kling'
@@ -704,7 +643,7 @@ async function requestDashScope(params: ImageGenerationParams) {
   }
 
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
-    const result = await fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), `/api/v1/tasks/${taskId}`), {
+    const result = await fetchJson(joinUrl(resolveBaseUrl(params.config), `/api/v1/tasks/${taskId}`), {
       method: 'GET',
       headers: createAuthHeaders(params.config),
       signal: params.signal
@@ -724,7 +663,7 @@ async function requestDashScope(params: ImageGenerationParams) {
 
 async function requestSeedream(params: ImageGenerationParams) {
   const maxImages = Math.max(1, Math.min(params.count, 15 - params.references.length))
-  return fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), providerPaths.seedream ?? ''), {
+  return fetchJson(joinUrl(resolveBaseUrl(params.config), providerPaths.seedream ?? ''), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
@@ -742,7 +681,7 @@ async function requestSeedream(params: ImageGenerationParams) {
 }
 
 async function requestFlux(params: ImageGenerationParams) {
-  const payload = await fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), `/v1/${params.config.model}`), {
+  const payload = await fetchJson(joinUrl(resolveBaseUrl(params.config), `/v1/${params.config.model}`), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
@@ -775,7 +714,7 @@ async function requestFlux(params: ImageGenerationParams) {
 async function requestComfyUi(params: ImageGenerationParams) {
   const settings = normalizeComfyUiSettings(params.config.comfyUi)
   const workflowText = settings.workflow.trim()
-  if (!workflowText && !params.mockServer.enabled) {
+  if (!workflowText) {
     throw new ImageApiError('请导入 ComfyUI workflow', 400)
   }
 
@@ -786,7 +725,7 @@ async function requestComfyUi(params: ImageGenerationParams) {
     throw new ImageApiError('ComfyUI workflow JSON 无效', 400)
   }
 
-  const baseUrl = readComfyUiBaseUrl(params.config, params.mockServer)
+  const baseUrl = readComfyUiBaseUrl(params.config)
   const uploadedImages = await Promise.all(
     params.references.map((reference, index) => uploadComfyUiImage(baseUrl, params.config, reference, index))
   )
@@ -924,28 +863,24 @@ function readImages(provider: ImageProviderId, payload: any) {
 }
 
 export async function generateImagesWithProvider(params: ImageGenerationParams) {
-  const requestParams: ImageGenerationParams = {
-    ...params,
-    config: resolveRequestConfig(params.config, params.mockServer)
-  }
   let payload: any
-  if (requestParams.config.provider === 'gemini') {
-    payload = await requestGemini(requestParams)
-  } else if (requestParams.config.provider === 'qwen' || requestParams.config.provider === 'kling') {
-    payload = await requestDashScope(requestParams)
-  } else if (requestParams.config.provider === 'seedream') {
-    payload = await requestSeedream(requestParams)
-  } else if (requestParams.config.provider === 'flux') {
-    payload = await requestFlux(requestParams)
-  } else if (requestParams.config.provider === 'comfyui') {
-    payload = await requestComfyUi(requestParams)
-  } else if (requestParams.config.provider === 'codex-image-server') {
-    payload = await requestCodexImageServer(requestParams)
+  if (params.config.provider === 'gemini') {
+    payload = await requestGemini(params)
+  } else if (params.config.provider === 'qwen' || params.config.provider === 'kling') {
+    payload = await requestDashScope(params)
+  } else if (params.config.provider === 'seedream') {
+    payload = await requestSeedream(params)
+  } else if (params.config.provider === 'flux') {
+    payload = await requestFlux(params)
+  } else if (params.config.provider === 'comfyui') {
+    payload = await requestComfyUi(params)
+  } else if (params.config.provider === 'codex-image-server') {
+    payload = await requestCodexImageServer(params)
   } else {
-    payload = await requestOpenAiLike(requestParams)
+    payload = await requestOpenAiLike(params)
   }
 
-  const images = readImages(requestParams.config.provider, payload)
+  const images = readImages(params.config.provider, payload)
   if (!images.length) {
     throw new ImageApiError('API 未返回图片', 502)
   }
@@ -953,9 +888,9 @@ export async function generateImagesWithProvider(params: ImageGenerationParams) 
   return images
 }
 
-export async function testImageConfig(config: ModelConfig, mockServer: MockServerConfig) {
+export async function testImageConfig(config: ModelConfig) {
   if (config.provider === 'comfyui') {
-    await fetchJson(joinUrl(readComfyUiBaseUrl(config, mockServer), '/system_stats'), {
+    await fetchJson(joinUrl(readComfyUiBaseUrl(config), '/system_stats'), {
       method: 'GET',
       headers: createAuthHeaders(config)
     })
@@ -963,8 +898,7 @@ export async function testImageConfig(config: ModelConfig, mockServer: MockServe
   }
 
   if (config.provider === 'codex-image-server') {
-    const baseUrl = resolveBaseUrl(config, mockServer)
-    await assertNotCodexMockServer(baseUrl)
+    const baseUrl = resolveBaseUrl(config)
     await fetchJson(joinUrl(baseUrl, '/healthz'), {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
@@ -980,7 +914,6 @@ export async function testImageConfig(config: ModelConfig, mockServer: MockServe
   const params: ImageGenerationParams = {
     config,
     count: 1,
-    mockServer,
     prompt,
     quality: '自动',
     ratio: config.provider === 'kling' ? '1:1' : '原图比例',
