@@ -2,11 +2,21 @@ import { app, BrowserWindow, ipcMain, screen, shell } from 'electron'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-import { createReadStream } from 'node:fs'
+import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { dirname, extname, join, normalize } from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
+import {
+  defaultMockImageApiHost,
+  defaultMockImageApiPort,
+  listenMockImageApiServer
+} from './mockImageApiServer.js'
+import {
+  defaultCodexImageServerHost,
+  defaultCodexImageServerPort,
+  listenCodexImageServer
+} from './codexImageServer.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = join(__dirname, '..', 'dist')
@@ -16,6 +26,7 @@ const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
 const UXP_PACKAGE_FILE = 'lightyear-banana-0.1.0.ccx'
+const SETTINGS_FILE = 'lightyear-settings.json'
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.ccx': 'application/octet-stream',
@@ -37,6 +48,8 @@ const MAC_PERMISSION_URLS = {
 
 const state = {
   server: null,
+  mockServer: null,
+  codexImageServer: null,
   uxpLastSeen: 0,
   uxpQueue: [],
   pollWaiters: [],
@@ -55,22 +68,70 @@ function isPhotoshopConnected() {
   return isUxpHttpConnected()
 }
 
+function readLocalUxpPackage() {
+  const filePath = join(DIST_DIR, UXP_PACKAGE_FILE)
+
+  try {
+    const fileStat = statSync(filePath)
+    if (!fileStat.isFile()) {
+      return undefined
+    }
+
+    return {
+      fileName: UXP_PACKAGE_FILE,
+      downloadUrl: `http://${BRIDGE_HOST}:${BRIDGE_PORT}/downloads/${UXP_PACKAGE_FILE}`
+    }
+  } catch {
+    return undefined
+  }
+}
+
 function readBridgeStatus() {
-  return {
+  const status = {
     bridge: {
       host: BRIDGE_HOST,
       port: BRIDGE_PORT,
       running: Boolean(state.server)
     },
+    mockServer: {
+      host: defaultMockImageApiHost,
+      port: defaultMockImageApiPort,
+      running: Boolean(state.mockServer)
+    },
+    codexImageServer: {
+      host: defaultCodexImageServerHost,
+      port: defaultCodexImageServerPort,
+      running: Boolean(state.codexImageServer)
+    },
     photoshop: {
       connected: isPhotoshopConnected(),
       documentLabel: state.lastDocumentLabel || undefined
-    },
-    uxpPackage: {
-      fileName: UXP_PACKAGE_FILE,
-      downloadUrl: `http://${BRIDGE_HOST}:${BRIDGE_PORT}/downloads/${UXP_PACKAGE_FILE}`
     }
   }
+
+  const uxpPackage = readLocalUxpPackage()
+  if (uxpPackage) {
+    status.uxpPackage = uxpPackage
+  }
+
+  return status
+}
+
+function readSettingsFilePath() {
+  return join(app.getPath('userData'), SETTINGS_FILE)
+}
+
+function readPersistedSettings() {
+  try {
+    return JSON.parse(readFileSync(readSettingsFilePath(), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writePersistedSettings(settings) {
+  mkdirSync(app.getPath('userData'), { recursive: true })
+  writeFileSync(readSettingsFilePath(), JSON.stringify(settings), 'utf8')
 }
 
 function normalizeDeploySide(value) {
@@ -283,6 +344,14 @@ function resolvePending(message) {
   return true
 }
 
+function readUxpCommandTimeout(command) {
+  if (typeof command === 'string' && command.startsWith('canvas.capture')) {
+    return 120000
+  }
+
+  return 30000
+}
+
 function sendToUxp(type, payload = {}) {
   if (!isPhotoshopConnected()) {
     return Promise.reject(new Error('Photoshop 插件未连接'))
@@ -301,7 +370,7 @@ function sendToUxp(type, payload = {}) {
     const timer = setTimeout(() => {
       state.pending.delete(id)
       reject(new Error('Photoshop 操作超时'))
-    }, 30000)
+    }, readUxpCommandTimeout(type))
 
     state.pending.set(id, { resolve, reject, timer })
     state.uxpQueue.push(message)
@@ -482,6 +551,40 @@ function startBridgeServer() {
   })
 }
 
+async function startBuiltInMockServer() {
+  if (state.mockServer) {
+    return
+  }
+
+  try {
+    state.mockServer = await listenMockImageApiServer()
+  } catch (error) {
+    if (error?.code === 'EADDRINUSE') {
+      console.warn(`Mock Server port already in use: http://${defaultMockImageApiHost}:${defaultMockImageApiPort}`)
+      return
+    }
+
+    throw error
+  }
+}
+
+async function startBuiltInCodexImageServer() {
+  if (state.codexImageServer) {
+    return
+  }
+
+  try {
+    state.codexImageServer = await listenCodexImageServer()
+  } catch (error) {
+    if (error?.code === 'EADDRINUSE') {
+      console.warn(`Codex Image Server port already in use: http://${defaultCodexImageServerHost}:${defaultCodexImageServerPort}`)
+      return
+    }
+
+    throw error
+  }
+}
+
 async function createMainWindow() {
   const isMac = process.platform === 'darwin'
   mainWindow = new BrowserWindow({
@@ -520,6 +623,15 @@ async function createMainWindow() {
 
 ipcMain.handle('lightyear:status', async () => readBridgeStatus())
 
+ipcMain.on('lightyear:settings:load', (event) => {
+  event.returnValue = readPersistedSettings()
+})
+
+ipcMain.handle('lightyear:settings:save', async (_event, settings) => {
+  writePersistedSettings(settings)
+  return { ok: true }
+})
+
 ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
   if (command === 'app.status') {
     return readBridgeStatus()
@@ -538,6 +650,8 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
 
 app.whenReady().then(async () => {
   await startBridgeServer()
+  await startBuiltInCodexImageServer()
+  await startBuiltInMockServer()
   await createMainWindow()
 
   app.on('activate', () => {
@@ -555,4 +669,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   state.server?.close()
+  state.mockServer?.close()
+  state.codexImageServer?.close()
 })

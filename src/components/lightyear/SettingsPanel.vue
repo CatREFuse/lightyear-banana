@@ -9,6 +9,8 @@ import type {
   SettingsTestState,
   SettingsView
 } from '../../types/lightyear'
+import { providerRequiresApiKey } from '../../data/providerCapabilities'
+import { canUseApiKeyPresets, canUseMockApi } from '../../env/lightyearEnvironment'
 import { mockApiKeyPresets } from '../../data/mockApiKeys'
 import BoxIcon from './BoxIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
@@ -46,6 +48,18 @@ const emit = defineEmits<{
 }>()
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
+const visibleMockApiKeyPresets = canUseApiKeyPresets ? mockApiKeyPresets : []
+const mockServerLabel = canUseMockApi ? 'Mock Server' : ''
+const mockKeysLabel = canUseApiKeyPresets ? 'Mock Keys' : ''
+const mockServerStatusLabel = canUseMockApi
+  ? {
+      enabled: '本地端口已启用',
+      disabled: '发送到真实 API'
+    }
+  : {
+      enabled: '',
+      disabled: ''
+    }
 const configRows = computed(() =>
   props.configs.map((config) => ({
     config,
@@ -65,7 +79,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
 
   const capability = props.providerCapabilities[config.provider]
   const apiLooksUnavailable =
-    (!props.mockServer.enabled && !config.apiKey.trim()) ||
+    (providerRequiresApiKey(config.provider) && !props.mockServer.enabled && !config.apiKey.trim()) ||
     (capability.supportsBaseUrl && !config.baseUrl.trim() && !props.mockServer.enabled) ||
     /fail|error/i.test(`${config.apiKey} ${config.baseUrl}`)
 
@@ -105,14 +119,14 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
           </div>
         </section>
 
-        <section class="mock-server-card" aria-label="Mock Server">
+        <section v-if="canUseMockApi" class="mock-server-card" :aria-label="mockServerLabel">
           <label class="mock-toggle">
             <span>
               <strong>
                 <BoxIcon name="cog" size="14" />
-                Mock Server
+                {{ mockServerLabel }}
               </strong>
-              <small>{{ mockServer.enabled ? '本地端口已启用' : '发送到真实 API' }}</small>
+              <small>{{ mockServer.enabled ? mockServerStatusLabel.enabled : mockServerStatusLabel.disabled }}</small>
             </span>
             <input
               class="mock-toggle-input"
@@ -137,13 +151,13 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
             />
           </label>
 
-          <section v-if="mockServer.enabled" class="mock-key-summary" aria-label="Mock Keys">
+          <section v-if="mockServer.enabled && canUseApiKeyPresets" class="mock-key-summary" :aria-label="mockKeysLabel">
             <span>
               <BoxIcon name="key" size="14" />
-              Mock Keys
+              {{ mockKeysLabel }}
             </span>
             <div class="mock-key-row">
-              <code v-for="preset in mockApiKeyPresets" :key="preset.key" :title="preset.title">
+              <code v-for="preset in visibleMockApiKeyPresets" :key="preset.key" :title="preset.title">
                 {{ preset.key }}
               </code>
             </div>
@@ -187,6 +201,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
           :editing-capability="editingCapability"
           :provider-capabilities="providerCapabilities"
           :mock-server-enabled="mockServer.enabled"
+          :show-api-key-presets="canUseApiKeyPresets"
           :settings-draft-is-new="settingsDraftIsNew"
           :settings-draft="settingsDraft"
           :settings-test-state="settingsTestState"

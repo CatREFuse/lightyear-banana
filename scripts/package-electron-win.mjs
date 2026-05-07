@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,8 +12,42 @@ const appName = 'Lightyear Banana'
 const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${packageJson.version}-win.zip`)
 const electronVersion = packageJson.devDependencies.electron.replace('^', '')
 
-function run(command, args) {
-  execFileSync(command, args, { cwd: projectRoot, stdio: 'inherit' })
+function archiveDirectory(directoryPath, destinationPath) {
+  if (process.platform === 'win32') {
+    const quotePowerShellPath = (value) => `'${value.replace(/'/g, "''")}'`
+    execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        `Compress-Archive -Path ${quotePowerShellPath(directoryPath)} -DestinationPath ${quotePowerShellPath(destinationPath)} -Force`
+      ],
+      { cwd: projectRoot, stdio: 'inherit' }
+    )
+    return
+  }
+
+  const parentDir = path.dirname(directoryPath)
+  const directoryName = path.basename(directoryPath)
+
+  try {
+    execFileSync('zip', ['-r', '-q', '-X', destinationPath, directoryName], {
+      cwd: parentDir,
+      stdio: 'inherit'
+    })
+    return
+  } catch (error) {
+    if (process.platform !== 'darwin') {
+      throw error
+    }
+  }
+
+  execFileSync('ditto', ['--norsrc', '-c', '-k', '--keepParent', directoryPath, destinationPath], {
+    cwd: projectRoot,
+    stdio: 'inherit'
+  })
 }
 
 if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
@@ -24,6 +58,8 @@ if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
 rmSync(outDir, { force: true, recursive: true })
 rmSync(archivePath, { force: true })
 mkdirSync(outDir, { recursive: true })
+rmSync(path.join(projectRoot, 'dist', 'mock-images'), { force: true, recursive: true })
+cpSync(path.join(projectRoot, 'public', 'mock-images'), path.join(projectRoot, 'dist', 'mock-images'), { recursive: true })
 
 console.log(`Packaging Windows Electron v${electronVersion}...`)
 
@@ -71,5 +107,5 @@ const appPaths = await packager({
 const packagedDir = appPaths[0]
 console.log(`Windows app packaged: ${packagedDir}`)
 
-run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', packagedDir, archivePath])
+archiveDirectory(packagedDir, archivePath)
 console.log(`Windows archive: ${archivePath}`)

@@ -50,7 +50,7 @@ export type MockServerConfig = {
 }
 
 export type GenerationLoadingState = {
-  active: boolean
+  id: string
   references: ReferenceImage[]
   prompt: string
   elapsedSeconds: number
@@ -76,7 +76,35 @@ export type ImageProviderId =
   | 'qwen'
   | 'kling'
   | 'flux'
+  | 'comfyui'
+  | 'codex-image-server'
   | 'custom-openai'
+
+export type ComfyUiNodeMappingType =
+  | 'model'
+  | 'prompt'
+  | 'negative_prompt'
+  | 'image'
+  | 'width'
+  | 'height'
+  | 'batch_size'
+  | 'steps'
+  | 'seed'
+  | 'custom'
+
+export type ComfyUiNodeMapping = {
+  type: ComfyUiNodeMappingType
+  nodeIds: string[]
+  key: string
+  value?: string
+}
+
+export type ComfyUiSettings = {
+  workflow: string
+  workflowNodes: ComfyUiNodeMapping[]
+  timeoutMs: number
+  pollIntervalMs: number
+}
 
 export type ProviderCapabilityModelOverride = {
   referenceLimit?: number
@@ -107,6 +135,7 @@ export type ModelConfig = {
   apiKey: string
   baseUrl: string
   enabled: boolean
+  comfyUi?: ComfyUiSettings
 }
 
 export type ReferenceImage = {

@@ -19,12 +19,14 @@ type BridgeStatus = {
 
 type ElectronBridgeApi = {
   getBridgeStatus: () => Promise<BridgeStatus>
+  loadSettings: () => unknown
+  saveSettings: (settings: unknown) => Promise<{ ok: boolean }>
   invoke: <T = unknown>(command: string, payload?: unknown) => Promise<T>
   onEvent: (callback: (event: unknown) => void) => () => void
 }
 
 type SerializedCanvasImage = Omit<CapturedCanvasImage, 'rgba'> & {
-  rgba: number[] | Record<string, number>
+  rgba: string | number[] | Record<string, number>
 }
 
 declare global {
@@ -34,6 +36,10 @@ declare global {
 }
 
 function readRgba(value: SerializedCanvasImage['rgba']) {
+  if (typeof value === 'string') {
+    return base64ToBytes(value)
+  }
+
   if (Array.isArray(value)) {
     return new Uint8Array(value)
   }
@@ -46,8 +52,45 @@ function readRgba(value: SerializedCanvasImage['rgba']) {
   return new Uint8Array(keys.map((key) => value[String(key)] ?? 0))
 }
 
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, offset + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+
+  return btoa(binary)
+}
+
+function base64ToBytes(value: string) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+
+  return bytes
+}
+
 export function hasElectronBridge() {
   return typeof window !== 'undefined' && Boolean(window.lightyearBridge)
+}
+
+export function readElectronStoredSettings() {
+  if (!window.lightyearBridge?.loadSettings) {
+    return undefined
+  }
+
+  return window.lightyearBridge.loadSettings()
+}
+
+export async function writeElectronStoredSettings(settings: unknown) {
+  if (!window.lightyearBridge?.saveSettings) {
+    return
+  }
+
+  await window.lightyearBridge.saveSettings(settings)
 }
 
 export async function getElectronBridgeStatus() {
@@ -84,7 +127,7 @@ export function deserializeCanvasImage(image: SerializedCanvasImage): CapturedCa
 export function serializeCanvasImage(image: CapturedCanvasImage): SerializedCanvasImage {
   return {
     ...image,
-    rgba: Array.from(image.rgba)
+    rgba: bytesToBase64(image.rgba)
   }
 }
 

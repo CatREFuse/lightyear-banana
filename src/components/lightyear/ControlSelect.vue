@@ -9,6 +9,8 @@ type SelectOption = {
   value: string
   label: string
   meta?: string
+  status?: string
+  statusTone?: 'ready' | 'warning' | 'muted'
 }
 
 const props = withDefaults(
@@ -71,9 +73,16 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   <div ref="root" class="select-field" :class="[`is-${direction}`, { 'is-wide': wide, 'is-open': isOpen }]">
     <span class="select-label">{{ label }}</span>
     <div class="select-anchor">
-      <button class="select-trigger" :class="{ 'has-icon': icon }" type="button" @click="toggleOpen">
+      <button class="select-trigger" :class="{ 'has-icon': icon, 'has-status': selectedOption?.status }" type="button" @click="toggleOpen">
         <BoxIcon v-if="icon" :name="icon" size="14" />
-        <span>{{ selectedOption?.label ?? value }}</span>
+        <span class="select-value">{{ selectedOption?.label ?? value }}</span>
+        <span
+          v-if="selectedOption?.status"
+          class="select-status"
+          :class="`is-${selectedOption.statusTone ?? 'muted'}`"
+          :title="selectedOption.status"
+          :aria-label="selectedOption.status"
+        ></span>
         <BoxIcon class="select-chevron" name="chevron-down" size="16" />
       </button>
 
@@ -83,11 +92,20 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
             v-for="option in options"
             :key="option.value"
             type="button"
-            :class="{ selected: option.value === value, 'has-option-icon': option.icon }"
+            :class="{ selected: option.value === value, 'has-option-icon': option.icon, 'has-option-status': option.status }"
             @click="selectOption(option.value)"
           >
             <BoxIcon v-if="option.icon" :name="option.icon" size="15" />
-            <span>{{ option.label }}</span>
+            <span class="option-main">
+              <span class="option-label">{{ option.label }}</span>
+              <span
+                v-if="option.status"
+                class="select-status"
+                :class="`is-${option.statusTone ?? 'muted'}`"
+                :title="option.status"
+                :aria-label="option.status"
+              ></span>
+            </span>
             <small v-if="option.meta">{{ option.meta }}</small>
           </button>
         </div>
@@ -133,7 +151,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   white-space: nowrap;
 }
 
-.select-trigger span {
+.select-value {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -141,6 +159,14 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 
 .select-trigger.has-icon {
   grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.select-trigger.has-status {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.select-trigger.has-icon.has-status {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 
 .select-chevron {
@@ -193,7 +219,16 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   text-align: left;
 }
 
-.select-menu button span {
+.option-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.option-label {
   overflow: hidden;
   max-width: 100%;
   text-overflow: ellipsis;
@@ -203,6 +238,29 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 .select-menu button.has-option-icon {
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: 7px;
+}
+
+.select-status {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  min-height: 8px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--lb-surface-2);
+  box-shadow: 0 0 0 2px rgba(116, 128, 147, 0.12);
+}
+
+.select-status.is-ready {
+  background: #43d17a;
+  box-shadow: 0 0 0 2px rgba(67, 209, 122, 0.16);
+}
+
+.select-status.is-warning {
+  background: #ffbd2e;
+  box-shadow: 0 0 0 2px rgba(255, 189, 46, 0.16);
 }
 
 .select-menu button:hover,
@@ -220,6 +278,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   white-space: nowrap;
 }
 
+.select-menu button.has-option-icon .option-main,
 .select-menu button.has-option-icon small {
   grid-column: 2;
 }

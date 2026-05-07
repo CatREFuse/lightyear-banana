@@ -4,14 +4,18 @@
 
 ## 启动
 
-```bash
-node scripts/mock-image-api-server.mjs
-```
+Electron 客户端会自动启动内置 Mock Server，无需额外启动命令。
 
 默认地址：
 
 ```text
 http://127.0.0.1:38322
+```
+
+脚本入口保留给开发调试：
+
+```bash
+node scripts/mock-image-api-server.mjs
 ```
 
 成功生图响应默认会随机等待 3 到 5 秒。可以用环境变量调整：
@@ -28,7 +32,9 @@ node scripts/mock-image-api-server.mjs
 LIGHTYEAR_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
 ```
 
-前端设置页打开 `Mock Server` 后，OpenAI、Google Gemini、Qwen-Image、Kling、Seedream、FLUX、自定义 OpenAI 兼容配置都会请求这个本地地址。
+前端设置页打开 `Mock Server` 后，OpenAI、Google Gemini、Qwen-Image、Kling、Seedream、FLUX、ComfyUI、自定义 OpenAI 兼容配置都会请求这个本地地址。
+
+Codex Image Server 始终使用配置中的 Base URL。需要用 Mock Server 调试 Codex 兼容接口时，把 Codex Image Server 的 Base URL 改为内置 Mock Server 地址。
 
 关闭 `Mock Server` 时，前端会按 Provider 直接请求真实 API。自定义 OpenAI 兼容配置使用配置里的 Base URL。
 
@@ -42,6 +48,8 @@ LIGHTYEAR_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
 | Kling | `kling/kling-v3-image-generation`、`kling/kling-v3-omni-image-generation` | `POST /api/v1/services/aigc/image-generation/generation`、`GET /api/v1/tasks/{task_id}` |
 | Seedream | `seedream-4-0-250828` | `POST /api/v3/images/generations` |
 | FLUX | `flux-2-pro-preview`、`flux-2-pro`、`flux-2-max`、`flux-2-flex`、`flux-2-klein-9b-preview`、`flux-2-klein-9b`、`flux-2-klein-4b` | `POST /v1/flux-2-*`、`GET /v1/get_result?id={task_id}` |
+| ComfyUI | `workflow-api-json` | `GET /system_stats`、`POST /upload/image`、`POST /prompt`、`GET /history/{prompt_id}`、`GET /view` |
+| Codex Image Server | `gpt-image-2` | `GET /healthz`、`GET /v1/capabilities`、`POST /v1/images/generate`、`GET /v1/images/{id}/file` |
 | OpenAI compatible | `custom-image-model` | `POST /v1/images/generations`、`POST /v1/images/edits` |
 
 模型声明已经同步到 `src/data/providerCapabilities.ts`。Google 模型以当前官方图像生成文档可查到的 Nano Banana 2、Nano Banana Pro 和 Nano Banana 为准。
@@ -59,7 +67,10 @@ Good case：
 | Kling | `mock-good-kling` |
 | Seedream | `mock-good-seedream` |
 | FLUX | `mock-good-flux` |
+| ComfyUI | 空、`mock-good-comfyui` |
 | OpenAI compatible | `mock-good-compatible` |
+
+Codex Image Server 配置不使用 API Key。Mock Server 会接受空鉴权。
 
 Bad case：
 
@@ -219,9 +230,23 @@ Seedream 返回 ModelArk 图像生成的 OpenAI 风格结构：
 }
 ```
 
+Codex Image Server 返回本地服务结构，前端会读取 `url` 对应的图片文件：
+
+```json
+{
+  "id": "mock-codex-...",
+  "status": "completed",
+  "model": "gpt-image-2",
+  "resolved_size": "3840x2160",
+  "mime_type": "image/jpeg",
+  "path": "/tmp/lightyear-banana/mock-codex-....jpg",
+  "url": "http://127.0.0.1:38322/v1/images/mock-codex-.../file"
+}
+```
+
 ## 错误结构
 
-OpenAI、Seedream、OpenAI compatible 使用 OpenAI 风格错误：
+OpenAI、Seedream、Codex Image Server、OpenAI compatible 使用 OpenAI 风格错误：
 
 ```json
 {

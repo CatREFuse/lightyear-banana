@@ -73,6 +73,19 @@ if (!scriptFiles.length) {
   throw new Error('Expected at least one bundled JavaScript file.')
 }
 
+const forbiddenProductionStrings = [
+  'Mock Server',
+  'Mock Keys',
+  'mock-good',
+  'mock-bad-key',
+  'mock-expired',
+  'mock-permission-denied',
+  'mock-rate-limited',
+  'mock-quota-exceeded',
+  'mock-server-error',
+  'mock-timeout'
+]
+
 for (const scriptFile of scriptFiles) {
   const source = await readFile(path.join(assetsDir, scriptFile), 'utf8')
   if (source.includes('new MutationObserver')) {
@@ -83,6 +96,12 @@ for (const scriptFile of scriptFiles) {
   }
   if (/\bimport\s*\(/.test(source) || /\bimport\.meta\b/.test(source)) {
     throw new Error(`${scriptFile} still contains dynamic ESM markers.`)
+  }
+
+  for (const forbiddenString of forbiddenProductionStrings) {
+    if (source.includes(forbiddenString)) {
+      throw new Error(`${scriptFile} contains production-forbidden mock API text: ${forbiddenString}`)
+    }
   }
 }
 

@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
-import type { ImageProviderId, ModelConfig, ProviderCapability, SettingsTestState } from '../../types/lightyear'
+import { normalizeComfyUiSettings } from '../../data/comfyUiDefaults'
+import { providerRequiresApiKey } from '../../data/providerCapabilities'
+import type {
+  ComfyUiNodeMapping,
+  ComfyUiNodeMappingType,
+  ComfyUiSettings,
+  ImageProviderId,
+  ModelConfig,
+  ProviderCapability,
+  SettingsTestState
+} from '../../types/lightyear'
+import { canUseApiKeyPresets } from '../../env/lightyearEnvironment'
 import { mockApiKeyPresets } from '../../data/mockApiKeys'
 import BoxIcon from './BoxIcon.vue'
 import type { BoxIconName } from './boxIcons'
@@ -20,6 +31,7 @@ const props = defineProps<{
   settingsDraft: ModelConfig
   settingsDraftIsNew: boolean
   settingsTestState: SettingsTestState
+  showApiKeyPresets: boolean
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +44,19 @@ const emit = defineEmits<{
 
 const openField = shallowRef('')
 
+const comfyNodeTypeOptions: SelectOption[] = [
+  { value: 'prompt', label: '提示词', meta: '正向文本' },
+  { value: 'negative_prompt', label: '负向词', meta: '负向文本' },
+  { value: 'image', label: '参考图', meta: '上传图片' },
+  { value: 'width', label: '宽度', meta: '画布宽度' },
+  { value: 'height', label: '高度', meta: '画布高度' },
+  { value: 'batch_size', label: '批量', meta: '出图数量' },
+  { value: 'steps', label: '步数', meta: '采样步数' },
+  { value: 'seed', label: 'Seed', meta: '随机种子' },
+  { value: 'model', label: '模型', meta: '模型字段' },
+  { value: 'custom', label: '固定值', meta: '自定义字段' }
+]
+
 const providerOptions = computed<SelectOption[]>(() =>
   Object.values(props.providerCapabilities).map((capability) => ({
     value: capability.id,
@@ -42,7 +67,27 @@ const providerOptions = computed<SelectOption[]>(() =>
 const modelOptions = computed<SelectOption[]>(() =>
   props.editingCapability.modelOptions.map((model) => ({ value: model, label: model }))
 )
+const visibleMockApiKeyPresets = canUseApiKeyPresets ? mockApiKeyPresets : []
+const mockApiKeyInputTitle = canUseApiKeyPresets
+  ? 'Mock Server 可使用 mock-good，也可使用 mock-bad-key、mock-expired、mock-permission-denied、mock-rate-limited、mock-quota-exceeded、mock-server-error、mock-timeout 测试失败路径'
+  : undefined
+const mockKeysLabel = canUseApiKeyPresets ? 'Mock Keys' : ''
 const subtitle = computed(() => (props.settingsDraftIsNew ? '保存后可在输入区选择' : props.activeConfigName ?? '当前配置'))
+const isComfyUi = computed(() => props.settingsDraft.provider === 'comfyui')
+const isCodexImageServer = computed(() => props.settingsDraft.provider === 'codex-image-server')
+const showApiKeyField = computed(() => props.settingsDraft.provider === 'comfyui' || providerRequiresApiKey(props.settingsDraft.provider))
+const baseUrlPlaceholder = computed(() => {
+  if (isComfyUi.value) {
+    return 'http://127.0.0.1:8000'
+  }
+
+  if (isCodexImageServer.value) {
+    return 'http://127.0.0.1:17341'
+  }
+
+  return props.editingCapability.supportsBaseUrl ? 'https://api.example.com/v1' : '官方默认'
+})
+const comfyUiSettings = computed(() => normalizeComfyUiSettings(props.settingsDraft.comfyUi))
 const testIsRunning = computed(() => props.settingsTestState.status === 'testing')
 const testButtonIcon = computed<BoxIconName>(() => {
   if (props.settingsTestState.status === 'testing') {
@@ -65,7 +110,7 @@ const testButtonLabel = computed(() => {
   }
 
   if (props.settingsTestState.status === 'error') {
-    if (props.settingsTestState.message.includes('API Key')) {
+    if (props.settingsTestState.message === '请输入 API Key') {
       return '缺少 Key'
     }
 
@@ -86,6 +131,41 @@ function toggleField(field: string) {
 function updateProvider(value: string) {
   openField.value = ''
   emit('updateDraft', { provider: value as ImageProviderId })
+}
+
+function updateComfyUiSettings(patch: Partial<ComfyUiSettings>) {
+  emit('updateDraft', {
+    comfyUi: {
+      ...comfyUiSettings.value,
+      ...patch
+    }
+  })
+}
+
+function updateComfyUiNode(index: number, patch: Partial<ComfyUiNodeMapping>) {
+  const workflowNodes = comfyUiSettings.value.workflowNodes.map((node, nodeIndex) =>
+    nodeIndex === index ? { ...node, ...patch } : node
+  )
+  updateComfyUiSettings({ workflowNodes })
+}
+
+function addComfyUiNode() {
+  updateComfyUiSettings({
+    workflowNodes: [...comfyUiSettings.value.workflowNodes, { type: 'custom', nodeIds: [], key: '', value: '' }]
+  })
+}
+
+function removeComfyUiNode(index: number) {
+  updateComfyUiSettings({
+    workflowNodes: comfyUiSettings.value.workflowNodes.filter((_, nodeIndex) => nodeIndex !== index)
+  })
+}
+
+function parseNodeIds(value: string) {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 </script>
 
@@ -155,7 +235,7 @@ function updateProvider(value: string) {
         />
       </div>
 
-      <label v-else>
+      <label v-else-if="!isComfyUi">
         <span class="label-heading">
           <BoxIcon name="slider-alt" size="14" />
           模型
@@ -168,6 +248,14 @@ function updateProvider(value: string) {
         />
       </label>
 
+      <label v-else>
+        <span class="label-heading">
+          <BoxIcon name="slider-alt" size="14" />
+          调用方式
+        </span>
+        <input value="Workflow API JSON" type="text" disabled />
+      </label>
+
       <label>
         <span class="label-heading">
           <BoxIcon name="grid-alt" size="14" />
@@ -177,37 +265,134 @@ function updateProvider(value: string) {
           :value="settingsDraft.baseUrl"
           type="text"
           :disabled="!editingCapability.supportsBaseUrl"
-          :placeholder="editingCapability.supportsBaseUrl ? 'https://api.example.com/v1' : '官方默认'"
+          :placeholder="baseUrlPlaceholder"
           @input="emit('updateDraft', { baseUrl: ($event.target as HTMLInputElement).value })"
         />
       </label>
 
-      <label>
+      <label v-if="showApiKeyField">
         <span class="label-heading">
           <BoxIcon name="key" size="14" />
-          API Key
+          {{ isComfyUi ? 'API Key（可选）' : 'API Key' }}
         </span>
         <input
           :value="settingsDraft.apiKey"
           type="password"
           placeholder="••••••••••••••••"
-          :title="
-            mockServerEnabled
-              ? 'Mock Server 可使用 mock-good，也可使用 mock-bad-key、mock-expired、mock-permission-denied、mock-rate-limited、mock-quota-exceeded、mock-server-error、mock-timeout 测试失败路径'
-              : undefined
-          "
+          :title="mockServerEnabled && props.showApiKeyPresets ? mockApiKeyInputTitle : undefined"
           @input="emit('updateDraft', { apiKey: ($event.target as HTMLInputElement).value })"
         />
       </label>
 
-      <section v-if="mockServerEnabled" class="mock-key-panel" aria-label="Mock Keys">
+      <section v-if="isComfyUi" class="comfy-panel" aria-label="ComfyUI">
+        <div class="comfy-heading">
+          <strong>
+            <BoxIcon name="grid-alt" size="14" />
+            Workflow 绑定
+          </strong>
+          <button type="button" @click="addComfyUiNode">
+            <BoxIcon name="plus" size="14" />
+            添加绑定
+          </button>
+        </div>
+
+        <label>
+          <span class="label-heading">
+            <BoxIcon name="copy-alt" size="14" />
+            API Workflow JSON
+          </span>
+          <textarea
+            :value="comfyUiSettings.workflow"
+            placeholder="粘贴 ComfyUI 导出的 API JSON"
+            rows="6"
+            @input="updateComfyUiSettings({ workflow: ($event.target as HTMLTextAreaElement).value })"
+          ></textarea>
+        </label>
+
+        <div class="comfy-node-list">
+          <section
+            v-for="(node, index) in comfyUiSettings.workflowNodes"
+            :key="`${index}-${node.type}`"
+            class="comfy-node-row"
+            :class="{ 'has-custom-value': node.type === 'custom' }"
+            aria-label="Workflow Node"
+          >
+            <ControlSelect
+              direction="down"
+              icon="slider-alt"
+              label="类型"
+              :open="openField === `comfy-type-${index}`"
+              :options="comfyNodeTypeOptions"
+              :value="node.type"
+              @change="updateComfyUiNode(index, { type: $event as ComfyUiNodeMappingType }); openField = ''"
+              @close="openField = ''"
+              @toggle="toggleField(`comfy-type-${index}`)"
+            />
+            <label>
+              <span>节点 ID</span>
+              <input
+                :value="node.nodeIds.join(', ')"
+                type="text"
+                placeholder="留空则不写入"
+                @input="updateComfyUiNode(index, { nodeIds: parseNodeIds(($event.target as HTMLInputElement).value) })"
+              />
+            </label>
+            <label>
+              <span>字段</span>
+              <input
+                :value="node.key"
+                type="text"
+                placeholder="inputs 字段名"
+                @input="updateComfyUiNode(index, { key: ($event.target as HTMLInputElement).value })"
+              />
+            </label>
+            <label v-if="node.type === 'custom'">
+              <span>值</span>
+              <input
+                :value="node.value ?? ''"
+                type="text"
+                placeholder="写入值"
+                @input="updateComfyUiNode(index, { value: ($event.target as HTMLInputElement).value })"
+              />
+            </label>
+            <button class="node-remove" type="button" @click="removeComfyUiNode(index)">
+              <BoxIcon name="trash" size="14" />
+            </button>
+          </section>
+        </div>
+
+        <div class="comfy-timing-grid">
+          <label>
+            <span>超时（ms）</span>
+            <input
+              :value="comfyUiSettings.timeoutMs"
+              type="number"
+              min="1000"
+              step="1000"
+              @input="updateComfyUiSettings({ timeoutMs: Number(($event.target as HTMLInputElement).value) })"
+            />
+          </label>
+          <label>
+            <span>轮询间隔（ms）</span>
+            <input
+              :value="comfyUiSettings.pollIntervalMs"
+              type="number"
+              min="250"
+              step="250"
+              @input="updateComfyUiSettings({ pollIntervalMs: Number(($event.target as HTMLInputElement).value) })"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section v-if="mockServerEnabled && props.showApiKeyPresets && canUseApiKeyPresets" class="mock-key-panel" :aria-label="mockKeysLabel">
         <span class="label-heading">
           <BoxIcon name="key" size="14" />
-          Mock Keys
+          {{ mockKeysLabel }}
         </span>
         <div class="mock-key-grid">
           <button
-            v-for="preset in mockApiKeyPresets"
+            v-for="preset in visibleMockApiKeyPresets"
             :key="preset.key"
             type="button"
             :title="preset.title"
@@ -250,8 +435,12 @@ function updateProvider(value: string) {
           :disabled="testIsRunning"
           @click="emit('test')"
         >
-          <BoxIcon :class="{ spinning: testIsRunning }" :name="testButtonIcon" size="15" />
-          {{ testButtonLabel }}
+          <Transition name="test-button-content" mode="out-in">
+            <span :key="`${settingsTestState.status}-${testButtonLabel}`" class="test-button-content">
+              <BoxIcon :class="{ spinning: testIsRunning }" :name="testButtonIcon" size="15" />
+              {{ testButtonLabel }}
+            </span>
+          </Transition>
         </button>
         <button class="primary" type="button" @click="emit('save')">
           <BoxIcon name="check-circle" size="15" />
@@ -473,9 +662,100 @@ input {
   padding: 0 8px;
 }
 
+textarea {
+  width: 100%;
+  min-height: 116px;
+  resize: vertical;
+  border: 0;
+  border-radius: 6px;
+  background: var(--lb-field);
+  color: var(--lb-text);
+  font: inherit;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  padding: 8px;
+}
+
 input:disabled {
   color: var(--lb-muted);
   opacity: 0.7;
+}
+
+.comfy-panel {
+  display: grid;
+  gap: 9px;
+  padding: 9px;
+  border-radius: 8px;
+  background: var(--lb-surface);
+}
+
+.comfy-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.comfy-heading strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--lb-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.comfy-heading button,
+.node-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-color: transparent;
+  background: var(--lb-field);
+  font-size: 11px;
+}
+
+.comfy-node-list {
+  display: grid;
+  gap: 7px;
+}
+
+.comfy-node-row {
+  display: grid;
+  grid-template-columns: minmax(82px, 0.9fr) minmax(0, 1fr) minmax(56px, 0.7fr) auto;
+  align-items: end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.comfy-node-row.has-custom-value {
+  grid-template-columns: minmax(82px, 0.9fr) minmax(0, 1fr) minmax(56px, 0.7fr) minmax(64px, 0.8fr) auto;
+}
+
+.comfy-node-row label {
+  min-width: 0;
+}
+
+.comfy-node-row input {
+  min-height: 28px;
+  font-size: 11px;
+}
+
+.node-remove {
+  width: 30px;
+  padding: 0;
+  color: var(--lb-danger);
+}
+
+.comfy-timing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .capability-box {
@@ -526,6 +806,32 @@ input:disabled {
 
 .form-actions .test-button {
   color: var(--lb-secondary);
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.test-button-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.test-button-content-enter-active,
+.test-button-content-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.test-button-content-enter-from,
+.test-button-content-leave-to {
+  opacity: 0;
+  transform: translateY(2px);
 }
 
 .form-actions .test-button.is-testing {
@@ -574,7 +880,10 @@ input:disabled {
   }
 
   .toggle-track,
-  .toggle-thumb {
+  .toggle-thumb,
+  .form-actions .test-button,
+  .test-button-content-enter-active,
+  .test-button-content-leave-active {
     transition: none;
   }
 }

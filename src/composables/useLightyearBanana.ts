@@ -1,5 +1,7 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
-import { defaultModelConfigs, providerCapabilities, readProviderCapability } from '../data/providerCapabilities'
+import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
+import { defaultModelConfigs, providerCapabilities, providerRequiresApiKey, readProviderCapability } from '../data/providerCapabilities'
+import { canUseMockApi, productionMockServer, readEffectiveMockServer } from '../env/lightyearEnvironment'
 import { generateImagesWithProvider, testImageConfig } from '../services/imageApiClient'
 import {
   type AppView,
@@ -30,8 +32,10 @@ import {
   hasElectronBridge,
   invokeElectronBridge,
   onElectronBridgeEvent,
+  readElectronStoredSettings,
   serializeCanvasImage,
-  serializePlacementTarget
+  serializePlacementTarget,
+  writeElectronStoredSettings
 } from '../services/electronBridge'
 
 const referenceLabels: Record<ReferenceSource, string> = {
@@ -84,8 +88,38 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+function cloneModelConfig(config: ModelConfig): ModelConfig {
+  return {
+    ...config,
+    comfyUi: config.provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
+  }
+}
+
 function cloneDefaultConfigs() {
-  return defaultModelConfigs.map((config) => ({ ...config }))
+  return defaultModelConfigs.map(cloneModelConfig)
+}
+
+function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string) {
+  if (provider === 'comfyui') {
+    return 'http://127.0.0.1:8000'
+  }
+
+  if (provider === 'codex-image-server') {
+    return 'http://127.0.0.1:17341'
+  }
+
+  return providerCapabilities[provider].supportsBaseUrl ? fallback : ''
+}
+
+function readGenerationMockServer(provider: ModelConfig['provider'], mockServer: MockServerConfig): MockServerConfig {
+  if (provider === 'codex-image-server') {
+    return {
+      enabled: false,
+      baseUrl: ''
+    }
+  }
+
+  return { ...mockServer }
 }
 
 function isModelConfig(value: unknown): value is ModelConfig {
@@ -111,20 +145,24 @@ function normalizeConfigs(value: unknown) {
     return cloneDefaultConfigs()
   }
 
-  const storedConfigs = value.filter(isModelConfig).map((config) => ({ ...config }))
+  const storedConfigs = value.filter(isModelConfig).map(cloneModelConfig)
   if (!storedConfigs.length) {
     return cloneDefaultConfigs()
   }
 
   const storedById = new Map(storedConfigs.map((config) => [config.id, config]))
   const defaultIds = new Set(defaultModelConfigs.map((config) => config.id))
-  const defaults = defaultModelConfigs.map((config) => ({ ...config, ...storedById.get(config.id) }))
+  const defaults = defaultModelConfigs.map((config) => cloneModelConfig({ ...config, ...storedById.get(config.id) }))
   const customConfigs = storedConfigs.filter((config) => !defaultIds.has(config.id))
 
   return [...defaults, ...customConfigs]
 }
 
 function normalizeMockServer(value: unknown): MockServerConfig {
+  if (!canUseMockApi) {
+    return { ...productionMockServer }
+  }
+
   if (!value || typeof value !== 'object') {
     return { ...defaultMockServer }
   }
@@ -145,6 +183,22 @@ function readStoredSettings(): StoredSettings {
   }
 
   try {
+    const electronStoredSettings = readElectronStoredSettings()
+    if (electronStoredSettings) {
+      const parsed = electronStoredSettings as Partial<StoredSettings>
+      const configs = normalizeConfigs(parsed.configs)
+      const activeConfigId =
+        typeof parsed.activeConfigId === 'string' && configs.some((config) => config.id === parsed.activeConfigId)
+          ? parsed.activeConfigId
+          : configs[0]?.id ?? ''
+
+      return {
+        activeConfigId,
+        configs,
+        mockServer: normalizeMockServer(parsed.mockServer)
+      }
+    }
+
     const raw = localStorage.getItem(settingsStorageKey)
     if (!raw) {
       return fallback
@@ -171,8 +225,9 @@ function writeStoredSettings(settings: StoredSettings) {
   try {
     localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
   } catch {
-    // localStorage can be unavailable in restricted runtimes.
   }
+
+  void writeElectronStoredSettings(settings)
 }
 
 export function useLightyearBanana(runtime: RuntimeName) {
@@ -203,20 +258,19 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
   const windowDeployState = shallowRef<WindowDeployState>({ status: 'idle', message: '' })
   const toastMessage = shallowRef('')
-  const generationLoading = reactive<GenerationLoadingState>({
-    active: false,
-    references: [],
-    prompt: '',
-    elapsedSeconds: 0
-  })
+  const generationLoading = shallowRef<GenerationLoadingState[]>([])
   const mockServer = reactive<MockServerConfig>(storedSettings.mockServer)
+  const effectiveMockServer = computed(() => readEffectiveMockServer(mockServer))
   let toastTimer: ReturnType<typeof setTimeout> | undefined
   let bridgeStatusTimer: ReturnType<typeof setInterval> | undefined
   let removeBridgeListener: (() => void) | undefined
   let generationTimer: ReturnType<typeof setInterval> | undefined
+  let settingsTestResetTimer: ReturnType<typeof setTimeout> | undefined
+  const generationControllers = new Map<string, AbortController>()
+  const generationStartedAt = new Map<string, number>()
 
   const settingsDraft = reactive<ModelConfig>({
-    ...initialConfig
+    ...cloneModelConfig(initialConfig)
   })
 
   const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
@@ -232,12 +286,12 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const canSend = computed(() => Boolean(prompt.value.trim()) || references.value.length > 0)
 
   watch(
-    [configs, activeConfigId, () => mockServer.enabled, () => mockServer.baseUrl],
+    [configs, activeConfigId, () => effectiveMockServer.value.enabled, () => effectiveMockServer.value.baseUrl],
     () => {
       writeStoredSettings({
         activeConfigId: activeConfigId.value,
-        configs: configs.value.map((config) => ({ ...config })),
-        mockServer: { ...mockServer }
+        configs: configs.value.map(cloneModelConfig),
+        mockServer: { ...effectiveMockServer.value }
       })
     },
     { deep: true }
@@ -299,34 +353,106 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }, 1800)
   }
 
-  function stopGenerationLoading() {
+  function clearSettingsTestResetTimer() {
+    if (settingsTestResetTimer) {
+      clearTimeout(settingsTestResetTimer)
+      settingsTestResetTimer = undefined
+    }
+  }
+
+  function setSettingsTestState(nextState: SettingsTestState, options: { resetAfterMs?: number } = {}) {
+    clearSettingsTestResetTimer()
+    settingsTestState.value = nextState
+
+    if (!options.resetAfterMs) {
+      return
+    }
+
+    settingsTestResetTimer = setTimeout(() => {
+      settingsTestState.value = { status: 'idle', message: '' }
+      settingsTestResetTimer = undefined
+    }, options.resetAfterMs)
+  }
+
+  function updateGenerationElapsed() {
+    generationLoading.value = generationLoading.value.map((task) => ({
+      ...task,
+      elapsedSeconds: Math.floor((Date.now() - (generationStartedAt.get(task.id) ?? Date.now())) / 1000)
+    }))
+  }
+
+  function clearGenerationTimerIfIdle() {
+    if (generationLoading.value.length || !generationTimer) {
+      return
+    }
+
+    clearInterval(generationTimer)
+    generationTimer = undefined
+  }
+
+  function ensureGenerationTimer() {
+    if (generationTimer) {
+      return
+    }
+
+    generationTimer = setInterval(updateGenerationElapsed, 250)
+  }
+
+  function clearAllGenerationLoading() {
     if (generationTimer) {
       clearInterval(generationTimer)
       generationTimer = undefined
     }
 
-    generationLoading.active = false
-    generationLoading.references = []
-    generationLoading.prompt = ''
-    generationLoading.elapsedSeconds = 0
+    generationControllers.forEach((controller) => controller.abort())
+    generationControllers.clear()
+    generationStartedAt.clear()
+    generationLoading.value = []
   }
 
   function startGenerationLoading(cleanPrompt: string, sentReferences: ReferenceImage[]) {
-    stopGenerationLoading()
+    const id = createId('generation')
     const startedAt = Date.now()
-    generationLoading.active = true
-    generationLoading.references = sentReferences
-    generationLoading.prompt = cleanPrompt
-    generationLoading.elapsedSeconds = 0
-    generationTimer = setInterval(() => {
-      generationLoading.elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000)
-    }, 250)
+    generationStartedAt.set(id, startedAt)
+    generationLoading.value = [
+      ...generationLoading.value,
+      {
+        id,
+        references: sentReferences,
+        prompt: cleanPrompt,
+        elapsedSeconds: 0
+      }
+    ]
+    ensureGenerationTimer()
+    return id
+  }
+
+  function stopGenerationLoading(id: string) {
+    generationControllers.delete(id)
+    generationStartedAt.delete(id)
+    generationLoading.value = generationLoading.value.filter((task) => task.id !== id)
+    clearGenerationTimerIfIdle()
+  }
+
+  function readGenerationElapsed(taskId: string, fallbackStartedAt: number) {
+    return Math.max(1, Math.round((Date.now() - (generationStartedAt.get(taskId) ?? fallbackStartedAt)) / 1000))
+  }
+
+  function cancelGeneration(taskId: string) {
+    const controller = generationControllers.get(taskId)
+    if (!controller || controller.signal.aborted) {
+      return
+    }
+
+    controller.abort()
+    status.value = '已取消生成'
+    showToast('已取消生成')
   }
 
   function resetSettingsDraft(configId = editingConfigId.value) {
     const source = configs.value.find((config) => config.id === configId) ?? activeConfig.value
     editingConfigId.value = source.id
-    Object.assign(settingsDraft, source)
+    Object.assign(settingsDraft, cloneModelConfig(source))
   }
 
   function refreshDocument() {
@@ -395,7 +521,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
         const image = canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureVisible'))
           : canUsePhotoshop.value
-            ? await canvasPrimitiveService.captureVisibleImage()
+            ? await canvasPrimitiveService.captureVisibleReferenceImage()
             : createMockCanvasImage(createId('visible'), '可见图层', 'blue')
         addReferenceImage(source, image)
         return
@@ -405,7 +531,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
         const image = canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureSelection'))
           : canUsePhotoshop.value
-            ? await canvasPrimitiveService.captureSelectionImage()
+            ? await canvasPrimitiveService.captureSelectionReferenceImage()
             : createMockCanvasImage(createId('selection'), '选区', 'green', 280, 220)
         addReferenceImage(source, image)
         return
@@ -415,7 +541,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
         const image = canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureLayer'))
           : canUsePhotoshop.value
-            ? await canvasPrimitiveService.captureSelectedLayerImage()
+            ? await canvasPrimitiveService.captureSelectedLayerReferenceImage()
             : createMockCanvasImage(createId('layer'), '选择图层', 'amber', 320, 260)
         addReferenceImage(source, image)
         return
@@ -440,20 +566,40 @@ export function useLightyearBanana(runtime: RuntimeName) {
     size.value = readDefaultSize(capability.sizeOptions)
     quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : capability.qualityOptions[0] ?? '自动'
     count.value = capability.countOptions.includes(count.value) ? count.value : capability.countOptions[0] ?? 1
-    ratio.value = capability.ratioOptions.includes(ratio.value) ? ratio.value : '原图比例'
+    ratio.value = capability.ratioOptions.includes(ratio.value)
+      ? ratio.value
+      : capability.ratioOptions.includes('原图比例')
+        ? '原图比例'
+        : capability.ratioOptions[0] ?? ratio.value
   }
 
-  async function buildGeneratedImagesFromApi(apiImages: Array<{ previewUrl: string; label: string }>) {
+  async function buildGeneratedImagesFromApi(apiImages: Array<{ previewUrl: string; label: string }>, modelConfigId: string) {
     return Promise.all(
       apiImages.map((apiImage, index) =>
         createCanvasImageFromApiAsset({
           id: createId(`generated-${index + 1}`),
           label: apiImage.label,
-          modelConfigId: activeConfig.value.id,
+          modelConfigId,
           previewUrl: apiImage.previewUrl
         })
       )
     )
+  }
+
+  async function readCanvasSizeForRequest() {
+    if (ratio.value !== '画布比例') {
+      return undefined
+    }
+
+    if (canUseElectronBridge.value) {
+      return invokeElectronBridge<{ width: number; height: number }>('canvas.readSize')
+    }
+
+    if (canUsePhotoshop.value) {
+      return canvasPrimitiveService.readCanvasSize()
+    }
+
+    return undefined
   }
 
   async function sendPrompt() {
@@ -465,56 +611,94 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
     const requestPrompt = cleanPrompt || '根据参考图生成'
     const sentReferences = references.value.map((reference) => ({ ...reference }))
+    const requestConfig = cloneModelConfig(activeConfig.value)
+    const requestCapability = readProviderCapability(requestConfig)
+    const requestCount = count.value
+    const requestQuality = quality.value
+    const requestRatio = ratio.value
+    const requestSize = size.value
+    const requestMockServer = readGenerationMockServer(requestConfig.provider, effectiveMockServer.value)
+    let requestCanvasSize: { width: number; height: number } | undefined
 
-    if (!mockServer.enabled && !activeConfig.value.apiKey.trim()) {
+    if (providerRequiresApiKey(requestConfig.provider) && !requestMockServer.enabled && !requestConfig.apiKey.trim()) {
       status.value = '请输入 API Key'
       showToast('请输入 API Key')
       return
     }
 
-    if (activeCapability.value.supportsBaseUrl && !activeConfig.value.baseUrl.trim() && !mockServer.enabled) {
+    if (requestCapability.supportsBaseUrl && !requestConfig.baseUrl.trim() && !requestMockServer.enabled) {
       status.value = '请输入 Base URL'
       showToast('请输入 Base URL')
       return
     }
 
+    try {
+      requestCanvasSize = await readCanvasSizeForRequest()
+    } catch (error) {
+      const message = readErrorMessage(error, '无法读取画布比例')
+      status.value = message
+      showToast(message)
+      return
+    }
+
     prompt.value = ''
     references.value = []
-    startGenerationLoading(requestPrompt, sentReferences)
-    await runAction(async () => {
-      const startedAt = Date.now()
+    const startedAt = Date.now()
+    const taskId = startGenerationLoading(requestPrompt, sentReferences)
+    const abortController = new AbortController()
+    generationControllers.set(taskId, abortController)
+    status.value = '正在生成'
+
+    void (async () => {
       try {
         const results = await buildGeneratedImagesFromApi(
           await generateImagesWithProvider({
-            config: activeConfig.value,
-            count: count.value,
-            mockServer: { ...mockServer },
+            config: requestConfig,
+            count: requestCount,
+            canvasSize: requestCanvasSize,
+            mockServer: requestMockServer,
             prompt: requestPrompt,
-            quality: quality.value,
-            ratio: ratio.value,
+            quality: requestQuality,
+            ratio: requestRatio,
             references: sentReferences,
-            size: size.value
-          })
+            signal: abortController.signal,
+            size: requestSize
+          }),
+          requestConfig.id
         )
         const turn: ChatTurn = {
           id: createId('turn'),
           prompt: requestPrompt,
           references: sentReferences,
-          responseText: `${activeConfig.value.name} 已生成 ${results.length} 张图`,
-          elapsedLabel: `耗费 ${Math.max(1, Math.round((Date.now() - startedAt) / 1000))}s`,
+          responseText: `${requestConfig.name} 已生成 ${results.length} 张图`,
+          elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
           results
         }
 
         turns.value = [...turns.value, turn]
         status.value = '生成完成'
       } catch (error) {
+        if (abortController.signal.aborted) {
+          const canceledTurn: ChatTurn = {
+            id: createId('turn'),
+            prompt: requestPrompt,
+            references: sentReferences,
+            responseText: '已取消生成',
+            elapsedLabel: `已取消 · ${readGenerationElapsed(taskId, startedAt)}s`,
+            results: []
+          }
+
+          turns.value = [...turns.value, canceledTurn]
+          return
+        }
+
         const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
         const failedTurn: ChatTurn = {
           id: createId('turn'),
           prompt: requestPrompt,
           references: sentReferences,
           responseText: message,
-          elapsedLabel: `失败 · ${Math.max(1, Math.round((Date.now() - startedAt) / 1000))}s`,
+          elapsedLabel: `失败 · ${readGenerationElapsed(taskId, startedAt)}s`,
           results: [],
           tone: 'error'
         }
@@ -522,11 +706,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
         turns.value = [...turns.value, failedTurn]
         status.value = message
         showToast(message)
-        throw new Error(message)
       } finally {
-        stopGenerationLoading()
+        stopGenerationLoading(taskId)
       }
-    })
+    })()
   }
 
   async function placeImage(image: GeneratedImage, target: PlacementTarget) {
@@ -610,7 +793,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     if (configId) {
       const source = configs.value.find((config) => config.id === configId) ?? activeConfig.value
       editingConfigId.value = source.id
-      Object.assign(settingsDraft, source)
+      Object.assign(settingsDraft, cloneModelConfig(source))
     }
     activeView.value = 'settings'
   }
@@ -632,7 +815,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
 
     editingConfigId.value = source.id
-    Object.assign(settingsDraft, source)
+    Object.assign(settingsDraft, cloneModelConfig(source))
     settingsDraftIsNew.value = false
     settingsView.value = 'detail'
   }
@@ -645,7 +828,8 @@ export function useLightyearBanana(runtime: RuntimeName) {
       model: 'custom-image-model',
       apiKey: '',
       baseUrl: '',
-      enabled: true
+      enabled: true,
+      comfyUi: undefined
     }
 
     editingConfigId.value = next.id
@@ -656,11 +840,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
   function saveConfig() {
     if (settingsDraftIsNew.value) {
-      configs.value = [...configs.value, { ...settingsDraft, id: editingConfigId.value }]
+      configs.value = [...configs.value, cloneModelConfig({ ...settingsDraft, id: editingConfigId.value })]
       settingsDraftIsNew.value = false
     } else {
       configs.value = configs.value.map((config) =>
-        config.id === editingConfigId.value ? { ...settingsDraft, id: editingConfigId.value } : config
+        config.id === editingConfigId.value ? cloneModelConfig({ ...settingsDraft, id: editingConfigId.value }) : config
       )
     }
     settingsView.value = 'list'
@@ -670,7 +854,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
   function toggleConfigEnabled(enabled: boolean) {
     settingsDraft.enabled = enabled
-    settingsTestState.value = { status: 'idle', message: '' }
+    setSettingsTestState({ status: 'idle', message: '' })
 
     if (settingsDraftIsNew.value) {
       return
@@ -715,27 +899,55 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
   async function testConfig() {
     const capability = providerCapabilities[settingsDraft.provider]
-    if (!mockServer.enabled && !settingsDraft.apiKey.trim()) {
-      settingsTestState.value = { status: 'error', message: '请输入 API Key' }
+
+    if (settingsDraft.provider === 'codex-image-server') {
+      if (!settingsDraft.baseUrl.trim()) {
+        setSettingsTestState({ status: 'error', message: '请输入 Base URL' }, { resetAfterMs: 3000 })
+        status.value = '请输入 Base URL'
+        return
+      }
+
+      setSettingsTestState({ status: 'testing', message: '正在测试本机服务' })
+      status.value = '正在测试本机服务'
+
+      try {
+        await testImageConfig({ ...settingsDraft, apiKey: '' }, { enabled: false, baseUrl: '' })
+      } catch (error) {
+        const rawMessage = error instanceof Error ? error.message : ''
+        const message = /api key|token|unauthorized|401/i.test(rawMessage)
+          ? '本机服务未接受当前请求'
+          : rawMessage || '本机服务不可用'
+        setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
+        status.value = message
+        return
+      }
+
+      setSettingsTestState({ status: 'success', message: '本机服务可用' }, { resetAfterMs: 3000 })
+      status.value = '本机服务可用'
+      return
+    }
+
+    if (providerRequiresApiKey(settingsDraft.provider) && !effectiveMockServer.value.enabled && !settingsDraft.apiKey.trim()) {
+      setSettingsTestState({ status: 'error', message: '请输入 API Key' }, { resetAfterMs: 3000 })
       status.value = '请输入 API Key'
       return
     }
 
-    if (capability.supportsBaseUrl && !settingsDraft.baseUrl.trim() && !mockServer.enabled) {
-      settingsTestState.value = { status: 'error', message: '请输入 Base URL' }
+    if (capability.supportsBaseUrl && !settingsDraft.baseUrl.trim() && !effectiveMockServer.value.enabled) {
+      setSettingsTestState({ status: 'error', message: '请输入 Base URL' }, { resetAfterMs: 3000 })
       status.value = '请输入 Base URL'
       return
     }
 
-    settingsTestState.value = { status: 'testing', message: '正在测试 API' }
+    setSettingsTestState({ status: 'testing', message: '正在测试 API' })
     status.value = '正在测试 API'
 
-    if (mockServer.enabled) {
+    if (effectiveMockServer.value.enabled || settingsDraft.provider === 'comfyui' || !canUseMockApi) {
       try {
-        await testImageConfig({ ...settingsDraft }, { ...mockServer })
+        await testImageConfig({ ...settingsDraft }, { ...effectiveMockServer.value })
       } catch (error) {
         const message = error instanceof Error ? error.message : 'API 配置不可用'
-        settingsTestState.value = { status: 'error', message }
+        setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
         status.value = message
         return
       }
@@ -744,19 +956,25 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
       const mockShouldFail = /fail|error/i.test(`${settingsDraft.apiKey} ${settingsDraft.baseUrl}`)
       if (mockShouldFail) {
-        settingsTestState.value = { status: 'error', message: 'API 配置不可用' }
+        setSettingsTestState({ status: 'error', message: 'API 配置不可用' }, { resetAfterMs: 3000 })
         status.value = 'API 配置不可用'
         return
       }
     }
 
-    settingsTestState.value = { status: 'success', message: 'API 配置可用' }
+    setSettingsTestState({ status: 'success', message: 'API 配置可用' }, { resetAfterMs: 3000 })
     status.value = 'API 配置可用'
   }
 
   function updateMockServer(patch: Partial<MockServerConfig>) {
+    if (!canUseMockApi) {
+      Object.assign(mockServer, productionMockServer)
+      setSettingsTestState({ status: 'idle', message: '' })
+      return
+    }
+
     Object.assign(mockServer, patch)
-    settingsTestState.value = { status: 'idle', message: '' }
+    setSettingsTestState({ status: 'idle', message: '' })
   }
 
   async function deployWindows(side: WindowDeploySide) {
@@ -811,11 +1029,19 @@ export function useLightyearBanana(runtime: RuntimeName) {
     if (patch.provider && patch.provider !== settingsDraft.provider) {
       const capability = providerCapabilities[patch.provider]
       patch.model = capability.modelOptions[0] ?? settingsDraft.model
-      patch.baseUrl = capability.supportsBaseUrl ? settingsDraft.baseUrl : ''
+      patch.baseUrl = readDefaultBaseUrl(patch.provider, settingsDraft.baseUrl)
+      patch.apiKey = providerRequiresApiKey(patch.provider) ? settingsDraft.apiKey : ''
+      patch.comfyUi = patch.provider === 'comfyui' ? createDefaultComfyUiSettings() : undefined
     }
 
     Object.assign(settingsDraft, patch)
-    settingsTestState.value = { status: 'idle', message: '' }
+    setSettingsTestState({ status: 'idle', message: '' })
+
+    if (!settingsDraftIsNew.value) {
+      configs.value = configs.value.map((config) =>
+        config.id === editingConfigId.value ? cloneModelConfig({ ...settingsDraft, id: editingConfigId.value }) : config
+      )
+    }
   }
 
   if (isElectronRuntime) {
@@ -837,8 +1063,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
     if (bridgeStatusTimer) {
       clearInterval(bridgeStatusTimer)
     }
+    clearSettingsTestResetTimer()
     removeBridgeListener?.()
-    stopGenerationLoading()
+    clearAllGenerationLoading()
   })
 
   return {
@@ -849,6 +1076,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     busy,
     canAddReference,
     canSend,
+    cancelGeneration,
     canUsePhotoshop,
     clearReferences,
     closeSettingsDetail,
@@ -864,7 +1092,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     enabledConfigs,
     generationLoading,
     installPluginUrl,
-    mockServer,
+    mockServer: effectiveMockServer,
     openMacPermissionSettings,
     openSettings,
     placeImage,

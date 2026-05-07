@@ -13,6 +13,7 @@
 | Qwen-Image 阿里系 | `qwen-image-2.0-pro` 文生图 | 文生图无参考图 | 1-6 张 | 总像素 `512*512` 到 `2048*2048` | DashScope / 百炼 multimodal generation | 官方 |
 | Qwen-Image Edit 阿里系 | `qwen-image-2.0-pro`、`qwen-image-edit-max`、`qwen-image-edit-plus` | 1-3 张 | 1-6 张；旧 `qwen-image-edit` 固定 1 张 | 2.0 总像素 `512*512` 到 `2048*2048`；edit max/plus 宽高 `[512,2048]` | DashScope / 百炼 multimodal generation | 官方 |
 | OpenAI | `gpt-image-2` | 多图编辑已支持；按 GPT Image edit 接口保守按 16 张设计 | 1-10 张 | `auto`、`1024x1024`、`1536x1024`、`1024x1536` | `/v1/images/generations`、`/v1/images/edits` | 官方 |
+| Codex Image Server | `gpt-image-2` | 可随请求附带参考图 | 1 张 | `auto`、`4k` + `landscape`/`portrait`/`square` | 本机 `POST /v1/images/generate` | 本地约定 |
 | Gemini / Nano Banana | `gemini-2.5-flash-image` | 3 张 | 最多 10 张 | 固定约 1024px 档，多种比例 | `models/{model}:generateContent` | 官方 |
 | Gemini / Nano Banana 2 | `gemini-3.1-flash-image-preview` | 14 张 | 受输出 token 限制 | 1K/2K/4K，多种比例 | `models/{model}:generateContent` | 官方 |
 | Gemini / Nano Banana Pro | `gemini-3-pro-image-preview` | 14 张 | 受输出 token 限制 | 最高 4K | `models/{model}:generateContent` | 官方 |
@@ -24,7 +25,7 @@
 抽象统一请求结构时，建议先用下面这组字段：
 
 ```ts
-type ImageProvider = 'openai' | 'gemini' | 'seedream' | 'qwen' | 'kling' | 'flux'
+type ImageProvider = 'openai' | 'gemini' | 'seedream' | 'qwen' | 'kling' | 'flux' | 'codex-image-server'
 
 type ImageGenerationRequest = {
   provider: ImageProvider
@@ -54,6 +55,7 @@ type ImageGenerationRequest = {
 - Qwen 和 Kling 的百炼接口使用 `input.messages[0].content[]`，图片对象是 `{"image": "url-or-base64"}`。
 - BFL 使用 `input_image`、`input_image_2`、`input_image_3` 这样的编号字段。
 - Seedream 在 ModelArk 中是图像生成 API 模型，规格更接近“文本 + 单图/多图输入 + 图组控制”。
+- Codex Image Server 生成后返回本机文件 URL，前端读取图片并转成可展示资源；参考图作为 `references` 可选字段随生成请求发送。
 
 ## OpenAI GPT Image 2
 

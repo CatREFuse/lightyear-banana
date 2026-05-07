@@ -99,6 +99,28 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
       }
     }
   },
+  comfyui: {
+    id: 'comfyui',
+    name: '本地 ComfyUI',
+    modelOptions: ['workflow-api-json'],
+    referenceLimit: 8,
+    sizeOptions: ['按工作流'],
+    qualityOptions: ['按工作流'],
+    countOptions: [1],
+    ratioOptions: ['按工作流'],
+    supportsBaseUrl: true
+  },
+  'codex-image-server': {
+    id: 'codex-image-server',
+    name: 'Codex Image Server',
+    modelOptions: ['gpt-image-2'],
+    referenceLimit: 16,
+    sizeOptions: ['auto', '1024x1024', '1536x1024', '1024x1536', '2048x2048', '2048x1152', '1152x2048', '4K'],
+    qualityOptions: ['自动', '高', '中', '低'],
+    countOptions: [1, 2, 3, 4],
+    ratioOptions: ['参考图比例', '画布比例', '1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '4:5', '5:4', '21:9'],
+    supportsBaseUrl: true
+  },
   'custom-openai': {
     id: 'custom-openai',
     name: '自定义 BaseURL（OpenAI 兼容）',
@@ -117,6 +139,10 @@ export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'm
   const override = capability.modelOverrides?.[config.model]
 
   return override ? { ...capability, ...override } : capability
+}
+
+export function providerRequiresApiKey(provider: ImageProviderId) {
+  return provider !== 'comfyui' && provider !== 'codex-image-server'
 }
 
 export const defaultModelConfigs: ModelConfig[] = [
@@ -172,6 +198,24 @@ export const defaultModelConfigs: ModelConfig[] = [
     model: 'flux-2-pro-preview',
     apiKey: '',
     baseUrl: '',
+    enabled: false
+  },
+  {
+    id: 'local-comfyui',
+    name: '本地 ComfyUI',
+    provider: 'comfyui',
+    model: 'workflow-api-json',
+    apiKey: '',
+    baseUrl: 'http://127.0.0.1:8000',
+    enabled: true
+  },
+  {
+    id: 'codex-image-server',
+    name: 'Codex Image Server',
+    provider: 'codex-image-server',
+    model: 'gpt-image-2',
+    apiKey: '',
+    baseUrl: 'http://127.0.0.1:17341',
     enabled: false
   },
   {

@@ -5,11 +5,12 @@ import BoxIcon from './BoxIcon.vue'
 import ReferenceThumb from './ReferenceThumb.vue'
 
 const props = defineProps<{
-  loading: GenerationLoadingState
+  loading: GenerationLoadingState[]
   turns: ChatTurn[]
 }>()
 
 const emit = defineEmits<{
+  cancel: [taskId: string]
   place: [image: GeneratedImage, target: PlacementTarget]
   reference: [image: GeneratedImage]
   upscale: [image: GeneratedImage]
@@ -83,7 +84,7 @@ function placeImage(image: GeneratedImage, target: PlacementTarget) {
 }
 
 watch(
-  () => [props.turns.length, props.loading.active] as const,
+  () => [props.turns.length, props.loading.length] as const,
   async () => {
     await nextTick()
     threadRef.value?.scrollTo({
@@ -97,7 +98,7 @@ watch(
 <template>
   <section ref="thread" class="thread" aria-label="当前对话" @click="closePlacementMenu">
     <Transition name="empty-fade">
-      <div v-if="turns.length === 0 && !loading.active" class="empty-state">
+      <div v-if="turns.length === 0 && loading.length === 0" class="empty-state">
         <BoxIcon name="image" size="15" />
         <span>暂无生成结果</span>
       </div>
@@ -165,24 +166,25 @@ watch(
       </article>
     </TransitionGroup>
 
-    <article v-if="loading.active" class="turn loading-turn" aria-live="polite">
+    <article v-for="task in loading" :key="task.id" class="turn loading-turn" aria-live="polite">
       <section class="user-message">
-        <div v-if="loading.references.length" class="sent-reference-row">
+        <div v-if="task.references.length" class="sent-reference-row">
           <ReferenceThumb
-            v-for="(reference, index) in loading.references"
+            v-for="(reference, index) in task.references"
             :key="reference.id"
             :index="index + 1"
             :reference="reference"
             size="small"
           />
         </div>
-        <p>{{ loading.prompt }}</p>
+        <p>{{ task.prompt }}</p>
       </section>
 
       <section class="assistant-message loading-message">
         <div class="loading-row">
           <span class="loading-spinner" aria-hidden="true"></span>
-          <span>正在生成中... {{ loading.elapsedSeconds }}s</span>
+          <span>正在生成中... {{ task.elapsedSeconds }}s</span>
+          <button class="cancel-generation" type="button" @click="emit('cancel', task.id)">取消</button>
         </div>
       </section>
     </article>
@@ -275,6 +277,21 @@ watch(
   font-size: 12px;
   line-height: 1;
   white-space: nowrap;
+}
+
+.cancel-generation {
+  min-height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--lb-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lb-secondary);
+  font-size: 11px;
+}
+
+.cancel-generation:hover {
+  border-color: var(--lb-border-strong);
+  color: var(--lb-text);
 }
 
 .loading-spinner {

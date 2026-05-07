@@ -27,6 +27,13 @@ function run(command, args) {
   })
 }
 
+function archiveAppBundle(bundlePath, destinationPath) {
+  execFileSync('ditto', ['--norsrc', '-c', '-k', '--keepParent', bundlePath, destinationPath], {
+    cwd: projectRoot,
+    stdio: 'inherit'
+  })
+}
+
 function generateBananaIcon() {
   const iconWorkDir = path.join(projectRoot, 'dist', 'electron-icon')
   const sourcePng = path.join(iconWorkDir, 'banana-1024.png')
@@ -88,9 +95,19 @@ cpSync(path.join(projectRoot, 'electron'), path.join(appResourcesDir, 'electron'
 
 const sourceDist = path.join(projectRoot, 'dist')
 const packagedDist = path.join(appResourcesDir, 'dist')
+const sourceMockImages = path.join(projectRoot, 'public', 'mock-images')
+const distMockImages = path.join(sourceDist, 'mock-images')
+rmSync(distMockImages, { force: true, recursive: true })
+cpSync(sourceMockImages, distMockImages, { recursive: true })
 mkdirSync(packagedDist, { recursive: true })
 for (const entry of readdirSync(sourceDist)) {
-  if (entry === 'mac') {
+  if (
+    entry === 'mac' ||
+    entry === 'electron-icon' ||
+    entry === 'ps-uxp' ||
+    entry.endsWith('.ccx') ||
+    entry.endsWith('.zip')
+  ) {
     continue
   }
 
@@ -140,6 +157,6 @@ try {
   console.warn('codesign skipped. The app was packaged but may need local approval before launch.')
 }
 
-run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', appPath, archivePath])
+archiveAppBundle(appPath, archivePath)
 console.log(`Electron macOS app packaged: ${appPath}`)
 console.log(`Electron macOS archive packaged: ${archivePath}`)

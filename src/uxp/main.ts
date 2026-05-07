@@ -11,7 +11,7 @@ type BridgeMessage<T = unknown> = {
 }
 
 type SerializedCanvasImage = Omit<CapturedCanvasImage, 'rgba'> & {
-  rgba: number[] | Record<string, number>
+  rgba: string | number[] | Record<string, number>
 }
 
 const LOG_PREFIX = '[Lightyear Banana UXP Bridge]'
@@ -386,6 +386,10 @@ async function requestBridge(path: string, init: RequestInit = {}) {
 }
 
 function readRgba(value: SerializedCanvasImage['rgba']) {
+  if (typeof value === 'string') {
+    return base64ToBytes(value)
+  }
+
   if (Array.isArray(value)) {
     return new Uint8Array(value)
   }
@@ -398,10 +402,20 @@ function readRgba(value: SerializedCanvasImage['rgba']) {
   return new Uint8Array(keys.map((key) => value[String(key)] ?? 0))
 }
 
-function serializeCanvasImage(image: CapturedCanvasImage) {
+function base64ToBytes(value: string) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+
+  return bytes
+}
+
+function serializeReferenceImage(image: CapturedCanvasImage) {
   return {
     ...image,
-    rgba: Array.from(image.rgba)
+    rgba: ''
   }
 }
 
@@ -441,13 +455,15 @@ async function buildCommandResponse(message: BridgeMessage) {
     if (message.type === 'photoshop.status') {
       payload = readDocumentStatus()
     } else if (message.type === 'canvas.captureVisible') {
-      payload = serializeCanvasImage(await canvasPrimitiveService.captureVisibleImage())
+      payload = serializeReferenceImage(await canvasPrimitiveService.captureVisibleReferenceImage())
     } else if (message.type === 'canvas.captureSelection') {
-      payload = serializeCanvasImage(await canvasPrimitiveService.captureSelectionImage())
+      payload = serializeReferenceImage(await canvasPrimitiveService.captureSelectionReferenceImage())
     } else if (message.type === 'canvas.captureLayer') {
-      payload = serializeCanvasImage(await canvasPrimitiveService.captureSelectedLayerImage())
+      payload = serializeReferenceImage(await canvasPrimitiveService.captureSelectedLayerReferenceImage())
     } else if (message.type === 'canvas.placeImage') {
       payload = await placeImage(message.payload)
+    } else if (message.type === 'canvas.readSize') {
+      payload = canvasPrimitiveService.readCanvasSize()
     } else if (message.type === 'canvas.createLayer') {
       await createNamedLayer()
       payload = { ok: true }

@@ -22,6 +22,8 @@ type PhotoshopImageResult = {
     width: number
     height: number
     components: number
+    pixelFormat?: string
+    hasAlpha?: boolean
     getData: () => Promise<Uint8Array | Uint16Array | Float32Array>
     dispose: () => void
   }
@@ -59,7 +61,6 @@ type PhotoshopRuntime = {
 }
 
 const COLOR_PROFILE = 'sRGB IEC61966-2.1'
-
 type PhotoshopLayer = {
   id: number
   name?: string
@@ -79,7 +80,7 @@ function getPhotoshop(): PhotoshopRuntime {
 async function executePhotoshopModal<T>(commandName: string, targetFunction: () => Promise<T>) {
   const photoshop = getPhotoshop()
 
-  return photoshop.core.executeAsModal(targetFunction, { commandName, timeOut: 5 })
+  return photoshop.core.executeAsModal(targetFunction, { commandName, timeOut: 120 })
 }
 
 function getDocumentBounds(doc: { width: number; height: number }): PixelBounds {
@@ -182,6 +183,10 @@ function requireUint8(data: Uint8Array | Uint16Array | Float32Array): Uint8Array
   }
 
   throw new Error('当前验证模型只处理 8-bit 图像')
+}
+
+function readErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function toRgba(data: Uint8Array, width: number, height: number, components: number) {
@@ -433,6 +438,22 @@ async function encodeRgbaPreview(photoshop: PhotoshopRuntime, rgba: Uint8Array, 
   }
 }
 
+async function encodeImageResult(photoshop: PhotoshopRuntime, result: PhotoshopImageResult) {
+  let base64: string
+  try {
+    base64 = await photoshop.imaging.encodeImageData({
+      imageData: result.imageData,
+      base64: true
+    })
+  } catch (error) {
+    throw new Error(
+      `参考图编码失败：${readErrorMessage(error)}。图像格式 ${result.imageData.pixelFormat ?? 'unknown'}，通道 ${result.imageData.components}。`
+    )
+  }
+
+  return `data:image/jpeg;base64,${base64}`
+}
+
 async function getCompositePixels(bounds?: PixelBounds) {
   const photoshop = getPhotoshop()
   const doc = photoshop.app.activeDocument
@@ -451,6 +472,31 @@ async function getCompositePixels(bounds?: PixelBounds) {
 
     return {
       rgba,
+      width: result.imageData.width,
+      height: result.imageData.height,
+      sourceBounds: imageResultBounds(result, sourceBounds)
+    }
+  } finally {
+    result.imageData.dispose()
+  }
+}
+
+async function getCompositeReference(bounds?: PixelBounds) {
+  const photoshop = getPhotoshop()
+  const doc = photoshop.app.activeDocument
+  const documentBounds = getDocumentBounds(doc)
+  const sourceBounds = bounds ?? documentBounds
+  const result = await photoshop.imaging.getPixels({
+    documentID: doc.id,
+    sourceBounds,
+    colorSpace: 'RGB',
+    componentSize: 8,
+    applyAlpha: true
+  })
+
+  try {
+    return {
+      previewUrl: await encodeImageResult(photoshop, result),
       width: result.imageData.width,
       height: result.imageData.height,
       sourceBounds: imageResultBounds(result, sourceBounds)
@@ -527,6 +573,38 @@ async function getLayerPixels(layer: PhotoshopLayer, bounds?: PixelBounds) {
   }
 }
 
+async function getLayerReference(layer: PhotoshopLayer, bounds?: PixelBounds) {
+  const photoshop = getPhotoshop()
+  const doc = photoshop.app.activeDocument
+  const documentBounds = getDocumentBounds(doc)
+  const layerBounds = getLayerSourceBounds(layer, documentBounds)
+  const sourceBounds = bounds && layerBounds ? intersectBounds(layerBounds, bounds) : layerBounds
+
+  if (!sourceBounds) {
+    throw new Error('选中图层没有可读取的像素')
+  }
+
+  const result = await photoshop.imaging.getPixels({
+    documentID: doc.id,
+    layerID: layer.id,
+    sourceBounds,
+    colorSpace: 'RGB',
+    componentSize: 8,
+    applyAlpha: true
+  })
+
+  try {
+    return {
+      previewUrl: await encodeImageResult(photoshop, result),
+      width: result.imageData.width,
+      height: result.imageData.height,
+      sourceBounds: imageResultBounds(result, sourceBounds)
+    }
+  } finally {
+    result.imageData.dispose()
+  }
+}
+
 export async function captureVisibleComposite(): Promise<CapturedCanvasImage> {
   return executePhotoshopModal('抓取可见图像', async () => {
     const photoshop = getPhotoshop()
@@ -541,6 +619,22 @@ export async function captureVisibleComposite(): Promise<CapturedCanvasImage> {
       sourceBounds: captured.sourceBounds,
       previewUrl,
       rgba: captured.rgba
+    }
+  })
+}
+
+export async function captureVisibleReference(): Promise<CapturedCanvasImage> {
+  return executePhotoshopModal('抓取可见图像', async () => {
+    const captured = await getCompositeReference()
+
+    return {
+      id: `visible-${Date.now()}`,
+      label: '可见图像',
+      width: captured.width,
+      height: captured.height,
+      sourceBounds: captured.sourceBounds,
+      previewUrl: captured.previewUrl,
+      rgba: new Uint8Array()
     }
   })
 }
@@ -565,6 +659,29 @@ export async function captureSelectedLayer(): Promise<CapturedCanvasImage> {
       sourceBounds: captured.sourceBounds,
       previewUrl,
       rgba: captured.rgba
+    }
+  })
+}
+
+export async function captureSelectedLayerReference(): Promise<CapturedCanvasImage> {
+  return executePhotoshopModal('抓取选中图层', async () => {
+    const photoshop = getPhotoshop()
+    const layer = photoshop.app.activeDocument.activeLayers[0]
+
+    if (!layer) {
+      throw new Error('当前没有选中图层')
+    }
+
+    const captured = await getLayerReference(layer)
+
+    return {
+      id: `layer-${layer.id}-${Date.now()}`,
+      label: layer.name ? `选中图层：${layer.name}` : '选中图层',
+      width: captured.width,
+      height: captured.height,
+      sourceBounds: captured.sourceBounds,
+      previewUrl: captured.previewUrl,
+      rgba: new Uint8Array()
     }
   })
 }

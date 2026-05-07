@@ -3,6 +3,7 @@ import { computed, shallowRef, useTemplateRef } from 'vue'
 import type { ModelConfig, ReferenceImage, ReferenceSource } from '../../types/lightyear'
 import type { ProviderCapability } from '../../types/lightyear'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
+import { providerRequiresApiKey, readProviderCapability } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
 import type { BoxIconName } from './boxIcons'
 import ControlSelect from './ControlSelect.vue'
@@ -14,6 +15,13 @@ type SelectOption = {
   value: string
   label: string
   meta?: string
+  status?: string
+  statusTone?: 'ready' | 'warning' | 'muted'
+}
+
+type ModelStatus = {
+  label: string
+  tone: 'ready' | 'warning' | 'muted'
 }
 
 const props = defineProps<{
@@ -58,12 +66,18 @@ const referenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; labe
 const referenceCountText = computed(() => `${props.references.length} / ${props.activeCapability.referenceLimit}`)
 const hasReferences = computed(() => props.references.length > 0)
 const modelOptions = computed<SelectOption[]>(() =>
-  props.configs.map((config) => ({
-    icon: 'key',
-    value: config.id,
-    label: config.name,
-    meta: config.model
-  }))
+  props.configs.map((config) => {
+    const status = readModelStatus(config)
+
+    return {
+      icon: 'key',
+      value: config.id,
+      label: config.name,
+      meta: config.model,
+      status: status.label,
+      statusTone: status.tone
+    }
+  })
 )
 const sizeOptions = computed<SelectOption[]>(() =>
   props.activeCapability.sizeOptions.map((option) => ({ value: option, label: option }))
@@ -86,6 +100,23 @@ function togglePanel(panel: string) {
 
 function closePanel() {
   openPanel.value = ''
+}
+
+function readModelStatus(config: ModelConfig): ModelStatus {
+  if (!config.enabled) {
+    return { label: '停用', tone: 'muted' }
+  }
+
+  const capability = readProviderCapability(config)
+  if (providerRequiresApiKey(config.provider) && !config.apiKey.trim()) {
+    return { label: '缺少 Key', tone: 'warning' }
+  }
+
+  if (capability.supportsBaseUrl && !config.baseUrl.trim()) {
+    return { label: '缺少 URL', tone: 'warning' }
+  }
+
+  return { label: '可用', tone: 'ready' }
 }
 
 function handlePromptKeydown(event: KeyboardEvent) {
@@ -165,6 +196,7 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
 
     <div class="control-grid">
       <ControlSelect
+        class="model-control"
         icon="key"
         label="模型"
         :options="modelOptions"
@@ -370,6 +402,10 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
+}
+
+.model-control {
+  grid-column: span 2;
 }
 
 .send-button {

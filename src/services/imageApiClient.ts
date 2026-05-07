@@ -1,4 +1,6 @@
-import type { ImageProviderId, MockServerConfig, ModelConfig, ReferenceImage } from '../types/lightyear'
+import { normalizeComfyUiSettings } from '../data/comfyUiDefaults'
+import { canUseMockApi } from '../env/lightyearEnvironment'
+import type { ComfyUiNodeMapping, ImageProviderId, MockServerConfig, ModelConfig, ReferenceImage } from '../types/lightyear'
 
 export type NormalizedImageResult = {
   previewUrl: string
@@ -6,6 +8,7 @@ export type NormalizedImageResult = {
 }
 
 export type ImageGenerationParams = {
+  canvasSize?: { width: number; height: number }
   config: ModelConfig
   count: number
   mockServer: MockServerConfig
@@ -13,6 +16,7 @@ export type ImageGenerationParams = {
   quality: string
   ratio: string
   references: ReferenceImage[]
+  signal?: AbortSignal
   size: string
 }
 
@@ -41,7 +45,12 @@ type BflTaskResponse = {
   polling_url?: string
 }
 
+type ComfyUiPromptResponse = {
+  prompt_id?: string
+}
+
 const providerPaths: Partial<Record<ImageProviderId, string>> = {
+  'codex-image-server': '/v1/images/generate',
   gemini: '/v1beta/models',
   kling: '/api/v1/services/aigc/image-generation/generation',
   openai: '/v1/images/generations',
@@ -51,6 +60,8 @@ const providerPaths: Partial<Record<ImageProviderId, string>> = {
 }
 
 const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
+  'codex-image-server': 'http://127.0.0.1:17341',
+  comfyui: 'http://127.0.0.1:8000',
   gemini: 'https://generativelanguage.googleapis.com',
   kling: 'https://dashscope.aliyuncs.com',
   openai: 'https://api.openai.com',
@@ -97,7 +108,10 @@ async function fetchJson(url: string, init: RequestInit) {
   let response: Response
   try {
     response = await fetch(url, init)
-  } catch {
+  } catch (error) {
+    if (init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError') {
+      throw new ImageApiError('请求已取消', 499)
+    }
     throw new ImageApiError('无法连接 API', 0)
   }
 
@@ -110,19 +124,19 @@ async function fetchJson(url: string, init: RequestInit) {
 }
 
 function resolveBaseUrl(config: ModelConfig, mockServer: MockServerConfig) {
-  if (mockServer.enabled) {
+  if (canUseMockApi && mockServer.enabled) {
     return mockServer.baseUrl
   }
 
-  if (config.provider === 'custom-openai') {
-    return config.baseUrl
+  if (config.provider === 'custom-openai' || config.provider === 'comfyui' || config.provider === 'codex-image-server') {
+    return config.baseUrl || providerBaseUrls[config.provider] || ''
   }
 
   return providerBaseUrls[config.provider] ?? config.baseUrl
 }
 
 function resolveOpenAiLikePath(config: ModelConfig, mockServer: MockServerConfig, hasReferences: boolean) {
-  if (config.provider !== 'custom-openai' || mockServer.enabled) {
+  if (config.provider !== 'custom-openai' || (canUseMockApi && mockServer.enabled)) {
     return hasReferences ? '/v1/images/edits' : providerPaths[config.provider] ?? '/v1/images/generations'
   }
 
@@ -132,6 +146,14 @@ function resolveOpenAiLikePath(config: ModelConfig, mockServer: MockServerConfig
 }
 
 function createAuthHeaders(config: ModelConfig): Record<string, string> {
+  if (config.provider === 'codex-image-server') {
+    return { 'Content-Type': 'application/json' }
+  }
+
+  if (config.provider === 'comfyui') {
+    return config.apiKey.trim() ? { Authorization: `Bearer ${config.apiKey}` } : {}
+  }
+
   if (config.provider === 'gemini') {
     return { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey }
   }
@@ -150,7 +172,7 @@ function createAuthHeaders(config: ModelConfig): Record<string, string> {
 }
 
 function resolveRequestConfig(config: ModelConfig, mockServer: MockServerConfig): ModelConfig {
-  if (!mockServer.enabled) {
+  if (!canUseMockApi || !mockServer.enabled) {
     return config
   }
 
@@ -165,9 +187,22 @@ function resolveRequestConfig(config: ModelConfig, mockServer: MockServerConfig)
   }
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms)
+function wait(ms: number, signal?: AbortSignal) {
+  if (signal?.aborted) {
+    return Promise.reject(new ImageApiError('请求已取消', 499))
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', handleAbort)
+      resolve()
+    }, ms)
+    function handleAbort() {
+      clearTimeout(timer)
+      reject(new ImageApiError('请求已取消', 499))
+    }
+
+    signal?.addEventListener('abort', handleAbort, { once: true })
   })
 }
 
@@ -266,6 +301,70 @@ function buildOpenAiRequest(params: ImageGenerationParams) {
   }
 }
 
+function buildCodexImageServerRequest(params: ImageGenerationParams) {
+  const payload: Record<string, unknown> = {
+    model: params.config.model,
+    count: params.count,
+    prompt: params.prompt,
+    quality: readOpenAiQuality(params.quality),
+    size: params.size,
+    aspect: params.ratio,
+    output_format: 'png',
+    return: 'file'
+  }
+
+  if (params.references.length) {
+    payload.references = params.references.map((reference) => ({
+      image: reference.image.previewUrl,
+      label: reference.label,
+      source: reference.source,
+      width: reference.image.width,
+      height: reference.image.height
+    }))
+  }
+
+  if (params.canvasSize) {
+    payload.canvas_size = params.canvasSize
+  }
+
+  return payload
+}
+
+function isCodexMockPayload(payload: unknown) {
+  const record = payload as Record<string, unknown>
+  const id = typeof record.id === 'string' ? record.id : ''
+  const path = typeof record.path === 'string' ? record.path : ''
+  const url = typeof record.url === 'string' ? record.url : ''
+
+  return (
+    id.startsWith('mock-codex-') ||
+    path.includes('/tmp/lightyear-banana/mock-codex-') ||
+    url.includes('/mock-images/') ||
+    url.includes('/v1/images/mock-codex-')
+  )
+}
+
+async function assertNotCodexMockServer(baseUrl: string) {
+  let response: Response
+  try {
+    response = await fetch(joinUrl(baseUrl, '/mock/manual'), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    })
+  } catch {
+    return
+  }
+
+  if (!response.ok) {
+    return
+  }
+
+  const payload = await readResponseJson(response)
+  if ((payload as any)?.server === 'Lightyear Banana Image API Mock Server') {
+    throw new ImageApiError('当前 Base URL 是 Mock Server', 409)
+  }
+}
+
 function readDataUrlParts(value: string) {
   const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(value)
   if (!match) {
@@ -332,6 +431,149 @@ function buildFluxRequest(params: ImageGenerationParams) {
   return payload
 }
 
+function readComfyUiBaseUrl(config: ModelConfig, mockServer: MockServerConfig) {
+  return resolveBaseUrl(config, mockServer)
+}
+
+async function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.addEventListener('load', () => {
+      resolve(String(reader.result ?? ''))
+    })
+    reader.addEventListener('error', () => reject(reader.error ?? new Error('无法读取图片')))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function fetchBlob(url: string, init: RequestInit) {
+  let response: Response
+  try {
+    response = await fetch(url, init)
+  } catch (error) {
+    if (init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError') {
+      throw new ImageApiError('请求已取消', 499)
+    }
+    throw new ImageApiError('无法连接 API', 0)
+  }
+
+  if (!response.ok) {
+    const payload = await readResponseJson(response)
+    throw new ImageApiError(readApiErrorMessage(payload as ApiErrorPayload, 'API 请求失败'), response.status)
+  }
+
+  return response.blob()
+}
+
+async function uploadComfyUiImage(baseUrl: string, config: ModelConfig, reference: ReferenceImage, index: number) {
+  const form = new FormData()
+  form.append('image', dataUrlToBlob(reference.image.previewUrl), `lightyear-reference-${index + 1}.png`)
+  form.append('overwrite', 'true')
+  form.append('type', 'input')
+
+  const payload = await fetchJson(joinUrl(baseUrl, '/upload/image'), {
+    method: 'POST',
+    headers: createAuthHeaders(config),
+    body: form
+  })
+
+  return (payload as any).name ?? `lightyear-reference-${index + 1}.png`
+}
+
+function readDefaultComfyUiKey(type: ComfyUiNodeMapping['type']) {
+  const defaults: Record<ComfyUiNodeMapping['type'], string> = {
+    batch_size: 'batch_size',
+    custom: '',
+    height: 'height',
+    image: 'image',
+    model: 'ckpt_name',
+    negative_prompt: 'text',
+    prompt: 'text',
+    seed: 'seed',
+    steps: 'steps',
+    width: 'width'
+  }
+
+  return defaults[type]
+}
+
+function parseComfyUiSize(size: string) {
+  const match = /^(\d+)[x*](\d+)$/.exec(size)
+  if (!match) {
+    return { width: 1024, height: 1024 }
+  }
+
+  return {
+    width: Number(match[1]),
+    height: Number(match[2])
+  }
+}
+
+function applyComfyUiWorkflowNodes(
+  workflow: Record<string, any>,
+  nodes: ComfyUiNodeMapping[],
+  params: ImageGenerationParams,
+  uploadedImages: string[]
+) {
+  const dimensions = parseComfyUiSize(params.size)
+  const values: Record<ComfyUiNodeMapping['type'], string | number | undefined> = {
+    batch_size: params.count,
+    custom: undefined,
+    height: dimensions.height,
+    image: uploadedImages[0],
+    model: params.config.model,
+    negative_prompt: '',
+    prompt: params.prompt,
+    seed: Math.floor(Math.random() * 1125899906842624),
+    steps: 20,
+    width: dimensions.width
+  }
+
+  nodes.forEach((node) => {
+    const key = node.key || readDefaultComfyUiKey(node.type)
+    if (!key) {
+      return
+    }
+
+    node.nodeIds.forEach((nodeId, index) => {
+      const target = workflow[nodeId]
+      if (!target?.inputs) {
+        return
+      }
+
+      const value = node.type === 'custom' ? node.value : node.type === 'image' ? uploadedImages[index] ?? uploadedImages[0] : values[node.type]
+      if (value !== undefined) {
+        target.inputs[key] = value
+      }
+    })
+  })
+}
+
+function readComfyUiHistoryImages(baseUrl: string, history: any, promptId: string) {
+  const outputs = history[promptId]?.outputs ?? history.outputs ?? {}
+  const images: Array<{ filename: string; subfolder?: string; type?: string }> = []
+
+  Object.values(outputs).forEach((output: any) => {
+    if (Array.isArray(output?.images)) {
+      images.push(...output.images)
+    }
+  })
+
+  return images.map((image, index) => {
+    const url = new URL(joinUrl(baseUrl, '/view'))
+    url.searchParams.set('filename', image.filename)
+    url.searchParams.set('type', image.type ?? 'output')
+    if (image.subfolder) {
+      url.searchParams.set('subfolder', image.subfolder)
+    }
+
+    return {
+      previewUrl: url.toString(),
+      label: `生成图 ${index + 1}`
+    }
+  })
+}
+
 function readOpenAiQuality(quality: string) {
   if (quality === '高') {
     return 'high'
@@ -356,6 +598,7 @@ async function requestOpenAiLike(params: ImageGenerationParams) {
     return fetchJson(url, {
       method: 'POST',
       headers: createAuthHeaders(params.config),
+      signal: params.signal,
       body: JSON.stringify(buildOpenAiRequest(params))
     })
   }
@@ -375,14 +618,67 @@ async function requestOpenAiLike(params: ImageGenerationParams) {
     headers: {
       Authorization: `Bearer ${params.config.apiKey}`
     },
+    signal: params.signal,
     body: form
   })
+}
+
+async function requestCodexImageServer(params: ImageGenerationParams) {
+  const baseUrl = resolveBaseUrl(params.config, params.mockServer)
+  await assertNotCodexMockServer(baseUrl)
+  const payload = await fetchJson(joinUrl(baseUrl, providerPaths['codex-image-server'] ?? ''), {
+    method: 'POST',
+    headers: createAuthHeaders(params.config),
+    signal: params.signal,
+    body: JSON.stringify(buildCodexImageServerRequest(params))
+  })
+  if (isCodexMockPayload(payload)) {
+    throw new ImageApiError('Codex Image Server 返回了 Mock 结果', 409)
+  }
+
+  const data = Array.isArray((payload as any).data) ? (payload as any).data : undefined
+  const imageItems = data?.length ? data : (payload as any).url ? [payload] : []
+  if (!imageItems.length) {
+    return payload
+  }
+
+  const normalized = await Promise.all(
+    imageItems.map(async (item: any, index: number) => {
+      const imageUrl = item.previewUrl ?? item.url
+      if (!imageUrl) {
+        return undefined
+      }
+
+      if (String(imageUrl).startsWith('data:')) {
+        return {
+          previewUrl: imageUrl,
+          label: item.label ?? `生成图 ${index + 1}`
+        }
+      }
+
+      return {
+        previewUrl: await blobToDataUrl(
+          await fetchBlob(imageUrl, {
+            method: 'GET',
+            headers: createAuthHeaders(params.config),
+            signal: params.signal
+          })
+        ),
+        label: item.label ?? `生成图 ${index + 1}`
+      }
+    })
+  )
+
+  return {
+    data: normalized.filter(Boolean)
+  }
 }
 
 async function requestGemini(params: ImageGenerationParams) {
   return fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), `/v1beta/models/${params.config.model}:generateContent`), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
+    signal: params.signal,
     body: JSON.stringify(buildGeminiRequest(params))
   })
 }
@@ -394,6 +690,7 @@ async function requestDashScope(params: ImageGenerationParams) {
       params.config.provider === 'kling'
         ? { ...createAuthHeaders(params.config), 'X-DashScope-Async': 'enable' }
         : createAuthHeaders(params.config),
+    signal: params.signal,
     body: JSON.stringify(params.config.provider === 'kling' ? buildKlingRequest(params) : buildQwenRequest(params))
   })
 
@@ -409,7 +706,8 @@ async function requestDashScope(params: ImageGenerationParams) {
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
     const result = await fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), `/api/v1/tasks/${taskId}`), {
       method: 'GET',
-      headers: createAuthHeaders(params.config)
+      headers: createAuthHeaders(params.config),
+      signal: params.signal
     })
     const status = (result as KlingTaskResponse).output?.task_status
     if (!status || status === 'SUCCEEDED') {
@@ -418,7 +716,7 @@ async function requestDashScope(params: ImageGenerationParams) {
     if (status === 'FAILED' || status === 'CANCELED') {
       throw new ImageApiError('Kling 任务失败', 502)
     }
-    await wait(pollIntervalMs)
+    await wait(pollIntervalMs, params.signal)
   }
 
   throw new ImageApiError('Kling 任务超时', 504)
@@ -429,6 +727,7 @@ async function requestSeedream(params: ImageGenerationParams) {
   return fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), providerPaths.seedream ?? ''), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
+    signal: params.signal,
     body: JSON.stringify({
       model: params.config.model,
       prompt: params.prompt,
@@ -446,6 +745,7 @@ async function requestFlux(params: ImageGenerationParams) {
   const payload = await fetchJson(joinUrl(resolveBaseUrl(params.config, params.mockServer), `/v1/${params.config.model}`), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
+    signal: params.signal,
     body: JSON.stringify(buildFluxRequest(params))
   })
   const pollingUrl = (payload as BflTaskResponse).polling_url
@@ -456,7 +756,8 @@ async function requestFlux(params: ImageGenerationParams) {
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
     const result = await fetchJson(pollingUrl, {
       method: 'GET',
-      headers: createAuthHeaders(params.config)
+      headers: createAuthHeaders(params.config),
+      signal: params.signal
     })
     const status = (result as any).status
     if (!status || status === 'Ready') {
@@ -465,10 +766,77 @@ async function requestFlux(params: ImageGenerationParams) {
     if (status === 'Error' || status === 'Failed') {
       throw new ImageApiError('FLUX 任务失败', 502)
     }
-    await wait(pollIntervalMs)
+    await wait(pollIntervalMs, params.signal)
   }
 
   throw new ImageApiError('FLUX 任务超时', 504)
+}
+
+async function requestComfyUi(params: ImageGenerationParams) {
+  const settings = normalizeComfyUiSettings(params.config.comfyUi)
+  const workflowText = settings.workflow.trim()
+  if (!workflowText && !params.mockServer.enabled) {
+    throw new ImageApiError('请导入 ComfyUI workflow', 400)
+  }
+
+  let workflow: Record<string, any>
+  try {
+    workflow = workflowText ? JSON.parse(workflowText) : {}
+  } catch {
+    throw new ImageApiError('ComfyUI workflow JSON 无效', 400)
+  }
+
+  const baseUrl = readComfyUiBaseUrl(params.config, params.mockServer)
+  const uploadedImages = await Promise.all(
+    params.references.map((reference, index) => uploadComfyUiImage(baseUrl, params.config, reference, index))
+  )
+  applyComfyUiWorkflowNodes(workflow, settings.workflowNodes, params, uploadedImages)
+
+  const clientId = `lightyear-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const task = (await fetchJson(joinUrl(baseUrl, '/prompt'), {
+    method: 'POST',
+    headers: {
+      ...createAuthHeaders(params.config),
+      'Content-Type': 'application/json'
+    },
+    signal: params.signal,
+    body: JSON.stringify({ prompt: workflow, client_id: clientId })
+  })) as ComfyUiPromptResponse
+
+  if (!task.prompt_id) {
+    throw new ImageApiError('ComfyUI 未返回任务 ID', 502)
+  }
+
+  const timeoutMs = Math.max(1000, settings.timeoutMs)
+  const pollMs = Math.max(250, settings.pollIntervalMs)
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const history = await fetchJson(joinUrl(baseUrl, `/history/${task.prompt_id}`), {
+      method: 'GET',
+      headers: createAuthHeaders(params.config),
+      signal: params.signal
+    })
+    const images = readComfyUiHistoryImages(baseUrl, history, task.prompt_id)
+    if (images.length) {
+      const normalizedImages = await Promise.all(
+        images.map(async (image) => ({
+          ...image,
+          previewUrl: await blobToDataUrl(
+            await fetchBlob(image.previewUrl, {
+              method: 'GET',
+              headers: createAuthHeaders(params.config),
+              signal: params.signal
+            })
+          )
+        }))
+      )
+      return { data: normalizedImages }
+    }
+
+    await wait(pollMs, params.signal)
+  }
+
+  throw new ImageApiError('ComfyUI 任务超时', 504)
 }
 
 function readOpenAiImages(payload: any): NormalizedImageResult[] {
@@ -524,6 +892,18 @@ function readFluxImages(payload: any): NormalizedImageResult[] {
 }
 
 function readImages(provider: ImageProviderId, payload: any) {
+  if (provider === 'comfyui') {
+    return payload.data ?? []
+  }
+
+  if (provider === 'codex-image-server') {
+    if (Array.isArray(payload.data)) {
+      return payload.data
+    }
+
+    return payload.url ? [{ previewUrl: payload.url, label: '生成图 1' }] : []
+  }
+
   if (provider === 'gemini') {
     return readGeminiImages(payload)
   }
@@ -557,6 +937,10 @@ export async function generateImagesWithProvider(params: ImageGenerationParams) 
     payload = await requestSeedream(requestParams)
   } else if (requestParams.config.provider === 'flux') {
     payload = await requestFlux(requestParams)
+  } else if (requestParams.config.provider === 'comfyui') {
+    payload = await requestComfyUi(requestParams)
+  } else if (requestParams.config.provider === 'codex-image-server') {
+    payload = await requestCodexImageServer(requestParams)
   } else {
     payload = await requestOpenAiLike(requestParams)
   }
@@ -570,6 +954,28 @@ export async function generateImagesWithProvider(params: ImageGenerationParams) 
 }
 
 export async function testImageConfig(config: ModelConfig, mockServer: MockServerConfig) {
+  if (config.provider === 'comfyui') {
+    await fetchJson(joinUrl(readComfyUiBaseUrl(config, mockServer), '/system_stats'), {
+      method: 'GET',
+      headers: createAuthHeaders(config)
+    })
+    return
+  }
+
+  if (config.provider === 'codex-image-server') {
+    const baseUrl = resolveBaseUrl(config, mockServer)
+    await assertNotCodexMockServer(baseUrl)
+    await fetchJson(joinUrl(baseUrl, '/healthz'), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    await fetchJson(joinUrl(baseUrl, '/v1/capabilities'), {
+      method: 'GET',
+      headers: createAuthHeaders(config)
+    })
+    return
+  }
+
   const prompt = 'connection test'
   const params: ImageGenerationParams = {
     config,

@@ -21,6 +21,7 @@ const {
   busy,
   canAddReference,
   canSend,
+  cancelGeneration,
   clearReferences,
   closeSettingsDetail,
   closeSettings,
@@ -67,7 +68,6 @@ const {
 } = useLightyearBanana(props.runtime)
 
 const themeMode = shallowRef<'dark' | 'light'>('dark')
-const routeTransitionName = computed(() => (activeView.value === 'settings' ? 'route-forward' : 'route-back'))
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
     return 'Lightyear Banana v0.1'
@@ -116,36 +116,35 @@ function handleHeaderBack() {
       @toggle-theme="toggleTheme"
     />
 
-    <Transition :name="routeTransitionName" mode="out-in">
-      <SettingsPanel
-        v-if="activeView === 'settings'"
-        key="settings"
-        :configs="configs"
-        :editing-capability="editingCapability"
-        :editing-config-id="editingConfigId"
-        :mock-server="mockServer"
-        :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
-        :provider-capabilities="providerCapabilities"
-        :settings-draft-is-new="settingsDraftIsNew"
-        :settings-draft="settingsDraft"
-        :settings-test-state="settingsTestState"
-        :settings-view="settingsView"
-        @close-detail="closeSettingsDetail"
-        @create="createConfig"
-        @delete="deleteConfig"
-        @edit="editConfig"
-        @open-mac-permission-settings="openMacPermissionSettings"
-        @save="saveConfig"
-        @test="testConfig"
-        @toggle-enabled="toggleConfigEnabled"
-        @update-draft="updateSettingsDraft"
-        @update-mock-server="updateMockServer"
-      />
+    <SettingsPanel
+      v-if="activeView === 'settings'"
+      :configs="configs"
+      :editing-capability="editingCapability"
+      :editing-config-id="editingConfigId"
+      :mock-server="mockServer"
+      :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
+      :provider-capabilities="providerCapabilities"
+      :settings-draft-is-new="settingsDraftIsNew"
+      :settings-draft="settingsDraft"
+      :settings-test-state="settingsTestState"
+      :settings-view="settingsView"
+      @close-detail="closeSettingsDetail"
+      @create="createConfig"
+      @delete="deleteConfig"
+      @edit="editConfig"
+      @open-mac-permission-settings="openMacPermissionSettings"
+      @save="saveConfig"
+      @test="testConfig"
+      @toggle-enabled="toggleConfigEnabled"
+      @update-draft="updateSettingsDraft"
+      @update-mock-server="updateMockServer"
+    />
 
-      <section v-else key="workspace" class="workspace-route" aria-label="生成工作区">
+    <section v-else class="workspace-route" aria-label="生成工作区">
       <MessageThread
         :loading="generationLoading"
         :turns="turns"
+        @cancel="cancelGeneration"
         @place="placeImage"
         @reference="useResultAsReference"
         @upscale="upscaleImage"
@@ -184,8 +183,7 @@ function handleHeaderBack() {
         @update-ratio="ratio = $event"
         @update-size="size = $event"
       />
-      </section>
-    </Transition>
+    </section>
   </main>
 </template>
 
@@ -340,35 +338,6 @@ function handleHeaderBack() {
   background: var(--lb-workspace);
 }
 
-.route-forward-enter-active,
-.route-forward-leave-active,
-.route-back-enter-active,
-.route-back-leave-active {
-  transition:
-    opacity 190ms ease,
-    transform 190ms ease;
-}
-
-.route-forward-enter-from {
-  opacity: 0;
-  transform: translateX(28px);
-}
-
-.route-forward-leave-to {
-  opacity: 0;
-  transform: translateX(-28px);
-}
-
-.route-back-enter-from {
-  opacity: 0;
-  transform: translateX(-28px);
-}
-
-.route-back-leave-to {
-  opacity: 0;
-  transform: translateX(28px);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .lightyear-shell,
   .workspace-route,
@@ -390,11 +359,5 @@ function handleHeaderBack() {
     transition: none;
   }
 
-  .route-forward-enter-active,
-  .route-forward-leave-active,
-  .route-back-enter-active,
-  .route-back-leave-active {
-    transition: none;
-  }
 }
 </style>
