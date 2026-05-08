@@ -1,10 +1,10 @@
-import { app, BrowserWindow, ipcMain, screen, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, screen, shell } from 'electron'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { dirname, extname, join, normalize } from 'node:path'
+import { basename, dirname, extname, join, normalize } from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
 import {
@@ -30,6 +30,12 @@ const MIME_TYPES = {
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
+  '.webp': 'image/webp'
+}
+const REFERENCE_IMAGE_MIME_TYPES = {
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
   '.webp': 'image/webp'
 }
 
@@ -313,6 +319,112 @@ function readDataUrlParts(value) {
     isBase64: Boolean(match[2]),
     mimeType: match[1] || 'image/png'
   }
+}
+
+function createSerializedReferenceImage({ idPrefix, label, previewUrl, width, height }) {
+  return {
+    id: `${idPrefix}-${Date.now()}`,
+    label,
+    width,
+    height,
+    sourceBounds: {
+      left: 0,
+      top: 0,
+      right: width,
+      bottom: height
+    },
+    previewUrl,
+    rgba: ''
+  }
+}
+
+function readReferenceMimeType(filePath) {
+  return REFERENCE_IMAGE_MIME_TYPES[extname(filePath).toLowerCase()] || 'image/png'
+}
+
+function createReferenceImageFromNativeImage(image, label, idPrefix) {
+  if (image.isEmpty()) {
+    throw new Error('剪贴板里没有图片')
+  }
+
+  const size = image.getSize()
+  if (!size.width || !size.height) {
+    throw new Error('无法读取图片尺寸')
+  }
+
+  return createSerializedReferenceImage({
+    idPrefix,
+    label,
+    width: Math.round(size.width),
+    height: Math.round(size.height),
+    previewUrl: `data:image/png;base64,${image.toPNG().toString('base64')}`
+  })
+}
+
+function readNativeImageFromClipboardBuffer() {
+  const imageFormat = clipboard.availableFormats().find((format) => /png|jpeg|jpg|tiff|tif|PNGf|JPEG|TIFF/i.test(format))
+  if (!imageFormat) {
+    return null
+  }
+
+  const buffer = clipboard.readBuffer(imageFormat)
+  if (!buffer.length) {
+    return null
+  }
+
+  const image = nativeImage.createFromBuffer(buffer)
+
+  return image.isEmpty() ? null : image
+}
+
+async function pickReferenceImageFile() {
+  const result = await dialog.showOpenDialog(mainWindow ?? undefined, {
+    title: '选择参考图',
+    properties: ['openFile'],
+    filters: [
+      {
+        name: 'Images',
+        extensions: ['png', 'jpg', 'jpeg', 'webp']
+      }
+    ]
+  })
+
+  if (result.canceled || !result.filePaths[0]) {
+    return null
+  }
+
+  const filePath = result.filePaths[0]
+  const image = nativeImage.createFromPath(filePath)
+  if (image.isEmpty()) {
+    throw new Error('无法读取图片文件')
+  }
+
+  const size = image.getSize()
+  if (!size.width || !size.height) {
+    throw new Error('无法读取图片尺寸')
+  }
+
+  return createSerializedReferenceImage({
+    idPrefix: 'upload',
+    label: `上传图片：${basename(filePath)}`,
+    width: Math.round(size.width),
+    height: Math.round(size.height),
+    previewUrl: `data:${readReferenceMimeType(filePath)};base64,${readFileSync(filePath).toString('base64')}`
+  })
+}
+
+function readClipboardReferenceImage() {
+  const image = clipboard.readImage()
+  if (!image.isEmpty()) {
+    return createReferenceImageFromNativeImage(image, '剪贴板', 'clipboard')
+  }
+
+  const fallbackImage = readNativeImageFromClipboardBuffer()
+  if (!fallbackImage) {
+    throw new Error('剪贴板里没有图片')
+  }
+
+  return createReferenceImageFromNativeImage(fallbackImage, '剪贴板', 'clipboard')
 }
 
 async function readJsonBody(request) {
@@ -816,6 +928,14 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
 
   if (command === 'app.openMacPermissionSettings') {
     return openMacPermissionSettings(payload)
+  }
+
+  if (command === 'reference.pickUpload') {
+    return pickReferenceImageFile()
+  }
+
+  if (command === 'reference.readClipboard') {
+    return readClipboardReferenceImage()
   }
 
   return sendToUxp(command, payload)

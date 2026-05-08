@@ -26,6 +26,13 @@ import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
 import { createCanvasImageFromApiAsset, hydrateCanvasImagePixels } from '../utils/imagePixels'
 import {
+  bytesToBase64,
+  createReferenceCanvasImage,
+  pickBrowserReferenceImage,
+  readBrowserClipboardReferenceImage,
+  readImageMimeType
+} from '../utils/referenceImages'
+import {
   deserializeCanvasImage,
   getElectronBridgeStatus,
   hasElectronBridge,
@@ -459,7 +466,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
         refreshDocument()
       }
     } catch (error) {
-      status.value = error instanceof Error ? error.message : '操作失败'
+      status.value = readErrorMessage(error, '操作失败').replace(/^Error invoking remote method '[^']+': Error: /, '')
     } finally {
       console.debug(`[Lightyear Banana] ${operation.label || operation.type} ${Math.round(performance.now() - startedAt)}ms`)
       canvasOperation.value = { type: 'idle', label: '' }
@@ -487,6 +494,21 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
   async function addReference(source: ReferenceSource) {
     await runCanvasAction({ type: 'capture', label: `正在读取${referenceLabels[source]}` }, async () => {
+      if (source === 'upload') {
+        const image = await pickUploadReferenceImage()
+        if (image) {
+          addReferenceImage(source, image)
+        } else {
+          status.value = '未选择图片'
+        }
+        return
+      }
+
+      if (source === 'clipboard') {
+        addReferenceImage(source, await readClipboardReferenceImage())
+        return
+      }
+
       if (!canUseElectronBridge.value && !canUsePhotoshop.value) {
         status.value = '请在 Lightyear App 或 Photoshop 面板中添加参考'
         return
@@ -517,6 +539,56 @@ export function useLightyearBanana(runtime: RuntimeName) {
       }
 
       status.value = `${referenceLabels[source]}暂不可用`
+    })
+  }
+
+  async function pickUploadReferenceImage() {
+    if (canUseElectronBridge.value) {
+      const image = await invokeElectronBridge<ReturnType<typeof serializeCanvasImage> | null>('reference.pickUpload')
+
+      return image ? deserializeCanvasImage(image) : null
+    }
+
+    if (canUsePhotoshop.value) {
+      return pickUxpUploadReferenceImage()
+    }
+
+    return pickBrowserReferenceImage()
+  }
+
+  async function readClipboardReferenceImage() {
+    if (canUseElectronBridge.value) {
+      return deserializeCanvasImage(await invokeElectronBridge('reference.readClipboard'))
+    }
+
+    return readBrowserClipboardReferenceImage()
+  }
+
+  async function pickUxpUploadReferenceImage() {
+    const hostRequire = getHostRequire()
+    const uxp = hostRequire?.('uxp')
+    const localFileSystem = uxp?.storage?.localFileSystem
+    if (!localFileSystem?.getFileForOpening) {
+      throw new Error('当前环境无法上传图片')
+    }
+
+    const file = await localFileSystem.getFileForOpening({
+      types: ['png', 'jpg', 'jpeg', 'webp']
+    })
+    if (!file) {
+      return null
+    }
+
+    const raw = await file.read({
+      format: uxp.storage?.formats?.binary
+    })
+    const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw)
+    const fileName = String(file.name || '参考图')
+
+    return createReferenceCanvasImage({
+      idPrefix: 'upload',
+      label: `上传图片：${fileName}`,
+      previewUrl: `data:${readImageMimeType(fileName)};base64,${bytesToBase64(bytes)}`
     })
   }
 
