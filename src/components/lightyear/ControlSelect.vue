@@ -250,17 +250,17 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   padding: 0;
   border-radius: 999px;
   background: var(--lb-surface-2);
-  box-shadow: 0 0 0 2px rgba(116, 128, 147, 0.12);
+  box-shadow: 0 0 0 2px var(--lb-neutral-ring);
 }
 
 .select-status.is-ready {
-  background: #43d17a;
-  box-shadow: 0 0 0 2px rgba(67, 209, 122, 0.16);
+  background: var(--lb-success);
+  box-shadow: 0 0 0 2px var(--lb-success-ring);
 }
 
 .select-status.is-warning {
-  background: #ffbd2e;
-  box-shadow: 0 0 0 2px rgba(255, 189, 46, 0.16);
+  background: var(--lb-warning);
+  box-shadow: 0 0 0 2px var(--lb-warning-ring);
 }
 
 .select-menu button:hover,

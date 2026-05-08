@@ -794,13 +794,13 @@ input:disabled {
 }
 
 .form-actions .test-button.is-success {
-  background: rgba(31, 156, 91, 0.14);
-  color: #42d17b;
+  background: var(--lb-success-bg);
+  color: var(--lb-success);
 }
 
 .form-actions .test-button.is-error {
-  background: rgba(236, 81, 93, 0.14);
-  color: #ff6f7e;
+  background: var(--lb-danger-bg);
+  color: var(--lb-danger-muted);
 }
 
 .form-actions .test-button:disabled {

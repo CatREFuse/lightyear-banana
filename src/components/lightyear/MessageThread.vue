@@ -504,17 +504,17 @@ watch(
   width: fit-content;
   max-width: 100%;
   padding: 9px 10px;
-  border: 1px solid rgba(255, 111, 126, 0.32);
+  border: 1px solid var(--lb-danger-border);
   border-radius: 8px;
-  background: rgba(236, 81, 93, 0.11);
+  background: var(--lb-danger-bg);
 }
 
 .assistant-message.is-error .response-header {
-  color: #ff9aa8;
+  color: var(--lb-danger-muted);
 }
 
 .assistant-message.is-error .response-text {
-  color: #ffd7dc;
+  color: var(--lb-danger-text);
   line-height: 1.45;
 }
 

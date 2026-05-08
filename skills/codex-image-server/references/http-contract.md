@@ -8,6 +8,8 @@
 {
   "status": "ok",
   "backend": "codex-exec",
+  "generation_timeout_ms": 600000,
+  "log_file": "/Users/example/.codex/logs/lightyear-banana/image-server.jsonl",
   "model": "gpt-image-2",
   "output_dir": "/absolute/path"
 }
@@ -22,6 +24,7 @@ Return the model, supported output formats, quality options, max images, ratio o
 Important values:
 
 - `model`: `gpt-image-2`
+- `generation_timeout_ms`: request timeout for each generation worker, default `600000`
 - `max_images`: `4`
 - `qualities`: `auto`, `high`, `medium`, `low`
 - `references.mode`: `original_image`
@@ -87,3 +90,20 @@ The server must abort work when:
 - one worker fails during a multi-image request.
 
 On macOS and Linux, start `codex exec` with `detached: true` and kill the negative process id so child processes do not remain alive.
+
+## Logs
+
+The server writes JSONL logs to `~/.codex/logs/lightyear-banana/image-server.jsonl` by default. Override the location with `CODEX_IMAGE_SERVER_LOG_DIR` or `CODEX_IMAGE_SERVER_LOG_FILE`.
+
+Required event names:
+
+- `server.listen`
+- `generate.start`
+- `generate.success`
+- `generate.error`
+- `generate.abort`
+- `codex.exec.start`
+- `codex.exec.success`
+- `codex.exec.error`
+
+Do not write bearer tokens, full prompts, complete request headers, or raw base64 images into logs. A generation request may log `prompt_length`, `reference_count`, `requested_size`, `resolved_size`, `quality`, `count`, `request_id`, duration, and output paths.

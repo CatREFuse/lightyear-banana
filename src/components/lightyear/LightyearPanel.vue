@@ -75,7 +75,7 @@ const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return 'Lightyear Banana v0.2.0'
+    return 'Lightyear Banana v0.2.1'
   }
 
   if (settingsView.value === 'list') {
@@ -249,6 +249,16 @@ function handleOpenSettings() {
   --lb-accent: #2f8cff;
   --lb-accent-soft: rgba(47, 140, 255, 0.14);
   --lb-danger: #ffb4c0;
+  --lb-danger-bg: rgba(236, 81, 93, 0.11);
+  --lb-danger-border: rgba(255, 111, 126, 0.32);
+  --lb-danger-muted: #ff9aa8;
+  --lb-danger-text: #ffd7dc;
+  --lb-success: #43d17a;
+  --lb-success-bg: rgba(31, 156, 91, 0.14);
+  --lb-success-ring: rgba(67, 209, 122, 0.16);
+  --lb-warning: #ffbd2e;
+  --lb-warning-ring: rgba(255, 189, 46, 0.16);
+  --lb-neutral-ring: rgba(116, 128, 147, 0.13);
   position: relative;
   display: flex;
   width: 100%;
@@ -460,6 +470,16 @@ function handleOpenSettings() {
   --lb-shadow: rgba(67, 57, 39, 0.18);
   --lb-accent-soft: rgba(47, 140, 255, 0.13);
   --lb-danger: #a63b4a;
+  --lb-danger-bg: #fff0f2;
+  --lb-danger-border: rgba(185, 48, 65, 0.3);
+  --lb-danger-muted: #b33446;
+  --lb-danger-text: #7f1d2d;
+  --lb-success: #1b7f4d;
+  --lb-success-bg: rgba(27, 127, 77, 0.12);
+  --lb-success-ring: rgba(27, 127, 77, 0.16);
+  --lb-warning: #936300;
+  --lb-warning-ring: rgba(147, 99, 0, 0.16);
+  --lb-neutral-ring: rgba(99, 95, 88, 0.14);
 }
 
 .workspace-route {

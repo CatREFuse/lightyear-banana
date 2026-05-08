@@ -379,16 +379,16 @@ h1 {
 }
 
 .connection-status.is-connected .connection-dot {
-  background: #43d17a;
+  background: var(--lb-success);
   box-shadow:
-    0 0 0 2px rgba(67, 209, 122, 0.16),
+    0 0 0 2px var(--lb-success-ring),
     0 0 14px rgba(67, 209, 122, 0.74);
   animation: connection-glow 2.8s ease-in-out infinite;
 }
 
 .connection-status.is-waiting .connection-dot {
   background: #748093;
-  box-shadow: 0 0 0 2px rgba(116, 128, 147, 0.13);
+  box-shadow: 0 0 0 2px var(--lb-neutral-ring);
 }
 
 .icon-button {

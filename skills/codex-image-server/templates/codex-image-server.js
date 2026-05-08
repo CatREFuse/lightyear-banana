@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { copyFile, mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { homedir, tmpdir } from 'node:os'
@@ -71,6 +71,53 @@ function getCodexHome() {
 
 function getOutputDir() {
   return process.env.CODEX_IMAGE_SERVER_OUTPUT_DIR || path.join(getCodexHome(), 'generated_images', 'http')
+}
+
+function getLogDir() {
+  return process.env.CODEX_IMAGE_SERVER_LOG_DIR || path.join(getCodexHome(), 'logs', 'lightyear-banana')
+}
+
+function getLogFile() {
+  return process.env.CODEX_IMAGE_SERVER_LOG_FILE || path.join(getLogDir(), 'image-server.jsonl')
+}
+
+function readErrorPayload(error) {
+  return {
+    code: typeof error?.code === 'string' ? error.code : 'server_error',
+    message: error instanceof Error ? error.message : String(error || 'Codex Image Server 请求失败'),
+    status: Number.isInteger(error?.status) ? error.status : 500
+  }
+}
+
+function writeServerLog(event, data = {}) {
+  const filePath = getLogFile()
+  const payload = {
+    timestamp: new Date().toISOString(),
+    service: 'codex-image-server',
+    event,
+    ...data
+  }
+
+  try {
+    mkdirSync(path.dirname(filePath), { recursive: true })
+    appendFileSync(filePath, `${JSON.stringify(payload)}\n`, 'utf8')
+  } catch (error) {
+    console.warn(`[Codex Image Server] 无法写入日志：${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+function readGenerateLogPayload(body, count, resolvedSize, quality, outputFormat) {
+  return {
+    aspect: String(body.aspect || body.ratio || ''),
+    count,
+    has_prompt: Boolean(String(body.prompt || '').trim()),
+    output_format: outputFormat,
+    prompt_length: String(body.prompt || '').length,
+    quality,
+    reference_count: Array.isArray(body.references) ? body.references.length : 0,
+    requested_size: String(body.size || 'auto'),
+    resolved_size: resolvedSize
+  }
 }
 
 function getOpenAiApiKey() {
@@ -709,8 +756,8 @@ async function listImageFiles(rootDir) {
   return output.sort((a, b) => b.mtimeMs - a.mtimeMs)
 }
 
-function tailOutput(value) {
-  return value.slice(-4000).trim()
+function tailOutput(value, maxLength = 4000) {
+  return value.slice(-maxLength).trim()
 }
 
 function appendCapped(current, chunk) {
@@ -768,7 +815,9 @@ function runCodexExec(args, options) {
 
     const timer = setTimeout(() => {
       killChild()
-      finish(() => reject(new HttpError(504, 'codex_timeout', 'Codex 图像生成超时')))
+      const seconds = Math.round(options.timeoutMs / 1000)
+      const message = `Codex 图像生成超时（${seconds}s）。Codex 进程没有在限制时间内返回最终图片路径`
+      finish(() => reject(new HttpError(504, 'codex_timeout', message)))
     }, options.timeoutMs)
 
     if (options.signal?.aborted) {
@@ -834,6 +883,8 @@ function buildCodexExecPrompt(body, resolvedSize, quality, referenceFiles, varia
     lines.push('Use every attached image as a visual reference for the generation or edit.')
   }
 
+  lines.push('After the image_generation tool returns saved_path, immediately reply with that exact absolute path.')
+  lines.push('Do not inspect directories, verify dimensions, run shell commands, or call any other tool after image_generation succeeds.')
   lines.push('Reply with the absolute saved image path only.')
   return lines.join('\n')
 }
@@ -858,8 +909,19 @@ async function generateOneWithCodexExec(body, resolvedSize, quality, outputForma
   ]
 
   try {
+    writeServerLog('codex.exec.start', {
+      quality,
+      reference_count: referenceFiles.length,
+      request_id: requestId,
+      resolved_size: resolvedSize,
+      timeout_ms: DEFAULT_TIMEOUT_MS,
+      total_count: totalCount,
+      variant_index: variantIndex + 1
+    })
     const result = await runCodexExec(args, { cwd: workDir, signal, stdin: prompt, timeoutMs: DEFAULT_TIMEOUT_MS })
-    const generated = await findCodexGeneratedImages(startedAtMs, `${result.stdout}\n${result.stderr}`)
+    const output = `${result.stdout}\n${result.stderr}`
+    const codexSessionId = parseSessionId(output)
+    const generated = await findCodexGeneratedImages(startedAtMs, output)
     if (!generated.length) {
       throw new HttpError(502, 'codex_no_image', 'Codex 未返回图像生成结果')
     }
@@ -872,7 +934,25 @@ async function generateOneWithCodexExec(body, resolvedSize, quality, outputForma
     await copyFile(source, target)
     resizePngFileToRequestedSize(target, resolvedSize)
 
+    writeServerLog('codex.exec.success', {
+      codex_session_id: codexSessionId,
+      duration_ms: Date.now() - startedAtMs,
+      output_path: target,
+      request_id: requestId,
+      source_path: source,
+      total_count: totalCount,
+      variant_index: variantIndex + 1
+    })
     return createImageRecord(totalCount > 1 ? `${requestId}-${variantIndex + 1}` : requestId, target, 'codex-exec', body, resolvedSize)
+  } catch (error) {
+    writeServerLog('codex.exec.error', {
+      ...readErrorPayload(error),
+      duration_ms: Date.now() - startedAtMs,
+      request_id: requestId,
+      total_count: totalCount,
+      variant_index: variantIndex + 1
+    })
+    throw error
   } finally {
     await rm(workDir, { force: true, recursive: true })
   }
@@ -1097,6 +1177,7 @@ function sendImageFile(response, record, method) {
 function createCapabilities() {
   return {
     backend: getBackend(),
+    generation_timeout_ms: DEFAULT_TIMEOUT_MS,
     model: DEFAULT_MODEL,
     output_formats: ['png', 'jpeg', 'webp'],
     qualities: ['auto', 'high', 'medium', 'low'],
@@ -1124,10 +1205,24 @@ function createCapabilities() {
 }
 
 async function handleGenerate(request, response, requestUrl) {
+  const requestId = `codex-${randomUUID()}`
+  const startedAtMs = Date.now()
   const abortController = new AbortController()
   let completed = false
+  let abortLogged = false
+  let requestLogPayload = {
+    backend: getBackend(),
+    request_id: requestId
+  }
   const abortRequest = () => {
     if (!completed) {
+      if (!abortLogged) {
+        abortLogged = true
+        writeServerLog('generate.abort', {
+          ...requestLogPayload,
+          duration_ms: Date.now() - startedAtMs
+        })
+      }
       abortController.abort()
     }
   }
@@ -1135,14 +1230,19 @@ async function handleGenerate(request, response, requestUrl) {
   request.on('aborted', abortRequest)
   response.on('close', abortRequest)
 
-  const body = await readJsonBody(request)
-  const outputFormat = normalizeOutputFormat(body.output_format)
-  const quality = normalizeQuality(body.quality)
-  const count = normalizeCount(body.count ?? body.n)
-  const resolvedSize = resolveRequestedSize(body)
-  const requestId = `codex-${randomUUID()}`
-  const backend = getBackend()
   try {
+    const body = await readJsonBody(request)
+    const outputFormat = normalizeOutputFormat(body.output_format)
+    const quality = normalizeQuality(body.quality)
+    const count = normalizeCount(body.count ?? body.n)
+    const resolvedSize = resolveRequestedSize(body)
+    const backend = getBackend()
+    requestLogPayload = {
+      backend,
+      request_id: requestId,
+      ...readGenerateLogPayload(body, count, resolvedSize, quality, outputFormat)
+    }
+    writeServerLog('generate.start', requestLogPayload)
     const records =
       backend === 'openai'
         ? await generateWithOpenAi(body, resolvedSize, quality, outputFormat, count, requestId, abortController.signal)
@@ -1164,6 +1264,24 @@ async function handleGenerate(request, response, requestUrl) {
       revised_prompt: publicRecords[0]?.revised_prompt ?? body.prompt ?? '',
       data: publicRecords
     })
+    writeServerLog('generate.success', {
+      ...requestLogPayload,
+      duration_ms: Date.now() - startedAtMs,
+      image_count: publicRecords.length,
+      images: publicRecords.map((record) => ({
+        id: record.id,
+        path: record.path,
+        resolved_size: record.resolved_size,
+        url: record.url
+      }))
+    })
+  } catch (error) {
+    writeServerLog('generate.error', {
+      ...requestLogPayload,
+      ...readErrorPayload(error),
+      duration_ms: Date.now() - startedAtMs
+    })
+    throw error
   } finally {
     completed = true
     request.off('aborted', abortRequest)
@@ -1189,6 +1307,8 @@ export function createCodexImageServer() {
         sendJson(response, 200, {
           status: 'ok',
           backend: getBackend(),
+          generation_timeout_ms: DEFAULT_TIMEOUT_MS,
+          log_file: getLogFile(),
           model: DEFAULT_MODEL,
           output_dir: getOutputDir()
         })
@@ -1231,6 +1351,14 @@ export function listenCodexImageServer() {
     server.once('error', reject)
     server.listen(defaultCodexImageServerPort, defaultCodexImageServerHost, () => {
       server.off('error', reject)
+      writeServerLog('server.listen', {
+        backend: getBackend(),
+        host: defaultCodexImageServerHost,
+        log_file: getLogFile(),
+        output_dir: getOutputDir(),
+        port: defaultCodexImageServerPort,
+        timeout_ms: DEFAULT_TIMEOUT_MS
+      })
       resolve(server)
     })
   })

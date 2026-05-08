@@ -337,8 +337,8 @@ h2 {
 }
 
 .status-badge.is-enabled {
-  background: rgba(31, 156, 91, 0.14);
-  color: #42d17b;
+  background: var(--lb-success-bg);
+  color: var(--lb-success);
 }
 
 .status-badge.is-disabled {
@@ -347,8 +347,8 @@ h2 {
 }
 
 .status-badge.is-unavailable {
-  background: rgba(236, 81, 93, 0.14);
-  color: #ff6f7e;
+  background: var(--lb-danger-bg);
+  color: var(--lb-danger-muted);
 }
 
 .row-arrow {
