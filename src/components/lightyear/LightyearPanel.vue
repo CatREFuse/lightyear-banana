@@ -75,7 +75,7 @@ const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return 'Lightyear Banana v0.1'
+    return 'Lightyear Banana v0.2.0'
   }
 
   if (settingsView.value === 'list') {
