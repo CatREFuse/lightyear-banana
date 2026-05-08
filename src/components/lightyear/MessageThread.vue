@@ -175,12 +175,21 @@ function isPlacingImage(image: GeneratedImage) {
   return props.canvasOperation.type === 'place' && props.canvasOperation.imageId === image.id
 }
 
+function isThreadNearBottom(thread: HTMLElement) {
+  return thread.scrollHeight - thread.scrollTop - thread.clientHeight <= 48
+}
+
 watch(
-  () => [props.turns.length, props.loading.length] as const,
+  [() => props.turns.length, () => props.loading.length],
   async () => {
+    const thread = threadRef.value
+    if (!thread || !isThreadNearBottom(thread)) {
+      return
+    }
+
     await nextTick()
-    threadRef.value?.scrollTo({
-      top: threadRef.value.scrollHeight,
+    thread.scrollTo({
+      top: thread.scrollHeight,
       behavior: 'smooth'
     })
   }
