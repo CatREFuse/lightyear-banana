@@ -35,6 +35,12 @@ export type WindowDeployResult = {
   message: string
 }
 
+export type CanvasOperationState = {
+  type: 'idle' | 'capture' | 'place'
+  label: string
+  imageId?: string
+}
+
 export type MacPermissionPane = 'accessibility' | 'automation' | 'screenCapture'
 
 export type SettingsTestStatus = 'idle' | 'testing' | 'success' | 'error'
@@ -54,6 +60,7 @@ export type GenerationLoadingState = {
 export type ReferenceSource = 'visible' | 'selection' | 'layer' | 'upload' | 'clipboard' | 'generated'
 
 export type PlacementTarget =
+  | { type: 'default' }
   | {
       type: 'reference-selection'
       referenceId: string
@@ -144,12 +151,26 @@ export type GeneratedImage = CapturedCanvasImage & {
   modelConfigId: string
 }
 
+export type GenerationRequestSnapshot = {
+  canvasSize?: { width: number; height: number }
+  config: ModelConfig
+  count: number
+  prompt: string
+  quality: string
+  ratio: string
+  references: ReferenceImage[]
+  resolvedSize: string
+  selectedSize: string
+  summary: string
+}
+
 export type ChatTurn = {
   id: string
   prompt: string
   references: ReferenceImage[]
   responseText: string
   elapsedLabel: string
+  repeatRequest?: GenerationRequestSnapshot
   results: GeneratedImage[]
-  tone?: 'normal' | 'error'
+  tone?: 'normal' | 'error' | 'canceled'
 }

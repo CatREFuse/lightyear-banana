@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import { useLightyearBanana } from '../../composables/useLightyearBanana'
+import { hasElectronBridge, openElectronPreviewImage } from '../../services/electronBridge'
 import type { DesktopPlatform, RuntimeName } from '../../types/lightyear'
+import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
 import ComposerDock from './ComposerDock.vue'
 import BoxIcon from './BoxIcon.vue'
 import MessageThread from './MessageThread.vue'
@@ -18,7 +20,9 @@ const {
   activeCapability,
   activeConfigId,
   activeView,
+  appendGeneration,
   busy,
+  canvasOperation,
   canAddReference,
   canSend,
   cancelGeneration,
@@ -45,6 +49,7 @@ const {
   ratio,
   references,
   removeReference,
+  retryGeneration,
   saveConfig,
   selectConfig,
   sendPrompt,
@@ -66,6 +71,8 @@ const {
 } = useLightyearBanana(props.runtime)
 
 const themeMode = shallowRef<'dark' | 'light'>('dark')
+const activeWorkspaceMenu = shallowRef('')
+const previewImage = shallowRef<CapturedCanvasImage | null>(null)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
     return 'Lightyear Banana v0.1'
@@ -83,10 +90,33 @@ const navigationTitle = computed(() => {
 })
 
 function toggleTheme() {
+  activeWorkspaceMenu.value = ''
   themeMode.value = themeMode.value === 'dark' ? 'light' : 'dark'
 }
 
+function setWorkspaceMenu(owner: string) {
+  activeWorkspaceMenu.value = owner
+}
+
+async function openPreview(image: CapturedCanvasImage) {
+  activeWorkspaceMenu.value = ''
+  if (props.runtime === 'electron' && hasElectronBridge()) {
+    try {
+      await openElectronPreviewImage(image)
+      return
+    } catch {
+    }
+  }
+
+  previewImage.value = image
+}
+
+function closePreview() {
+  previewImage.value = null
+}
+
 function handleHeaderBack() {
+  activeWorkspaceMenu.value = ''
   if (activeView.value === 'settings' && settingsView.value === 'detail') {
     closeSettingsDetail()
     return
@@ -94,11 +124,17 @@ function handleHeaderBack() {
 
   closeSettings()
 }
+
+function handleOpenSettings() {
+  activeWorkspaceMenu.value = ''
+  openSettings()
+}
 </script>
 
 <template>
   <main class="lightyear-shell" :class="`theme-${themeMode}`">
     <PanelHeader
+      :active-menu-owner="activeWorkspaceMenu"
       :in-settings="activeView === 'settings'"
       :install-plugin-url="installPluginUrl"
       :status="status"
@@ -110,7 +146,8 @@ function handleHeaderBack() {
       :window-deploy-state="windowDeployState"
       @back="handleHeaderBack"
       @deploy-window="deployWindows"
-      @open-settings="openSettings()"
+      @menu-open="setWorkspaceMenu"
+      @open-settings="handleOpenSettings"
       @toggle-theme="toggleTheme"
     />
 
@@ -138,11 +175,17 @@ function handleHeaderBack() {
 
     <section v-else class="workspace-route" aria-label="生成工作区">
       <MessageThread
+        :active-menu-owner="activeWorkspaceMenu"
+        :canvas-operation="canvasOperation"
         :loading="generationLoading"
         :turns="turns"
+        @append="appendGeneration"
         @cancel="cancelGeneration"
+        @menu-open="setWorkspaceMenu"
         @place="placeImage"
+        @preview="openPreview"
         @reference="useResultAsReference"
+        @retry="retryGeneration"
         @upscale="upscaleImage"
       />
 
@@ -156,9 +199,11 @@ function handleHeaderBack() {
       </div>
 
       <ComposerDock
+        :active-menu-owner="activeWorkspaceMenu"
         :active-capability="activeCapability"
         :active-config-id="activeConfigId"
         :busy="busy"
+        :canvas-operation="canvasOperation"
         :can-add-reference="canAddReference"
         :can-send="canSend"
         :configs="enabledConfigs"
@@ -170,6 +215,8 @@ function handleHeaderBack() {
         :size="size"
         @add-reference="addReference"
         @clear-references="clearReferences"
+        @menu-open="setWorkspaceMenu"
+        @preview="openPreview"
         @remove-reference="removeReference"
         @select-config="selectConfig"
         @send="sendPrompt"
@@ -179,6 +226,20 @@ function handleHeaderBack() {
         @update-ratio="ratio = $event"
         @update-size="size = $event"
       />
+
+      <Transition name="preview-fade">
+        <section v-if="previewImage" class="preview-window" aria-label="图片预览" @click="closePreview">
+          <div class="preview-dialog" role="dialog" aria-modal="true" @click.stop>
+            <header class="preview-header">
+              <span>{{ previewImage.label }} · {{ previewImage.width }} × {{ previewImage.height }}</span>
+              <button type="button" aria-label="关闭预览" @click="closePreview">
+                <BoxIcon name="x" size="16" />
+              </button>
+            </header>
+            <img :src="previewImage.previewUrl" :alt="previewImage.label" />
+          </div>
+        </section>
+      </Transition>
     </section>
   </main>
 </template>
@@ -242,6 +303,81 @@ function handleHeaderBack() {
 .toast-pop-leave-to {
   opacity: 0;
   transform: translateY(6px) scale(0.98);
+}
+
+.preview-window {
+  position: absolute;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(5, 8, 12, 0.72);
+}
+
+.preview-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(100%, 720px);
+  height: min(100%, 720px);
+  overflow: hidden;
+  border: 1px solid var(--lb-border-strong);
+  border-radius: 10px;
+  background: var(--lb-overlay);
+  box-shadow: 0 20px 54px var(--lb-shadow);
+}
+
+.preview-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--lb-hairline);
+  color: var(--lb-secondary);
+  font-size: 12px;
+}
+
+.preview-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-header button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--lb-muted);
+}
+
+.preview-header button:hover {
+  background: var(--lb-hover);
+  color: var(--lb-text);
+}
+
+.preview-dialog img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  background: var(--lb-thread-image-bg);
+}
+
+.preview-fade-enter-active,
+.preview-fade-leave-active {
+  transition: opacity 140ms ease;
+}
+
+.preview-fade-enter-from,
+.preview-fade-leave-to {
+  opacity: 0;
 }
 
 .lightyear-shell,

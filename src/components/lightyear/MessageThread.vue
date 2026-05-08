@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { nextTick, shallowRef, useTemplateRef, watch } from 'vue'
-import type { ChatTurn, GeneratedImage, GenerationLoadingState, PlacementTarget } from '../../types/lightyear'
+import type { CanvasOperationState, ChatTurn, GeneratedImage, GenerationLoadingState, PlacementTarget } from '../../types/lightyear'
+import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
 import BoxIcon from './BoxIcon.vue'
 import ReferenceThumb from './ReferenceThumb.vue'
 
 const props = defineProps<{
+  activeMenuOwner?: string
+  canvasOperation: CanvasOperationState
   loading: GenerationLoadingState[]
   turns: ChatTurn[]
 }>()
 
 const emit = defineEmits<{
+  append: [turnId: string]
   cancel: [taskId: string]
+  menuOpen: [owner: string]
   place: [image: GeneratedImage, target: PlacementTarget]
+  preview: [image: CapturedCanvasImage]
   reference: [image: GeneratedImage]
+  retry: [turnId: string]
   upscale: [image: GeneratedImage]
 }>()
 
@@ -20,13 +27,19 @@ type PlacementOption = {
   icon: 'selection' | 'image' | 'crop' | 'expand-alt'
   id: string
   label: string
+  triggerLabel: string
   target: PlacementTarget
 }
 
 const threadRef = useTemplateRef<HTMLElement>('thread')
 const openPlacementMenuId = shallowRef('')
+const placementOptionIds = shallowRef<Record<string, string>>({})
 
 function closePlacementMenu() {
+  if (openPlacementMenuId.value) {
+    emit('menuOpen', '')
+  }
+
   openPlacementMenuId.value = ''
 }
 
@@ -36,51 +49,130 @@ function readPlacementMenuId(turnId: string, imageId: string) {
 
 function togglePlacementMenu(turnId: string, imageId: string) {
   const id = readPlacementMenuId(turnId, imageId)
-  openPlacementMenuId.value = openPlacementMenuId.value === id ? '' : id
+  if (openPlacementMenuId.value === id) {
+    closePlacementMenu()
+    return
+  }
+
+  openPlacementMenuId.value = id
+  emit('menuOpen', `thread:${id}`)
+}
+
+function readReferenceSelectionOption(reference: ChatTurn['references'][number], index: number): PlacementOption {
+  return {
+    icon: 'selection',
+    id: `reference-selection-${reference.id}`,
+    label: `参考图片 ${index + 1} 的选区`,
+    triggerLabel: index === 0 ? '首图选区' : `参考 ${index + 1} 选区`,
+    target: {
+      type: 'reference-selection',
+      referenceId: reference.id,
+      referenceIndex: index,
+      bounds: reference.image.sourceBounds
+    }
+  }
+}
+
+function readDefaultPlacementOption(turn: ChatTurn): PlacementOption {
+  const firstReference = turn.references[0]
+  if (!firstReference) {
+    return {
+      icon: 'image',
+      id: 'default',
+      label: '默认置入',
+      triggerLabel: '默认置入',
+      target: { type: 'default' }
+    }
+  }
+
+  if (firstReference.source === 'visible' || firstReference.source === 'layer') {
+    return {
+      icon: 'image',
+      id: 'full-canvas',
+      label: '全画布置入',
+      triggerLabel: '全画布置入',
+      target: { type: 'full-canvas' }
+    }
+  }
+
+  if (firstReference.source === 'selection') {
+    return readReferenceSelectionOption(firstReference, 0)
+  }
+
+  return {
+    icon: 'expand-alt',
+    id: 'original-size',
+    label: '原尺寸置入',
+    triggerLabel: '原尺寸置入',
+    target: { type: 'original-size' }
+  }
 }
 
 function readPlacementOptions(turn: ChatTurn): PlacementOption[] {
   const referenceOptions: PlacementOption[] = turn.references
     .map((reference, index) => ({ reference, index }))
     .filter(({ reference }) => reference.source === 'selection')
-    .map(({ reference, index }) => ({
-      icon: 'selection',
-      id: `reference-selection-${reference.id}`,
-      label: `参考图片 ${index + 1} 的选区`,
-      target: {
-        type: 'reference-selection',
-        referenceId: reference.id,
-        referenceIndex: index,
-        bounds: reference.image.sourceBounds
-      }
-    }))
+    .map(({ reference, index }) => readReferenceSelectionOption(reference, index))
 
-  return [
-    ...referenceOptions,
+  const options: PlacementOption[] = [
+    readDefaultPlacementOption(turn),
+    {
+      icon: 'image',
+      id: 'full-canvas',
+      label: '全画布置入',
+      triggerLabel: '全画布置入',
+      target: { type: 'full-canvas' }
+    },
     {
       icon: 'expand-alt',
       id: 'original-size',
       label: '原尺寸（置入）',
+      triggerLabel: '原尺寸置入',
       target: { type: 'original-size' }
-    },
-    {
-      icon: 'image',
-      id: 'full-canvas',
-      label: '全画布',
-      target: { type: 'full-canvas' }
     },
     {
       icon: 'crop',
       id: 'current-selection',
       label: '当前选区',
+      triggerLabel: '当前选区',
       target: { type: 'current-selection' }
-    }
+    },
+    ...referenceOptions
   ]
+  const seen = new Set<string>()
+
+  return options.filter((option) => {
+    if (seen.has(option.id)) {
+      return false
+    }
+    seen.add(option.id)
+    return true
+  })
+}
+
+function readActivePlacementOption(turn: ChatTurn, image: GeneratedImage) {
+  const key = readPlacementMenuId(turn.id, image.id)
+  const options = readPlacementOptions(turn)
+
+  return options.find((option) => option.id === placementOptionIds.value[key]) ?? readDefaultPlacementOption(turn)
+}
+
+function selectPlacementOption(turn: ChatTurn, image: GeneratedImage, option: PlacementOption) {
+  const key = readPlacementMenuId(turn.id, image.id)
+  placementOptionIds.value = {
+    ...placementOptionIds.value,
+    [key]: option.id
+  }
+  closePlacementMenu()
 }
 
 function placeImage(image: GeneratedImage, target: PlacementTarget) {
   closePlacementMenu()
   emit('place', image, target)
+}
+
+function isPlacingImage(image: GeneratedImage) {
+  return props.canvasOperation.type === 'place' && props.canvasOperation.imageId === image.id
 }
 
 watch(
@@ -91,6 +183,17 @@ watch(
       top: threadRef.value.scrollHeight,
       behavior: 'smooth'
     })
+  }
+)
+
+watch(
+  () => props.activeMenuOwner,
+  (owner) => {
+    if (owner?.startsWith('thread:')) {
+      return
+    }
+
+    openPlacementMenuId.value = ''
   }
 )
 </script>
@@ -114,50 +217,90 @@ watch(
               :index="index + 1"
               :reference="reference"
               size="small"
+              @preview="emit('preview', $event)"
             />
           </div>
           <p>{{ turn.prompt }}</p>
         </section>
 
-        <section class="assistant-message" :class="{ 'is-error': turn.tone === 'error' }">
-          <div class="response-header">
-            <span>{{ turn.elapsedLabel }}</span>
-          </div>
-          <p class="response-text">{{ turn.responseText }}</p>
+        <section
+          class="assistant-message"
+          :class="{ 'is-error': turn.tone === 'error', 'is-canceled': turn.tone === 'canceled' }"
+        >
+          <p v-if="turn.tone === 'canceled'" class="canceled-text">{{ turn.responseText }} · {{ turn.elapsedLabel }}</p>
+          <template v-else>
+            <div class="response-header">
+              <span>{{ turn.elapsedLabel }}</span>
+              <button v-if="turn.repeatRequest && turn.results.length" class="append-button" type="button" @click="emit('append', turn.id)">
+                追加
+              </button>
+              <button
+                v-else-if="turn.repeatRequest && turn.tone === 'error'"
+                class="append-button"
+                type="button"
+                @click="emit('retry', turn.id)"
+              >
+                重试
+              </button>
+            </div>
+            <p class="response-text">{{ turn.responseText }}</p>
+          </template>
           <div v-if="turn.results.length" class="result-grid">
             <article v-for="image in turn.results" :key="image.id" class="result-card">
-              <img :src="image.previewUrl" :alt="image.label" />
+              <button class="thumbnail-button" type="button" @click="emit('preview', image)">
+                <img :src="image.previewUrl" :alt="image.label" />
+              </button>
               <div class="result-actions">
-                <div class="place-menu-wrap">
-                  <button type="button" @click.stop="togglePlacementMenu(turn.id, image.id)">
-                    <BoxIcon name="image" size="14" />
-                    置入
+                <div class="place-control">
+                  <button
+                    class="place-primary action-tooltip"
+                    type="button"
+                    :data-tooltip="readActivePlacementOption(turn, image).triggerLabel"
+                    :disabled="isPlacingImage(image)"
+                    :title="readActivePlacementOption(turn, image).triggerLabel"
+                    @click="placeImage(image, readActivePlacementOption(turn, image).target)"
+                  >
+                    <span v-if="isPlacingImage(image)" class="action-spinner" aria-hidden="true"></span>
+                    <BoxIcon v-else :name="readActivePlacementOption(turn, image).icon" size="14" />
+                    <span class="place-label">{{ isPlacingImage(image) ? '置入中' : readActivePlacementOption(turn, image).triggerLabel }}</span>
                   </button>
-                  <Transition name="menu-pop">
-                    <div
-                      v-if="openPlacementMenuId === readPlacementMenuId(turn.id, image.id)"
-                      class="place-menu"
-                      @click.stop
+                  <div class="place-menu-wrap">
+                    <button
+                      class="place-more action-tooltip"
+                      type="button"
+                      aria-label="切换置入方式"
+                      data-tooltip="切换置入方式"
+                      :disabled="isPlacingImage(image)"
+                      title="切换置入方式"
+                      @click.stop="togglePlacementMenu(turn.id, image.id)"
                     >
-                      <button
-                        v-for="option in readPlacementOptions(turn)"
-                        :key="option.id"
-                        type="button"
-                        @click="placeImage(image, option.target)"
+                      <BoxIcon name="switch-horizontal" size="14" />
+                    </button>
+                    <Transition name="menu-pop">
+                      <div
+                        v-if="openPlacementMenuId === readPlacementMenuId(turn.id, image.id)"
+                        class="place-menu"
+                        @click.stop
                       >
-                        <BoxIcon :name="option.icon" size="14" />
-                        {{ option.label }}
-                      </button>
-                    </div>
-                  </Transition>
+                        <button
+                          v-for="option in readPlacementOptions(turn)"
+                          :key="option.id"
+                          type="button"
+                          :class="{ selected: option.id === readActivePlacementOption(turn, image).id }"
+                          @click="selectPlacementOption(turn, image, option)"
+                        >
+                          <BoxIcon :name="option.icon" size="14" />
+                          {{ option.label }}
+                        </button>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
-                <button type="button" @click="emit('upscale', image)">
-                  <BoxIcon name="expand-alt" size="14" />
-                  超分
+                <button class="result-icon-action action-tooltip" type="button" aria-label="超分" data-tooltip="超分" title="超分" @click="emit('upscale', image)">
+                  <BoxIcon name="zoom-in" size="15" />
                 </button>
-                <button type="button" @click="emit('reference', image)">
-                  <BoxIcon name="copy-alt" size="14" />
-                  参考
+                <button class="result-icon-action action-tooltip" type="button" aria-label="添加参考" data-tooltip="添加参考" title="添加参考" @click="emit('reference', image)">
+                  <BoxIcon name="image-add" size="15" />
                 </button>
               </div>
             </article>
@@ -175,6 +318,7 @@ watch(
             :index="index + 1"
             :reference="reference"
             size="small"
+            @preview="emit('preview', $event)"
           />
         </div>
         <p>{{ task.prompt }}</p>
@@ -263,52 +407,80 @@ watch(
 .loading-message {
   width: fit-content;
   max-width: 100%;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border: 1px solid var(--lb-border);
   border-radius: 999px;
   background: var(--lb-thread-card);
+  box-sizing: border-box;
 }
 
 .loading-row {
   display: inline-flex;
+  height: 16px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--lb-secondary);
   font-size: 12px;
-  line-height: 1;
+  line-height: 16px;
   white-space: nowrap;
 }
 
 .cancel-generation {
-  min-height: 22px;
-  padding: 0 6px;
-  border: 1px solid var(--lb-border);
-  border-radius: 6px;
+  display: inline-flex;
+  height: 14px;
+  max-height: 14px;
+  align-items: center;
+  padding: 0;
+  border: 0;
   background: transparent;
-  color: var(--lb-secondary);
-  font-size: 11px;
+  color: var(--lb-muted);
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
 }
 
 .cancel-generation:hover {
-  border-color: var(--lb-border-strong);
   color: var(--lb-text);
 }
 
 .loading-spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid var(--lb-border-strong);
+  border: 1.5px solid var(--lb-border-strong);
   border-top-color: var(--lb-accent);
   border-radius: 999px;
   animation: loading-spin 800ms linear infinite;
 }
 
+.canceled-text {
+  margin: 0;
+  color: var(--lb-muted);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
 .response-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--lb-muted);
   font-size: 11px;
+}
+
+.append-button {
+  min-height: 22px;
+  padding: 0 7px;
+  border-color: transparent;
+  background: var(--lb-field);
+  color: var(--lb-secondary);
+  font-size: 11px;
+}
+
+.append-button:hover {
+  background: var(--lb-surface-2);
+  color: var(--lb-text);
 }
 
 .response-text {
@@ -348,23 +520,36 @@ watch(
   background: var(--lb-thread-card);
 }
 
-.result-card img {
+.thumbnail-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 7px 7px 0 0;
+  background: var(--lb-thread-image-bg);
+}
+
+.thumbnail-button img {
   display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 7px 7px 0 0;
-  object-fit: cover;
-  background: var(--lb-thread-image-bg);
+  object-fit: contain;
+  background: transparent;
 }
 
 .result-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) 30px 30px;
+  align-items: stretch;
+  min-width: 0;
   border-radius: 0 0 7px 7px;
   background: var(--lb-thread-card-deep);
+  overflow: visible;
 }
 
 .result-actions button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -378,11 +563,81 @@ watch(
   color: var(--lb-secondary);
   font-size: 11px;
   white-space: nowrap;
+  overflow: visible;
+}
+
+.place-control {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow: visible;
+}
+
+.place-primary {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.place-primary .place-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.place-more {
+  width: 28px;
+  flex: 0 0 28px;
+  color: var(--lb-muted);
+}
+
+.result-icon-action {
+  box-shadow: inset 1px 0 var(--lb-hairline);
+}
+
+.action-tooltip::after {
+  position: absolute;
+  z-index: 70;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  max-width: 128px;
+  padding: 4px 7px;
+  border: 1px solid var(--lb-border-strong);
+  border-radius: 6px;
+  background: var(--lb-overlay);
+  box-shadow: 0 10px 24px var(--lb-shadow);
+  color: var(--lb-text);
+  content: attr(data-tooltip);
+  font-size: 11px;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translate(-50%, 3px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  white-space: nowrap;
+}
+
+.action-tooltip:hover::after,
+.action-tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.action-spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--lb-border-strong);
+  border-top-color: var(--lb-accent);
+  border-radius: 999px;
+  animation: loading-spin 800ms linear infinite;
 }
 
 .place-menu-wrap {
   position: relative;
-  display: grid;
+  display: flex;
+  flex: 0 0 28px;
   min-width: 0;
 }
 
@@ -390,7 +645,7 @@ watch(
   position: absolute;
   z-index: 40;
   bottom: calc(100% + 2px);
-  left: 0;
+  right: 0;
   display: grid;
   width: 156px;
   overflow: hidden;
@@ -398,6 +653,7 @@ watch(
   border-radius: 8px;
   background: var(--lb-overlay);
   box-shadow: 0 12px 32px var(--lb-shadow);
+  transform-origin: bottom right;
 }
 
 .place-menu button {
@@ -412,6 +668,7 @@ watch(
 }
 
 .place-menu button:hover,
+.place-menu button.selected,
 .result-actions button:hover {
   background: var(--lb-surface-2);
   color: var(--lb-text);

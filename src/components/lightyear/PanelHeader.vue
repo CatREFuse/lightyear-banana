@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import type { DesktopPlatform, WindowDeploySide, WindowDeployState } from '../../types/lightyear'
 import BoxIcon from './BoxIcon.vue'
 
 const props = defineProps<{
+  activeMenuOwner?: string
   inSettings: boolean
   installPluginUrl: string
   status: string
@@ -26,6 +27,7 @@ const showTitlebarBack = computed(() => props.desktopPlatform === 'win32' && pro
 const emit = defineEmits<{
   back: []
   deployWindow: [side: WindowDeploySide]
+  menuOpen: [owner: string]
   openSettings: []
   toggleTheme: []
 }>()
@@ -36,10 +38,12 @@ function toggleDeployMenu() {
   }
 
   deployMenuOpen.value = !deployMenuOpen.value
+  emit('menuOpen', deployMenuOpen.value ? 'header:deploy' : '')
 }
 
 function selectDeploySide(side: WindowDeploySide) {
   deployMenuOpen.value = false
+  emit('menuOpen', '')
   emit('deployWindow', side)
 }
 
@@ -54,6 +58,7 @@ function handleDocumentPointerDown(event: PointerEvent) {
   }
 
   deployMenuOpen.value = false
+  emit('menuOpen', '')
 }
 
 onMounted(() => {
@@ -63,6 +68,17 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
 })
+
+watch(
+  () => props.activeMenuOwner,
+  (owner) => {
+    if (owner === 'header:deploy') {
+      return
+    }
+
+    deployMenuOpen.value = false
+  }
+)
 </script>
 
 <template>

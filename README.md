@@ -81,6 +81,19 @@ Windows：
 - 使用原始参考图文件作为 Codex image input。
 - 删除占位图、假数据和本地假服务路径。
 
+skill 完成后的返回内容会优先给出 Lightyear Banana 配置指导。默认填写：
+
+- Provider：`Codex Image Server`
+- 配置名称：`Codex Image Server`
+- Base URL：`http://127.0.0.1:17341`
+- 端口：`17341`
+- API Key：留空
+- 测试入口：设置页点击“测试 API”
+- 生成接口：`POST http://127.0.0.1:17341/v1/images/generate`
+- 能力接口：`GET http://127.0.0.1:17341/v1/capabilities`
+
+如果启动服务时设置了 `CODEX_IMAGE_SERVER_HOST` 或 `CODEX_IMAGE_SERVER_PORT`，以实际返回的 Base URL 和端口为准。
+
 可直接发布或安装这个 skill：
 
 ```bash

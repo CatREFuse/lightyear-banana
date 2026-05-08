@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, shallowRef, useTemplateRef } from 'vue'
-import type { ModelConfig, ReferenceImage, ReferenceSource } from '../../types/lightyear'
+import { computed, shallowRef, useTemplateRef, watch } from 'vue'
+import type { CanvasOperationState, ModelConfig, ReferenceImage, ReferenceSource } from '../../types/lightyear'
 import type { ProviderCapability } from '../../types/lightyear'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
 import { providerRequiresApiKey, readProviderCapability } from '../../data/providerCapabilities'
@@ -25,9 +25,11 @@ type ModelStatus = {
 }
 
 const props = defineProps<{
+  activeMenuOwner?: string
   activeCapability: ProviderCapability
   activeConfigId: string
   busy: boolean
+  canvasOperation: CanvasOperationState
   canAddReference: boolean
   canSend: boolean
   configs: ModelConfig[]
@@ -42,6 +44,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   addReference: [source: ReferenceSource]
   clearReferences: []
+  menuOpen: [owner: string]
+  preview: [image: ReferenceImage['image']]
   removeReference: [id: string]
   selectConfig: [id: string]
   send: []
@@ -65,6 +69,7 @@ const referenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; labe
 
 const referenceCountText = computed(() => `${props.references.length} / ${props.activeCapability.referenceLimit}`)
 const hasReferences = computed(() => props.references.length > 0)
+const referenceBusy = computed(() => props.canvasOperation.type === 'capture')
 const modelOptions = computed<SelectOption[]>(() =>
   props.configs.map((config) => {
     const status = readModelStatus(config)
@@ -91,14 +96,21 @@ const countOptions = computed<SelectOption[]>(() =>
 
 function addReference(source: ReferenceSource) {
   openPanel.value = ''
+  emit('menuOpen', '')
   emit('addReference', source)
 }
 
 function togglePanel(panel: string) {
-  openPanel.value = openPanel.value === panel ? '' : panel
+  const nextPanel = openPanel.value === panel ? '' : panel
+  openPanel.value = nextPanel
+  emit('menuOpen', nextPanel ? `composer:${nextPanel}` : '')
 }
 
 function closePanel() {
+  if (openPanel.value) {
+    emit('menuOpen', '')
+  }
+
   openPanel.value = ''
 }
 
@@ -134,6 +146,17 @@ function handlePromptKeydown(event: KeyboardEvent) {
 }
 
 useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'reference')
+
+watch(
+  () => props.activeMenuOwner,
+  (owner) => {
+    if (owner?.startsWith('composer:')) {
+      return
+    }
+
+    openPanel.value = ''
+  }
+)
 </script>
 
 <template>
@@ -149,12 +172,14 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
         <div ref="referenceMenu" class="add-wrap is-inline">
           <button
             class="add-reference-inline"
+            :class="{ 'is-loading': referenceBusy }"
             type="button"
             :disabled="busy || !canAddReference"
             @click="togglePanel('reference')"
           >
-            <BoxIcon name="image-add" size="14" />
-            <span>添加参考</span>
+            <span v-if="referenceBusy" class="inline-spinner" aria-hidden="true"></span>
+            <BoxIcon v-else name="image-add" size="14" />
+            <span>{{ referenceBusy ? '读取中' : '添加参考' }}</span>
           </button>
 
           <Transition name="menu-pop">
@@ -182,6 +207,7 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
         :reference="reference"
         removable
         @remove="emit('removeReference', $event)"
+        @preview="emit('preview', $event)"
       />
     </div>
 
@@ -190,6 +216,7 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
       :value="prompt"
       placeholder="输入提示词"
       rows="3"
+      @focus="closePanel"
       @input="emit('updatePrompt', ($event.target as HTMLTextAreaElement).value)"
       @keydown="handlePromptKeydown"
     />
@@ -306,6 +333,19 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
 .add-reference-inline:hover {
   background: var(--lb-hover);
   color: var(--lb-text);
+}
+
+.add-reference-inline.is-loading {
+  color: var(--lb-secondary);
+}
+
+.inline-spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--lb-border-strong);
+  border-top-color: var(--lb-accent);
+  border-radius: 999px;
+  animation: inline-spin 800ms linear infinite;
 }
 
 .reference-strip {
@@ -451,6 +491,12 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
   }
 }
 
+@keyframes inline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .menu-pop-enter-active,
   .menu-pop-leave-active,
@@ -458,7 +504,8 @@ useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'r
     transition: none;
   }
 
-  .send-button.is-sending :deep(.box-icon) {
+  .send-button.is-sending :deep(.box-icon),
+  .inline-spinner {
     animation: none;
   }
 }

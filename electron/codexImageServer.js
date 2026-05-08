@@ -39,6 +39,9 @@ const supportedMimeTypes = new Map([
 
 const commonSizes = [
   'auto',
+  '1K',
+  '2K',
+  '4K',
   '1024x1024',
   '1536x1024',
   '1024x1536',
@@ -49,6 +52,12 @@ const commonSizes = [
   '2160x3840',
   '2880x2880'
 ]
+
+const sizePresets = new Map([
+  ['1k', { maxEdge: 1024, maxPixels: 1024 * 1024 }],
+  ['2k', { maxEdge: 2048, maxPixels: 2048 * 2048 }],
+  ['4k', { maxEdge: GPT_IMAGE_2_MAX_EDGE, maxPixels: GPT_IMAGE_2_MAX_PIXELS }]
+])
 
 const ratioOptions = ['参考图比例', '画布比例', '1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '4:5', '5:4', '21:9']
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -309,6 +318,22 @@ function deriveSizeForRatio(aspect, maxEdge = GPT_IMAGE_2_MAX_EDGE, maxPixels = 
     }
   }
 
+  while (candidate.width * candidate.height < GPT_IMAGE_2_MIN_PIXELS) {
+    const nextHeight = roundDownToMultiple(candidate.height + 16, 16)
+    const nextWidth = roundDownToMultiple(nextHeight * ratio, 16)
+    const nextCandidate = { width: nextWidth, height: nextHeight }
+
+    if (
+      nextCandidate.width * nextCandidate.height > maxPixels ||
+      Math.max(nextCandidate.width, nextCandidate.height) > GPT_IMAGE_2_MAX_EDGE ||
+      Math.max(nextCandidate.width, nextCandidate.height) / Math.min(nextCandidate.width, nextCandidate.height) > GPT_IMAGE_2_MAX_RATIO
+    ) {
+      break
+    }
+
+    candidate = nextCandidate
+  }
+
   return `${candidate.width}x${candidate.height}`
 }
 
@@ -320,16 +345,10 @@ function resolveRequestedSize(body) {
     return requestedSize
   }
 
-  if (requestedSize.toLowerCase() === '4k') {
+  const preset = sizePresets.get(requestedSize.toLowerCase())
+  if (preset) {
     const aspect = resolveAspectDimensions(body.aspect, body.references, body.canvas_size, undefined)
-    const size = deriveSizeForRatio(aspect)
-    validateGptImage2Size(size)
-    return size
-  }
-
-  if (requestedSize.toLowerCase() === '2k') {
-    const aspect = resolveAspectDimensions(body.aspect, body.references, body.canvas_size, undefined)
-    const size = deriveSizeForRatio(aspect, 2048, 2048 * 2048)
+    const size = deriveSizeForRatio(aspect, preset.maxEdge, preset.maxPixels)
     validateGptImage2Size(size)
     return size
   }
@@ -338,7 +357,7 @@ function resolveRequestedSize(body) {
     return 'auto'
   }
 
-  throw new HttpError(400, 'invalid_size', 'size 必须是 auto、2K、4K 或 WIDTHxHEIGHT')
+  throw new HttpError(400, 'invalid_size', 'size 必须是 auto、1K、2K、4K 或 WIDTHxHEIGHT')
 }
 
 function readDataUrlParts(value) {

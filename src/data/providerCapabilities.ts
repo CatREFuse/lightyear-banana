@@ -115,7 +115,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     name: 'Codex Image Server',
     modelOptions: ['gpt-image-2'],
     referenceLimit: 16,
-    sizeOptions: ['auto', '1024x1024', '1536x1024', '1024x1536', '2048x2048', '2048x1152', '1152x2048', '4K'],
+    sizeOptions: ['1K', '2K', '4K'],
     qualityOptions: ['自动', '高', '中', '低'],
     countOptions: [1, 2, 3, 4],
     ratioOptions: ['参考图比例', '画布比例', '1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '4:5', '5:4', '21:9'],

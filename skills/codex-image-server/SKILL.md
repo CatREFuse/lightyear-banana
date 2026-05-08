@@ -28,6 +28,35 @@ Use this skill to help a user expose local Codex image generation as a local HTT
 9. Store generated files in a stable output directory and return both metadata and file URLs.
 10. Run the verification checklist before reporting completion.
 
+## Completion Response
+
+When reporting completion, make the main return value a Lightyear Banana configuration guide. Include the actual host and port used by the server, not only a generic success message.
+
+Use this structure:
+
+- Server status: running or not running.
+- Base URL: default `http://127.0.0.1:17341`; if `CODEX_IMAGE_SERVER_HOST` or `CODEX_IMAGE_SERVER_PORT` changed it, report the actual value.
+- Port: default `17341`; report the actual port.
+- Lightyear Banana settings:
+  - Provider: `Codex Image Server`
+  - Config name: `Codex Image Server`
+  - Base URL: the actual base URL above
+  - API Key: leave blank
+  - Enable config: on
+  - Test action: click `测试 API`, then save the config and select it from the bottom model menu.
+- API contract:
+  - Health: `GET {baseUrl}/healthz`
+  - Capabilities: `GET {baseUrl}/v1/capabilities`
+  - Generate: `POST {baseUrl}/v1/images/generate`
+  - Generated file: `GET {baseUrl}/v1/images/:id/file`
+- Supported request controls:
+  - `count`: `1` to `4`
+  - `quality`: `auto`, `high`, `medium`, `low`
+  - `size`: custom `WIDTHxHEIGHT`, validated against the `gpt-image-2` constraints in this skill
+  - `references`: original image inputs, not sampled preview images
+
+Keep the completion response focused on these Lightyear Banana configuration values. Put implementation notes and test details after the configuration guide.
+
 ## References
 
 - Read `references/http-contract.md` before implementing the API surface.

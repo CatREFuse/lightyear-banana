@@ -1,11 +1,13 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
 import { defaultModelConfigs, providerCapabilities, providerRequiresApiKey, readProviderCapability } from '../data/providerCapabilities'
-import { generateImagesWithProvider, testImageConfig } from '../services/imageApiClient'
+import { generateImagesWithProvider, resolveImageRequestSize, testImageConfig } from '../services/imageApiClient'
 import {
   type AppView,
+  type CanvasOperationState,
   type ChatTurn,
   type GeneratedImage,
+  type GenerationRequestSnapshot,
   type GenerationLoadingState,
   type MacPermissionPane,
   type ModelConfig,
@@ -22,7 +24,7 @@ import {
 import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
-import { createCanvasImageFromApiAsset } from '../utils/imagePixels'
+import { createCanvasImageFromApiAsset, hydrateCanvasImagePixels } from '../utils/imagePixels'
 import {
   deserializeCanvasImage,
   getElectronBridgeStatus,
@@ -225,6 +227,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const windowDeployState = shallowRef<WindowDeployState>({ status: 'idle', message: '' })
   const toastMessage = shallowRef('')
   const generationLoading = shallowRef<GenerationLoadingState[]>([])
+  const canvasOperation = shallowRef<CanvasOperationState>({ type: 'idle', label: '' })
   let toastTimer: ReturnType<typeof setTimeout> | undefined
   let bridgeStatusTimer: ReturnType<typeof setInterval> | undefined
   let removeBridgeListener: (() => void) | undefined
@@ -444,8 +447,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
   }
 
-  async function runAction(action: () => Promise<void>) {
+  async function runCanvasAction(operation: CanvasOperationState, action: () => Promise<void>) {
     busy.value = true
+    canvasOperation.value = operation
+    const startedAt = performance.now()
     try {
       await action()
       if (isElectronRuntime) {
@@ -456,6 +461,8 @@ export function useLightyearBanana(runtime: RuntimeName) {
     } catch (error) {
       status.value = error instanceof Error ? error.message : '操作失败'
     } finally {
+      console.debug(`[Lightyear Banana] ${operation.label || operation.type} ${Math.round(performance.now() - startedAt)}ms`)
+      canvasOperation.value = { type: 'idle', label: '' }
       busy.value = false
     }
   }
@@ -479,7 +486,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   }
 
   async function addReference(source: ReferenceSource) {
-    await runAction(async () => {
+    await runCanvasAction({ type: 'capture', label: `正在读取${referenceLabels[source]}` }, async () => {
       if (!canUseElectronBridge.value && !canUsePhotoshop.value) {
         status.value = '请在 Lightyear App 或 Photoshop 面板中添加参考'
         return
@@ -534,8 +541,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
         : capability.ratioOptions[0] ?? ratio.value
   }
 
-  async function buildGeneratedImagesFromApi(apiImages: Array<{ previewUrl: string; label: string }>, modelConfigId: string) {
-    return Promise.all(
+  async function buildGeneratedImagesFromApi(
+    apiImages: Array<{ previewUrl: string; label: string; resolvedSize?: string }>,
+    modelConfigId: string
+  ) {
+    const images = await Promise.all(
       apiImages.map((apiImage, index) =>
         createCanvasImageFromApiAsset({
           id: createId(`generated-${index + 1}`),
@@ -545,6 +555,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
         })
       )
     )
+
+    return {
+      images,
+      resolvedSize: apiImages.find((image) => image.resolvedSize)?.resolvedSize
+    }
   }
 
   async function readCanvasSizeForRequest() {
@@ -561,6 +576,97 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
 
     return undefined
+  }
+
+  async function readFullCanvasPlacementTarget() {
+    const canvasSize = canUseElectronBridge.value
+      ? await invokeElectronBridge<{ width: number; height: number }>('canvas.readSize')
+      : canUsePhotoshop.value
+        ? canvasPrimitiveService.readCanvasSize()
+        : undefined
+
+    return canvasSize
+      ? {
+          width: canvasSize.width,
+          height: canvasSize.height
+        }
+      : undefined
+  }
+
+  async function readPlacementPixelTarget(target: PlacementTarget, image: GeneratedImage) {
+    if (target.type === 'reference-selection') {
+      return {
+        width: target.bounds.right - target.bounds.left,
+        height: target.bounds.bottom - target.bounds.top
+      }
+    }
+
+    if (target.type === 'original-size') {
+      return {
+        width: image.width,
+        height: image.height
+      }
+    }
+
+    if (target.type === 'default' || target.type === 'full-canvas') {
+      return readFullCanvasPlacementTarget()
+    }
+
+    return undefined
+  }
+
+  function readGenerationSummary(snapshot: Pick<GenerationRequestSnapshot, 'quality' | 'resolvedSize' | 'selectedSize'>) {
+    const sizeLabel =
+      snapshot.selectedSize && snapshot.selectedSize !== snapshot.resolvedSize
+        ? `${snapshot.selectedSize} · ${snapshot.resolvedSize}`
+        : snapshot.resolvedSize || snapshot.selectedSize
+
+    return `${sizeLabel} · ${snapshot.quality || '自动'}质量`
+  }
+
+  function buildGenerationResponseText(snapshot: GenerationRequestSnapshot, generatedCount: number) {
+    return `已生成 ${generatedCount} 张 · ${snapshot.summary}`
+  }
+
+  function cloneGenerationRequestSnapshot(snapshot: GenerationRequestSnapshot): GenerationRequestSnapshot {
+    return {
+      ...snapshot,
+      config: cloneModelConfig(snapshot.config),
+      references: snapshot.references.map((reference) => ({ ...reference }))
+    }
+  }
+
+  function readRequestSizeForSnapshot(snapshot: GenerationRequestSnapshot) {
+    return snapshot.config.provider === 'codex-image-server' ? snapshot.selectedSize : snapshot.resolvedSize
+  }
+
+  function finalizeGenerationSnapshot(snapshot: GenerationRequestSnapshot, resolvedSize?: string): GenerationRequestSnapshot {
+    if (!resolvedSize || resolvedSize === snapshot.resolvedSize) {
+      return snapshot
+    }
+
+    return {
+      ...snapshot,
+      resolvedSize,
+      summary: readGenerationSummary({
+        quality: snapshot.quality,
+        resolvedSize,
+        selectedSize: snapshot.selectedSize
+      })
+    }
+  }
+
+  function buildFailedGenerationTurn(snapshot: GenerationRequestSnapshot, message: string, elapsedSeconds: number): ChatTurn {
+    return {
+      id: createId('turn'),
+      prompt: snapshot.prompt,
+      references: snapshot.references,
+      responseText: message,
+      elapsedLabel: `失败 · ${elapsedSeconds}s`,
+      repeatRequest: cloneGenerationRequestSnapshot(snapshot),
+      results: [],
+      tone: 'error'
+    }
   }
 
   async function sendPrompt() {
@@ -601,6 +707,30 @@ export function useLightyearBanana(runtime: RuntimeName) {
       return
     }
 
+    const requestResolvedSize = resolveImageRequestSize({
+      canvasSize: requestCanvasSize,
+      config: requestConfig,
+      ratio: requestRatio,
+      references: sentReferences,
+      size: requestSize
+    })
+    const requestSnapshot: GenerationRequestSnapshot = {
+      canvasSize: requestCanvasSize,
+      config: requestConfig,
+      count: requestCount,
+      prompt: requestPrompt,
+      quality: requestQuality,
+      ratio: requestRatio,
+      references: sentReferences,
+      resolvedSize: requestResolvedSize,
+      selectedSize: requestSize,
+      summary: readGenerationSummary({
+        quality: requestQuality,
+        resolvedSize: requestResolvedSize,
+        selectedSize: requestSize
+      })
+    }
+
     prompt.value = ''
     references.value = []
     const startedAt = Date.now()
@@ -611,7 +741,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
     void (async () => {
       try {
-        const results = await buildGeneratedImagesFromApi(
+        const generated = await buildGeneratedImagesFromApi(
           await generateImagesWithProvider({
             config: requestConfig,
             count: requestCount,
@@ -621,17 +751,19 @@ export function useLightyearBanana(runtime: RuntimeName) {
             ratio: requestRatio,
             references: sentReferences,
             signal: abortController.signal,
-            size: requestSize
+            size: requestResolvedSize
           }),
           requestConfig.id
         )
+        const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
         const turn: ChatTurn = {
           id: createId('turn'),
           prompt: requestPrompt,
           references: sentReferences,
-          responseText: `${requestConfig.name} 已生成 ${results.length} 张图`,
+          responseText: buildGenerationResponseText(finalSnapshot, generated.images.length),
           elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
-          results
+          repeatRequest: cloneGenerationRequestSnapshot(finalSnapshot),
+          results: generated.images
         }
 
         turns.value = [...turns.value, turn]
@@ -643,8 +775,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
             prompt: requestPrompt,
             references: sentReferences,
             responseText: '已取消生成',
-            elapsedLabel: `已取消 · ${readGenerationElapsed(taskId, startedAt)}s`,
-            results: []
+            elapsedLabel: `${readGenerationElapsed(taskId, startedAt)}s`,
+            results: [],
+            tone: 'canceled'
           }
 
           turns.value = [...turns.value, canceledTurn]
@@ -652,15 +785,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
         }
 
         const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
-        const failedTurn: ChatTurn = {
-          id: createId('turn'),
-          prompt: requestPrompt,
-          references: sentReferences,
-          responseText: message,
-          elapsedLabel: `失败 · ${readGenerationElapsed(taskId, startedAt)}s`,
-          results: [],
-          tone: 'error'
-        }
+        const failedTurn = buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt))
 
         turns.value = [...turns.value, failedTurn]
         status.value = message
@@ -671,12 +796,173 @@ export function useLightyearBanana(runtime: RuntimeName) {
     })()
   }
 
+  async function appendGeneration(turnId: string) {
+    const sourceTurn = turns.value.find((turn) => turn.id === turnId)
+    if (!sourceTurn?.repeatRequest) {
+      status.value = '没有可追加的生成请求'
+      return
+    }
+
+    const requestSnapshot = cloneGenerationRequestSnapshot(sourceTurn.repeatRequest)
+    const startedAt = Date.now()
+    const taskId = startGenerationLoading(requestSnapshot.prompt, requestSnapshot.references)
+    const abortController = new AbortController()
+    generationControllers.set(taskId, abortController)
+    status.value = '正在追加生成'
+
+    void (async () => {
+      try {
+        const generated = await buildGeneratedImagesFromApi(
+          await generateImagesWithProvider({
+            config: requestSnapshot.config,
+            count: requestSnapshot.count,
+            canvasSize: requestSnapshot.canvasSize,
+            prompt: requestSnapshot.prompt,
+            quality: requestSnapshot.quality,
+            ratio: requestSnapshot.ratio,
+            references: requestSnapshot.references,
+            signal: abortController.signal,
+            size: readRequestSizeForSnapshot(requestSnapshot)
+          }),
+          requestSnapshot.config.id
+        )
+        const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
+
+        turns.value = turns.value.map((turn) => {
+          if (turn.id !== turnId) {
+            return turn
+          }
+
+          const mergedResults = [...turn.results, ...generated.images]
+          return {
+            ...turn,
+            elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
+            repeatRequest: cloneGenerationRequestSnapshot(finalSnapshot),
+            responseText: buildGenerationResponseText(finalSnapshot, mergedResults.length),
+            results: mergedResults
+          }
+        })
+        status.value = '追加生成完成'
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          const canceledTurn: ChatTurn = {
+            id: createId('turn'),
+            prompt: requestSnapshot.prompt,
+            references: requestSnapshot.references,
+            responseText: '已取消生成',
+            elapsedLabel: `${readGenerationElapsed(taskId, startedAt)}s`,
+            results: [],
+            tone: 'canceled'
+          }
+
+          turns.value = [...turns.value, canceledTurn]
+          return
+        }
+
+        const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
+        turns.value = [...turns.value, buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt))]
+        status.value = message
+        showToast(message)
+      } finally {
+        stopGenerationLoading(taskId)
+      }
+    })()
+  }
+
+  async function retryGeneration(turnId: string) {
+    const sourceTurn = turns.value.find((turn) => turn.id === turnId)
+    if (!sourceTurn?.repeatRequest) {
+      status.value = '没有可重试的生成请求'
+      return
+    }
+
+    const requestSnapshot = cloneGenerationRequestSnapshot(sourceTurn.repeatRequest)
+    const startedAt = Date.now()
+    const taskId = startGenerationLoading(requestSnapshot.prompt, requestSnapshot.references)
+    const abortController = new AbortController()
+    generationControllers.set(taskId, abortController)
+    status.value = '正在重试生成'
+
+    void (async () => {
+      try {
+        const generated = await buildGeneratedImagesFromApi(
+          await generateImagesWithProvider({
+            config: requestSnapshot.config,
+            count: requestSnapshot.count,
+            canvasSize: requestSnapshot.canvasSize,
+            prompt: requestSnapshot.prompt,
+            quality: requestSnapshot.quality,
+            ratio: requestSnapshot.ratio,
+            references: requestSnapshot.references,
+            signal: abortController.signal,
+            size: readRequestSizeForSnapshot(requestSnapshot)
+          }),
+          requestSnapshot.config.id
+        )
+        const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
+
+        turns.value = turns.value.map((turn) => {
+          if (turn.id !== turnId) {
+            return turn
+          }
+
+          return {
+            ...turn,
+            elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
+            responseText: buildGenerationResponseText(finalSnapshot, generated.images.length),
+            repeatRequest: cloneGenerationRequestSnapshot(finalSnapshot),
+            results: generated.images,
+            tone: 'normal'
+          }
+        })
+        status.value = '重试生成完成'
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          turns.value = turns.value.map((turn) => {
+            if (turn.id !== turnId) {
+              return turn
+            }
+
+            return {
+              ...turn,
+              responseText: '已取消生成',
+              elapsedLabel: `${readGenerationElapsed(taskId, startedAt)}s`,
+              repeatRequest: cloneGenerationRequestSnapshot(requestSnapshot),
+              results: [],
+              tone: 'canceled'
+            }
+          })
+          return
+        }
+
+        const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
+        turns.value = turns.value.map((turn) => {
+          if (turn.id !== turnId) {
+            return turn
+          }
+
+          return {
+            ...buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt)),
+            id: turn.id
+          }
+        })
+        status.value = message
+        showToast(message)
+      } finally {
+        stopGenerationLoading(taskId)
+      }
+    })()
+  }
+
   async function placeImage(image: GeneratedImage, target: PlacementTarget) {
-    await runAction(async () => {
+    await runCanvasAction({ type: 'place', label: '正在置入', imageId: image.id }, async () => {
+      const pixelTarget = await readPlacementPixelTarget(target, image)
+      const placeableImage = await hydrateCanvasImagePixels(image, pixelTarget)
+
       if (canUseElectronBridge.value) {
         await invokeElectronBridge('canvas.placeImage', {
-          image: serializeCanvasImage(image),
-          target: serializePlacementTarget(target, image)
+          image: serializeCanvasImage(placeableImage),
+          target: serializePlacementTarget(target, placeableImage)
         })
         status.value = '已置入 Photoshop'
         return
@@ -689,7 +975,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
       if (target.type === 'reference-selection') {
         const bounds = target.bounds
-        await canvasPrimitiveService.insertImage(image, {
+        await canvasPrimitiveService.insertImage(placeableImage, {
           left: bounds.left,
           top: bounds.top,
           width: bounds.right - bounds.left,
@@ -700,23 +986,23 @@ export function useLightyearBanana(runtime: RuntimeName) {
       }
 
       if (target.type === 'current-selection') {
-        await canvasPrimitiveService.insertImageToSelection(image)
+        await canvasPrimitiveService.insertImageToSelection(placeableImage)
         status.value = '已置入当前选区'
         return
       }
 
       if (target.type === 'original-size') {
-        await canvasPrimitiveService.insertImage(image, {
+        await canvasPrimitiveService.insertImage(placeableImage, {
           left: 0,
           top: 0,
-          width: image.width,
-          height: image.height
+          width: placeableImage.width,
+          height: placeableImage.height
         })
         status.value = '已按原尺寸置入'
         return
       }
 
-      await canvasPrimitiveService.insertImageToFullCanvas(image)
+      await canvasPrimitiveService.insertImageToFullCanvas(placeableImage)
       status.value = '已置入全画布'
     })
   }
@@ -1010,7 +1296,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
     activeConfig,
     activeConfigId,
     activeView,
+    appendGeneration,
     busy,
+    canvasOperation,
     canAddReference,
     canSend,
     cancelGeneration,
@@ -1040,6 +1328,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     references,
     refreshDocument,
     removeReference,
+    retryGeneration,
     saveConfig,
     selectConfig,
     sendPrompt,

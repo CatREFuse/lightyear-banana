@@ -20,6 +20,7 @@ type BridgeStatus = {
 type ElectronBridgeApi = {
   getBridgeStatus: () => Promise<BridgeStatus>
   loadSettings: () => unknown
+  openPreview: (image: Pick<CapturedCanvasImage, 'height' | 'label' | 'previewUrl' | 'width'>) => Promise<{ ok: boolean }>
   saveSettings: (settings: unknown) => Promise<{ ok: boolean }>
   invoke: <T = unknown>(command: string, payload?: unknown) => Promise<T>
   onEvent: (callback: (event: unknown) => void) => () => void
@@ -91,6 +92,19 @@ export async function writeElectronStoredSettings(settings: unknown) {
   }
 
   await window.lightyearBridge.saveSettings(settings)
+}
+
+export async function openElectronPreviewImage(image: CapturedCanvasImage) {
+  if (!window.lightyearBridge?.openPreview) {
+    throw new Error('Lightyear App 未启动')
+  }
+
+  return window.lightyearBridge.openPreview({
+    height: image.height,
+    label: image.label,
+    previewUrl: image.previewUrl,
+    width: image.width
+  })
 }
 
 export async function getElectronBridgeStatus() {

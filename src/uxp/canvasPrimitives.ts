@@ -762,6 +762,9 @@ export async function insertCapturedImage(
   const height = Math.max(1, Math.round(target.height))
   const left = Math.round(target.left)
   const top = Math.round(target.top)
+  if (image.rgba.length < image.width * image.height * 4) {
+    throw new Error('图片像素尚未准备完成')
+  }
   const pixels = resizeRgba(image.rgba, image.width, image.height, width, height)
 
   await photoshop.core.executeAsModal(
@@ -791,7 +794,7 @@ export async function insertCapturedImage(
         imageData.dispose()
       }
     },
-    { commandName: '插入插件图像', timeOut: 2 }
+    { commandName: '插入插件图像', timeOut: 120 }
   )
 
   return { left, top, width, height }

@@ -48,11 +48,13 @@ const state = {
   uxpQueue: [],
   pollWaiters: [],
   pending: new Map(),
+  previewImages: new Map(),
   lastDocumentLabel: '',
   startedAt: Date.now()
 }
 
 let mainWindow = null
+const previewWindows = new Set()
 
 function isUxpHttpConnected() {
   return Date.now() - state.uxpLastSeen < UXP_CONNECTED_WINDOW_MS
@@ -291,6 +293,28 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload))
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function readDataUrlParts(value) {
+  const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(String(value || ''))
+  if (!match) {
+    return null
+  }
+
+  return {
+    data: match[3] ?? '',
+    isBase64: Boolean(match[2]),
+    mimeType: match[1] || 'image/png'
+  }
+}
+
 async function readJsonBody(request) {
   const chunks = []
   for await (const chunk of request) {
@@ -500,6 +524,128 @@ async function sendDownloadFile(response, fileName, headOnly = false) {
   }
 }
 
+function createPreviewHtml(record) {
+  const title = `${record.label || '图片预览'} · ${record.width || '?'} × ${record.height || '?'}`
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: blob: http: https:; style-src 'unsafe-inline';">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: #0f141c;
+      color: #f5f7fb;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    header {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(178, 190, 205, 0.16);
+      background: rgba(20, 27, 37, 0.96);
+      box-sizing: border-box;
+    }
+
+    header span {
+      overflow: hidden;
+      color: #d7deea;
+      font-size: 13px;
+      line-height: 18px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    main {
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      padding: 18px;
+      box-sizing: border-box;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      box-shadow: 0 18px 70px rgba(0, 0, 0, 0.34);
+    }
+  </style>
+</head>
+<body>
+  <header><span>${escapeHtml(title)}</span></header>
+  <main><img src="/preview/${encodeURIComponent(record.id)}/image" alt="${escapeHtml(record.label || '图片预览')}"></main>
+</body>
+</html>`
+}
+
+function sendPreviewImage(response, record, method) {
+  const parts = readDataUrlParts(record.previewUrl)
+  if (!parts) {
+    response.writeHead(302, {
+      Location: record.previewUrl
+    })
+    response.end()
+    return
+  }
+
+  const buffer = parts.isBase64 ? Buffer.from(parts.data, 'base64') : Buffer.from(decodeURIComponent(parts.data), 'utf8')
+  response.writeHead(200, {
+    'Cache-Control': 'no-store',
+    'Content-Length': String(buffer.length),
+    'Content-Type': parts.mimeType
+  })
+  if (method === 'HEAD') {
+    response.end()
+    return
+  }
+
+  response.end(buffer)
+}
+
+async function sendPreviewPage(request, response, url) {
+  const match = /^\/preview\/([^/]+)(?:\/image)?$/.exec(url.pathname)
+  if (!match) {
+    return false
+  }
+
+  const id = decodeURIComponent(match[1])
+  const record = state.previewImages.get(id)
+  if (!record) {
+    sendJson(response, 404, { ok: false, error: 'Preview not found' })
+    return true
+  }
+
+  if (url.pathname.endsWith('/image')) {
+    sendPreviewImage(response, record, request.method)
+    return true
+  }
+
+  response.writeHead(200, {
+    'Cache-Control': 'no-store',
+    'Content-Type': 'text/html; charset=utf-8'
+  })
+  response.end(createPreviewHtml(record))
+  return true
+}
+
 function startBridgeServer() {
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url || '/', `http://${BRIDGE_HOST}:${BRIDGE_PORT}`)
@@ -522,6 +668,12 @@ function startBridgeServer() {
     if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/downloads/')) {
       await sendDownloadFile(response, decodeURIComponent(url.pathname.replace('/downloads/', '')), request.method === 'HEAD')
       return
+    }
+
+    if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/preview/')) {
+      if (await sendPreviewPage(request, response, url)) {
+        return
+      }
     }
 
     if (url.pathname.startsWith('/uxp/') && (await handleHttpUxpRequest(request, response, url))) {
@@ -593,6 +745,53 @@ async function createMainWindow() {
   await mainWindow.loadURL(`http://${BRIDGE_HOST}:${BRIDGE_PORT}/app/?runtime=electron&platform=${process.platform}`)
 }
 
+async function openPreviewWindow(payload = {}) {
+  const id = randomUUID()
+  const record = {
+    id,
+    label: String(payload.label || '图片预览'),
+    width: Number(payload.width) || 0,
+    height: Number(payload.height) || 0,
+    previewUrl: String(payload.previewUrl || '')
+  }
+
+  if (!record.previewUrl) {
+    throw new Error('图片预览不可用')
+  }
+
+  state.previewImages.set(id, record)
+
+  const display = mainWindow && !mainWindow.isDestroyed()
+    ? screen.getDisplayMatching(mainWindow.getBounds())
+    : screen.getPrimaryDisplay()
+  const workArea = display.workArea
+  const width = Math.min(1180, Math.max(720, Math.floor(workArea.width * 0.62)))
+  const height = Math.min(920, Math.max(560, Math.floor(workArea.height * 0.72)))
+  const previewWindow = new BrowserWindow({
+    width,
+    height,
+    minWidth: 520,
+    minHeight: 420,
+    title: record.label,
+    backgroundColor: '#0f141c',
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  })
+
+  previewWindows.add(previewWindow)
+  previewWindow.on('closed', () => {
+    previewWindows.delete(previewWindow)
+    state.previewImages.delete(id)
+  })
+
+  await previewWindow.loadURL(`http://${BRIDGE_HOST}:${BRIDGE_PORT}/preview/${encodeURIComponent(id)}`)
+  return { ok: true }
+}
+
 ipcMain.handle('lightyear:status', async () => readBridgeStatus())
 
 ipcMain.on('lightyear:settings:load', (event) => {
@@ -603,6 +802,8 @@ ipcMain.handle('lightyear:settings:save', async (_event, settings) => {
   writePersistedSettings(settings)
   return { ok: true }
 })
+
+ipcMain.handle('lightyear:preview:open', async (_event, payload) => openPreviewWindow(payload))
 
 ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
   if (command === 'app.status') {

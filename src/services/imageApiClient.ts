@@ -4,6 +4,7 @@ import type { ComfyUiNodeMapping, ImageProviderId, ModelConfig, ReferenceImage }
 export type NormalizedImageResult = {
   previewUrl: string
   label: string
+  resolvedSize?: string
 }
 
 export type ImageGenerationParams = {
@@ -533,6 +534,10 @@ function readOpenAiQuality(quality: string) {
   return 'auto'
 }
 
+export function resolveImageRequestSize(params: Pick<ImageGenerationParams, 'canvasSize' | 'config' | 'ratio' | 'references' | 'size'>) {
+  return params.size
+}
+
 async function requestOpenAiLike(params: ImageGenerationParams) {
   const path = resolveOpenAiLikePath(params.config, Boolean(params.references.length))
   const url = joinUrl(resolveBaseUrl(params.config), path)
@@ -591,7 +596,8 @@ async function requestCodexImageServer(params: ImageGenerationParams) {
       if (String(imageUrl).startsWith('data:')) {
         return {
           previewUrl: imageUrl,
-          label: item.label ?? `生成图 ${index + 1}`
+          label: item.label ?? `生成图 ${index + 1}`,
+          resolvedSize: item.resolved_size ?? (payload as any).resolved_size
         }
       }
 
@@ -603,7 +609,8 @@ async function requestCodexImageServer(params: ImageGenerationParams) {
             signal: params.signal
           })
         ),
-        label: item.label ?? `生成图 ${index + 1}`
+        label: item.label ?? `生成图 ${index + 1}`,
+        resolvedSize: item.resolved_size ?? (payload as any).resolved_size
       }
     })
   )
