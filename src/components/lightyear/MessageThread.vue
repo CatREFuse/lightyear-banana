@@ -397,6 +397,8 @@ watch(
   color: var(--lb-text);
   font-size: 12px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .assistant-message {
