@@ -283,7 +283,7 @@ watch(
                       title="切换置入方式"
                       @click.stop="togglePlacementMenu(turn.id, image.id)"
                     >
-                      <BoxIcon name="switch-horizontal" size="14" />
+                      <BoxIcon name="chevron-down" size="16" />
                     </button>
                     <Transition name="menu-pop">
                       <div
