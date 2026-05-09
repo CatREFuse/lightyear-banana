@@ -92,7 +92,24 @@ export class ImageApiError extends Error {
 }
 
 function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+  return `${normalizeBaseUrl(baseUrl).replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+}
+
+function normalizeBaseUrl(baseUrl: string) {
+  const cleanBaseUrl = baseUrl.trim()
+  if (!cleanBaseUrl) {
+    return ''
+  }
+
+  if (/^https?:\/\//i.test(cleanBaseUrl)) {
+    return cleanBaseUrl
+  }
+
+  if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?(?:\/|$)/i.test(cleanBaseUrl)) {
+    return `http://${cleanBaseUrl}`
+  }
+
+  return `https://${cleanBaseUrl}`
 }
 
 async function readResponseJson(response: Response) {
