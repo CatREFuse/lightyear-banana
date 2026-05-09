@@ -129,7 +129,7 @@ function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string)
   }
 
   if (provider === 'codex-image-server') {
-    return 'http://127.0.0.1:17341'
+    return ''
   }
 
   return providerCapabilities[provider].supportsBaseUrl ? fallback : ''
