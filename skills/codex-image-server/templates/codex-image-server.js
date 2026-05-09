@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { appendFileSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { copyFile, mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -9,6 +9,8 @@ import { deflateSync, inflateSync } from 'node:zlib'
 
 export const defaultCodexImageServerPort = Number(process.env.CODEX_IMAGE_SERVER_PORT ?? 17341)
 export const defaultCodexImageServerHost = process.env.CODEX_IMAGE_SERVER_HOST ?? '127.0.0.1'
+export const defaultCodexImageServerApiKey =
+  process.env.CODEX_IMAGE_SERVER_API_KEY || 'maoban'
 
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_OUTPUT_FORMAT = 'png'
@@ -124,6 +126,29 @@ function getOpenAiApiKey() {
   return process.env.CODEX_IMAGE_SERVER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || ''
 }
 
+function readRequestAuthToken(request) {
+  const apiKey = request.headers['x-api-key']
+  return String((Array.isArray(apiKey) ? apiKey[0] : apiKey) || '').trim()
+}
+
+function authTokenMatches(token, expected) {
+  if (!token || !expected) {
+    return false
+  }
+
+  const tokenBuffer = Buffer.from(token)
+  const expectedBuffer = Buffer.from(expected)
+  return tokenBuffer.length === expectedBuffer.length && timingSafeEqual(tokenBuffer, expectedBuffer)
+}
+
+function assertAuthorized(request) {
+  if (authTokenMatches(readRequestAuthToken(request), defaultCodexImageServerApiKey)) {
+    return
+  }
+
+  throw new HttpError(401, 'unauthorized', 'Codex Image Server X-API-Key 校验失败')
+}
+
 function getBackend() {
   const configured = (process.env.CODEX_IMAGE_SERVER_BACKEND || 'auto').trim().toLowerCase()
   if (configured === 'openai') {
@@ -143,7 +168,7 @@ function sendJson(response, status, payload) {
   }
 
   response.writeHead(status, {
-    'Access-Control-Allow-Headers': 'authorization,content-type',
+    'Access-Control-Allow-Headers': 'authorization,content-type,x-api-key',
     'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
     'Access-Control-Allow-Origin': '*',
     'Cache-Control': 'no-store',
@@ -154,7 +179,7 @@ function sendJson(response, status, payload) {
 
 function sendOptions(response) {
   response.writeHead(204, {
-    'Access-Control-Allow-Headers': 'authorization,content-type',
+    'Access-Control-Allow-Headers': 'authorization,content-type,x-api-key',
     'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
     'Access-Control-Allow-Origin': '*'
   })
@@ -1176,6 +1201,7 @@ function sendImageFile(response, record, method) {
 
 function createCapabilities() {
   return {
+    auth_required: true,
     backend: getBackend(),
     generation_timeout_ms: DEFAULT_TIMEOUT_MS,
     model: DEFAULT_MODEL,
@@ -1232,6 +1258,10 @@ async function handleGenerate(request, response, requestUrl) {
 
   try {
     const body = await readJsonBody(request)
+    if (!String(body.prompt || '').trim()) {
+      throw new HttpError(400, 'missing_prompt', '请输入提示词')
+    }
+
     const outputFormat = normalizeOutputFormat(body.output_format)
     const quality = normalizeQuality(body.quality)
     const count = normalizeCount(body.count ?? body.n)
@@ -1306,6 +1336,7 @@ export function createCodexImageServer() {
         mkdirSync(getOutputDir(), { recursive: true })
         sendJson(response, 200, {
           status: 'ok',
+          auth_required: true,
           backend: getBackend(),
           generation_timeout_ms: DEFAULT_TIMEOUT_MS,
           log_file: getLogFile(),
@@ -1313,6 +1344,10 @@ export function createCodexImageServer() {
           output_dir: getOutputDir()
         })
         return
+      }
+
+      if (requestUrl.pathname.startsWith('/v1/')) {
+        assertAuthorized(request)
       }
 
       if (request.method === 'GET' && requestUrl.pathname === '/v1/capabilities') {

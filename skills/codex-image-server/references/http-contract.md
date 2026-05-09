@@ -7,6 +7,7 @@
 ```json
 {
   "status": "ok",
+  "auth_required": true,
   "backend": "codex-exec",
   "generation_timeout_ms": 600000,
   "log_file": "/Users/example/.codex/logs/lightyear-banana/image-server.jsonl",
@@ -19,10 +20,13 @@
 
 `GET /v1/capabilities`
 
+Requires `X-API-Key: {API Key}`. The default API Key is `maoban`; override it with `CODEX_IMAGE_SERVER_API_KEY`.
+
 Return the model, supported output formats, quality options, max images, ratio options, size options, and size constraints.
 
 Important values:
 
+- `auth_required`: `true`
 - `model`: `gpt-image-2`
 - `generation_timeout_ms`: request timeout for each generation worker, default `600000`
 - `max_images`: `4`
@@ -34,6 +38,8 @@ Important values:
 ## Generate
 
 `POST /v1/images/generate`
+
+Requires `X-API-Key: {API Key}`.
 
 ```json
 {
@@ -77,6 +83,8 @@ Response:
 ## Image File
 
 `GET /v1/images/:id/file`
+
+Requires `X-API-Key: {API Key}`.
 
 Return the generated image bytes with the correct image content type.
 

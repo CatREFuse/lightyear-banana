@@ -1,6 +1,12 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
-import { defaultModelConfigs, providerCapabilities, providerRequiresApiKey, readProviderCapability } from '../data/providerCapabilities'
+import {
+  defaultCodexImageServerApiKey,
+  defaultModelConfigs,
+  providerCapabilities,
+  providerRequiresApiKey,
+  readProviderCapability
+} from '../data/providerCapabilities'
 import { generateImagesWithProvider, resolveImageRequestSize, testImageConfig } from '../services/imageApiClient'
 import {
   type AppView,
@@ -96,6 +102,10 @@ function createId(prefix: string) {
 function cloneModelConfig(config: ModelConfig): ModelConfig {
   return {
     ...config,
+    apiKey:
+      config.provider === 'codex-image-server' && !config.apiKey.trim()
+        ? defaultCodexImageServerApiKey
+        : config.apiKey,
     comfyUi: config.provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
   }
 }
@@ -114,6 +124,14 @@ function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string)
   }
 
   return providerCapabilities[provider].supportsBaseUrl ? fallback : ''
+}
+
+function readDefaultApiKey(provider: ModelConfig['provider'], fallback: string) {
+  if (provider === 'codex-image-server') {
+    return defaultCodexImageServerApiKey
+  }
+
+  return providerRequiresApiKey(provider) ? fallback : ''
 }
 
 function isModelConfig(value: unknown): value is ModelConfig {
@@ -709,7 +727,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   }
 
   function readRequestSizeForSnapshot(snapshot: GenerationRequestSnapshot) {
-    return snapshot.config.provider === 'codex-image-server' ? snapshot.selectedSize : snapshot.resolvedSize
+    return snapshot.resolvedSize
   }
 
   function finalizeGenerationSnapshot(snapshot: GenerationRequestSnapshot, resolvedSize?: string): GenerationRequestSnapshot {
@@ -1224,15 +1242,21 @@ export function useLightyearBanana(runtime: RuntimeName) {
         return
       }
 
+      if (!settingsDraft.apiKey.trim()) {
+        setSettingsTestState({ status: 'error', message: '请输入 API Key' }, { resetAfterMs: 3000 })
+        status.value = '请输入 API Key'
+        return
+      }
+
       setSettingsTestState({ status: 'testing', message: '正在测试本机服务' })
       status.value = '正在测试本机服务'
 
       try {
-        await testImageConfig({ ...settingsDraft, apiKey: '' })
+        await testImageConfig({ ...settingsDraft })
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : ''
         const message = /api key|token|unauthorized|401/i.test(rawMessage)
-          ? '本机服务未接受当前请求'
+          ? '本机服务 Key 校验失败'
           : rawMessage || '本机服务不可用'
         setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
         status.value = message
@@ -1325,7 +1349,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
       const capability = providerCapabilities[patch.provider]
       patch.model = capability.modelOptions[0] ?? settingsDraft.model
       patch.baseUrl = readDefaultBaseUrl(patch.provider, settingsDraft.baseUrl)
-      patch.apiKey = providerRequiresApiKey(patch.provider) ? settingsDraft.apiKey : ''
+      patch.apiKey = readDefaultApiKey(patch.provider, settingsDraft.apiKey)
       patch.comfyUi = patch.provider === 'comfyui' ? createDefaultComfyUiSettings() : undefined
     }
 

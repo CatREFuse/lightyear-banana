@@ -41,14 +41,14 @@ Use this structure:
   - Provider: `Codex Image Server`
   - Config name: `Codex Image Server`
   - Base URL: the actual base URL above
-  - API Key: leave blank
+  - API Key: default `maoban`, or the value from `CODEX_IMAGE_SERVER_API_KEY`
   - Enable config: on
   - Test action: click `测试 API`, then save the config and select it from the bottom model menu.
 - API contract:
   - Health: `GET {baseUrl}/healthz`
-  - Capabilities: `GET {baseUrl}/v1/capabilities`
-  - Generate: `POST {baseUrl}/v1/images/generate`
-  - Generated file: `GET {baseUrl}/v1/images/:id/file`
+  - Capabilities: `GET {baseUrl}/v1/capabilities` with `X-API-Key: {API Key}`
+  - Generate: `POST {baseUrl}/v1/images/generate` with `X-API-Key: {API Key}`
+  - Generated file: `GET {baseUrl}/v1/images/:id/file` with `X-API-Key: {API Key}`
 - Supported request controls:
   - `count`: `1` to `4`
   - `quality`: `auto`, `high`, `medium`, `low`

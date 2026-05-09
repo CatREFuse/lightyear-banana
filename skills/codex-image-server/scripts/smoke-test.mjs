@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
 const baseUrl = (process.argv[2] ?? 'http://127.0.0.1:17341').replace(/\/+$/, '')
+const apiKey = process.argv[3] ?? process.env.CODEX_IMAGE_SERVER_API_KEY ?? 'maoban'
+const authHeaders = {
+  'X-API-Key': apiKey
+}
 
 async function readJson(path, init) {
   const response = await fetch(`${baseUrl}${path}`, init)
@@ -13,7 +17,9 @@ async function readJson(path, init) {
 }
 
 await readJson('/healthz')
-const capabilities = await readJson('/v1/capabilities')
+const capabilities = await readJson('/v1/capabilities', {
+  headers: authHeaders
+})
 
 if (capabilities.model !== 'gpt-image-2') {
   throw new Error('expected gpt-image-2 capability')
@@ -30,7 +36,7 @@ if (capabilities.references?.mode !== 'original_image') {
 const controller = new AbortController()
 const request = fetch(`${baseUrl}/v1/images/generate`, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: { ...authHeaders, 'Content-Type': 'application/json' },
   signal: controller.signal,
   body: JSON.stringify({
     prompt: 'smoke cancellation test',

@@ -71,6 +71,15 @@ const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
 
 const pollIntervalMs = 2000
 const pollAttempts = 45
+const gptImage2MinPixels = 655_360
+const gptImage2MaxPixels = 8_294_400
+const gptImage2MaxEdge = 3840
+const gptImage2MaxRatio = 3
+const codexSizePresets = new Map([
+  ['1k', { maxEdge: 1024, maxPixels: 1024 * 1024 }],
+  ['2k', { maxEdge: 2048, maxPixels: 2048 * 2048 }],
+  ['4k', { maxEdge: gptImage2MaxEdge, maxPixels: gptImage2MaxPixels }]
+])
 
 export class ImageApiError extends Error {
   status: number
@@ -142,7 +151,10 @@ function resolveOpenAiLikePath(config: ModelConfig, hasReferences: boolean) {
 
 function createAuthHeaders(config: ModelConfig): Record<string, string> {
   if (config.provider === 'codex-image-server') {
-    return { 'Content-Type': 'application/json' }
+    return {
+      'X-API-Key': config.apiKey,
+      'Content-Type': 'application/json'
+    }
   }
 
   if (config.provider === 'comfyui') {
@@ -534,7 +546,101 @@ function readOpenAiQuality(quality: string) {
   return 'auto'
 }
 
+function parseRatioText(value: string) {
+  const match = /^([1-9][0-9]*(?:\.\d+)?):([1-9][0-9]*(?:\.\d+)?)$/.exec(String(value || ''))
+  if (!match) {
+    return undefined
+  }
+
+  const width = Number(match[1])
+  const height = Number(match[2])
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return undefined
+  }
+
+  return { width, height }
+}
+
+function readDimensionsRatio(dimensions?: { width: number; height: number }) {
+  if (!dimensions?.width || !dimensions?.height) {
+    return undefined
+  }
+
+  const width = Number(dimensions.width)
+  const height = Number(dimensions.height)
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return undefined
+  }
+
+  return { width, height }
+}
+
+function resolveCodexAspectDimensions(params: Pick<ImageGenerationParams, 'canvasSize' | 'ratio' | 'references' | 'size'>) {
+  if (params.ratio === '参考图比例' || params.ratio === '原图比例') {
+    return readDimensionsRatio(params.references[0]?.image) ?? parseRatioText(params.size) ?? { width: 16, height: 9 }
+  }
+
+  if (params.ratio === '画布比例') {
+    return readDimensionsRatio(params.canvasSize) ?? parseRatioText(params.size) ?? { width: 16, height: 9 }
+  }
+
+  return parseRatioText(params.ratio) ?? parseRatioText(params.size) ?? { width: 16, height: 9 }
+}
+
+function roundDownToMultiple(value: number, multiple: number) {
+  return Math.max(multiple, Math.floor(value / multiple) * multiple)
+}
+
+function deriveCodexSizeForRatio(aspect: { width: number; height: number }, maxEdge: number, maxPixels: number) {
+  const sourceRatio = aspect.width / aspect.height
+  const ratio = Math.max(1 / gptImage2MaxRatio, Math.min(gptImage2MaxRatio, sourceRatio))
+  const heightLimitByEdge = ratio >= 1 ? maxEdge / ratio : maxEdge
+  const heightLimitByPixels = Math.sqrt(maxPixels / ratio)
+  const height = roundDownToMultiple(Math.min(heightLimitByEdge, heightLimitByPixels), 16)
+  const width = roundDownToMultiple(height * ratio, 16)
+  let candidate = { width, height }
+
+  while (
+    candidate.width * candidate.height > maxPixels ||
+    Math.max(candidate.width, candidate.height) > maxEdge ||
+    Math.max(candidate.width, candidate.height) / Math.min(candidate.width, candidate.height) > gptImage2MaxRatio
+  ) {
+    if (candidate.width >= candidate.height) {
+      candidate.width -= 16
+      candidate.height = roundDownToMultiple(candidate.width / ratio, 16)
+    } else {
+      candidate.height -= 16
+      candidate.width = roundDownToMultiple(candidate.height * ratio, 16)
+    }
+  }
+
+  while (candidate.width * candidate.height < gptImage2MinPixels) {
+    const nextHeight = roundDownToMultiple(candidate.height + 16, 16)
+    const nextWidth = roundDownToMultiple(nextHeight * ratio, 16)
+    const nextCandidate = { width: nextWidth, height: nextHeight }
+
+    if (
+      nextCandidate.width * nextCandidate.height > maxPixels ||
+      Math.max(nextCandidate.width, nextCandidate.height) > gptImage2MaxEdge ||
+      Math.max(nextCandidate.width, nextCandidate.height) / Math.min(nextCandidate.width, nextCandidate.height) > gptImage2MaxRatio
+    ) {
+      break
+    }
+
+    candidate = nextCandidate
+  }
+
+  return `${candidate.width}x${candidate.height}`
+}
+
 export function resolveImageRequestSize(params: Pick<ImageGenerationParams, 'canvasSize' | 'config' | 'ratio' | 'references' | 'size'>) {
+  if (params.config.provider === 'codex-image-server') {
+    const preset = codexSizePresets.get(params.size.toLowerCase())
+    if (preset) {
+      return deriveCodexSizeForRatio(resolveCodexAspectDimensions(params), preset.maxEdge, preset.maxPixels)
+    }
+  }
+
   return params.size
 }
 
@@ -908,7 +1014,7 @@ export async function testImageConfig(config: ModelConfig) {
     const baseUrl = resolveBaseUrl(config)
     await fetchJson(joinUrl(baseUrl, '/healthz'), {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: createAuthHeaders(config)
     })
     await fetchJson(joinUrl(baseUrl, '/v1/capabilities'), {
       method: 'GET',

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 
 const env = { ...process.env }
 let viteReady = false
+let devServerUrl = 'http://127.0.0.1:5173'
 
 function run(command, args, options = {}) {
   const child = spawn(command, args, {
@@ -31,7 +32,7 @@ function startElectron() {
   electron = run('npx', ['electron', 'electron/main.js'], {
     env: {
       ...env,
-      VITE_DEV_SERVER_URL: 'http://127.0.0.1:5173'
+      VITE_DEV_SERVER_URL: devServerUrl
     }
   })
 
@@ -42,7 +43,13 @@ function startElectron() {
 }
 
 vite.stdout.on('data', (chunk) => {
-  if (!viteReady && chunk.toString().includes('Local:')) {
+  const output = chunk.toString()
+  const localUrl = output.match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+\/?)/)
+  if (localUrl?.[1]) {
+    devServerUrl = localUrl[1].replace(/\/$/, '')
+  }
+
+  if (!viteReady && output.includes('Local:')) {
     viteReady = true
     startElectron()
   }
