@@ -73,9 +73,9 @@ Windows：
 
 ![设置页](docs/images/lightyear-settings.png)
 
-你可以直接编辑默认配置，也可以点击“新建配置”添加自己的模型。云端模型需要填写对应服务的 API Key。Codex Image Server 只需要填写 Base URL。
+发行版不会内置模型配置、Base URL 或 API Key。点击“新建配置”添加自己的模型。云端模型需要填写对应服务的 API Key。Codex Image Server 需要填写 Base URL；如果服务端启用了 `CODEX_IMAGE_SERVER_API_KEY`，再填写同一个 API Key。
 
-默认配置只启用 Codex Image Server，地址为 `http://127.0.0.1:17341`。设置页里的 Codex Image Server 配置提供了改造说明入口，用于把本机 Codex 的生图能力暴露成可调用的本地服务。
+选择 Codex Image Server 供应商后，设置页会显示改造说明入口，用于把本机 Codex 的生图能力暴露成可调用的本地服务。
 
 保存配置后，回到工作台，在底部“模型”菜单中选择要使用的配置。
 

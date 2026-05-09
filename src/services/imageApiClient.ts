@@ -151,10 +151,14 @@ function resolveOpenAiLikePath(config: ModelConfig, hasReferences: boolean) {
 
 function createAuthHeaders(config: ModelConfig): Record<string, string> {
   if (config.provider === 'codex-image-server') {
-    return {
-      'X-API-Key': config.apiKey,
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     }
+    if (config.apiKey.trim()) {
+      headers['X-API-Key'] = config.apiKey.trim()
+    }
+
+    return headers
   }
 
   if (config.provider === 'comfyui') {
@@ -162,7 +166,10 @@ function createAuthHeaders(config: ModelConfig): Record<string, string> {
   }
 
   if (config.provider === 'gemini') {
-    return { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey }
+    return {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': config.apiKey
+    }
   }
 
   if (config.provider === 'flux') {

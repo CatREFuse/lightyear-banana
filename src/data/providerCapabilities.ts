@@ -1,7 +1,5 @@
 import type { ImageProviderId, ModelConfig, ProviderCapability } from '../types/lightyear'
 
-export const defaultCodexImageServerApiKey = 'maoban'
-
 export const providerCapabilities: Record<ImageProviderId, ProviderCapability> = {
   openai: {
     id: 'openai',
@@ -144,17 +142,7 @@ export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'm
 }
 
 export function providerRequiresApiKey(provider: ImageProviderId) {
-  return provider !== 'comfyui'
+  return provider !== 'comfyui' && provider !== 'codex-image-server'
 }
 
-export const defaultModelConfigs: ModelConfig[] = [
-  {
-    id: 'codex-image-server',
-    name: 'Codex Image Server',
-    provider: 'codex-image-server',
-    model: 'gpt-image-2',
-    apiKey: defaultCodexImageServerApiKey,
-    baseUrl: 'http://127.0.0.1:17341',
-    enabled: true
-  }
-]
+export const defaultModelConfigs: ModelConfig[] = []

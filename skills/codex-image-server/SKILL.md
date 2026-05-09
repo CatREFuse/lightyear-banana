@@ -16,7 +16,7 @@ Use this skill to help a user expose local Codex image generation as a local HTT
    - `GET /v1/capabilities`
    - `POST /v1/images/generate`
    - `GET /v1/images/:id/file`
-4. Keep authentication optional by default for loopback use. Do not require an API key unless the target app explicitly needs one.
+4. Keep authentication optional by default for loopback use. Require `X-API-Key` only when `CODEX_IMAGE_SERVER_API_KEY` is set.
 5. Pass references as original image files through Codex image inputs. Avoid sampling or screenshot downscaling.
 6. Support up to 4 images per request. Run workers concurrently, and make each candidate distinct.
 7. Wire cancellation through `AbortSignal`. If the HTTP client disconnects or cancels, terminate the full `codex exec` process group.
@@ -41,14 +41,14 @@ Use this structure:
   - Provider: `Codex Image Server`
   - Config name: `Codex Image Server`
   - Base URL: the actual base URL above
-  - API Key: default `maoban`, or the value from `CODEX_IMAGE_SERVER_API_KEY`
+  - API Key: leave empty unless `CODEX_IMAGE_SERVER_API_KEY` is set; if it is set, use that same value
   - Enable config: on
   - Test action: click `测试 API`, then save the config and select it from the bottom model menu.
 - API contract:
   - Health: `GET {baseUrl}/healthz`
-  - Capabilities: `GET {baseUrl}/v1/capabilities` with `X-API-Key: {API Key}`
-  - Generate: `POST {baseUrl}/v1/images/generate` with `X-API-Key: {API Key}`
-  - Generated file: `GET {baseUrl}/v1/images/:id/file` with `X-API-Key: {API Key}`
+  - Capabilities: `GET {baseUrl}/v1/capabilities`, plus `X-API-Key: {API Key}` when auth is enabled
+  - Generate: `POST {baseUrl}/v1/images/generate`, plus `X-API-Key: {API Key}` when auth is enabled
+  - Generated file: `GET {baseUrl}/v1/images/:id/file`, plus `X-API-Key: {API Key}` when auth is enabled
 - Supported request controls:
   - `count`: `1` to `4`
   - `quality`: `auto`, `high`, `medium`, `low`

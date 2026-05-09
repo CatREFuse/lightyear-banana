@@ -10,7 +10,7 @@ import { deflateSync, inflateSync } from 'node:zlib'
 export const defaultCodexImageServerPort = Number(process.env.CODEX_IMAGE_SERVER_PORT ?? 17341)
 export const defaultCodexImageServerHost = process.env.CODEX_IMAGE_SERVER_HOST ?? '127.0.0.1'
 export const defaultCodexImageServerApiKey =
-  process.env.CODEX_IMAGE_SERVER_API_KEY || 'maoban'
+  process.env.CODEX_IMAGE_SERVER_API_KEY || ''
 
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_OUTPUT_FORMAT = 'png'
@@ -141,7 +141,15 @@ function authTokenMatches(token, expected) {
   return tokenBuffer.length === expectedBuffer.length && timingSafeEqual(tokenBuffer, expectedBuffer)
 }
 
+function isAuthRequired() {
+  return Boolean(defaultCodexImageServerApiKey.trim())
+}
+
 function assertAuthorized(request) {
+  if (!isAuthRequired()) {
+    return
+  }
+
   if (authTokenMatches(readRequestAuthToken(request), defaultCodexImageServerApiKey)) {
     return
   }
@@ -1201,7 +1209,7 @@ function sendImageFile(response, record, method) {
 
 function createCapabilities() {
   return {
-    auth_required: true,
+    auth_required: isAuthRequired(),
     backend: getBackend(),
     generation_timeout_ms: DEFAULT_TIMEOUT_MS,
     model: DEFAULT_MODEL,
@@ -1336,7 +1344,7 @@ export function createCodexImageServer() {
         mkdirSync(getOutputDir(), { recursive: true })
         sendJson(response, 200, {
           status: 'ok',
-          auth_required: true,
+          auth_required: isAuthRequired(),
           backend: getBackend(),
           generation_timeout_ms: DEFAULT_TIMEOUT_MS,
           log_file: getLogFile(),

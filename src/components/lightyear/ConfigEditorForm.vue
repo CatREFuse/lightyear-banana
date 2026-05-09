@@ -68,7 +68,11 @@ const codexImageServerGuideUrl =
 const subtitle = computed(() => (props.settingsDraftIsNew ? '保存后可在输入区选择' : props.activeConfigName ?? '当前配置'))
 const isComfyUi = computed(() => props.settingsDraft.provider === 'comfyui')
 const isCodexImageServer = computed(() => props.settingsDraft.provider === 'codex-image-server')
-const showApiKeyField = computed(() => props.settingsDraft.provider === 'comfyui' || providerRequiresApiKey(props.settingsDraft.provider))
+const showApiKeyField = computed(() =>
+  props.settingsDraft.provider === 'comfyui' ||
+  props.settingsDraft.provider === 'codex-image-server' ||
+  providerRequiresApiKey(props.settingsDraft.provider)
+)
 const baseUrlPlaceholder = computed(() => {
   if (isComfyUi.value) {
     return 'http://127.0.0.1:8000'
@@ -266,7 +270,7 @@ function parseNodeIds(value: string) {
       <label v-if="showApiKeyField">
         <span class="label-heading">
           <BoxIcon name="key" size="14" />
-          {{ isComfyUi ? 'API Key（可选）' : 'API Key' }}
+          {{ isComfyUi || isCodexImageServer ? 'API Key（可选）' : 'API Key' }}
         </span>
         <input
           :value="settingsDraft.apiKey"

@@ -1,7 +1,6 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
 import {
-  defaultCodexImageServerApiKey,
   defaultModelConfigs,
   providerCapabilities,
   providerRequiresApiKey,
@@ -73,6 +72,7 @@ const retiredBundledConfigIds = new Set([
   'kling-v3',
   'flux-2-pro-preview',
   'local-comfyui',
+  'codex-image-server',
   'custom-openai'
 ])
 
@@ -102,11 +102,20 @@ function createId(prefix: string) {
 function cloneModelConfig(config: ModelConfig): ModelConfig {
   return {
     ...config,
-    apiKey:
-      config.provider === 'codex-image-server' && !config.apiKey.trim()
-        ? defaultCodexImageServerApiKey
-        : config.apiKey,
     comfyUi: config.provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
+  }
+}
+
+function createEmptyModelConfig(): ModelConfig {
+  return {
+    id: '',
+    name: '未配置',
+    provider: 'custom-openai',
+    model: 'custom-image-model',
+    apiKey: '',
+    baseUrl: '',
+    enabled: false,
+    comfyUi: undefined
   }
 }
 
@@ -127,10 +136,6 @@ function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string)
 }
 
 function readDefaultApiKey(provider: ModelConfig['provider'], fallback: string) {
-  if (provider === 'codex-image-server') {
-    return defaultCodexImageServerApiKey
-  }
-
   return providerRequiresApiKey(provider) ? fallback : ''
 }
 
@@ -229,7 +234,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const initialConfig =
     storedSettings.configs.find((config) => config.id === storedSettings.activeConfigId) ??
     storedSettings.configs[0] ??
-    defaultModelConfigs[0]
+    createEmptyModelConfig()
   const initialCapability = readProviderCapability(initialConfig)
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
@@ -268,14 +273,14 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
   const canUseElectronBridge = computed(() => isElectronRuntime && hasElectronBridge())
   const activeConfig = computed(
-    () => configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? defaultModelConfigs[0]
+    () => configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? createEmptyModelConfig()
   )
   const activeCapability = computed(() => readProviderCapability(activeConfig.value))
   const editingCapability = computed(() => readProviderCapability(settingsDraft))
   const enabledConfigs = computed(() => configs.value.filter((config) => config.enabled))
   const referenceLimit = computed(() => activeCapability.value.referenceLimit)
   const canAddReference = computed(() => references.value.length < referenceLimit.value)
-  const canSend = computed(() => Boolean(prompt.value.trim()) || references.value.length > 0)
+  const canSend = computed(() => configs.value.length > 0 && (Boolean(prompt.value.trim()) || references.value.length > 0))
 
   watch(
     [configs, activeConfigId],
@@ -766,6 +771,12 @@ export function useLightyearBanana(runtime: RuntimeName) {
       status.value = '请输入提示词或添加参考图'
       return
     }
+    if (!configs.value.length) {
+      status.value = '请先添加 API 配置'
+      showToast('请先添加 API 配置')
+      return
+    }
+
     const requestPrompt = cleanPrompt || '根据参考图生成'
     const sentReferences = references.value.map((reference) => ({ ...reference }))
     const requestConfig = cloneModelConfig(activeConfig.value)
@@ -1219,11 +1230,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
       return
     }
 
-    if (configs.value.length <= 1) {
-      status.value = '至少保留一个配置'
-      return
-    }
-
     configs.value = configs.value.filter((config) => config.id !== editingConfigId.value)
     const nextActiveConfigId = configs.value[0]?.id ?? ''
     activeConfigId.value = nextActiveConfigId
@@ -1239,12 +1245,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
       if (!settingsDraft.baseUrl.trim()) {
         setSettingsTestState({ status: 'error', message: '请输入 Base URL' }, { resetAfterMs: 3000 })
         status.value = '请输入 Base URL'
-        return
-      }
-
-      if (!settingsDraft.apiKey.trim()) {
-        setSettingsTestState({ status: 'error', message: '请输入 API Key' }, { resetAfterMs: 3000 })
-        status.value = '请输入 API Key'
         return
       }
 

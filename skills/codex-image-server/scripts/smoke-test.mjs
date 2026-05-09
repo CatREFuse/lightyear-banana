@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
 const baseUrl = (process.argv[2] ?? 'http://127.0.0.1:17341').replace(/\/+$/, '')
-const apiKey = process.argv[3] ?? process.env.CODEX_IMAGE_SERVER_API_KEY ?? 'maoban'
-const authHeaders = {
-  'X-API-Key': apiKey
-}
+const apiKey = process.argv[3] ?? process.env.CODEX_IMAGE_SERVER_API_KEY ?? ''
+const authHeaders = apiKey.trim() ? { 'X-API-Key': apiKey.trim() } : {}
 
 async function readJson(path, init) {
   const response = await fetch(`${baseUrl}${path}`, init)
