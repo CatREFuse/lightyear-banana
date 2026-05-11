@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, shallowRef, useTemplateRef, watch } from 'vue'
-import type { CanvasOperationState, ModelConfig, ReferenceImage, ReferenceSource } from '../../types/lightyear'
+import type { CanvasOperationState, ModelConfig, ReferenceImage, ReferenceSource, ResolutionInputMode } from '../../types/lightyear'
 import type { ProviderCapability } from '../../types/lightyear'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
-import { providerRequiresApiKey, readProviderCapability } from '../../data/providerCapabilities'
+import { providerRequiresApiKey, providerSupportsQuality, readProviderCapability } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
 import type { BoxIconName } from './boxIcons'
 import ControlSelect from './ControlSelect.vue'
@@ -34,30 +34,41 @@ const props = defineProps<{
   canSend: boolean
   configs: ModelConfig[]
   count: number
+  customHeight: number
+  customWidth: number
   prompt: string
   quality: string
   ratio: string
   references: ReferenceImage[]
+  resolutionMode: ResolutionInputMode
   size: string
 }>()
+
+const manageModelsValue = '__lightyear_manage_models__'
 
 const emit = defineEmits<{
   addReference: [source: ReferenceSource]
   clearReferences: []
+  manageModels: []
   menuOpen: [owner: string]
   preview: [image: ReferenceImage['image']]
   removeReference: [id: string]
   selectConfig: [id: string]
+  selectModel: [model: string]
   send: []
   updateCount: [value: number]
   updatePrompt: [value: string]
   updateQuality: [value: string]
   updateRatio: [value: string]
+  updateResolutionMode: [value: ResolutionInputMode]
   updateSize: [value: string]
+  updateCustomHeight: [value: number]
+  updateCustomWidth: [value: number]
 }>()
 
 const openPanel = shallowRef('')
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
+const customSizeValue = '__lightyear_custom_resolution__'
 
 const referenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; label: string }> = [
   { icon: 'image', source: 'visible', label: '可见图层' },
@@ -70,7 +81,9 @@ const referenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; labe
 const referenceCountText = computed(() => `${props.references.length} / ${props.activeCapability.referenceLimit}`)
 const hasReferences = computed(() => props.references.length > 0)
 const referenceBusy = computed(() => props.canvasOperation.type === 'capture')
-const modelOptions = computed<SelectOption[]>(() =>
+const activeConfig = computed(() => props.configs.find((config) => config.id === props.activeConfigId) ?? props.configs[0])
+const activeModel = computed(() => activeConfig.value?.model ?? '')
+const configOptions = computed<SelectOption[]>(() =>
   props.configs.map((config) => {
     const status = readModelStatus(config)
 
@@ -78,18 +91,44 @@ const modelOptions = computed<SelectOption[]>(() =>
       icon: 'key',
       value: config.id,
       label: config.name,
-      meta: config.model,
+      meta: `${config.provider}${config.customFormat ? ` · ${config.customFormat}` : ''}`,
       status: status.label,
       statusTone: status.tone
     }
   })
 )
+const modelOptions = computed<SelectOption[]>(() => {
+  const models = activeConfig.value?.models?.length ? activeConfig.value.models : activeModel.value ? [activeModel.value] : []
+
+  return [
+    ...models.map((model) => ({
+      icon: 'slider-alt' as BoxIconName,
+      value: model,
+      label: model,
+      meta: activeConfig.value?.name
+    })),
+    {
+      icon: 'plus' as BoxIconName,
+      value: manageModelsValue,
+      label: '管理模型',
+      meta: '设置'
+    }
+  ]
+})
 const sizeOptions = computed<SelectOption[]>(() =>
-  props.activeCapability.sizeOptions.map((option) => ({ value: option, label: option }))
+  [
+    ...props.activeCapability.sizeOptions.map((option) => ({ value: option, label: option })),
+    {
+      icon: 'crop' as BoxIconName,
+      value: customSizeValue,
+      label: '宽高输入'
+    }
+  ]
 )
 const qualityOptions = computed<SelectOption[]>(() =>
   props.activeCapability.qualityOptions.map((option) => ({ value: option, label: option }))
 )
+const showsQualityControl = computed(() => Boolean(activeConfig.value && providerSupportsQuality(activeConfig.value) && props.activeCapability.qualityOptions.length))
 const countOptions = computed<SelectOption[]>(() =>
   props.activeCapability.countOptions.map((option) => ({ value: String(option), label: String(option) }))
 )
@@ -114,6 +153,10 @@ function closePanel() {
   openPanel.value = ''
 }
 
+function readDimensionInput(event: Event) {
+  return Number((event.target as HTMLInputElement).value)
+}
+
 function readModelStatus(config: ModelConfig): ModelStatus {
   if (!config.enabled) {
     return { label: '停用', tone: 'muted' }
@@ -129,6 +172,33 @@ function readModelStatus(config: ModelConfig): ModelStatus {
   }
 
   return { label: '可用', tone: 'ready' }
+}
+
+function handleModelChange(value: string) {
+  openPanel.value = ''
+  if (value === manageModelsValue) {
+    emit('manageModels')
+    return
+  }
+
+  emit('selectModel', value)
+}
+
+function handleSizeChange(value: string) {
+  openPanel.value = ''
+
+  if (value === customSizeValue) {
+    emit('updateResolutionMode', 'custom')
+    return
+  }
+
+  emit('updateSize', value)
+}
+
+function usePresetResolution() {
+  openPanel.value = ''
+  emit('menuOpen', '')
+  emit('updateResolutionMode', 'preset')
 }
 
 function handlePromptKeydown(event: KeyboardEvent) {
@@ -223,36 +293,74 @@ watch(
 
     <div class="control-grid">
       <ControlSelect
-        class="model-control"
+        class="config-control"
         icon="key"
-        label="模型"
-        :options="modelOptions"
-        :open="openPanel === 'model'"
+        label="接口"
+        :options="configOptions"
+        :open="openPanel === 'config'"
         :value="activeConfigId"
         wide
         @change="emit('selectConfig', $event); openPanel = ''"
         @close="closePanel"
+        @toggle="togglePanel('config')"
+      />
+      <ControlSelect
+        class="model-control"
+        icon="slider-alt"
+        label="模型"
+        :open="openPanel === 'model'"
+        :options="modelOptions"
+        :value="activeModel"
+        wide
+        @change="handleModelChange"
+        @close="closePanel"
         @toggle="togglePanel('model')"
       />
       <ControlSelect
+        v-if="resolutionMode === 'preset'"
         icon="image"
         label="尺寸"
         :open="openPanel === 'size'"
         :options="sizeOptions"
         :value="size"
-        @change="emit('updateSize', $event); openPanel = ''"
+        @change="handleSizeChange"
         @close="closePanel"
         @toggle="togglePanel('size')"
       />
-      <ControlSelect
-        icon="check-circle"
-        label="质量"
-        :open="openPanel === 'quality'"
-        :options="qualityOptions"
-        :value="quality"
-        @change="emit('updateQuality', $event); openPanel = ''"
+      <div v-else class="dimension-fields">
+        <label class="dimension-field">
+          <span>宽</span>
+          <input
+            inputmode="numeric"
+            min="1"
+            step="16"
+            type="number"
+            :value="customWidth"
+            @input="emit('updateCustomWidth', readDimensionInput($event))"
+          />
+        </label>
+        <span class="dimension-times">×</span>
+        <label class="dimension-field">
+          <span>高</span>
+          <input
+            inputmode="numeric"
+            min="1"
+            step="16"
+            type="number"
+            :value="customHeight"
+            @input="emit('updateCustomHeight', readDimensionInput($event))"
+          />
+        </label>
+        <button class="dimension-preset-button" type="button" @click="usePresetResolution">预设</button>
+      </div>
+      <RatioPicker
+        v-if="resolutionMode === 'preset'"
+        :open="openPanel === 'ratio'"
+        :options="activeCapability.ratioOptions"
+        :value="ratio"
+        @change="emit('updateRatio', $event); openPanel = ''"
         @close="closePanel"
-        @toggle="togglePanel('quality')"
+        @toggle="togglePanel('ratio')"
       />
       <ControlSelect
         icon="grid-alt"
@@ -264,13 +372,16 @@ watch(
         @close="closePanel"
         @toggle="togglePanel('count')"
       />
-      <RatioPicker
-        :open="openPanel === 'ratio'"
-        :options="activeCapability.ratioOptions"
-        :value="ratio"
-        @change="emit('updateRatio', $event); openPanel = ''"
+      <ControlSelect
+        v-if="showsQualityControl"
+        icon="check-circle"
+        label="质量"
+        :open="openPanel === 'quality'"
+        :options="qualityOptions"
+        :value="quality"
+        @change="emit('updateQuality', $event); openPanel = ''"
         @close="closePanel"
-        @toggle="togglePanel('ratio')"
+        @toggle="togglePanel('quality')"
       />
     </div>
 
@@ -444,8 +555,68 @@ watch(
   gap: 7px;
 }
 
+.config-control {
+  grid-column: span 1;
+}
+
 .model-control {
   grid-column: span 2;
+}
+
+.dimension-fields {
+  display: grid;
+  grid-column: span 2;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 7px;
+  min-width: 0;
+}
+
+.dimension-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dimension-field span,
+.dimension-times {
+  color: var(--lb-muted);
+  font-size: 10px;
+}
+
+.dimension-field input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--lb-field);
+  color: var(--lb-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.dimension-field input:focus {
+  outline: 1px solid var(--lb-accent);
+}
+
+.dimension-preset-button {
+  height: 28px;
+  min-height: 28px;
+  align-self: end;
+  padding: 0 8px;
+  border-color: transparent;
+  background: var(--lb-field);
+  color: var(--lb-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.dimension-preset-button:hover {
+  border-color: var(--lb-accent);
+  color: var(--lb-text);
 }
 
 .send-button {

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import { normalizeComfyUiSettings } from '../../data/comfyUiDefaults'
-import { providerRequiresApiKey } from '../../data/providerCapabilities'
+import { normalizeCustomModelFormat, providerRequiresApiKey, providerSupportsQuality } from '../../data/providerCapabilities'
 import type {
   ComfyUiNodeMapping,
   ComfyUiNodeMappingType,
   ComfyUiSettings,
+  CustomModelFormat,
   ImageProviderId,
   ModelConfig,
   ProviderCapability,
@@ -31,6 +32,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  duplicate: []
   delete: []
   save: []
   test: []
@@ -39,6 +41,7 @@ const emit = defineEmits<{
 }>()
 
 const openField = shallowRef('')
+const newModelDraft = shallowRef('')
 
 const comfyNodeTypeOptions: SelectOption[] = [
   { value: 'prompt', label: '提示词', meta: '正向文本' },
@@ -53,6 +56,13 @@ const comfyNodeTypeOptions: SelectOption[] = [
   { value: 'custom', label: '固定值', meta: '自定义字段' }
 ]
 
+const customFormatOptions: SelectOption[] = [
+  { value: 'openai-images', label: 'OPENAI Images', meta: '/v1/images/generations' },
+  { value: 'openai-chat', label: 'OPENAI Chat', meta: '/v1/chat/completions' },
+  { value: 'gemini', label: 'Gemini', meta: 'generateContent' },
+  { value: 'qwen', label: '通义千问', meta: 'input / parameters' }
+]
+
 const providerOptions = computed<SelectOption[]>(() =>
   Object.values(props.providerCapabilities).map((capability) => ({
     value: capability.id,
@@ -60,31 +70,54 @@ const providerOptions = computed<SelectOption[]>(() =>
     meta: `${capability.referenceLimit} 张参考图`
   }))
 )
-const modelOptions = computed<SelectOption[]>(() =>
-  props.editingCapability.modelOptions.map((model) => ({ value: model, label: model }))
-)
+const draftModels = computed(() => {
+  const models = props.settingsDraft.models?.length ? props.settingsDraft.models : [props.settingsDraft.model]
+  return Array.from(new Set(models.map((model) => model.trim()).filter(Boolean)))
+})
 const codexImageServerGuideUrl =
   'https://github.com/CatREFuse/lightyear-banana/tree/codex/fix-api-provider-config#codex-image-server-skill'
 const subtitle = computed(() => (props.settingsDraftIsNew ? '保存后可在输入区选择' : props.activeConfigName ?? '当前配置'))
 const isComfyUi = computed(() => props.settingsDraft.provider === 'comfyui')
 const isCodexImageServer = computed(() => props.settingsDraft.provider === 'codex-image-server')
+const isCustomProvider = computed(() => props.settingsDraft.provider === 'custom-openai')
+const customFormat = computed<CustomModelFormat>(() => normalizeCustomModelFormat(props.settingsDraft.customFormat))
+const showsBaseUrlField = computed(() => props.editingCapability.supportsBaseUrl)
+const baseUrlIsDisabled = computed(() => !props.editingCapability.supportsBaseUrl)
 const showApiKeyField = computed(() =>
   props.settingsDraft.provider === 'comfyui' ||
   props.settingsDraft.provider === 'codex-image-server' ||
   providerRequiresApiKey(props.settingsDraft.provider)
 )
 const baseUrlPlaceholder = computed(() => {
-  if (isComfyUi.value) {
-    return 'http://127.0.0.1:8000'
-  }
-
-  if (isCodexImageServer.value) {
-    return 'http://127.0.0.1:17341'
-  }
-
-  return props.editingCapability.supportsBaseUrl ? 'https://api.example.com/v1' : '官方默认'
+  return props.editingCapability.supportsBaseUrl ? '请输入 URL' : '官方默认'
 })
+const customModelPlaceholder = computed(() => {
+  if (customFormat.value === 'openai-images') {
+    return 'doubao-seedream-5-0-260128'
+  }
+
+  if (customFormat.value === 'openai-chat') {
+    return 'gemini-3-pro-image-preview-4k'
+  }
+
+  if (customFormat.value === 'gemini') {
+    return 'nano-banana-pro-4k'
+  }
+
+  if (customFormat.value === 'qwen') {
+    return 'qwen-image-plus'
+  }
+
+  return 'gpt-image-2'
+})
+const newModelPlaceholder = computed(() =>
+  isCustomProvider.value
+    ? customModelPlaceholder.value
+    : props.settingsDraft.model || (props.editingCapability.modelOptions[0] ?? '输入模型 ID')
+)
+const showsQualityCapability = computed(() => providerSupportsQuality(props.settingsDraft) && props.editingCapability.qualityOptions.length > 0)
 const comfyUiSettings = computed(() => normalizeComfyUiSettings(props.settingsDraft.comfyUi))
+const showNewModelInput = shallowRef(false)
 const testIsRunning = computed(() => props.settingsTestState.status === 'testing')
 const testButtonIcon = computed<BoxIconName>(() => {
   if (props.settingsTestState.status === 'testing') {
@@ -128,6 +161,42 @@ function toggleField(field: string) {
 function updateProvider(value: string) {
   openField.value = ''
   emit('updateDraft', { provider: value as ImageProviderId })
+}
+
+function updateCustomFormat(value: string) {
+  openField.value = ''
+  emit('updateDraft', { customFormat: normalizeCustomModelFormat(value as CustomModelFormat) })
+}
+
+function addModel(model = newModelDraft.value) {
+  const cleanModel = model.trim()
+  if (!cleanModel) {
+    return
+  }
+
+  emit('updateDraft', {
+    model: cleanModel,
+    models: Array.from(new Set([...draftModels.value, cleanModel]))
+  })
+  newModelDraft.value = ''
+  showNewModelInput.value = false
+}
+
+function showModelInput() {
+  showNewModelInput.value = true
+}
+
+function cancelModelInput() {
+  newModelDraft.value = ''
+  showNewModelInput.value = false
+}
+
+function removeModel(model: string) {
+  const nextModels = draftModels.value.filter((item) => item !== model)
+  emit('updateDraft', {
+    model: props.settingsDraft.model === model ? nextModels[0] ?? '' : props.settingsDraft.model,
+    models: nextModels
+  })
 }
 
 function updateComfyUiSettings(patch: Partial<ComfyUiSettings>) {
@@ -217,35 +286,22 @@ function parseNodeIds(value: string) {
         />
       </div>
 
-      <div v-if="!editingCapability.supportsBaseUrl" class="form-control">
+      <div v-if="isCustomProvider" class="form-control">
         <ControlSelect
           direction="down"
-          icon="slider-alt"
-          label="模型"
-          :open="openField === 'model'"
-          :options="modelOptions"
-          :value="settingsDraft.model"
+          icon="grid-alt"
+          label="API 格式"
+          :open="openField === 'custom-format'"
+          :options="customFormatOptions"
+          :value="customFormat"
           wide
-          @change="emit('updateDraft', { model: $event }); openField = ''"
+          @change="updateCustomFormat"
           @close="openField = ''"
-          @toggle="toggleField('model')"
+          @toggle="toggleField('custom-format')"
         />
       </div>
 
-      <label v-else-if="!isComfyUi">
-        <span class="label-heading">
-          <BoxIcon name="slider-alt" size="14" />
-          模型
-        </span>
-        <input
-          :value="settingsDraft.model"
-          type="text"
-          placeholder="custom-image-model"
-          @input="emit('updateDraft', { model: ($event.target as HTMLInputElement).value })"
-        />
-      </label>
-
-      <label v-else>
+      <label v-if="isComfyUi">
         <span class="label-heading">
           <BoxIcon name="slider-alt" size="14" />
           调用方式
@@ -253,7 +309,46 @@ function parseNodeIds(value: string) {
         <input value="Workflow API JSON" type="text" disabled />
       </label>
 
-      <label>
+      <div v-if="!isComfyUi" class="model-list" aria-label="模型">
+        <span class="label-heading">
+          <BoxIcon name="slider-alt" size="14" />
+          模型
+        </span>
+        <div class="model-list-items">
+          <button
+            v-for="model in draftModels"
+            :key="model"
+            class="model-chip"
+            :class="{ active: settingsDraft.model === model }"
+            type="button"
+            @click="emit('updateDraft', { model })"
+          >
+            <span>{{ model }}</span>
+            <BoxIcon name="x" size="12" @click.stop="removeModel(model)" />
+          </button>
+          <button v-if="!showNewModelInput" class="model-chip add-model-chip" type="button" @click="showModelInput">
+            <BoxIcon name="plus" size="13" />
+          </button>
+          <span v-else class="model-inline-add">
+            <input
+              v-model="newModelDraft"
+              autofocus
+              type="text"
+              :placeholder="newModelPlaceholder"
+              @keydown.enter.prevent="addModel()"
+              @keydown.esc.prevent="cancelModelInput"
+            />
+            <button type="button" :disabled="!newModelDraft.trim()" @click="addModel()">
+              <BoxIcon name="check-circle" size="13" />
+            </button>
+            <button type="button" @click="cancelModelInput">
+              <BoxIcon name="x" size="13" />
+            </button>
+          </span>
+        </div>
+      </div>
+
+      <label v-if="showsBaseUrlField">
         <span class="label-heading">
           <BoxIcon name="grid-alt" size="14" />
           Base URL
@@ -261,9 +356,9 @@ function parseNodeIds(value: string) {
         <input
           :value="settingsDraft.baseUrl"
           type="text"
-          :disabled="!editingCapability.supportsBaseUrl"
+          :disabled="baseUrlIsDisabled"
           :placeholder="baseUrlPlaceholder"
-          @input="emit('updateDraft', { baseUrl: ($event.target as HTMLInputElement).value })"
+          @input="emit('updateDraft', { baseUrl: ($event.target as HTMLInputElement).value, usesOfficialBaseUrl: false })"
         />
       </label>
 
@@ -395,7 +490,7 @@ function parseNodeIds(value: string) {
           <span><BoxIcon name="image" size="13" />尺寸</span>
           <strong>{{ editingCapability.sizeOptions.join(' / ') }}</strong>
         </div>
-        <div>
+        <div v-if="showsQualityCapability">
           <span><BoxIcon name="check-circle" size="13" />质量</span>
           <strong>{{ editingCapability.qualityOptions.join(' / ') }}</strong>
         </div>
@@ -423,6 +518,10 @@ function parseNodeIds(value: string) {
               {{ testButtonLabel }}
             </span>
           </Transition>
+        </button>
+        <button v-if="!settingsDraftIsNew" class="copy-button" type="button" @click="emit('duplicate')">
+          <BoxIcon name="copy-alt" size="15" />
+          复制
         </button>
         <button class="primary" type="button" @click="emit('save')">
           <BoxIcon name="check-circle" size="15" />
@@ -455,7 +554,7 @@ function parseNodeIds(value: string) {
 
 .form-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   align-items: center;
   gap: 8px;
 }
@@ -570,6 +669,43 @@ label {
   gap: 5px;
 }
 
+.inline-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: var(--lb-surface);
+  cursor: pointer;
+}
+
+.inline-toggle span:first-child {
+  overflow: hidden;
+  color: var(--lb-secondary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-toggle .toggle-track {
+  width: 34px;
+  height: 20px;
+}
+
+.inline-toggle .toggle-thumb {
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+}
+
+.inline-toggle .toggle-input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(14px);
+}
+
 .form-control {
   display: grid;
 }
@@ -594,9 +730,97 @@ label {
 }
 
 label span,
+.label-heading,
 .capability-box span {
   color: var(--lb-muted);
   font-size: 11px;
+}
+
+.model-list {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--lb-surface);
+}
+
+.model-list-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  max-width: 100%;
+  padding: 0 7px;
+  overflow: hidden;
+  border-color: var(--lb-hairline);
+  background: var(--lb-field);
+  color: var(--lb-secondary);
+  font-size: 11px;
+}
+
+.add-model-chip {
+  justify-content: center;
+  width: 28px;
+  padding: 0;
+  border-style: dashed;
+}
+
+.model-chip.active {
+  border-color: var(--lb-accent);
+  background: var(--lb-accent-soft);
+  color: var(--lb-text);
+}
+
+.model-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-inline-add {
+  display: inline-grid;
+  grid-template-columns: minmax(96px, 1fr) auto auto;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.model-inline-add input {
+  min-height: 26px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.model-inline-add button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-color: var(--lb-hairline);
+  background: var(--lb-field);
+  color: var(--lb-secondary);
+}
+
+.model-chip:hover,
+.model-chip:focus-visible,
+.model-inline-add button:hover,
+.model-inline-add button:focus-visible {
+  border-color: var(--lb-accent);
+  background: var(--lb-accent-soft);
+  color: var(--lb-text);
+}
+
+.model-inline-add button:disabled {
+  color: var(--lb-muted);
+  opacity: 0.6;
 }
 
 .label-heading,
@@ -805,6 +1029,16 @@ input:disabled {
 .form-actions .test-button.is-error {
   background: var(--lb-danger-bg);
   color: var(--lb-danger-muted);
+}
+
+.form-actions .copy-button {
+  color: var(--lb-secondary);
+}
+
+.form-actions .copy-button:hover,
+.form-actions .copy-button:focus-visible {
+  background: var(--lb-hover);
+  color: var(--lb-text);
 }
 
 .form-actions .test-button:disabled {

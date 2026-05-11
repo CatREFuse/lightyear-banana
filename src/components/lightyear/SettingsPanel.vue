@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted, shallowRef } from 'vue'
+import { buildInfo } from '../../buildInfo'
 import type {
   ImageProviderId,
   MacPermissionPane,
@@ -31,9 +32,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  clearConversationData: []
   closeDetail: []
   create: []
   delete: []
+  duplicate: []
   edit: [id: string]
   openMacPermissionSettings: [pane: MacPermissionPane]
   save: []
@@ -43,6 +46,8 @@ const emit = defineEmits<{
 }>()
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
+const clearConversationArmed = shallowRef(false)
+let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
 const configRows = computed(() =>
   props.configs.map((config) => ({
     config,
@@ -50,6 +55,7 @@ const configRows = computed(() =>
   }))
 )
 const transitionName = computed(() => (props.settingsView === 'detail' ? 'settings-forward' : 'settings-back'))
+const clearConversationLabel = computed(() => (clearConversationArmed.value ? '再次清空' : '清空'))
 
 function readConfigStatus(config: ModelConfig): ConfigStatus {
   if (!config.enabled) {
@@ -80,12 +86,44 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
     tone: 'enabled'
   }
 }
+
+function requestClearConversationData() {
+  if (!clearConversationArmed.value) {
+    clearConversationArmed.value = true
+    clearConversationTimer = setTimeout(() => {
+      clearConversationArmed.value = false
+      clearConversationTimer = undefined
+    }, 2400)
+    return
+  }
+
+  if (clearConversationTimer) {
+    clearTimeout(clearConversationTimer)
+    clearConversationTimer = undefined
+  }
+  clearConversationArmed.value = false
+  emit('clearConversationData')
+}
+
+onUnmounted(() => {
+  if (clearConversationTimer) {
+    clearTimeout(clearConversationTimer)
+  }
+})
 </script>
 
 <template>
   <main class="settings-panel">
     <Transition :name="transitionName" mode="out-in">
       <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
+        <section class="version-card" aria-label="版本信息">
+          <div>
+            <strong>Lightyear Banana</strong>
+            <small>v{{ buildInfo.version }}</small>
+          </div>
+          <em>Build {{ buildInfo.buildNumber }}</em>
+        </section>
+
         <section v-if="macPermissionSettingsAvailable" class="permission-card" aria-label="macOS 权限">
           <div class="permission-heading">
             <strong>
@@ -100,6 +138,19 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
             <button type="button" @click="emit('openMacPermissionSettings', 'automation')">自动化</button>
             <button type="button" @click="emit('openMacPermissionSettings', 'screenCapture')">屏幕录制</button>
           </div>
+        </section>
+
+        <section class="data-card" aria-label="对话记录">
+          <div>
+            <strong>
+              <BoxIcon name="trash" size="14" />
+              对话记录
+            </strong>
+            <small>清除生成消息和图片记录</small>
+          </div>
+          <button type="button" @click="requestClearConversationData">
+            {{ clearConversationLabel }}
+          </button>
         </section>
 
         <div class="config-list">
@@ -122,7 +173,10 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
             <BoxIcon class="config-icon" name="key" size="17" />
             <span>
               <strong>{{ row.config.name }}</strong>
-              <small>{{ providerCapabilities[row.config.provider].name }} · {{ row.config.model }}</small>
+              <small>
+                {{ providerCapabilities[row.config.provider].name }} ·
+                {{ row.config.model }}
+              </small>
             </span>
             <em class="status-badge" :class="`is-${row.status.tone}`">
               <BoxIcon :name="row.status.icon" size="13" />
@@ -142,6 +196,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
           :settings-draft="settingsDraft"
           :settings-test-state="settingsTestState"
           @delete="emit('delete')"
+          @duplicate="emit('duplicate')"
           @save="emit('save')"
           @test="emit('test')"
           @toggle-enabled="emit('toggleEnabled', $event)"
@@ -184,6 +239,45 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   border: 1px solid var(--lb-border);
   border-radius: 8px;
   background: var(--lb-card);
+}
+
+.version-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-card);
+}
+
+.version-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.version-card strong,
+.version-card small,
+.version-card em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-card strong {
+  color: var(--lb-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.version-card small,
+.version-card em {
+  color: var(--lb-muted);
+  font-size: 11px;
+  font-style: normal;
 }
 
 .permission-heading {
@@ -234,6 +328,61 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
 
 .permission-actions button:hover {
   background: var(--lb-hover);
+}
+
+.data-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-card);
+}
+
+.data-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.data-card strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--lb-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-card small {
+  overflow: hidden;
+  color: var(--lb-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-card button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--lb-danger-border);
+  border-radius: 8px;
+  background: var(--lb-danger-bg);
+  color: var(--lb-danger-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.data-card button:hover {
+  background: rgba(236, 81, 93, 0.18);
 }
 
 .config-list {

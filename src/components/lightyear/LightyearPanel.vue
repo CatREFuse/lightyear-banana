@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
+import { buildInfo } from '../../buildInfo'
 import { useLightyearBanana } from '../../composables/useLightyearBanana'
 import { hasElectronBridge, openElectronPreviewImage } from '../../services/electronBridge'
 import type { DesktopPlatform, RuntimeName } from '../../types/lightyear'
@@ -26,14 +27,19 @@ const {
   canAddReference,
   canSend,
   cancelGeneration,
+  clearConversationData,
   clearReferences,
   closeSettingsDetail,
   closeSettings,
+  connectionStatus,
   configs,
   count,
   createConfig,
+  customHeight,
+  customWidth,
   deleteConfig,
   deployWindows,
+  duplicateConfig,
   editConfig,
   editingCapability,
   editingConfigId,
@@ -50,15 +56,17 @@ const {
   references,
   removeReference,
   retryGeneration,
+  resolutionMode,
   saveConfig,
+  saveGeneratedImage,
   selectConfig,
+  selectModel,
   sendPrompt,
   settingsDraft,
   settingsDraftIsNew,
   settingsTestState,
   settingsView,
   size,
-  status,
   testConfig,
   toastMessage,
   turns,
@@ -73,9 +81,26 @@ const {
 const themeMode = shallowRef<'dark' | 'light'>('dark')
 const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
+const previewDialogStyle = computed(() => {
+  const image = previewImage.value
+  if (!image) {
+    return {}
+  }
+
+  const width = Math.max(1, Math.round(image.width))
+  const height = Math.max(1, Math.round(image.height))
+  const ratio = width / height
+
+  return {
+    '--preview-aspect': `${width} / ${height}`,
+    '--preview-width': ratio >= 1
+      ? 'min(calc(100vw - 28px), 900px)'
+      : `min(calc(100vw - 28px), calc((100vh - 96px) * ${ratio.toFixed(5)}))`
+  }
+})
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return 'Lightyear Banana v0.2.3'
+    return `Lightyear Banana v${buildInfo.version}`
   }
 
   if (settingsView.value === 'list') {
@@ -115,6 +140,39 @@ function closePreview() {
   previewImage.value = null
 }
 
+function readPreviewFileName(image: CapturedCanvasImage) {
+  const cleanLabel = image.label
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim() || 'lightyear-image'
+
+  return `${cleanLabel}-${image.width}x${image.height}.png`
+}
+
+function downloadPreviewImage() {
+  const image = previewImage.value
+  if (!image) {
+    return
+  }
+
+  const link = document.createElement('a')
+  link.href = image.previewUrl
+  link.download = readPreviewFileName(image)
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+async function savePreviewImage() {
+  if (!previewImage.value) {
+    return
+  }
+
+  await saveGeneratedImage(previewImage.value)
+}
+
 function handleHeaderBack() {
   activeWorkspaceMenu.value = ''
   if (activeView.value === 'settings' && settingsView.value === 'detail') {
@@ -129,6 +187,12 @@ function handleOpenSettings() {
   activeWorkspaceMenu.value = ''
   openSettings()
 }
+
+function handleManageModels() {
+  activeWorkspaceMenu.value = ''
+  openSettings()
+  editConfig(activeConfigId.value)
+}
 </script>
 
 <template>
@@ -137,7 +201,7 @@ function handleOpenSettings() {
       :active-menu-owner="activeWorkspaceMenu"
       :in-settings="activeView === 'settings'"
       :install-plugin-url="installPluginUrl"
-      :status="status"
+      :status="connectionStatus"
       :titlebar-inset="props.runtime === 'electron' || props.showWindowControls"
       :desktop-platform="props.desktopPlatform"
       :show-window-controls="props.showWindowControls"
@@ -151,96 +215,124 @@ function handleOpenSettings() {
       @toggle-theme="toggleTheme"
     />
 
-    <SettingsPanel
-      v-if="activeView === 'settings'"
-      :configs="configs"
-      :editing-capability="editingCapability"
-      :editing-config-id="editingConfigId"
-      :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
-      :provider-capabilities="providerCapabilities"
-      :settings-draft-is-new="settingsDraftIsNew"
-      :settings-draft="settingsDraft"
-      :settings-test-state="settingsTestState"
-      :settings-view="settingsView"
-      @close-detail="closeSettingsDetail"
-      @create="createConfig"
-      @delete="deleteConfig"
-      @edit="editConfig"
-      @open-mac-permission-settings="openMacPermissionSettings"
-      @save="saveConfig"
-      @test="testConfig"
-      @toggle-enabled="toggleConfigEnabled"
-      @update-draft="updateSettingsDraft"
-    />
-
-    <section v-else class="workspace-route" aria-label="生成工作区">
-      <MessageThread
-        :active-menu-owner="activeWorkspaceMenu"
-        :canvas-operation="canvasOperation"
-        :loading="generationLoading"
-        :turns="turns"
-        @append="appendGeneration"
-        @cancel="cancelGeneration"
-        @menu-open="setWorkspaceMenu"
-        @place="placeImage"
-        @preview="openPreview"
-        @reference="useResultAsReference"
-        @retry="retryGeneration"
-        @upscale="upscaleImage"
+    <div class="route-shell" :class="{ 'is-settings-active': activeView === 'settings' }">
+      <SettingsPanel
+        class="route-page settings-route"
+        :class="{ 'is-active': activeView === 'settings' }"
+        :aria-hidden="activeView !== 'settings'"
+        :inert="activeView !== 'settings' || undefined"
+        :configs="configs"
+        :editing-capability="editingCapability"
+        :editing-config-id="editingConfigId"
+        :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
+        :provider-capabilities="providerCapabilities"
+        :settings-draft-is-new="settingsDraftIsNew"
+        :settings-draft="settingsDraft"
+        :settings-test-state="settingsTestState"
+        :settings-view="settingsView"
+        @close-detail="closeSettingsDetail"
+        @clear-conversation-data="clearConversationData"
+        @create="createConfig"
+        @delete="deleteConfig"
+        @duplicate="duplicateConfig"
+        @edit="editConfig"
+        @open-mac-permission-settings="openMacPermissionSettings"
+        @save="saveConfig"
+        @test="testConfig"
+        @toggle-enabled="toggleConfigEnabled"
+        @update-draft="updateSettingsDraft"
       />
 
-      <div class="toast-anchor" aria-live="polite">
-        <Transition name="toast-pop">
-          <div v-if="toastMessage" class="toast" role="status">
-            <BoxIcon name="check-circle" size="15" />
-            <span>{{ toastMessage }}</span>
-          </div>
+      <section
+        class="route-page workspace-route"
+        :class="{ 'is-active': activeView === 'workspace' }"
+        :aria-hidden="activeView !== 'workspace'"
+        :inert="activeView !== 'workspace' || undefined"
+        aria-label="生成工作区"
+      >
+        <MessageThread
+          :active-menu-owner="activeWorkspaceMenu"
+          :canvas-operation="canvasOperation"
+          :loading="generationLoading"
+          :turns="turns"
+          @append="appendGeneration"
+          @cancel="cancelGeneration"
+          @menu-open="setWorkspaceMenu"
+          @place="placeImage"
+          @preview="openPreview"
+          @reference="useResultAsReference"
+          @retry="retryGeneration"
+          @save="saveGeneratedImage"
+          @upscale="upscaleImage"
+        />
+
+        <div class="toast-anchor" aria-live="polite">
+          <Transition name="toast-pop">
+            <div v-if="toastMessage" class="toast" role="status">
+              <BoxIcon name="check-circle" size="15" />
+              <span>{{ toastMessage }}</span>
+            </div>
+          </Transition>
+        </div>
+
+        <ComposerDock
+          :active-menu-owner="activeWorkspaceMenu"
+          :active-capability="activeCapability"
+          :active-config-id="activeConfigId"
+          :busy="busy"
+          :canvas-operation="canvasOperation"
+          :can-add-reference="canAddReference"
+          :can-send="canSend"
+          :configs="enabledConfigs"
+          :count="count"
+          :custom-height="customHeight"
+          :custom-width="customWidth"
+          :prompt="prompt"
+          :quality="quality"
+          :ratio="ratio"
+          :references="references"
+          :resolution-mode="resolutionMode"
+          :size="size"
+          @add-reference="addReference"
+          @clear-references="clearReferences"
+          @manage-models="handleManageModels"
+          @menu-open="setWorkspaceMenu"
+          @preview="openPreview"
+          @remove-reference="removeReference"
+          @select-config="selectConfig"
+          @select-model="selectModel"
+          @send="sendPrompt"
+          @update-count="count = $event"
+          @update-prompt="prompt = $event"
+          @update-quality="quality = $event"
+          @update-ratio="ratio = $event"
+          @update-resolution-mode="resolutionMode = $event"
+          @update-size="size = $event"
+          @update-custom-height="customHeight = $event"
+          @update-custom-width="customWidth = $event"
+        />
+
+        <Transition name="preview-fade">
+          <section v-if="previewImage" class="preview-window" aria-label="图片预览" @click="closePreview">
+            <div class="preview-dialog" :style="previewDialogStyle" role="dialog" aria-modal="true" @click.stop>
+              <header class="preview-header">
+                <span>{{ previewImage.label }} · {{ previewImage.width }} × {{ previewImage.height }}</span>
+                <div class="preview-actions">
+                  <button type="button" @click="downloadPreviewImage">下载</button>
+                  <button type="button" @click="savePreviewImage">保存</button>
+                  <button type="button" aria-label="关闭预览" @click="closePreview">
+                    <BoxIcon name="x" size="16" />
+                  </button>
+                </div>
+              </header>
+              <div class="preview-media">
+                <img :src="previewImage.previewUrl" :alt="previewImage.label" />
+              </div>
+            </div>
+          </section>
         </Transition>
-      </div>
-
-      <ComposerDock
-        :active-menu-owner="activeWorkspaceMenu"
-        :active-capability="activeCapability"
-        :active-config-id="activeConfigId"
-        :busy="busy"
-        :canvas-operation="canvasOperation"
-        :can-add-reference="canAddReference"
-        :can-send="canSend"
-        :configs="enabledConfigs"
-        :count="count"
-        :prompt="prompt"
-        :quality="quality"
-        :ratio="ratio"
-        :references="references"
-        :size="size"
-        @add-reference="addReference"
-        @clear-references="clearReferences"
-        @menu-open="setWorkspaceMenu"
-        @preview="openPreview"
-        @remove-reference="removeReference"
-        @select-config="selectConfig"
-        @send="sendPrompt"
-        @update-count="count = $event"
-        @update-prompt="prompt = $event"
-        @update-quality="quality = $event"
-        @update-ratio="ratio = $event"
-        @update-size="size = $event"
-      />
-
-      <Transition name="preview-fade">
-        <section v-if="previewImage" class="preview-window" aria-label="图片预览" @click="closePreview">
-          <div class="preview-dialog" role="dialog" aria-modal="true" @click.stop>
-            <header class="preview-header">
-              <span>{{ previewImage.label }} · {{ previewImage.width }} × {{ previewImage.height }}</span>
-              <button type="button" aria-label="关闭预览" @click="closePreview">
-                <BoxIcon name="x" size="16" />
-              </button>
-            </header>
-            <img :src="previewImage.previewUrl" :alt="previewImage.label" />
-          </div>
-        </section>
-      </Transition>
-    </section>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -327,9 +419,10 @@ function handleOpenSettings() {
 
 .preview-dialog {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  width: min(100%, 720px);
-  height: min(100%, 720px);
+  grid-template-rows: auto auto;
+  width: var(--preview-width, min(100%, 720px));
+  max-width: calc(100vw - 28px);
+  max-height: calc(100vh - 28px);
   overflow: hidden;
   border: 1px solid var(--lb-border-strong);
   border-radius: 10px;
@@ -355,16 +448,24 @@ function handleOpenSettings() {
   white-space: nowrap;
 }
 
+.preview-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
 .preview-header button {
   display: inline-flex;
-  width: 26px;
   height: 26px;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: 0 8px;
   border: 0;
+  border-radius: 7px;
   background: transparent;
   color: var(--lb-muted);
+  font-size: 12px;
 }
 
 .preview-header button:hover {
@@ -372,12 +473,21 @@ function handleOpenSettings() {
   color: var(--lb-text);
 }
 
-.preview-dialog img {
+.preview-media {
+  display: grid;
+  width: 100%;
+  max-height: calc(100vh - 84px);
+  aspect-ratio: var(--preview-aspect, 1 / 1);
+  place-items: center;
+  overflow: hidden;
+  background: var(--lb-thread-image-bg);
+}
+
+.preview-media img {
   width: 100%;
   height: 100%;
   min-height: 0;
   object-fit: contain;
-  background: var(--lb-thread-image-bg);
 }
 
 .preview-fade-enter-active,
@@ -391,6 +501,8 @@ function handleOpenSettings() {
 }
 
 .lightyear-shell,
+.route-shell,
+.route-page,
 .workspace-route,
 .lightyear-shell :deep(.panel-header),
 .lightyear-shell :deep(.thread),
@@ -482,9 +594,49 @@ function handleOpenSettings() {
   --lb-neutral-ring: rgba(99, 95, 88, 0.14);
 }
 
-.workspace-route {
+.route-shell {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--lb-workspace);
+}
+
+.route-page {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(22px);
+  transition:
+    opacity 190ms ease,
+    transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.route-page.is-active {
+  z-index: 2;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.workspace-route {
+  transform: translateX(0);
+}
+
+.route-shell.is-settings-active .workspace-route {
+  transform: translateX(-22px);
+}
+
+.route-shell:not(.is-settings-active) .settings-route {
+  transform: translateX(22px);
+}
+
+.workspace-route {
+  display: flex;
   min-height: 0;
   flex-direction: column;
   background: var(--lb-workspace);
@@ -492,6 +644,8 @@ function handleOpenSettings() {
 
 @media (prefers-reduced-motion: reduce) {
   .lightyear-shell,
+  .route-shell,
+  .route-page,
   .workspace-route,
   .lightyear-shell :deep(.panel-header),
   .lightyear-shell :deep(.thread),

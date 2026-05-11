@@ -4,6 +4,7 @@ export type ApiImageAsset = {
   id: string
   label: string
   modelConfigId: string
+  modelName: string
   previewUrl: string
 }
 
@@ -83,8 +84,9 @@ export async function createCanvasImageFromApiAsset(asset: ApiImageAsset) {
       },
       previewUrl: asset.previewUrl,
       rgba: new Uint8Array(),
-      modelConfigId: asset.modelConfigId
-    } satisfies CapturedCanvasImage & { modelConfigId: string }
+      modelConfigId: asset.modelConfigId,
+      modelName: asset.modelName
+    } satisfies CapturedCanvasImage & { modelConfigId: string; modelName: string }
   } catch {
     return {
       id: asset.id,
@@ -99,8 +101,9 @@ export async function createCanvasImageFromApiAsset(asset: ApiImageAsset) {
       },
       previewUrl: asset.previewUrl,
       rgba: new Uint8Array(),
-      modelConfigId: asset.modelConfigId
-    } satisfies CapturedCanvasImage & { modelConfigId: string }
+      modelConfigId: asset.modelConfigId,
+      modelName: asset.modelName
+    } satisfies CapturedCanvasImage & { modelConfigId: string; modelName: string }
   }
 }
 

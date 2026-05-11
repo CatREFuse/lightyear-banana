@@ -16,11 +16,13 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = join(__dirname, '..', 'dist')
 const BRIDGE_HOST = '127.0.0.1'
-const BRIDGE_PORT = Number(process.env.LIGHTYEAR_BRIDGE_PORT || 38321)
+const DEFAULT_BRIDGE_PORT = 38321
+const requestedBridgePort = Number(process.env.LIGHTYEAR_BRIDGE_PORT || DEFAULT_BRIDGE_PORT)
+let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0 ? requestedBridgePort : DEFAULT_BRIDGE_PORT
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.2.3.ccx'
+const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.0.ccx'
 const SETTINGS_FILE = 'lightyear-settings.json'
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -62,6 +64,10 @@ const state = {
 let mainWindow = null
 const previewWindows = new Set()
 
+function readBridgeOrigin() {
+  return `http://${BRIDGE_HOST}:${bridgePort}`
+}
+
 function isUxpHttpConnected() {
   return Date.now() - state.uxpLastSeen < UXP_CONNECTED_WINDOW_MS
 }
@@ -81,7 +87,7 @@ function readLocalUxpPackage() {
 
     return {
       fileName: UXP_PACKAGE_FILE,
-      downloadUrl: `http://${BRIDGE_HOST}:${BRIDGE_PORT}/downloads/${UXP_PACKAGE_FILE}`
+      downloadUrl: `${readBridgeOrigin()}/downloads/${UXP_PACKAGE_FILE}`
     }
   } catch {
     return undefined
@@ -92,7 +98,7 @@ function readBridgeStatus() {
   const status = {
     bridge: {
       host: BRIDGE_HOST,
-      port: BRIDGE_PORT,
+      port: bridgePort,
       running: Boolean(state.server)
     },
     codexImageServer: {
@@ -427,6 +433,94 @@ function readClipboardReferenceImage() {
   return createReferenceImageFromNativeImage(fallbackImage, '剪贴板', 'clipboard')
 }
 
+function readImageSaveExtensionFromMime(mimeType = '') {
+  const extension = mimeType.split('/')[1]?.split(';')[0]?.toLowerCase()
+  if (extension === 'jpeg') {
+    return 'jpg'
+  }
+
+  return ['gif', 'jpg', 'png', 'webp'].includes(extension) ? extension : ''
+}
+
+function readImageSaveExtensionFromName(fileName = '') {
+  const extension = extname(fileName).replace('.', '').toLowerCase()
+
+  return ['gif', 'jpg', 'jpeg', 'png', 'webp'].includes(extension) ? (extension === 'jpeg' ? 'jpg' : extension) : ''
+}
+
+function sanitizeSaveFileName(fileName = '') {
+  const clean = basename(fileName)
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/^\.+|\.+$/g, '')
+    .trim()
+
+  return clean || 'lightyear-image.png'
+}
+
+function withImageSaveExtension(fileName, extension) {
+  const currentExtension = readImageSaveExtensionFromName(fileName)
+  if (currentExtension) {
+    return fileName.replace(new RegExp(`${currentExtension}$`, 'i'), extension)
+  }
+
+  return `${fileName}.${extension}`
+}
+
+async function readImageSaveBuffer(previewUrl) {
+  const dataUrlMatch = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(String(previewUrl || ''))
+  if (dataUrlMatch) {
+    const mimeType = dataUrlMatch[1] || 'image/png'
+    const isBase64 = Boolean(dataUrlMatch[2])
+    const raw = dataUrlMatch[3] || ''
+
+    return {
+      buffer: isBase64 ? Buffer.from(raw, 'base64') : Buffer.from(decodeURIComponent(raw)),
+      extension: readImageSaveExtensionFromMime(mimeType) || 'png'
+    }
+  }
+
+  const response = await fetch(previewUrl)
+  if (!response.ok) {
+    throw new Error('图片下载失败')
+  }
+
+  const mimeType = response.headers.get('content-type') || ''
+  const fallbackExtension = readImageSaveExtensionFromName(new URL(previewUrl).pathname)
+
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    extension: readImageSaveExtensionFromMime(mimeType) || fallbackExtension || 'png'
+  }
+}
+
+async function saveGeneratedImageFile(payload = {}) {
+  if (!payload.previewUrl) {
+    throw new Error('图片地址为空')
+  }
+
+  const imageData = await readImageSaveBuffer(payload.previewUrl)
+  const fileName = withImageSaveExtension(sanitizeSaveFileName(payload.fileName), imageData.extension)
+  const result = await dialog.showSaveDialog(mainWindow ?? undefined, {
+    title: '保存图片',
+    defaultPath: fileName,
+    filters: [
+      {
+        name: '图片',
+        extensions: Array.from(new Set([imageData.extension, 'png', 'jpg', 'webp']))
+      }
+    ]
+  })
+
+  if (result.canceled || !result.filePath) {
+    return { saved: false }
+  }
+
+  writeFileSync(result.filePath, imageData.buffer)
+
+  return { saved: true, filePath: result.filePath }
+}
+
 async function readJsonBody(request) {
   const chunks = []
   for await (const chunk of request) {
@@ -471,6 +565,10 @@ function resolvePending(message) {
 
 function readUxpCommandTimeout(command) {
   if (typeof command === 'string' && command.startsWith('canvas.capture')) {
+    return 120000
+  }
+
+  if (command === 'canvas.placeImage') {
     return 120000
   }
 
@@ -575,7 +673,7 @@ async function handleHttpUxpRequest(request, response, url) {
 }
 
 async function sendStaticFile(request, response) {
-  const url = new URL(request.url || '/', `http://${BRIDGE_HOST}:${BRIDGE_PORT}`)
+  const url = new URL(request.url || '/', readBridgeOrigin())
   let pathname = decodeURIComponent(url.pathname)
 
   if (pathname === '/app' || pathname === '/app/') {
@@ -636,8 +734,39 @@ async function sendDownloadFile(response, fileName, headOnly = false) {
   }
 }
 
+function readPreviewFileName(record) {
+  return withImageSaveExtension(
+    sanitizeSaveFileName(`${record.label || 'lightyear-image'}-${record.width || 0}x${record.height || 0}.png`),
+    'png'
+  )
+}
+
+function readMimeTypeFromExtension(extension) {
+  return REFERENCE_IMAGE_MIME_TYPES[`.${extension}`] || 'image/png'
+}
+
+async function readPreviewImageData(record) {
+  const parts = readDataUrlParts(record.previewUrl)
+  if (parts) {
+    return {
+      buffer: parts.isBase64 ? Buffer.from(parts.data, 'base64') : Buffer.from(decodeURIComponent(parts.data), 'utf8'),
+      contentType: parts.mimeType,
+      extension: readImageSaveExtensionFromMime(parts.mimeType) || 'png'
+    }
+  }
+
+  const imageData = await readImageSaveBuffer(record.previewUrl)
+
+  return {
+    ...imageData,
+    contentType: readMimeTypeFromExtension(imageData.extension)
+  }
+}
+
 function createPreviewHtml(record) {
   const title = `${record.label || '图片预览'} · ${record.width || '?'} × ${record.height || '?'}`
+  const imageUrl = `/preview/${encodeURIComponent(record.id)}/image`
+  const downloadUrl = `${imageUrl}?download=1`
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -682,6 +811,30 @@ function createPreviewHtml(record) {
       white-space: nowrap;
     }
 
+    .actions {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    a {
+      display: inline-flex;
+      height: 28px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      border-radius: 8px;
+      color: #cbd4e2;
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    a:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+    }
+
     main {
       display: grid;
       place-items: center;
@@ -702,51 +855,92 @@ function createPreviewHtml(record) {
   </style>
 </head>
 <body>
-  <header><span>${escapeHtml(title)}</span></header>
-  <main><img src="/preview/${encodeURIComponent(record.id)}/image" alt="${escapeHtml(record.label || '图片预览')}"></main>
+  <header>
+    <span>${escapeHtml(title)}</span>
+    <div class="actions">
+      <a href="${downloadUrl}" download="${escapeHtml(readPreviewFileName(record))}">下载</a>
+      <a href="/preview/${encodeURIComponent(record.id)}/save">保存</a>
+    </div>
+  </header>
+  <main><img src="${imageUrl}" alt="${escapeHtml(record.label || '图片预览')}"></main>
 </body>
 </html>`
 }
 
-function sendPreviewImage(response, record, method) {
-  const parts = readDataUrlParts(record.previewUrl)
-  if (!parts) {
-    response.writeHead(302, {
-      Location: record.previewUrl
-    })
-    response.end()
-    return
+function createPreviewSaveHtml(saved) {
+  const message = saved ? '已保存到本地' : '已取消保存'
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(message)}</title>
+  <style>
+    body {
+      display: grid;
+      min-height: 100vh;
+      margin: 0;
+      place-items: center;
+      background: #0f141c;
+      color: #f5f7fb;
+      font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+  </style>
+</head>
+<body>${escapeHtml(message)}</body>
+</html>`
+}
+
+async function sendPreviewImage(response, record, method, download = false) {
+  const imageData = await readPreviewImageData(record)
+  const headers = {
+    'Cache-Control': 'no-store',
+    'Content-Length': String(imageData.buffer.length),
+    'Content-Type': imageData.contentType
   }
 
-  const buffer = parts.isBase64 ? Buffer.from(parts.data, 'base64') : Buffer.from(decodeURIComponent(parts.data), 'utf8')
-  response.writeHead(200, {
-    'Cache-Control': 'no-store',
-    'Content-Length': String(buffer.length),
-    'Content-Type': parts.mimeType
-  })
+  if (download) {
+    headers['Content-Disposition'] = `attachment; filename="${readPreviewFileName(record)}"`
+  }
+
+  response.writeHead(200, headers)
   if (method === 'HEAD') {
     response.end()
     return
   }
 
-  response.end(buffer)
+  response.end(imageData.buffer)
 }
 
 async function sendPreviewPage(request, response, url) {
-  const match = /^\/preview\/([^/]+)(?:\/image)?$/.exec(url.pathname)
+  const match = /^\/preview\/([^/]+)(?:\/(image|save))?$/.exec(url.pathname)
   if (!match) {
     return false
   }
 
   const id = decodeURIComponent(match[1])
+  const action = match[2]
   const record = state.previewImages.get(id)
   if (!record) {
     sendJson(response, 404, { ok: false, error: 'Preview not found' })
     return true
   }
 
-  if (url.pathname.endsWith('/image')) {
-    sendPreviewImage(response, record, request.method)
+  if (action === 'image') {
+    await sendPreviewImage(response, record, request.method, url.searchParams.get('download') === '1')
+    return true
+  }
+
+  if (action === 'save') {
+    const result = await saveGeneratedImageFile({
+      ...record,
+      fileName: readPreviewFileName(record)
+    })
+    response.writeHead(200, {
+      'Cache-Control': 'no-store',
+      'Content-Type': 'text/html; charset=utf-8'
+    })
+    response.end(createPreviewSaveHtml(result.saved))
     return true
   }
 
@@ -760,7 +954,7 @@ async function sendPreviewPage(request, response, url) {
 
 function startBridgeServer() {
   const server = http.createServer(async (request, response) => {
-    const url = new URL(request.url || '/', `http://${BRIDGE_HOST}:${BRIDGE_PORT}`)
+    const url = new URL(request.url || '/', readBridgeOrigin())
 
     if (request.method === 'OPTIONS') {
       sendJson(response, 204, {})
@@ -797,11 +991,42 @@ function startBridgeServer() {
 
   return new Promise((resolve, reject) => {
     server.once('error', reject)
-    server.listen(BRIDGE_PORT, BRIDGE_HOST, () => {
+    server.listen(bridgePort, BRIDGE_HOST, () => {
       state.server = server
       resolve()
     })
   })
+}
+
+async function startBridgeServerWithFallback() {
+  const preferredPorts = [
+    bridgePort,
+    DEFAULT_BRIDGE_PORT,
+    bridgePort + 1,
+    bridgePort + 2,
+    DEFAULT_BRIDGE_PORT + 1,
+    DEFAULT_BRIDGE_PORT + 2
+  ].filter((port, index, ports) => Number.isFinite(port) && port > 0 && ports.indexOf(port) === index)
+
+  let lastError
+  for (const port of preferredPorts) {
+    bridgePort = port
+    try {
+      await startBridgeServer()
+      if (port !== requestedBridgePort) {
+        console.warn(`Lightyear bridge port switched to ${readBridgeOrigin()} because ${BRIDGE_HOST}:${requestedBridgePort} is unavailable`)
+      }
+      return
+    } catch (error) {
+      lastError = error
+      if (error?.code !== 'EADDRINUSE') {
+        throw error
+      }
+      console.warn(`Lightyear bridge port already in use: http://${BRIDGE_HOST}:${port}`)
+    }
+  }
+
+  throw lastError ?? new Error('Lightyear bridge unavailable')
 }
 
 async function startBuiltInCodexImageServer() {
@@ -854,7 +1079,7 @@ async function createMainWindow() {
     return
   }
 
-  await mainWindow.loadURL(`http://${BRIDGE_HOST}:${BRIDGE_PORT}/app/?runtime=electron&platform=${process.platform}`)
+  await mainWindow.loadURL(`${readBridgeOrigin()}/app/?runtime=electron&platform=${process.platform}`)
 }
 
 async function openPreviewWindow(payload = {}) {
@@ -877,13 +1102,24 @@ async function openPreviewWindow(payload = {}) {
     ? screen.getDisplayMatching(mainWindow.getBounds())
     : screen.getPrimaryDisplay()
   const workArea = display.workArea
-  const width = Math.min(1180, Math.max(720, Math.floor(workArea.width * 0.62)))
-  const height = Math.min(920, Math.max(560, Math.floor(workArea.height * 0.72)))
+  const ratio = record.width > 0 && record.height > 0 ? record.width / record.height : 1
+  const maxWidth = Math.min(1180, Math.floor(workArea.width * 0.72))
+  const maxHeight = Math.min(920, Math.floor(workArea.height * 0.82))
+  const chromeHeight = 54
+  const imageMaxHeight = Math.max(260, maxHeight - chromeHeight)
+  let width = Math.min(maxWidth, Math.round(imageMaxHeight * ratio))
+  let height = Math.round(width / ratio) + chromeHeight
+  if (height > maxHeight) {
+    height = maxHeight
+    width = Math.round((height - chromeHeight) * ratio)
+  }
+  width = Math.min(maxWidth, Math.max(360, width))
+  height = Math.min(maxHeight, Math.max(320, height))
   const previewWindow = new BrowserWindow({
     width,
     height,
-    minWidth: 520,
-    minHeight: 420,
+    minWidth: 320,
+    minHeight: 320,
     title: record.label,
     backgroundColor: '#0f141c',
     autoHideMenuBar: true,
@@ -900,7 +1136,7 @@ async function openPreviewWindow(payload = {}) {
     state.previewImages.delete(id)
   })
 
-  await previewWindow.loadURL(`http://${BRIDGE_HOST}:${BRIDGE_PORT}/preview/${encodeURIComponent(id)}`)
+  await previewWindow.loadURL(`${readBridgeOrigin()}/preview/${encodeURIComponent(id)}`)
   return { ok: true }
 }
 
@@ -938,11 +1174,15 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
     return readClipboardReferenceImage()
   }
 
+  if (command === 'result.saveImage') {
+    return saveGeneratedImageFile(payload)
+  }
+
   return sendToUxp(command, payload)
 })
 
 app.whenReady().then(async () => {
-  await startBridgeServer()
+  await startBridgeServerWithFallback()
   await startBuiltInCodexImageServer()
   await createMainWindow()
 

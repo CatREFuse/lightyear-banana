@@ -2,23 +2,34 @@ import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
 import {
   defaultModelConfigs,
+  normalizeCustomModelFormat,
   providerCapabilities,
   providerRequiresApiKey,
   readProviderCapability
 } from '../data/providerCapabilities'
-import { generateImagesWithProvider, resolveImageRequestSize, testImageConfig } from '../services/imageApiClient'
+import {
+  generateImagesWithProvider,
+  resolveImageRequestSize,
+  testImageConfig,
+  type ImageGenerationParams,
+  type NormalizedImageResult
+} from '../services/imageApiClient'
 import {
   type AppView,
   type CanvasOperationState,
+  type CustomModelFormat,
   type ChatTurn,
   type GeneratedImage,
+  type GenerationLoadingPhase,
   type GenerationRequestSnapshot,
   type GenerationLoadingState,
+  type ImageRequestLogEntry,
   type MacPermissionPane,
   type ModelConfig,
   type PlacementTarget,
   type ReferenceImage,
   type ReferenceSource,
+  type ResolutionInputMode,
   type RuntimeName,
   type SettingsTestState,
   type SettingsView,
@@ -61,9 +72,14 @@ const referenceLabels: Record<ReferenceSource, string> = {
 type StoredSettings = {
   activeConfigId: string
   configs: ModelConfig[]
+  generationHistory: ChatTurn[]
 }
 
 const settingsStorageKey = 'lightyear-banana.settings.v1'
+const maxStoredTurns = 50
+const maxApiRetryCount = 3
+const apiRetryDelayMs = 800
+const customModelFormats: CustomModelFormat[] = ['openai', 'openai-images', 'openai-chat', 'gemini', 'qwen']
 const retiredBundledConfigIds = new Set([
   'nano-banana-pro',
   'gpt-image-2',
@@ -99,9 +115,147 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+function readImageExtensionFromMime(mimeType: string) {
+  const extension = mimeType.split('/')[1]?.split(';')[0]?.toLowerCase()
+  if (extension === 'jpeg') {
+    return 'jpg'
+  }
+
+  return extension && /^[a-z0-9]+$/.test(extension) ? extension : 'png'
+}
+
+function readImageExtensionFromUrl(previewUrl: string) {
+  const path = previewUrl.split('?')[0]?.split('#')[0] ?? ''
+  const extension = path.split('.').pop()?.toLowerCase() ?? ''
+
+  return ['gif', 'jpg', 'jpeg', 'png', 'webp'].includes(extension) ? (extension === 'jpeg' ? 'jpg' : extension) : 'png'
+}
+
+function readGeneratedImageExtension(image: CapturedCanvasImage, mimeType?: string) {
+  if (mimeType?.startsWith('image/')) {
+    return readImageExtensionFromMime(mimeType)
+  }
+
+  return readImageExtensionFromUrl(image.previewUrl)
+}
+
+function sanitizeImageFileName(value: string) {
+  const clean = value
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/^\.+|\.+$/g, '')
+    .trim()
+
+  return clean || 'lightyear-image'
+}
+
+function readGeneratedImageFileName(image: CapturedCanvasImage, extension?: string) {
+  const imageExtension = extension ?? readImageExtensionFromUrl(image.previewUrl)
+  const baseName = sanitizeImageFileName(`${image.label || '生成图'}-${image.width}x${image.height}`)
+
+  return `${baseName}.${imageExtension}`
+}
+
+async function fetchImageBlob(previewUrl: string) {
+  const response = await fetch(previewUrl)
+  if (!response.ok) {
+    throw new Error('图片下载失败')
+  }
+
+  return response.blob()
+}
+
+function triggerBrowserDownload(href: string, fileName: string) {
+  const link = document.createElement('a')
+  link.href = href
+  link.download = fileName
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+async function saveBrowserGeneratedImage(image: CapturedCanvasImage) {
+  try {
+    const blob = await fetchImageBlob(image.previewUrl)
+    const extension = readGeneratedImageExtension(image, blob.type)
+    const url = URL.createObjectURL(blob)
+    try {
+      triggerBrowserDownload(url, readGeneratedImageFileName(image, extension))
+    } finally {
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000)
+    }
+    return
+  } catch {
+    triggerBrowserDownload(image.previewUrl, readGeneratedImageFileName(image))
+  }
+}
+
+async function saveUxpGeneratedImage(image: CapturedCanvasImage) {
+  const hostRequire = getHostRequire()
+  const uxp = hostRequire?.('uxp')
+  const localFileSystem = uxp?.storage?.localFileSystem
+  if (!localFileSystem?.getFileForSaving) {
+    throw new Error('当前环境无法保存图片')
+  }
+
+  const blob = await fetchImageBlob(image.previewUrl)
+  const extension = readGeneratedImageExtension(image, blob.type)
+  const file = await localFileSystem.getFileForSaving(readGeneratedImageFileName(image, extension), {
+    types: [extension]
+  })
+  if (!file) {
+    return false
+  }
+
+  await file.write(new Uint8Array(await blob.arrayBuffer()), {
+    format: uxp.storage?.formats?.binary
+  })
+
+  return true
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object')
+}
+
+function readString(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value : fallback
+}
+
+function readNumber(value: unknown, fallback = 0) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function readOptionalString(value: unknown) {
+  return typeof value === 'string' ? value : undefined
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
+function normalizeModelList(models: unknown, selectedModel: string, fallbackModels: string[] = []) {
+  const rawModels = Array.isArray(models) ? models.filter((item): item is string => typeof item === 'string') : []
+  const normalized = uniqueStrings([...rawModels, selectedModel, ...(rawModels.length ? [] : fallbackModels)])
+
+  return normalized.length ? normalized : ['custom-image-model']
+}
+
 function cloneModelConfig(config: ModelConfig): ModelConfig {
+  const capability = providerCapabilities[config.provider]
+  const models = normalizeModelList(config.models, config.model, capability.modelOptions)
+  const model = models.includes(config.model.trim()) ? config.model.trim() : models[0] ?? config.model
+  const customFormat = config.provider === 'custom-openai' ? normalizeCustomModelFormat(config.customFormat) : undefined
+
   return {
     ...config,
+    model,
+    models,
+    baseUrl: capability.supportsBaseUrl ? config.baseUrl : '',
+    usesOfficialBaseUrl: false,
+    customFormat,
     comfyUi: config.provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
   }
 }
@@ -112,8 +266,11 @@ function createEmptyModelConfig(): ModelConfig {
     name: '未配置',
     provider: 'custom-openai',
     model: 'custom-image-model',
+    models: ['custom-image-model'],
     apiKey: '',
     baseUrl: '',
+    usesOfficialBaseUrl: false,
+    customFormat: 'openai-images',
     enabled: false,
     comfyUi: undefined
   }
@@ -124,6 +281,7 @@ function cloneDefaultConfigs() {
 }
 
 function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string) {
+  const capability = providerCapabilities[provider]
   if (provider === 'comfyui') {
     return 'http://127.0.0.1:8000'
   }
@@ -132,7 +290,7 @@ function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string)
     return ''
   }
 
-  return providerCapabilities[provider].supportsBaseUrl ? fallback : ''
+  return capability.supportsBaseUrl ? fallback : ''
 }
 
 function readDefaultApiKey(provider: ModelConfig['provider'], fallback: string) {
@@ -151,8 +309,14 @@ function isModelConfig(value: unknown): value is ModelConfig {
     typeof config.provider === 'string' &&
     config.provider in providerCapabilities &&
     typeof config.model === 'string' &&
+    (config.models === undefined || Array.isArray(config.models) && config.models.every((model) => typeof model === 'string')) &&
     typeof config.apiKey === 'string' &&
     typeof config.baseUrl === 'string' &&
+    (config.usesOfficialBaseUrl === undefined || typeof config.usesOfficialBaseUrl === 'boolean') &&
+    (
+      config.customFormat === undefined ||
+      typeof config.customFormat === 'string' && customModelFormats.includes(config.customFormat as CustomModelFormat)
+    ) &&
     typeof config.enabled === 'boolean'
   )
 }
@@ -175,11 +339,199 @@ function normalizeConfigs(value: unknown) {
   return [...defaults, ...customConfigs]
 }
 
+function cloneCanvasImageForStorage<T extends CapturedCanvasImage>(image: T): T {
+  return {
+    ...image,
+    rgba: new Uint8Array()
+  }
+}
+
+function normalizeStoredCanvasImage(value: unknown): CapturedCanvasImage | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const width = Math.max(1, Math.round(readNumber(value.width, 1024)))
+  const height = Math.max(1, Math.round(readNumber(value.height, 1024)))
+  const rawSourceBounds = isRecord(value.sourceBounds) ? value.sourceBounds : {}
+  const sourceBounds = {
+    left: readNumber(rawSourceBounds.left, 0),
+    top: readNumber(rawSourceBounds.top, 0),
+    right: readNumber(rawSourceBounds.right, width),
+    bottom: readNumber(rawSourceBounds.bottom, height)
+  }
+
+  return {
+    id: readString(value.id, createId('stored-image')),
+    label: readString(value.label, '生成图'),
+    width,
+    height,
+    sourceBounds,
+    previewUrl: readString(value.previewUrl),
+    rgba: new Uint8Array()
+  }
+}
+
+function normalizeStoredReference(value: unknown): ReferenceImage | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const image = normalizeStoredCanvasImage(value.image)
+  if (!image) {
+    return null
+  }
+
+  return {
+    id: readString(value.id, createId('stored-reference')),
+    source: readString(value.source, 'generated') as ReferenceSource,
+    label: readString(value.label, referenceLabels.generated),
+    image
+  }
+}
+
+function normalizeStoredGeneratedImage(value: unknown): GeneratedImage | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const image = normalizeStoredCanvasImage(value)
+  if (!image) {
+    return null
+  }
+
+  return {
+    ...image,
+    modelConfigId: readString(value.modelConfigId),
+    modelName: readString(value.modelName)
+  }
+}
+
+function normalizeStoredRequestLogs(value: unknown): ImageRequestLogEntry[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .filter(isRecord)
+    .map((entry) => {
+      const rawStages = isRecord(entry.stages) ? entry.stages : {}
+      const rawMetadata = isRecord(entry.metadata) ? entry.metadata : {}
+
+      return {
+        id: readString(entry.id, createId('request')),
+        createdAt: readString(entry.createdAt, new Date().toISOString()),
+        url: readString(entry.url),
+        method: readString(entry.method, 'GET'),
+        status: readNumber(entry.status),
+        ok: Boolean(entry.ok),
+        contentLength: readString(entry.contentLength),
+        metadata: { ...rawMetadata } as ImageRequestLogEntry['metadata'],
+        stages: {
+          headersMs: readNumber(rawStages.headersMs),
+          bodyParseMs: readNumber(rawStages.bodyParseMs),
+          totalMs: readNumber(rawStages.totalMs)
+        }
+      }
+    })
+}
+
+function normalizeStoredRequestSnapshot(value: unknown): GenerationRequestSnapshot | undefined {
+  if (!isRecord(value) || !isModelConfig(value.config)) {
+    return undefined
+  }
+
+  const rawCanvasSize = isRecord(value.canvasSize) ? value.canvasSize : undefined
+
+  return {
+    canvasSize: rawCanvasSize
+      ? {
+          width: Math.max(1, Math.round(readNumber(rawCanvasSize.width, 1))),
+          height: Math.max(1, Math.round(readNumber(rawCanvasSize.height, 1)))
+        }
+      : undefined,
+    config: cloneModelConfig(value.config),
+    count: Math.max(1, Math.round(readNumber(value.count, 1))),
+    prompt: readString(value.prompt),
+    quality: readString(value.quality),
+    ratio: readString(value.ratio),
+    references: Array.isArray(value.references) ? value.references.map(normalizeStoredReference).filter((item) => item !== null) : [],
+    resolvedSize: readString(value.resolvedSize),
+    selectedSize: readString(value.selectedSize),
+    summary: readString(value.summary)
+  }
+}
+
+function normalizeStoredTurns(value: unknown): ChatTurn[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((rawTurn) => {
+      if (!isRecord(rawTurn)) {
+        return null
+      }
+
+      return {
+        id: readString(rawTurn.id, createId('turn')),
+        prompt: readString(rawTurn.prompt),
+        references: Array.isArray(rawTurn.references)
+          ? rawTurn.references.map(normalizeStoredReference).filter((item) => item !== null)
+          : [],
+        responseText: readString(rawTurn.responseText),
+        elapsedLabel: readString(rawTurn.elapsedLabel),
+        repeatRequest: normalizeStoredRequestSnapshot(rawTurn.repeatRequest),
+        requestLogs: normalizeStoredRequestLogs(rawTurn.requestLogs),
+        results: Array.isArray(rawTurn.results)
+          ? rawTurn.results.map(normalizeStoredGeneratedImage).filter((item) => item !== null)
+          : [],
+        tone: readOptionalString(rawTurn.tone) as ChatTurn['tone']
+      } satisfies ChatTurn
+    })
+    .filter((turn) => turn !== null)
+    .slice(-maxStoredTurns)
+}
+
+function cloneReferenceForStorage(reference: ReferenceImage): ReferenceImage {
+  return {
+    ...reference,
+    image: cloneCanvasImageForStorage(reference.image)
+  }
+}
+
+function cloneRequestSnapshotForStorage(snapshot: GenerationRequestSnapshot): GenerationRequestSnapshot {
+  return {
+    ...snapshot,
+    config: cloneModelConfig(snapshot.config),
+    references: snapshot.references.map(cloneReferenceForStorage)
+  }
+}
+
+function cloneTurnForStorage(turn: ChatTurn): ChatTurn {
+  return {
+    ...turn,
+    references: turn.references.map(cloneReferenceForStorage),
+    repeatRequest: turn.repeatRequest ? cloneRequestSnapshotForStorage(turn.repeatRequest) : undefined,
+    requestLogs: turn.requestLogs?.map((log) => ({
+      ...log,
+      metadata: { ...log.metadata },
+      stages: { ...log.stages }
+    })),
+    results: turn.results.map(cloneCanvasImageForStorage)
+  }
+}
+
+function cloneTurnsForStorage(turns: ChatTurn[]) {
+  return turns.slice(-maxStoredTurns).map(cloneTurnForStorage)
+}
+
 function readStoredSettings(): StoredSettings {
   const fallbackConfigs = cloneDefaultConfigs()
   const fallback: StoredSettings = {
     activeConfigId: fallbackConfigs[0]?.id ?? '',
-    configs: fallbackConfigs
+    configs: fallbackConfigs,
+    generationHistory: []
   }
 
   try {
@@ -194,7 +546,8 @@ function readStoredSettings(): StoredSettings {
 
       return {
         activeConfigId,
-        configs
+        configs,
+        generationHistory: normalizeStoredTurns(parsed.generationHistory)
       }
     }
 
@@ -212,7 +565,8 @@ function readStoredSettings(): StoredSettings {
 
     return {
       activeConfigId,
-      configs
+      configs,
+      generationHistory: normalizeStoredTurns(parsed.generationHistory)
     }
   } catch {
     return fallback
@@ -240,14 +594,18 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
   const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Lightyear App' : 'Photoshop 已连接')
+  const connectionStatus = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Photoshop 未连接' : 'Photoshop 已连接')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
   const prompt = shallowRef('')
   const references = shallowRef<ReferenceImage[]>([])
-  const turns = shallowRef<ChatTurn[]>([])
+  const turns = shallowRef<ChatTurn[]>(storedSettings.generationHistory)
   const configs = shallowRef<ModelConfig[]>(storedSettings.configs)
   const activeConfigId = shallowRef(storedSettings.activeConfigId)
   const size = shallowRef(readDefaultSize(initialCapability.sizeOptions))
+  const resolutionMode = shallowRef<ResolutionInputMode>('preset')
+  const customWidth = shallowRef(2048)
+  const customHeight = shallowRef(2048)
   const quality = shallowRef(readDefaultQuality(initialCapability.qualityOptions))
   const count = shallowRef(initialCapability.countOptions.includes(1) ? 1 : initialCapability.countOptions[0] ?? 1)
   const ratio = shallowRef(initialCapability.ratioOptions.includes('原图比例') ? '原图比例' : initialCapability.ratioOptions[0] ?? '')
@@ -282,16 +640,26 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const canAddReference = computed(() => references.value.length < referenceLimit.value)
   const canSend = computed(() => configs.value.length > 0 && (Boolean(prompt.value.trim()) || references.value.length > 0))
 
-  watch(
-    [configs, activeConfigId],
-    () => {
-      writeStoredSettings({
-        activeConfigId: activeConfigId.value,
-        configs: configs.value.map(cloneModelConfig)
-      })
-    },
-    { deep: true }
-  )
+  function writeCurrentStoredSettings() {
+    writeStoredSettings({
+      activeConfigId: activeConfigId.value,
+      configs: configs.value.map(cloneModelConfig),
+      generationHistory: cloneTurnsForStorage(turns.value)
+    })
+  }
+
+  watch([configs, activeConfigId, turns], writeCurrentStoredSettings, { deep: true })
+
+  watch(activeCapability, (capability) => {
+    size.value = capability.sizeOptions.includes(size.value) ? size.value : readDefaultSize(capability.sizeOptions)
+    quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : readDefaultQuality(capability.qualityOptions)
+    count.value = readRequestCountForCapability(count.value, capability)
+    ratio.value = capability.ratioOptions.includes(ratio.value)
+      ? ratio.value
+      : capability.ratioOptions.includes('原图比例')
+        ? '原图比例'
+        : capability.ratioOptions[0] ?? ratio.value
+  })
 
   function readCapabilityForConfig(configId: string) {
     const config = configs.value.find((item) => item.id === configId) ?? activeConfig.value
@@ -299,13 +667,27 @@ export function useLightyearBanana(runtime: RuntimeName) {
     return readProviderCapability(config)
   }
 
+  function selectModel(model: string) {
+    const cleanModel = model.trim()
+    if (!cleanModel) {
+      return
+    }
+
+    const source = activeConfig.value
+    const nextModels = normalizeModelList(source.models, cleanModel)
+    configs.value = configs.value.map((config) =>
+      config.id === source.id ? cloneModelConfig({ ...config, model: cleanModel, models: nextModels }) : config
+    )
+    status.value = `已选择 ${cleanModel}`
+  }
+
   function readDefaultSize(options: string[]): string {
     return (
+      options.find((option) => option === '1k') ??
       options.find((option) => option === 'auto') ??
       options.find((option) => option === '1024x1024') ??
       options.find((option) => option === '1024*1024') ??
       options.find((option) => option === '1K') ??
-      options.find((option) => option === '1k') ??
       options.find((option) => option === '默认') ??
       options[0] ??
       ''
@@ -325,17 +707,17 @@ export function useLightyearBanana(runtime: RuntimeName) {
     )
   }
 
-  function readDefaultQuality(options: string[]): string {
-    return options.find((option) => option === '自动') ?? options[0] ?? ''
-  }
+function readDefaultQuality(options: string[]): string {
+  return options.find((option) => option === 'auto') ?? options[0] ?? ''
+}
 
-  function readHighestQuality(options: string[]): string {
-    return (
-      options.find((option) => option === '最高') ??
-      options.find((option) => option === '高') ??
-      options.at(-1) ??
-      ''
-    )
+function readHighestQuality(options: string[]): string {
+  return (
+    options.find((option) => option === 'high') ??
+    options.find((option) => option === 'hd') ??
+    options.at(-1) ??
+    ''
+  )
   }
 
   function showToast(message: string) {
@@ -371,10 +753,16 @@ export function useLightyearBanana(runtime: RuntimeName) {
   }
 
   function updateGenerationElapsed() {
-    generationLoading.value = generationLoading.value.map((task) => ({
-      ...task,
-      elapsedSeconds: Math.floor((Date.now() - (generationStartedAt.get(task.id) ?? Date.now())) / 1000)
-    }))
+    generationLoading.value = generationLoading.value.map((task) => {
+      const elapsedSeconds = Math.floor((Date.now() - (generationStartedAt.get(task.id) ?? Date.now())) / 1000)
+      const phase = task.phase === 'waiting-connection' && elapsedSeconds >= 2 ? 'waiting-generation' : task.phase
+
+      return {
+        ...task,
+        elapsedSeconds,
+        phase
+      }
+    })
   }
 
   function clearGenerationTimerIfIdle() {
@@ -416,11 +804,52 @@ export function useLightyearBanana(runtime: RuntimeName) {
         id,
         references: sentReferences,
         prompt: cleanPrompt,
-        elapsedSeconds: 0
+        elapsedSeconds: 0,
+        phase: 'waiting-connection',
+        requestLogs: []
       }
     ]
     ensureGenerationTimer()
     return id
+  }
+
+  function updateGenerationPhase(taskId: string, phase: GenerationLoadingPhase) {
+    generationLoading.value = generationLoading.value.map((task) => (task.id === taskId ? { ...task, phase } : task))
+  }
+
+  function readPhaseAfterRequestLog(entry: ImageRequestLogEntry): GenerationLoadingPhase {
+    const phase = String(entry.metadata.phase ?? '')
+    if (phase === 'submit' || phase === 'poll') {
+      return 'waiting-generation'
+    }
+
+    return 'downloading'
+  }
+
+  function appendGenerationRequestLog(taskId: string, entry: ImageRequestLogEntry) {
+    generationLoading.value = generationLoading.value.map((task) => {
+      if (task.id !== taskId) {
+        return task
+      }
+
+      return {
+        ...task,
+        phase: readPhaseAfterRequestLog(entry),
+        requestLogs: [
+          ...(task.requestLogs ?? []),
+          {
+            ...entry,
+            metadata: { ...entry.metadata },
+            stages: { ...entry.stages }
+          }
+        ]
+      }
+    })
+  }
+
+  function recordGenerationRequestLog(taskId: string, requestLogs: ImageRequestLogEntry[], entry: ImageRequestLogEntry) {
+    requestLogs.push(entry)
+    appendGenerationRequestLog(taskId, entry)
   }
 
   function stopGenerationLoading(id: string) {
@@ -453,17 +882,17 @@ export function useLightyearBanana(runtime: RuntimeName) {
 
   function refreshDocument() {
     if (isElectronRuntime) {
-      status.value = hasElectronBridge() ? 'Lightyear App 已连接' : 'Lightyear App 未连接'
+      connectionStatus.value = hasElectronBridge() ? 'Photoshop 未连接' : 'Photoshop 未连接'
       return
     }
 
     documentLabel.value = readActiveDocumentLabel()
-    status.value = canUsePhotoshop.value || runtime === 'browser' ? 'Photoshop 已连接' : '等待 Photoshop 插件'
+    connectionStatus.value = canUsePhotoshop.value || runtime === 'browser' ? 'Photoshop 已连接' : 'Photoshop 未连接'
   }
 
   async function refreshElectronDocument() {
     if (!canUseElectronBridge.value) {
-      status.value = 'Lightyear App 未连接'
+      connectionStatus.value = 'Photoshop 未连接'
       return
     }
 
@@ -471,9 +900,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
       const bridgeStatus = await getElectronBridgeStatus()
       installPluginUrl.value = bridgeStatus.uxpPackage?.downloadUrl ?? ''
       documentLabel.value = bridgeStatus.photoshop.documentLabel ?? (bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接')
-      status.value = bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接'
+      connectionStatus.value = bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接'
     } catch (error) {
-      status.value = error instanceof Error ? error.message : 'Lightyear App 未连接'
+      connectionStatus.value = 'Photoshop 未连接'
     }
   }
 
@@ -623,11 +1052,19 @@ export function useLightyearBanana(runtime: RuntimeName) {
     references.value = []
   }
 
+  function clearConversationData() {
+    clearAllGenerationLoading()
+    turns.value = []
+    references.value = []
+    status.value = '对话已清空'
+    showToast('对话已清空')
+  }
+
   function selectConfig(configId: string) {
     activeConfigId.value = configId
     const capability = activeCapability.value
     size.value = readDefaultSize(capability.sizeOptions)
-    quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : capability.qualityOptions[0] ?? '自动'
+    quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : readDefaultQuality(capability.qualityOptions)
     count.value = capability.countOptions.includes(count.value) ? count.value : capability.countOptions[0] ?? 1
     ratio.value = capability.ratioOptions.includes(ratio.value)
       ? ratio.value
@@ -637,8 +1074,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
   }
 
   async function buildGeneratedImagesFromApi(
-    apiImages: Array<{ previewUrl: string; label: string; resolvedSize?: string }>,
-    modelConfigId: string
+    apiImages: NormalizedImageResult[],
+    modelConfigId: string,
+    modelName: string
   ) {
     const images = await Promise.all(
       apiImages.map((apiImage, index) =>
@@ -646,6 +1084,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
           id: createId(`generated-${index + 1}`),
           label: apiImage.label,
           modelConfigId,
+          modelName,
           previewUrl: apiImage.previewUrl
         })
       )
@@ -657,8 +1096,98 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
   }
 
-  async function readCanvasSizeForRequest() {
-    if (ratio.value !== '画布比例') {
+  function waitForApiRetry(ms: number, signal?: AbortSignal) {
+    return new Promise<void>((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new Error('请求已取消'))
+        return
+      }
+
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', handleAbort)
+        resolve()
+      }, ms)
+
+      function handleAbort() {
+        clearTimeout(timer)
+        reject(new Error('请求已取消'))
+      }
+
+      signal?.addEventListener('abort', handleAbort, { once: true })
+    })
+  }
+
+  async function buildGeneratedImagesWithRetries(params: ImageGenerationParams, modelConfigId: string) {
+    let lastError: unknown
+
+    for (let retryIndex = 0; retryIndex <= maxApiRetryCount; retryIndex += 1) {
+      const attempt = retryIndex + 1
+
+      try {
+        if (params.loadingTaskId) {
+          updateGenerationPhase(params.loadingTaskId, 'waiting-connection')
+        }
+
+        const apiImages = await generateImagesWithProvider({
+          ...params,
+          onTiming: (entry) => {
+            params.onTiming?.({
+              ...entry,
+              metadata: {
+                ...entry.metadata,
+                attempt,
+                maxRetries: maxApiRetryCount
+              }
+            })
+          }
+        })
+
+        return buildGeneratedImagesFromApi(apiImages, modelConfigId, params.config.model)
+      } catch (error) {
+        lastError = error
+        if (params.signal?.aborted || retryIndex >= maxApiRetryCount) {
+          throw error
+        }
+
+        if (params.loadingTaskId) {
+          updateGenerationPhase(params.loadingTaskId, 'waiting-retry')
+        }
+
+        await waitForApiRetry(apiRetryDelayMs * attempt, params.signal)
+      }
+    }
+
+    throw lastError
+  }
+
+  function readCustomResolutionSize() {
+    return `${customWidth.value}x${customHeight.value}`
+  }
+
+  function validateCustomResolution() {
+    const width = Math.round(Number(customWidth.value))
+    const height = Math.round(Number(customHeight.value))
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return '请输入宽高'
+    }
+
+    const imageRatio = width / height
+    if (imageRatio < 1 / 16 || imageRatio > 16) {
+      return '宽高比需在 1:16 到 16:1 之间'
+    }
+
+    const pixels = width * height
+    if (pixels < 1024 * 1024 || pixels > 4096 * 4096) {
+      return '像素总量需在 1024² 到 4096² 之间'
+    }
+
+    customWidth.value = width
+    customHeight.value = height
+    return ''
+  }
+
+  async function readCanvasSizeForRequest(requestRatio: string) {
+    if (requestRatio !== '画布比例') {
       return undefined
     }
 
@@ -671,21 +1200,6 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
 
     return undefined
-  }
-
-  async function readFullCanvasPlacementTarget() {
-    const canvasSize = canUseElectronBridge.value
-      ? await invokeElectronBridge<{ width: number; height: number }>('canvas.readSize')
-      : canUsePhotoshop.value
-        ? canvasPrimitiveService.readCanvasSize()
-        : undefined
-
-    return canvasSize
-      ? {
-          width: canvasSize.width,
-          height: canvasSize.height
-        }
-      : undefined
   }
 
   async function readPlacementPixelTarget(target: PlacementTarget, image: GeneratedImage) {
@@ -704,7 +1218,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
 
     if (target.type === 'default' || target.type === 'full-canvas') {
-      return readFullCanvasPlacementTarget()
+      return undefined
     }
 
     return undefined
@@ -716,11 +1230,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
         ? `${snapshot.selectedSize} · ${snapshot.resolvedSize}`
         : snapshot.resolvedSize || snapshot.selectedSize
 
-    return `${sizeLabel} · ${snapshot.quality || '自动'}质量`
+    return snapshot.quality ? `${sizeLabel} · ${snapshot.quality}` : sizeLabel
   }
 
   function buildGenerationResponseText(snapshot: GenerationRequestSnapshot, generatedCount: number) {
-    return `已生成 ${generatedCount} 张 · ${snapshot.summary}`
+    return `已生成 ${generatedCount} 张 · ${snapshot.config.model} · ${snapshot.summary}`
   }
 
   function cloneGenerationRequestSnapshot(snapshot: GenerationRequestSnapshot): GenerationRequestSnapshot {
@@ -732,7 +1246,42 @@ export function useLightyearBanana(runtime: RuntimeName) {
   }
 
   function readRequestSizeForSnapshot(snapshot: GenerationRequestSnapshot) {
-    return snapshot.resolvedSize
+    return resolveImageRequestSize({
+      canvasSize: snapshot.canvasSize,
+      config: snapshot.config,
+      ratio: snapshot.ratio,
+      references: snapshot.references,
+      size: snapshot.resolvedSize || snapshot.selectedSize
+    })
+  }
+
+  function normalizeGenerationSnapshotForRequest(snapshot: GenerationRequestSnapshot): GenerationRequestSnapshot {
+    const resolvedSize = readRequestSizeForSnapshot(snapshot)
+    if (!resolvedSize || resolvedSize === snapshot.resolvedSize) {
+      return snapshot
+    }
+
+    return {
+      ...snapshot,
+      resolvedSize,
+      summary: readGenerationSummary({
+        quality: snapshot.quality,
+        resolvedSize,
+        selectedSize: snapshot.selectedSize
+      })
+    }
+  }
+
+  function readRequestCountForCapability(requestedCount: number, capability = activeCapability.value) {
+    if (capability.countOptions.includes(requestedCount)) {
+      return requestedCount
+    }
+
+    return capability.countOptions.includes(1) ? 1 : capability.countOptions[0] ?? 1
+  }
+
+  function readRequestCountForSnapshot(snapshot: GenerationRequestSnapshot) {
+    return readRequestCountForCapability(snapshot.count, readProviderCapability(snapshot.config))
   }
 
   function finalizeGenerationSnapshot(snapshot: GenerationRequestSnapshot, resolvedSize?: string): GenerationRequestSnapshot {
@@ -751,7 +1300,20 @@ export function useLightyearBanana(runtime: RuntimeName) {
     }
   }
 
-  function buildFailedGenerationTurn(snapshot: GenerationRequestSnapshot, message: string, elapsedSeconds: number): ChatTurn {
+  function cloneRequestLogs(logs: ImageRequestLogEntry[]) {
+    return logs.map((log) => ({
+      ...log,
+      metadata: { ...log.metadata },
+      stages: { ...log.stages }
+    }))
+  }
+
+  function buildFailedGenerationTurn(
+    snapshot: GenerationRequestSnapshot,
+    message: string,
+    elapsedSeconds: number,
+    requestLogs: ImageRequestLogEntry[] = []
+  ): ChatTurn {
     return {
       id: createId('turn'),
       prompt: snapshot.prompt,
@@ -759,6 +1321,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
       responseText: message,
       elapsedLabel: `失败 · ${elapsedSeconds}s`,
       repeatRequest: cloneGenerationRequestSnapshot(snapshot),
+      requestLogs: cloneRequestLogs(requestLogs),
       results: [],
       tone: 'error'
     }
@@ -781,10 +1344,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
     const sentReferences = references.value.map((reference) => ({ ...reference }))
     const requestConfig = cloneModelConfig(activeConfig.value)
     const requestCapability = readProviderCapability(requestConfig)
-    const requestCount = count.value
-    const requestQuality = quality.value
-    const requestRatio = ratio.value
-    const requestSize = size.value
+    const requestCount = readRequestCountForCapability(count.value, requestCapability)
+    const requestQuality = requestCapability.qualityOptions.includes(quality.value) ? quality.value : readDefaultQuality(requestCapability.qualityOptions)
+    const requestRatio = resolutionMode.value === 'custom' ? '自定义' : ratio.value
+    let requestSize = resolutionMode.value === 'custom' ? readCustomResolutionSize() : size.value
     let requestCanvasSize: { width: number; height: number } | undefined
 
     if (providerRequiresApiKey(requestConfig.provider) && !requestConfig.apiKey.trim()) {
@@ -799,8 +1362,19 @@ export function useLightyearBanana(runtime: RuntimeName) {
       return
     }
 
+    if (resolutionMode.value === 'custom') {
+      const message = validateCustomResolution()
+      if (message) {
+        status.value = message
+        showToast(message)
+        return
+      }
+    }
+
+    requestSize = resolutionMode.value === 'custom' ? readCustomResolutionSize() : size.value
+
     try {
-      requestCanvasSize = await readCanvasSizeForRequest()
+      requestCanvasSize = await readCanvasSizeForRequest(requestRatio)
     } catch (error) {
       const message = readErrorMessage(error, '无法读取画布比例')
       status.value = message
@@ -837,23 +1411,26 @@ export function useLightyearBanana(runtime: RuntimeName) {
     const startedAt = Date.now()
     const taskId = startGenerationLoading(requestPrompt, sentReferences)
     const abortController = new AbortController()
+    const requestLogs: ImageRequestLogEntry[] = []
     generationControllers.set(taskId, abortController)
     status.value = '正在生成'
 
     void (async () => {
       try {
-        const generated = await buildGeneratedImagesFromApi(
-          await generateImagesWithProvider({
+        const generated = await buildGeneratedImagesWithRetries(
+          {
             config: requestConfig,
             count: requestCount,
             canvasSize: requestCanvasSize,
             prompt: requestPrompt,
             quality: requestQuality,
+            loadingTaskId: taskId,
             ratio: requestRatio,
             references: sentReferences,
+            onTiming: (entry) => recordGenerationRequestLog(taskId, requestLogs, entry),
             signal: abortController.signal,
             size: requestResolvedSize
-          }),
+          },
           requestConfig.id
         )
         const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
@@ -864,6 +1441,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
           responseText: buildGenerationResponseText(finalSnapshot, generated.images.length),
           elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
           repeatRequest: cloneGenerationRequestSnapshot(finalSnapshot),
+          requestLogs: cloneRequestLogs(requestLogs),
           results: generated.images
         }
 
@@ -877,6 +1455,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
             references: sentReferences,
             responseText: '已取消生成',
             elapsedLabel: `${readGenerationElapsed(taskId, startedAt)}s`,
+            requestLogs: cloneRequestLogs(requestLogs),
             results: [],
             tone: 'canceled'
           }
@@ -886,7 +1465,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
         }
 
         const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
-        const failedTurn = buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt))
+        const failedTurn = buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt), requestLogs)
 
         turns.value = [...turns.value, failedTurn]
         status.value = message
@@ -904,27 +1483,30 @@ export function useLightyearBanana(runtime: RuntimeName) {
       return
     }
 
-    const requestSnapshot = cloneGenerationRequestSnapshot(sourceTurn.repeatRequest)
+    const requestSnapshot = normalizeGenerationSnapshotForRequest(cloneGenerationRequestSnapshot(sourceTurn.repeatRequest))
     const startedAt = Date.now()
     const taskId = startGenerationLoading(requestSnapshot.prompt, requestSnapshot.references)
     const abortController = new AbortController()
+    const requestLogs: ImageRequestLogEntry[] = []
     generationControllers.set(taskId, abortController)
     status.value = '正在追加生成'
 
     void (async () => {
       try {
-        const generated = await buildGeneratedImagesFromApi(
-          await generateImagesWithProvider({
+        const generated = await buildGeneratedImagesWithRetries(
+          {
             config: requestSnapshot.config,
-            count: requestSnapshot.count,
+            count: readRequestCountForSnapshot(requestSnapshot),
             canvasSize: requestSnapshot.canvasSize,
             prompt: requestSnapshot.prompt,
             quality: requestSnapshot.quality,
+            loadingTaskId: taskId,
             ratio: requestSnapshot.ratio,
             references: requestSnapshot.references,
+            onTiming: (entry) => recordGenerationRequestLog(taskId, requestLogs, entry),
             signal: abortController.signal,
             size: readRequestSizeForSnapshot(requestSnapshot)
-          }),
+          },
           requestSnapshot.config.id
         )
         const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
@@ -939,6 +1521,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
             ...turn,
             elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
             repeatRequest: cloneGenerationRequestSnapshot(finalSnapshot),
+            requestLogs: [...(turn.requestLogs ?? []), ...cloneRequestLogs(requestLogs)],
             responseText: buildGenerationResponseText(finalSnapshot, mergedResults.length),
             results: mergedResults
           }
@@ -952,6 +1535,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
             references: requestSnapshot.references,
             responseText: '已取消生成',
             elapsedLabel: `${readGenerationElapsed(taskId, startedAt)}s`,
+            requestLogs: cloneRequestLogs(requestLogs),
             results: [],
             tone: 'canceled'
           }
@@ -961,7 +1545,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
         }
 
         const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
-        turns.value = [...turns.value, buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt))]
+        turns.value = [...turns.value, buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt), requestLogs)]
         status.value = message
         showToast(message)
       } finally {
@@ -977,27 +1561,30 @@ export function useLightyearBanana(runtime: RuntimeName) {
       return
     }
 
-    const requestSnapshot = cloneGenerationRequestSnapshot(sourceTurn.repeatRequest)
+    const requestSnapshot = normalizeGenerationSnapshotForRequest(cloneGenerationRequestSnapshot(sourceTurn.repeatRequest))
     const startedAt = Date.now()
     const taskId = startGenerationLoading(requestSnapshot.prompt, requestSnapshot.references)
     const abortController = new AbortController()
+    const requestLogs: ImageRequestLogEntry[] = []
     generationControllers.set(taskId, abortController)
     status.value = '正在重试生成'
 
     void (async () => {
       try {
-        const generated = await buildGeneratedImagesFromApi(
-          await generateImagesWithProvider({
+        const generated = await buildGeneratedImagesWithRetries(
+          {
             config: requestSnapshot.config,
-            count: requestSnapshot.count,
+            count: readRequestCountForSnapshot(requestSnapshot),
             canvasSize: requestSnapshot.canvasSize,
             prompt: requestSnapshot.prompt,
             quality: requestSnapshot.quality,
+            loadingTaskId: taskId,
             ratio: requestSnapshot.ratio,
             references: requestSnapshot.references,
+            onTiming: (entry) => recordGenerationRequestLog(taskId, requestLogs, entry),
             signal: abortController.signal,
             size: readRequestSizeForSnapshot(requestSnapshot)
-          }),
+          },
           requestSnapshot.config.id
         )
         const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
@@ -1012,6 +1599,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
             elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
             responseText: buildGenerationResponseText(finalSnapshot, generated.images.length),
             repeatRequest: cloneGenerationRequestSnapshot(finalSnapshot),
+            requestLogs: cloneRequestLogs(requestLogs),
             results: generated.images,
             tone: 'normal'
           }
@@ -1029,6 +1617,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
               responseText: '已取消生成',
               elapsedLabel: `${readGenerationElapsed(taskId, startedAt)}s`,
               repeatRequest: cloneGenerationRequestSnapshot(requestSnapshot),
+              requestLogs: cloneRequestLogs(requestLogs),
               results: [],
               tone: 'canceled'
             }
@@ -1043,7 +1632,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
           }
 
           return {
-            ...buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt)),
+            ...buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt), requestLogs),
             id: turn.id
           }
         })
@@ -1106,6 +1695,41 @@ export function useLightyearBanana(runtime: RuntimeName) {
       await canvasPrimitiveService.insertImageToFullCanvas(placeableImage)
       status.value = '已置入全画布'
     })
+  }
+
+  async function saveGeneratedImage(image: CapturedCanvasImage) {
+    status.value = '正在保存图片'
+
+    try {
+      if (canUseElectronBridge.value) {
+        const result = await invokeElectronBridge<{ saved: boolean }>('result.saveImage', {
+          fileName: readGeneratedImageFileName(image),
+          height: image.height,
+          label: image.label,
+          previewUrl: image.previewUrl,
+          width: image.width
+        })
+        if (!result.saved) {
+          status.value = '已取消保存'
+          return
+        }
+      } else if (canUsePhotoshop.value) {
+        const saved = await saveUxpGeneratedImage(image)
+        if (!saved) {
+          status.value = '已取消保存'
+          return
+        }
+      } else {
+        await saveBrowserGeneratedImage(image)
+      }
+
+      status.value = '已保存到本地'
+      showToast('已保存到本地')
+    } catch (error) {
+      const message = `保存失败：${readErrorMessage(error, '请稍后重试')}`
+      status.value = message
+      showToast(message)
+    }
   }
 
   function useResultAsReference(image: GeneratedImage) {
@@ -1172,8 +1796,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
       name: '新配置',
       provider: 'custom-openai',
       model: 'custom-image-model',
+      models: ['custom-image-model'],
       apiKey: '',
       baseUrl: '',
+      usesOfficialBaseUrl: false,
+      customFormat: 'openai-images',
       enabled: true,
       comfyUi: undefined
     }
@@ -1182,6 +1809,35 @@ export function useLightyearBanana(runtime: RuntimeName) {
     Object.assign(settingsDraft, next)
     settingsDraftIsNew.value = true
     settingsView.value = 'detail'
+  }
+
+  function readCopiedConfigName(name: string) {
+    const baseName = name.trim() || '配置'
+    const existingNames = new Set(configs.value.map((config) => config.name.trim()))
+    let nextName = `${baseName} 副本`
+    let index = 2
+
+    while (existingNames.has(nextName)) {
+      nextName = `${baseName} 副本 ${index}`
+      index += 1
+    }
+
+    return nextName
+  }
+
+  function duplicateConfig() {
+    const next = cloneModelConfig({
+      ...settingsDraft,
+      id: createId('config'),
+      name: readCopiedConfigName(settingsDraft.name)
+    })
+
+    editingConfigId.value = next.id
+    Object.assign(settingsDraft, next)
+    settingsDraftIsNew.value = true
+    settingsView.value = 'detail'
+    status.value = '已复制配置'
+    showToast('已复制配置')
   }
 
   function saveConfig() {
@@ -1348,9 +2004,24 @@ export function useLightyearBanana(runtime: RuntimeName) {
     if (patch.provider && patch.provider !== settingsDraft.provider) {
       const capability = providerCapabilities[patch.provider]
       patch.model = capability.modelOptions[0] ?? settingsDraft.model
+      patch.models = capability.modelOptions.length ? [...capability.modelOptions] : [patch.model]
       patch.baseUrl = readDefaultBaseUrl(patch.provider, settingsDraft.baseUrl)
+      patch.usesOfficialBaseUrl = false
       patch.apiKey = readDefaultApiKey(patch.provider, settingsDraft.apiKey)
+      patch.customFormat = patch.provider === 'custom-openai' ? normalizeCustomModelFormat(settingsDraft.customFormat) : undefined
       patch.comfyUi = patch.provider === 'comfyui' ? createDefaultComfyUiSettings() : undefined
+    }
+
+    if (patch.baseUrl !== undefined && patch.usesOfficialBaseUrl === undefined) {
+      patch.usesOfficialBaseUrl = false
+    }
+
+    if (patch.models !== undefined) {
+      patch.models = normalizeModelList(patch.models, patch.model ?? settingsDraft.model)
+    }
+
+    if (patch.customFormat !== undefined) {
+      patch.customFormat = normalizeCustomModelFormat(patch.customFormat)
     }
 
     Object.assign(settingsDraft, patch)
@@ -1399,14 +2070,19 @@ export function useLightyearBanana(runtime: RuntimeName) {
     canSend,
     cancelGeneration,
     canUsePhotoshop,
+    clearConversationData,
     clearReferences,
     closeSettingsDetail,
     closeSettings,
+    connectionStatus,
     configs,
     count,
     createConfig,
+    customHeight,
+    customWidth,
     deleteConfig,
     documentLabel,
+    duplicateConfig,
     editConfig,
     editingCapability,
     editingConfigId,
@@ -1425,15 +2101,17 @@ export function useLightyearBanana(runtime: RuntimeName) {
     refreshDocument,
     removeReference,
     retryGeneration,
+    resolutionMode,
     saveConfig,
+    saveGeneratedImage,
     selectConfig,
+    selectModel,
     sendPrompt,
     settingsDraft,
     settingsDraftIsNew,
     settingsTestState,
     settingsView,
     size,
-    status,
     testConfig,
     toastMessage,
     toggleConfigEnabled,

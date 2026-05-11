@@ -39,7 +39,7 @@ const localOpen = shallowRef(false)
 const rootRef = useTemplateRef<HTMLElement>('root')
 
 const selectedOption = computed(
-  () => props.options.find((option) => option.value === props.value) ?? props.options[0] ?? null
+  () => props.options.find((option) => option.value === props.value) ?? null
 )
 const isOpen = computed(() => props.open ?? localOpen.value)
 
