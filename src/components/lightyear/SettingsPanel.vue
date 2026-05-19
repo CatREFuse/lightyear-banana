@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted, shallowRef } from 'vue'
+import { buildInfo } from '../../buildInfo'
 import type {
+  AppUpdateCheckState,
   ImageProviderId,
   MacPermissionPane,
-  MockServerConfig,
   ModelConfig,
   ProviderCapability,
   SettingsTestState,
   SettingsView
 } from '../../types/lightyear'
-import { mockApiKeyPresets } from '../../data/mockApiKeys'
+import { providerRequiresApiKey } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
 
@@ -24,7 +25,8 @@ const props = defineProps<{
   editingCapability: ProviderCapability
   editingConfigId: string
   macPermissionSettingsAvailable: boolean
-  mockServer: MockServerConfig
+  appUpdateCheckAvailable: boolean
+  appUpdateState: AppUpdateCheckState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   settingsDraftIsNew: boolean
   settingsDraft: ModelConfig
@@ -33,19 +35,23 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  clearConversationData: []
   closeDetail: []
   create: []
   delete: []
+  duplicate: []
   edit: [id: string]
+  checkForUpdates: []
   openMacPermissionSettings: [pane: MacPermissionPane]
   save: []
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
-  updateMockServer: [patch: Partial<MockServerConfig>]
 }>()
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
+const clearConversationArmed = shallowRef(false)
+let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
 const configRows = computed(() =>
   props.configs.map((config) => ({
     config,
@@ -53,6 +59,38 @@ const configRows = computed(() =>
   }))
 )
 const transitionName = computed(() => (props.settingsView === 'detail' ? 'settings-forward' : 'settings-back'))
+const clearConversationLabel = computed(() => (clearConversationArmed.value ? '再次清空' : '清空'))
+const updateButtonLabel = computed(() => (props.appUpdateState.status === 'checking' ? '检查中' : '检查更新'))
+const updateCardTone = computed(() => {
+  if (props.appUpdateState.status === 'available') {
+    return 'available'
+  }
+
+  if (props.appUpdateState.status === 'error') {
+    return 'error'
+  }
+
+  return 'neutral'
+})
+const updateStatusText = computed(() => {
+  if (props.appUpdateState.status === 'checking') {
+    return '正在检查更新'
+  }
+
+  if (props.appUpdateState.status === 'current') {
+    return '已是最新版本'
+  }
+
+  if (props.appUpdateState.status === 'available' && props.appUpdateState.latestVersion) {
+    return `v${props.appUpdateState.latestVersion} 可下载`
+  }
+
+  if (props.appUpdateState.status === 'error' && props.appUpdateState.message) {
+    return props.appUpdateState.message
+  }
+
+  return '已是最新版本'
+})
 
 function readConfigStatus(config: ModelConfig): ConfigStatus {
   if (!config.enabled) {
@@ -65,8 +103,8 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
 
   const capability = props.providerCapabilities[config.provider]
   const apiLooksUnavailable =
-    (!props.mockServer.enabled && !config.apiKey.trim()) ||
-    (capability.supportsBaseUrl && !config.baseUrl.trim() && !props.mockServer.enabled) ||
+    (providerRequiresApiKey(config.provider) && !config.apiKey.trim()) ||
+    (capability.supportsBaseUrl && !config.baseUrl.trim()) ||
     /fail|error/i.test(`${config.apiKey} ${config.baseUrl}`)
 
   if (apiLooksUnavailable) {
@@ -83,6 +121,30 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
     tone: 'enabled'
   }
 }
+
+function requestClearConversationData() {
+  if (!clearConversationArmed.value) {
+    clearConversationArmed.value = true
+    clearConversationTimer = setTimeout(() => {
+      clearConversationArmed.value = false
+      clearConversationTimer = undefined
+    }, 2400)
+    return
+  }
+
+  if (clearConversationTimer) {
+    clearTimeout(clearConversationTimer)
+    clearConversationTimer = undefined
+  }
+  clearConversationArmed.value = false
+  emit('clearConversationData')
+}
+
+onUnmounted(() => {
+  if (clearConversationTimer) {
+    clearTimeout(clearConversationTimer)
+  }
+})
 </script>
 
 <template>
@@ -105,49 +167,17 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
           </div>
         </section>
 
-        <section class="mock-server-card" aria-label="Mock Server">
-          <label class="mock-toggle">
-            <span>
-              <strong>
-                <BoxIcon name="cog" size="14" />
-                Mock Server
-              </strong>
-              <small>{{ mockServer.enabled ? '本地端口已启用' : '发送到真实 API' }}</small>
-            </span>
-            <input
-              class="mock-toggle-input"
-              :checked="mockServer.enabled"
-              type="checkbox"
-              @change="emit('updateMockServer', { enabled: ($event.target as HTMLInputElement).checked })"
-            />
-            <span class="mock-toggle-track" aria-hidden="true">
-              <span class="mock-toggle-thumb"></span>
-            </span>
-          </label>
-
-          <label v-if="mockServer.enabled" class="mock-url">
-            <span>
-              <BoxIcon name="key" size="14" />
-              本地地址
-            </span>
-            <input
-              :value="mockServer.baseUrl"
-              type="text"
-              @input="emit('updateMockServer', { baseUrl: ($event.target as HTMLInputElement).value })"
-            />
-          </label>
-
-          <section v-if="mockServer.enabled" class="mock-key-summary" aria-label="Mock Keys">
-            <span>
-              <BoxIcon name="key" size="14" />
-              Mock Keys
-            </span>
-            <div class="mock-key-row">
-              <code v-for="preset in mockApiKeyPresets" :key="preset.key" :title="preset.title">
-                {{ preset.key }}
-              </code>
-            </div>
-          </section>
+        <section class="data-card" aria-label="对话记录">
+          <div>
+            <strong>
+              <BoxIcon name="trash" size="14" />
+              对话记录
+            </strong>
+            <small>清除生成消息和图片记录</small>
+          </div>
+          <button type="button" @click="requestClearConversationData">
+            {{ clearConversationLabel }}
+          </button>
         </section>
 
         <div class="config-list">
@@ -170,7 +200,10 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
             <BoxIcon class="config-icon" name="key" size="17" />
             <span>
               <strong>{{ row.config.name }}</strong>
-              <small>{{ providerCapabilities[row.config.provider].name }} · {{ row.config.model }}</small>
+              <small>
+                {{ providerCapabilities[row.config.provider].name }} ·
+                {{ row.config.model }}
+              </small>
             </span>
             <em class="status-badge" :class="`is-${row.status.tone}`">
               <BoxIcon :name="row.status.icon" size="13" />
@@ -179,6 +212,21 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
             <BoxIcon class="row-arrow" name="chevron-right" size="16" />
           </button>
         </div>
+
+        <footer class="settings-meta" aria-label="版本信息">
+          <span>v{{ buildInfo.version }}</span>
+          <span>Build {{ buildInfo.buildNumber }}</span>
+          <template v-if="appUpdateCheckAvailable">
+            <span :class="`is-${updateCardTone}`">{{ updateStatusText }}</span>
+            <button
+              type="button"
+              :disabled="appUpdateState.status === 'checking'"
+              @click="emit('checkForUpdates')"
+            >
+              {{ updateButtonLabel }}
+            </button>
+          </template>
+        </footer>
       </section>
 
       <section v-else key="detail" class="settings-page">
@@ -186,11 +234,11 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
           :active-config-name="activeConfig?.name"
           :editing-capability="editingCapability"
           :provider-capabilities="providerCapabilities"
-          :mock-server-enabled="mockServer.enabled"
           :settings-draft-is-new="settingsDraftIsNew"
           :settings-draft="settingsDraft"
           :settings-test-state="settingsTestState"
           @delete="emit('delete')"
+          @duplicate="emit('duplicate')"
           @save="emit('save')"
           @test="emit('test')"
           @toggle-enabled="emit('toggleEnabled', $event)"
@@ -215,7 +263,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   display: grid;
   align-content: start;
   gap: 12px;
-  min-height: min-content;
+  min-height: 100%;
   padding: 12px;
 }
 
@@ -285,30 +333,25 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   background: var(--lb-hover);
 }
 
-.mock-server-card {
-  display: grid;
-  gap: 8px;
+.data-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
   padding: 10px;
   border: 1px solid var(--lb-border);
   border-radius: 8px;
   background: var(--lb-card);
 }
 
-.mock-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.mock-toggle span:first-child {
+.data-card div {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.mock-toggle strong {
+.data-card strong {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -320,7 +363,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   white-space: nowrap;
 }
 
-.mock-toggle small {
+.data-card small {
   overflow: hidden;
   color: var(--lb-muted);
   font-size: 11px;
@@ -328,87 +371,21 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
   white-space: nowrap;
 }
 
-.mock-toggle-input {
-  position: absolute;
-  width: 1px;
-  min-height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.mock-toggle-track {
-  position: relative;
+.data-card button {
   flex: 0 0 auto;
-  width: 42px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--lb-surface-2);
-  cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--lb-border);
-}
-
-.mock-toggle-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 3px 8px var(--lb-shadow);
-  transition: transform 160ms ease;
-}
-
-.mock-toggle-input:checked + .mock-toggle-track {
-  background: var(--lb-accent);
-}
-
-.mock-toggle-input:checked + .mock-toggle-track .mock-toggle-thumb {
-  transform: translateX(18px);
-}
-
-.mock-url {
-  display: grid;
-  gap: 5px;
-}
-
-.mock-url span,
-.mock-key-summary > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--lb-muted);
-  font-size: 11px;
-}
-
-.mock-url input {
   min-height: 30px;
-  border: 0;
-  background: var(--lb-field);
+  padding: 0 10px;
+  border: 1px solid var(--lb-danger-border);
+  border-radius: 8px;
+  background: var(--lb-danger-bg);
+  color: var(--lb-danger-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.mock-key-summary {
-  display: grid;
-  gap: 6px;
-}
-
-.mock-key-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.mock-key-row code {
-  max-width: 100%;
-  overflow: hidden;
-  padding: 3px 6px;
-  border-radius: 6px;
-  background: var(--lb-field);
-  color: var(--lb-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.data-card button:hover {
+  background: rgba(236, 81, 93, 0.18);
 }
 
 .config-list {
@@ -512,8 +489,8 @@ h2 {
 }
 
 .status-badge.is-enabled {
-  background: rgba(31, 156, 91, 0.14);
-  color: #42d17b;
+  background: var(--lb-success-bg);
+  color: var(--lb-success);
 }
 
 .status-badge.is-disabled {
@@ -522,8 +499,53 @@ h2 {
 }
 
 .status-badge.is-unavailable {
-  background: rgba(236, 81, 93, 0.14);
-  color: #ff6f7e;
+  background: var(--lb-danger-bg);
+  color: var(--lb-danger-muted);
+}
+
+.settings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: auto;
+  padding: 2px 2px 0;
+  color: var(--lb-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.settings-meta span,
+.settings-meta button {
+  min-width: 0;
+  color: var(--lb-muted);
+  font: inherit;
+  white-space: nowrap;
+}
+
+.settings-meta span.is-available {
+  color: var(--lb-success);
+}
+
+.settings-meta span.is-error {
+  color: var(--lb-danger-muted);
+}
+
+.settings-meta button {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-meta button:hover:not(:disabled) {
+  color: var(--lb-text);
+}
+
+.settings-meta button:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 
 .row-arrow {

@@ -4,7 +4,13 @@ export type ApiImageAsset = {
   id: string
   label: string
   modelConfigId: string
+  modelName: string
   previewUrl: string
+}
+
+type PixelTarget = {
+  width: number
+  height: number
 }
 
 const fallbackSize = {
@@ -26,10 +32,18 @@ function loadImage(previewUrl: string) {
   })
 }
 
-async function readImagePixels(previewUrl: string) {
+async function readImageDimensions(previewUrl: string) {
   const image = await loadImage(previewUrl)
   const width = image.naturalWidth || fallbackSize.width
   const height = image.naturalHeight || fallbackSize.height
+
+  return { width, height }
+}
+
+async function readImagePixels(previewUrl: string, target?: PixelTarget) {
+  const image = await loadImage(previewUrl)
+  const width = Math.max(1, Math.round(target?.width ?? image.naturalWidth ?? fallbackSize.width))
+  const height = Math.max(1, Math.round(target?.height ?? image.naturalHeight ?? fallbackSize.height))
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -55,23 +69,24 @@ async function readImagePixels(previewUrl: string) {
 
 export async function createCanvasImageFromApiAsset(asset: ApiImageAsset) {
   try {
-    const pixels = await readImagePixels(asset.previewUrl)
+    const dimensions = await readImageDimensions(asset.previewUrl)
 
     return {
       id: asset.id,
       label: asset.label,
-      width: pixels.width,
-      height: pixels.height,
+      width: dimensions.width,
+      height: dimensions.height,
       sourceBounds: {
         left: 0,
         top: 0,
-        right: pixels.width,
-        bottom: pixels.height
+        right: dimensions.width,
+        bottom: dimensions.height
       },
       previewUrl: asset.previewUrl,
-      rgba: pixels.rgba,
-      modelConfigId: asset.modelConfigId
-    } satisfies CapturedCanvasImage & { modelConfigId: string }
+      rgba: new Uint8Array(),
+      modelConfigId: asset.modelConfigId,
+      modelName: asset.modelName
+    } satisfies CapturedCanvasImage & { modelConfigId: string; modelName: string }
   } catch {
     return {
       id: asset.id,
@@ -85,8 +100,49 @@ export async function createCanvasImageFromApiAsset(asset: ApiImageAsset) {
         bottom: fallbackSize.height
       },
       previewUrl: asset.previewUrl,
-      rgba: createTransparentRgba(fallbackSize.width, fallbackSize.height),
-      modelConfigId: asset.modelConfigId
-    } satisfies CapturedCanvasImage & { modelConfigId: string }
+      rgba: new Uint8Array(),
+      modelConfigId: asset.modelConfigId,
+      modelName: asset.modelName
+    } satisfies CapturedCanvasImage & { modelConfigId: string; modelName: string }
+  }
+}
+
+export async function hydrateCanvasImagePixels<T extends CapturedCanvasImage>(image: T, target?: PixelTarget): Promise<T> {
+  const width = Math.max(1, Math.round(target?.width ?? image.width))
+  const height = Math.max(1, Math.round(target?.height ?? image.height))
+  const expectedBytes = width * height * 4
+
+  if (image.rgba.length === expectedBytes && image.width === width && image.height === height) {
+    return image
+  }
+
+  try {
+    const pixels = await readImagePixels(image.previewUrl, { width, height })
+
+    return {
+      ...image,
+      width: pixels.width,
+      height: pixels.height,
+      sourceBounds: {
+        left: 0,
+        top: 0,
+        right: pixels.width,
+        bottom: pixels.height
+      },
+      rgba: pixels.rgba
+    }
+  } catch {
+    return {
+      ...image,
+      width,
+      height,
+      sourceBounds: {
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height
+      },
+      rgba: createTransparentRgba(width, height)
+    }
   }
 }
