@@ -46,6 +46,8 @@ const {
   enabledConfigs,
   generationLoading,
   installPluginUrl,
+  appUpdateState,
+  checkForUpdates,
   openMacPermissionSettings,
   openSettings,
   placeImage,
@@ -225,7 +227,9 @@ function handleManageModels() {
         :editing-capability="editingCapability"
         :editing-config-id="editingConfigId"
         :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
+        :app-update-check-available="props.runtime === 'electron'"
         :provider-capabilities="providerCapabilities"
+        :app-update-state="appUpdateState"
         :settings-draft-is-new="settingsDraftIsNew"
         :settings-draft="settingsDraft"
         :settings-test-state="settingsTestState"
@@ -237,6 +241,7 @@ function handleManageModels() {
         @duplicate="duplicateConfig"
         @edit="editConfig"
         @open-mac-permission-settings="openMacPermissionSettings"
+        @check-for-updates="checkForUpdates"
         @save="saveConfig"
         @test="testConfig"
         @toggle-enabled="toggleConfigEnabled"

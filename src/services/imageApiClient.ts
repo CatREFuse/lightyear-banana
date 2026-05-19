@@ -65,6 +65,7 @@ type ComfyUiPromptResponse = {
 }
 
 const providerPaths: Partial<Record<ImageProviderId, string>> = {
+  apimart: '/v1/images/generations',
   'codex-image-server': '/v1/images/generate',
   gemini: '/v1beta/models',
   kling: '/api/v1/services/aigc/image-generation/generation',
@@ -77,12 +78,11 @@ const providerPaths: Partial<Record<ImageProviderId, string>> = {
 const customFormatPathBase: Record<CustomModelFormat, string> = {
   openai: '/v1',
   'openai-images': '/v1',
-  'openai-chat': '/v1',
-  gemini: '/v1beta',
-  qwen: '/v1'
+  'openai-chat': '/v1'
 }
 
 const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
+  apimart: 'https://api.apimart.ai',
   'codex-image-server': 'http://127.0.0.1:17341',
   comfyui: 'http://127.0.0.1:8000',
   gemini: 'https://generativelanguage.googleapis.com',
@@ -95,6 +95,10 @@ const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
 
 const pollIntervalMs = 2000
 const pollAttempts = 45
+const apimartPollIntervalMs = 5000
+const apimartPollAttempts = 144
+const apimartAspectRatios = new Set(['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'])
+const apimartFixedAspectRatios = ['1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
 const gptImage2MinPixels = 655_360
 const gptImage2MaxPixels = 8_294_400
 const gptImage2MaxEdge = 3840
@@ -203,26 +207,6 @@ function readTimingContext(
   }
 }
 
-function createSingleImageParams(params: ImageGenerationParams, index: number): ImageGenerationParams {
-  return {
-    ...params,
-    count: 1,
-    onTiming: params.onTiming
-      ? (entry) => {
-          params.onTiming?.({
-            ...entry,
-            metadata: {
-              ...entry.metadata,
-              phase: `${entry.metadata.phase ?? 'generate'}:${index + 1}`,
-              fanoutIndex: index + 1,
-              fanoutTotal: params.count
-            }
-          })
-        }
-      : undefined
-  }
-}
-
 async function fetchJson(url: string, init: RequestInit, timing?: TimingContext) {
   const startedAt = nowMs()
   let response: Response
@@ -305,10 +289,6 @@ function resolveCustomV1Path(config: ModelConfig, path: string) {
 
 function shouldUseOpenAiChatFormat(config: ModelConfig) {
   return config.provider === 'custom-openai' && readCustomModelFormat(config) === 'openai-chat'
-}
-
-function shouldFanOutSingleImageRequests(config: ModelConfig) {
-  return config.provider === 'custom-openai' && readCustomModelFormat(config) === 'openai-images'
 }
 
 function resolveGeminiGenerateUrl(config: ModelConfig) {
@@ -423,21 +403,6 @@ function readGeminiImageSize(size: string) {
   return size
 }
 
-function readOpenAiChatImageSize(size: string) {
-  const normalized = size.toLowerCase()
-  if (normalized === '1k') {
-    return '1024x1024'
-  }
-  if (normalized === '2k') {
-    return '1536x1024'
-  }
-  if (normalized === '4k') {
-    return '1536x1024'
-  }
-
-  return size
-}
-
 function buildQwenRequest(params: ImageGenerationParams) {
   const content: Array<{ text?: string; image?: string }> = []
   params.references.forEach((reference) => {
@@ -495,7 +460,7 @@ function buildGeminiRequest(params: ImageGenerationParams) {
   if (params.ratio !== '原图比例') {
     imageConfig.aspectRatio = params.ratio
   }
-  if (params.config.model !== 'gemini-2.5-flash-image' && params.size !== '默认') {
+  if (params.size !== '默认') {
     imageConfig.imageSize = readGeminiImageSize(params.size)
   }
 
@@ -532,59 +497,16 @@ function buildOpenAiRequest(params: ImageGenerationParams) {
   }
 }
 
-function normalizeCustomOpenAiImagesSize(size: string) {
-  if (/^[124]k$/i.test(size)) {
-    return size.toLowerCase()
-  }
-
-  return size
-}
-
-function isDoubaoSeedreamHighResolutionModel(config: ModelConfig) {
-  return (
-    config.provider === 'custom-openai' &&
-    readCustomModelFormat(config) === 'openai-images' &&
-    /^doubao-seedream-(?:4-5|5)-/i.test(config.model)
-  )
-}
-
-function resolveDoubaoSeedreamHighResolutionSize(size: string, aspect: { width: number; height: number }) {
-  const dimensions = parseDimensionText(size)
-  if (dimensions) {
-    return formatDimensions(ensureMinPixelsForDimensions(dimensions, 2048 * 2048))
-  }
-
-  return resolvePixelPresetSize(size, aspect, 2048 * 2048)
-}
-
 function buildCustomOpenAiImagesRequest(params: ImageGenerationParams) {
-  const payload: Record<string, unknown> = {
+  return {
     model: params.config.model,
     prompt: params.prompt,
     n: params.count,
-    response_format: 'url',
-    size: normalizeCustomOpenAiImagesSize(params.size),
-    watermark: false
+    size: params.size
   }
-
-  if (params.references.length === 1) {
-    payload.image = params.references[0]?.image.previewUrl
-  } else if (params.references.length > 1) {
-    payload.image = params.references.map((reference) => reference.image.previewUrl)
-  }
-
-  return payload
 }
 
 function buildOpenAiChatRequest(params: ImageGenerationParams) {
-  const imageConfig: Record<string, string> = {}
-  if (params.ratio !== '原图比例') {
-    imageConfig.aspect_ratio = params.ratio
-  }
-  if (params.size !== 'auto' && params.size !== '默认') {
-    imageConfig.image_size = readOpenAiChatImageSize(params.size)
-  }
-
   return {
     model: params.config.model,
     stream: false,
@@ -601,13 +523,111 @@ function buildOpenAiChatRequest(params: ImageGenerationParams) {
             ]
           : params.prompt
       }
-    ],
-    extra_body: {
-      google: {
-        image_config: imageConfig
-      }
+    ]
+  }
+}
+
+function readApimartResolution(size: string) {
+  const normalized = size.trim().toUpperCase()
+  if (['0.5K', '1K', '2K', '4K'].includes(normalized)) {
+    return normalized
+  }
+
+  const dimensions = parseDimensionText(size)
+  if (!dimensions) {
+    return '1K'
+  }
+
+  const maxEdge = Math.max(dimensions.width, dimensions.height)
+  if (maxEdge <= 768) {
+    return '0.5K'
+  }
+  if (maxEdge <= 1536) {
+    return '1K'
+  }
+  if (maxEdge <= 2560) {
+    return '2K'
+  }
+
+  return '4K'
+}
+
+function normalizeApimartAspectRatio(value: string) {
+  const normalized = value === '自动' ? 'auto' : value
+  return apimartAspectRatios.has(normalized) ? normalized : 'auto'
+}
+
+function isApimartProImageModel(model: string) {
+  return /gemini-3-pro-image-preview/i.test(model)
+}
+
+function findNearestApimartAspectRatio(dimensions?: { width: number; height: number }) {
+  const sourceRatio = dimensions && dimensions.width > 0 && dimensions.height > 0 ? dimensions.width / dimensions.height : 1
+  let bestRatio = '1:1'
+  let bestDelta = Number.POSITIVE_INFINITY
+
+  for (const ratio of apimartFixedAspectRatios) {
+    const parsed = parseRatioText(ratio)
+    if (!parsed) {
+      continue
+    }
+
+    const delta = Math.abs(Math.log(sourceRatio / (parsed.width / parsed.height)))
+    if (delta < bestDelta) {
+      bestRatio = ratio
+      bestDelta = delta
     }
   }
+
+  return bestRatio
+}
+
+function readApimartSourceDimensions(params: ImageGenerationParams) {
+  if (params.ratio === '画布比例') {
+    return readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+  }
+
+  if (params.ratio === '自定义') {
+    return parseDimensionText(params.size) ?? readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+  }
+
+  return readDimensionsRatio(params.references[0]?.image) ?? readDimensionsRatio(params.canvasSize)
+}
+
+function readApimartAspectRatio(params: ImageGenerationParams) {
+  if (params.ratio === '自动' || params.ratio === '原图比例' || params.ratio === '参考图比例') {
+    return isApimartProImageModel(params.config.model) ? findNearestApimartAspectRatio(readApimartSourceDimensions(params)) : 'auto'
+  }
+
+  const selectedRatio = parseRatioText(params.ratio)
+  if (selectedRatio) {
+    return normalizeApimartAspectRatio(formatAspectRatio(selectedRatio))
+  }
+
+  const dimensions = readApimartSourceDimensions(params)
+
+  if (!dimensions) {
+    return isApimartProImageModel(params.config.model) ? findNearestApimartAspectRatio() : 'auto'
+  }
+
+  const ratio = normalizeApimartAspectRatio(formatAspectRatio(dimensions))
+  return ratio === 'auto' && isApimartProImageModel(params.config.model) ? findNearestApimartAspectRatio(dimensions) : ratio
+}
+
+function buildApimartRequest(params: ImageGenerationParams) {
+  const payload: Record<string, unknown> = {
+    model: params.config.model,
+    prompt: params.prompt,
+    n: params.count,
+    size: readApimartAspectRatio(params),
+    resolution: readApimartResolution(params.size)
+  }
+
+  if (params.references.length) {
+    payload.image_urls = params.references.map((reference) => reference.image.previewUrl)
+  }
+
+  return payload
 }
 
 function buildCodexImageServerRequest(params: ImageGenerationParams) {
@@ -939,6 +959,23 @@ function roundToMultiple(value: number, multiple: number) {
   return Math.max(multiple, Math.round(value / multiple) * multiple)
 }
 
+function readGreatestCommonDivisor(left: number, right: number): number {
+  let a = Math.abs(Math.round(left))
+  let b = Math.abs(Math.round(right))
+  while (b) {
+    const next = a % b
+    a = b
+    b = next
+  }
+
+  return a || 1
+}
+
+function formatAspectRatio(dimensions: { width: number; height: number }) {
+  const divisor = readGreatestCommonDivisor(dimensions.width, dimensions.height)
+  return `${Math.round(dimensions.width / divisor)}:${Math.round(dimensions.height / divisor)}`
+}
+
 function clampPixelRatio(ratio: number, maxRatio = customDimensionMaxRatio) {
   return Math.max(1 / maxRatio, Math.min(maxRatio, ratio))
 }
@@ -981,14 +1018,6 @@ function derivePixelSizeForRatio(aspect: { width: number; height: number }, targ
   return { width, height }
 }
 
-function ensureMinPixelsForDimensions(dimensions: { width: number; height: number }, minPixels = customDimensionMinPixels) {
-  if (dimensions.width * dimensions.height >= minPixels) {
-    return dimensions
-  }
-
-  return derivePixelSizeForRatio(dimensions, minPixels)
-}
-
 function resolvePixelPresetSize(size: string, aspect: { width: number; height: number }, minPixels = customDimensionMinPixels) {
   const presetPixels = pixelSizePresetMaxPixels.get(size.toLowerCase())
   if (!presetPixels) {
@@ -1000,7 +1029,6 @@ function resolvePixelPresetSize(size: string, aspect: { width: number; height: n
 
 function shouldResolveSizePresetToPixels(config: ModelConfig) {
   return (
-    config.provider === 'custom-openai' ||
     config.provider === 'seedream' ||
     config.provider === 'qwen' ||
     config.provider === 'flux' ||
@@ -1063,10 +1091,6 @@ export function resolveImageRequestSize(params: Pick<ImageGenerationParams, 'can
     }
   }
 
-  if (isDoubaoSeedreamHighResolutionModel(params.config)) {
-    return resolveDoubaoSeedreamHighResolutionSize(params.size, resolveCodexAspectDimensions(params))
-  }
-
   if (shouldResolveSizePresetToPixels(params.config)) {
     return resolvePixelPresetSize(params.size, resolveCodexAspectDimensions(params))
   }
@@ -1108,13 +1132,34 @@ async function requestOpenAiLike(params: ImageGenerationParams) {
 }
 
 async function requestCustomOpenAiImagesCompatible(params: ImageGenerationParams) {
-  const path = resolveCustomV1Path(params.config, '/images/generations')
-  return fetchJson(joinUrl(resolveBaseUrl(params.config), path), {
+  const path = resolveCustomV1Path(params.config, params.references.length ? '/images/edits' : '/images/generations')
+  const url = joinUrl(resolveBaseUrl(params.config), path)
+  if (!params.references.length) {
+    return fetchJson(url, {
+      method: 'POST',
+      headers: createAuthHeaders(params.config),
+      signal: params.signal,
+      body: JSON.stringify(buildCustomOpenAiImagesRequest(params))
+    }, readTimingContext(params, 'generate'))
+  }
+
+  const form = new FormData()
+  form.append('model', params.config.model)
+  form.append('prompt', params.prompt)
+  form.append('n', String(params.count))
+  form.append('size', params.size)
+  params.references.forEach((reference, index) => {
+    form.append('image', dataUrlToBlob(reference.image.previewUrl), `reference-${index + 1}.png`)
+  })
+
+  return fetchJson(url, {
     method: 'POST',
-    headers: createAuthHeaders(params.config),
+    headers: {
+      Authorization: `Bearer ${params.config.apiKey}`
+    },
     signal: params.signal,
-    body: JSON.stringify(buildCustomOpenAiImagesRequest(params))
-  }, readTimingContext(params, params.references.length ? 'edit' : 'generate'))
+    body: form
+  }, readTimingContext(params, 'edit'))
 }
 
 async function requestOpenAiChatCompatible(params: ImageGenerationParams) {
@@ -1128,32 +1173,68 @@ async function requestOpenAiChatCompatible(params: ImageGenerationParams) {
   }, readTimingContext(params, 'chatCompletions'))
 }
 
-async function requestCustomQwenCompatible(params: ImageGenerationParams) {
-  const path = resolveCustomV1Path(params.config, params.references.length ? '/images/edits' : '/images/generations')
-  const url = joinUrl(resolveBaseUrl(params.config), path)
-  return fetchJson(url, {
-    method: 'POST',
-    headers: createAuthHeaders(params.config),
-    signal: params.signal,
-    body: JSON.stringify(buildQwenRequest(params))
-  }, readTimingContext(params, params.references.length ? 'edit' : 'generate'))
-}
-
 async function requestCustomProvider(params: ImageGenerationParams) {
   const format = readCustomModelFormat(params.config)
-  if (format === 'gemini') {
-    return requestGemini(params)
-  }
-
-  if (format === 'qwen') {
-    return requestCustomQwenCompatible(params)
-  }
-
   if (format === 'openai-chat') {
     return requestOpenAiChatCompatible(params)
   }
 
   return requestCustomOpenAiImagesCompatible(params)
+}
+
+function readApimartTaskId(payload: any) {
+  if (typeof payload?.task_id === 'string') {
+    return payload.task_id
+  }
+
+  if (typeof payload?.data?.task_id === 'string') {
+    return payload.data.task_id
+  }
+
+  const firstItem = Array.isArray(payload?.data) ? payload.data[0] : undefined
+  return typeof firstItem?.task_id === 'string' ? firstItem.task_id : undefined
+}
+
+function readApimartTaskStatus(payload: any) {
+  const task = payload?.data && !Array.isArray(payload.data) ? payload.data : payload
+  return String(task?.status ?? task?.task_status ?? '').toLowerCase()
+}
+
+function readApimartTaskError(payload: any) {
+  const task = payload?.data && !Array.isArray(payload.data) ? payload.data : payload
+  return task?.error?.message ?? task?.error_message ?? task?.message ?? payload?.message
+}
+
+async function requestApimart(params: ImageGenerationParams) {
+  const payload = await fetchJson(joinUrl(resolveBaseUrl(params.config), providerPaths.apimart ?? ''), {
+    method: 'POST',
+    headers: createAuthHeaders(params.config),
+    signal: params.signal,
+    body: JSON.stringify(buildApimartRequest(params))
+  }, readTimingContext(params, 'submit'))
+
+  const taskId = readApimartTaskId(payload)
+  if (!taskId) {
+    return payload
+  }
+
+  for (let attempt = 0; attempt < apimartPollAttempts; attempt += 1) {
+    const result = await fetchJson(joinUrl(resolveBaseUrl(params.config), `/v1/tasks/${encodeURIComponent(taskId)}?language=zh`), {
+      method: 'GET',
+      headers: createAuthHeaders(params.config),
+      signal: params.signal
+    }, readTimingContext(params, 'poll', { taskId, attempt: attempt + 1 }))
+    const status = readApimartTaskStatus(result)
+    if (!status || status === 'completed' || status === 'succeeded' || status === 'success') {
+      return result
+    }
+    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
+      throw new ImageApiError(readApimartTaskError(result) || 'APIMart 任务失败', 502)
+    }
+    await wait(apimartPollIntervalMs, params.signal)
+  }
+
+  throw new ImageApiError(`APIMart 任务超时：${taskId}`, 504)
 }
 
 async function requestCodexImageServer(params: ImageGenerationParams) {
@@ -1373,7 +1454,7 @@ async function requestComfyUi(params: ImageGenerationParams) {
 function readOpenAiImages(payload: any): NormalizedImageResult[] {
   return (payload.data ?? [])
     .map((item: any, index: number) => ({
-      previewUrl: item.url ?? (item.b64_json ? `data:image/png;base64,${item.b64_json}` : ''),
+      previewUrl: item.previewUrl ?? item.url ?? (item.b64_json ? `data:image/png;base64,${item.b64_json}` : ''),
       label: `生成图 ${index + 1}`
     }))
     .filter((item: NormalizedImageResult) => item.previewUrl)
@@ -1402,7 +1483,8 @@ function readOpenAiChatImages(payload: any): NormalizedImageResult[] {
 }
 
 function readGeminiImages(payload: any): NormalizedImageResult[] {
-  const parts = payload.candidates?.flatMap((candidate: any) => candidate.content?.parts ?? []) ?? []
+  const source = Array.isArray(payload.data?.candidates) ? payload.data : payload
+  const parts = source.candidates?.flatMap((candidate: any) => candidate.content?.parts ?? []) ?? []
   return parts
     .filter((part: any) => part.inlineData?.data || part.inline_data?.data)
     .map((part: any, index: number) => {
@@ -1414,6 +1496,31 @@ function readGeminiImages(payload: any): NormalizedImageResult[] {
         label: `生成图 ${index + 1}`
       }
     })
+}
+
+function readApimartImages(payload: any): NormalizedImageResult[] {
+  const task = payload?.data && !Array.isArray(payload.data) ? payload.data : payload
+  const resultImages = task?.result?.images ?? payload?.result?.images ?? []
+  const urls = Array.isArray(resultImages)
+    ? resultImages.flatMap((item: any) => {
+        if (Array.isArray(item?.url)) {
+          return item.url
+        }
+
+        return item?.url ?? item?.image_url ?? item?.image ?? []
+      })
+    : []
+
+  if (urls.length) {
+    return urls
+      .filter((url: unknown): url is string => typeof url === 'string' && Boolean(url))
+      .map((previewUrl, index) => ({
+        previewUrl,
+        label: `生成图 ${index + 1}`
+      }))
+  }
+
+  return readOpenAiImages(payload)
 }
 
 function readDashScopeImages(payload: any): NormalizedImageResult[] {
@@ -1468,11 +1575,15 @@ function readImages(config: ModelConfig, payload: any) {
     return payload.url ? [{ previewUrl: payload.url, label: '生成图 1' }] : []
   }
 
-  if (config.provider === 'gemini' || readCustomModelFormat(config) === 'gemini') {
+  if (config.provider === 'gemini') {
     return readGeminiImages(payload)
   }
 
-  if (config.provider === 'qwen' || readCustomModelFormat(config) === 'qwen') {
+  if (config.provider === 'apimart') {
+    return readApimartImages(payload)
+  }
+
+  if (config.provider === 'qwen') {
     return readDashScopeImages(payload)
   }
 
@@ -1494,6 +1605,10 @@ function readImages(config: ModelConfig, payload: any) {
 async function requestProviderPayload(params: ImageGenerationParams) {
   if (params.config.provider === 'gemini') {
     return requestGemini(params)
+  }
+
+  if (params.config.provider === 'apimart') {
+    return requestApimart(params)
   }
 
   if (params.config.provider === 'custom-openai') {
@@ -1523,21 +1638,6 @@ async function requestProviderPayload(params: ImageGenerationParams) {
   return requestOpenAiLike(params)
 }
 
-async function requestMissingImages(params: ImageGenerationParams, currentCount: number) {
-  const missingCount = Math.max(0, params.count - currentCount)
-  if (!missingCount || !shouldFanOutSingleImageRequests(params.config)) {
-    return []
-  }
-
-  const payloads = await Promise.all(
-    Array.from({ length: missingCount }, (_value, index) =>
-      requestProviderPayload(createSingleImageParams(params, currentCount + index))
-    )
-  )
-
-  return payloads.flatMap((payload) => readImages(params.config, payload))
-}
-
 export async function generateImagesWithProvider(params: ImageGenerationParams) {
   const payload = await requestProviderPayload(params)
   const images = readImages(params.config, payload)
@@ -1545,8 +1645,7 @@ export async function generateImagesWithProvider(params: ImageGenerationParams) 
     throw new ImageApiError('API 未返回图片', 502)
   }
 
-  const additionalImages = await requestMissingImages(params, images.length)
-  return [...images, ...additionalImages].slice(0, params.count)
+  return images.slice(0, params.count)
 }
 
 export async function testImageConfig(config: ModelConfig) {
@@ -1583,8 +1682,20 @@ export async function testImageConfig(config: ModelConfig) {
     return
   }
 
+  if (config.provider === 'apimart') {
+    const payload = await fetchJson(joinUrl(resolveBaseUrl(config), '/v1/models'), {
+      method: 'GET',
+      headers: createAuthHeaders(config)
+    })
+    const message = readApiErrorMessage(payload as ApiErrorPayload, '')
+    if ((payload as ApiErrorPayload).error || message) {
+      throw new ImageApiError(message || 'APIMart API 配置不可用', 400)
+    }
+    return
+  }
+
   if (config.provider === 'custom-openai') {
-    const url = readCustomModelFormat(config) === 'gemini' ? resolveGeminiModelsUrl(config) : resolveCustomModelsUrl(config)
+    const url = resolveCustomModelsUrl(config)
     const payload = await fetchJson(url, {
       method: 'GET',
       headers: createAuthHeaders(config)

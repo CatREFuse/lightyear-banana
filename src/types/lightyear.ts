@@ -37,6 +37,28 @@ export type WindowDeployResult = {
   message: string
 }
 
+export type AppUpdateCheckStatus = 'idle' | 'checking' | 'current' | 'available' | 'error'
+
+export type AppUpdateCheckState = {
+  status: AppUpdateCheckStatus
+  message: string
+  currentVersion?: string
+  latestVersion?: string
+  checkedAt?: string
+}
+
+export type AppUpdateCheckResult = {
+  status: Exclude<AppUpdateCheckStatus, 'idle' | 'checking'>
+  currentVersion: string
+  latestVersion: string
+  mandatory: boolean
+  releaseUrl: string
+  downloadUrl: string
+  fileName: string
+  checkedAt: string
+  message?: string
+}
+
 export type CanvasOperationState = {
   type: 'idle' | 'capture' | 'place'
   label: string
@@ -80,6 +102,7 @@ export type PlacementTarget =
 export type ImageProviderId =
   | 'openai'
   | 'gemini'
+  | 'apimart'
   | 'seedream'
   | 'qwen'
   | 'kling'
@@ -88,7 +111,7 @@ export type ImageProviderId =
   | 'codex-image-server'
   | 'custom-openai'
 
-export type CustomModelFormat = 'openai' | 'openai-images' | 'openai-chat' | 'gemini' | 'qwen'
+export type CustomModelFormat = 'openai' | 'openai-images' | 'openai-chat'
 
 export type ComfyUiNodeMappingType =
   | 'model'
@@ -116,14 +139,6 @@ export type ComfyUiSettings = {
   pollIntervalMs: number
 }
 
-export type ProviderCapabilityModelOverride = {
-  referenceLimit?: number
-  sizeOptions?: string[]
-  qualityOptions?: string[]
-  countOptions?: number[]
-  ratioOptions?: string[]
-}
-
 export type ProviderCapability = {
   id: ImageProviderId
   name: string
@@ -135,7 +150,6 @@ export type ProviderCapability = {
   ratioOptions: string[]
   supportsBaseUrl: boolean
   officialBaseUrl?: string
-  modelOverrides?: Record<string, ProviderCapabilityModelOverride>
 }
 
 export type ModelConfig = {

@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { basename, dirname, extname, join, normalize } from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
@@ -22,8 +23,10 @@ let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.0.ccx'
+const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.1.ccx'
 const SETTINGS_FILE = 'lightyear-settings.json'
+const APP_UPDATE_MANIFEST_URL = 'https://cake.catrefuse.com/releases/latest.json'
+const APP_UPDATE_TIMEOUT_MS = 10000
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.ccx': 'application/octet-stream',
@@ -40,6 +43,8 @@ const REFERENCE_IMAGE_MIME_TYPES = {
   '.png': 'image/png',
   '.webp': 'image/webp'
 }
+const REFERENCE_JPEG_MAX_EDGE = 4096
+const REFERENCE_JPEG_MAX_BYTES = 9 * 1024 * 1024
 
 const execFileAsync = promisify(execFile)
 const WINDOW_DEPLOY_TIMEOUT_MS = 8000
@@ -62,6 +67,7 @@ const state = {
 }
 
 let mainWindow = null
+let startupUpdateTimer = null
 const previewWindows = new Set()
 
 function readBridgeOrigin() {
@@ -95,6 +101,7 @@ function readLocalUxpPackage() {
 }
 
 function readBridgeStatus() {
+  const photoshopConnected = isPhotoshopConnected()
   const status = {
     bridge: {
       host: BRIDGE_HOST,
@@ -107,8 +114,8 @@ function readBridgeStatus() {
       running: Boolean(state.codexImageServer)
     },
     photoshop: {
-      connected: isPhotoshopConnected(),
-      documentLabel: state.lastDocumentLabel || undefined
+      connected: photoshopConnected,
+      documentLabel: photoshopConnected && state.lastDocumentLabel ? state.lastDocumentLabel : undefined
     }
   }
 
@@ -135,6 +142,213 @@ function readPersistedSettings() {
 function writePersistedSettings(settings) {
   mkdirSync(app.getPath('userData'), { recursive: true })
   writeFileSync(readSettingsFilePath(), JSON.stringify(settings), 'utf8')
+}
+
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function normalizeVersionSegment(value) {
+  const segment = Number.parseInt(value, 10)
+  return Number.isFinite(segment) ? segment : 0
+}
+
+function compareVersions(left, right) {
+  const [leftCore, leftPrerelease = ''] = String(left).replace(/^v/i, '').split('-', 2)
+  const [rightCore, rightPrerelease = ''] = String(right).replace(/^v/i, '').split('-', 2)
+  const leftSegments = leftCore.split('.').map(normalizeVersionSegment)
+  const rightSegments = rightCore.split('.').map(normalizeVersionSegment)
+  const maxLength = Math.max(leftSegments.length, rightSegments.length)
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const delta = (leftSegments[index] ?? 0) - (rightSegments[index] ?? 0)
+    if (delta !== 0) {
+      return delta > 0 ? 1 : -1
+    }
+  }
+
+  if (leftPrerelease && !rightPrerelease) {
+    return -1
+  }
+
+  if (!leftPrerelease && rightPrerelease) {
+    return 1
+  }
+
+  return leftPrerelease.localeCompare(rightPrerelease)
+}
+
+function readPlatformDownload(downloads) {
+  if (!isPlainObject(downloads)) {
+    return undefined
+  }
+
+  const key = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'windows' : ''
+  if (!key) {
+    return undefined
+  }
+
+  const download = downloads[key]
+  if (!isPlainObject(download) || typeof download.url !== 'string') {
+    return undefined
+  }
+
+  return {
+    platform: key,
+    fileName: typeof download.filename === 'string' ? download.filename : '',
+    url: download.url,
+    sha256: typeof download.sha256 === 'string' ? download.sha256 : '',
+    size: typeof download.size === 'number' ? download.size : 0
+  }
+}
+
+function normalizeUpdateManifest(value) {
+  if (!isPlainObject(value) || value.product !== 'lightyear-banana' || typeof value.version !== 'string') {
+    throw new Error('更新信息不可用')
+  }
+
+  const download = readPlatformDownload(value.downloads)
+  const releaseUrl = typeof value.releaseUrl === 'string' ? value.releaseUrl : 'https://github.com/CatREFuse/lightyear-banana/releases'
+
+  return {
+    version: value.version,
+    tag: typeof value.tag === 'string' ? value.tag : `v${value.version}`,
+    releaseUrl,
+    mandatory: Boolean(value.mandatory),
+    minimumSupportedVersion: typeof value.minimumSupportedVersion === 'string' ? value.minimumSupportedVersion : '',
+    download
+  }
+}
+
+async function fetchUpdateManifest() {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), APP_UPDATE_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(APP_UPDATE_MANIFEST_URL, {
+      cache: 'no-store',
+      signal: controller.signal
+    })
+
+    if (!response.ok) {
+      throw new Error(`更新检测失败 ${response.status}`)
+    }
+
+    return normalizeUpdateManifest(await response.json())
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function buildUpdateCheckResult(manifest) {
+  const currentVersion = app.getVersion()
+  const hasUpdate = compareVersions(manifest.version, currentVersion) > 0
+  const belowMinimum =
+    Boolean(manifest.minimumSupportedVersion) && compareVersions(currentVersion, manifest.minimumSupportedVersion) < 0
+  const mandatory = manifest.mandatory || belowMinimum
+
+  return {
+    status: hasUpdate ? 'available' : 'current',
+    currentVersion,
+    latestVersion: manifest.version,
+    mandatory,
+    releaseUrl: manifest.releaseUrl,
+    downloadUrl: manifest.download?.url ?? manifest.releaseUrl,
+    fileName: manifest.download?.fileName ?? '',
+    checkedAt: new Date().toISOString()
+  }
+}
+
+async function promptForUpdate(result) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+
+  const detail = result.fileName
+    ? `${result.fileName}\n当前版本 v${result.currentVersion}`
+    : `当前版本 v${result.currentVersion}`
+  const response = await dialog.showMessageBox(mainWindow, {
+    type: result.mandatory ? 'warning' : 'info',
+    buttons: result.mandatory ? ['下载更新', '退出'] : ['下载更新', '稍后'],
+    defaultId: 0,
+    cancelId: result.mandatory ? 1 : 1,
+    title: '发现新版本',
+    message: `Lightyear Banana v${result.latestVersion} 可下载`,
+    detail,
+    noLink: true
+  })
+
+  if (response.response === 0) {
+    await shell.openExternal(result.downloadUrl || result.releaseUrl)
+    return
+  }
+
+  if (result.mandatory) {
+    app.quit()
+  }
+}
+
+async function checkForAppUpdate(options = {}) {
+  const source = options.source === 'startup' ? 'startup' : 'manual'
+
+  try {
+    const manifest = await fetchUpdateManifest()
+    const result = buildUpdateCheckResult(manifest)
+
+    if (result.status === 'available') {
+      await promptForUpdate(result)
+    }
+
+    if (source === 'startup' && result.status !== 'available') {
+      return { ...result, silent: true }
+    }
+
+    return result
+  } catch (error) {
+    const message = error instanceof Error && error.name === 'AbortError'
+      ? '更新检测超时'
+      : error instanceof Error
+        ? error.message
+        : '更新检测失败'
+
+    if (source === 'startup') {
+      return {
+        status: 'error',
+        currentVersion: app.getVersion(),
+        latestVersion: '',
+        mandatory: false,
+        releaseUrl: '',
+        downloadUrl: '',
+        fileName: '',
+        checkedAt: new Date().toISOString(),
+        message,
+        silent: true
+      }
+    }
+
+    return {
+      status: 'error',
+      currentVersion: app.getVersion(),
+      latestVersion: '',
+      mandatory: false,
+      releaseUrl: '',
+      downloadUrl: '',
+      fileName: '',
+      checkedAt: new Date().toISOString(),
+      message
+    }
+  }
+}
+
+function scheduleStartupUpdateCheck() {
+  if (startupUpdateTimer) {
+    clearTimeout(startupUpdateTimer)
+  }
+
+  startupUpdateTimer = setTimeout(() => {
+    startupUpdateTimer = null
+    void checkForAppUpdate({ source: 'startup' })
+  }, 2400)
 }
 
 function normalizeDeploySide(value) {
@@ -344,8 +558,100 @@ function createSerializedReferenceImage({ idPrefix, label, previewUrl, width, he
   }
 }
 
-function readReferenceMimeType(filePath) {
-  return REFERENCE_IMAGE_MIME_TYPES[extname(filePath).toLowerCase()] || 'image/png'
+function resizeNativeReferenceImage(image) {
+  const size = image.getSize()
+  const scale = Math.min(1, REFERENCE_JPEG_MAX_EDGE / Math.max(size.width, size.height))
+  if (scale >= 1) {
+    return image
+  }
+
+  return image.resize({
+    width: Math.max(1, Math.round(size.width * scale)),
+    height: Math.max(1, Math.round(size.height * scale)),
+    quality: 'best'
+  })
+}
+
+function encodeNativeReferenceJpeg(image) {
+  const resized = resizeNativeReferenceImage(image)
+  for (const quality of [90, 82, 74, 66, 58, 50]) {
+    const buffer = resized.toJPEG(quality)
+    if (buffer.length <= REFERENCE_JPEG_MAX_BYTES) {
+      return {
+        buffer,
+        image: resized
+      }
+    }
+  }
+
+  let current = resized
+  for (const scale of [0.85, 0.72, 0.6]) {
+    const size = current.getSize()
+    current = current.resize({
+      width: Math.max(1, Math.round(size.width * scale)),
+      height: Math.max(1, Math.round(size.height * scale)),
+      quality: 'best'
+    })
+    const buffer = current.toJPEG(70)
+    if (buffer.length <= REFERENCE_JPEG_MAX_BYTES) {
+      return {
+        buffer,
+        image: current
+      }
+    }
+  }
+
+  throw new Error('参考图压缩后仍超过 9MB')
+}
+
+async function compressReferenceImageFile(filePath) {
+  if (process.platform !== 'darwin') {
+    const image = nativeImage.createFromPath(filePath)
+    if (image.isEmpty()) {
+      throw new Error('无法读取图片文件')
+    }
+
+    return encodeNativeReferenceJpeg(image)
+  }
+
+  const outputPath = join(tmpdir(), `lightyear-reference-${randomUUID()}.jpg`)
+  let lastError = null
+  for (const quality of ['90', '82', '74', '66', '58', '50']) {
+    try {
+      await execFileAsync('/usr/bin/sips', [
+        '-Z',
+        String(REFERENCE_JPEG_MAX_EDGE),
+        '-s',
+        'format',
+        'jpeg',
+        '-s',
+        'formatOptions',
+        quality,
+        filePath,
+        '--out',
+        outputPath
+      ])
+      if (statSync(outputPath).size <= REFERENCE_JPEG_MAX_BYTES) {
+        const image = nativeImage.createFromPath(outputPath)
+        if (image.isEmpty()) {
+          throw new Error('无法读取图片文件')
+        }
+
+        return {
+          buffer: readFileSync(outputPath),
+          image
+        }
+      }
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (lastError) {
+    throw new Error('参考图压缩失败')
+  }
+
+  throw new Error('参考图压缩后仍超过 9MB')
 }
 
 function createReferenceImageFromNativeImage(image, label, idPrefix) {
@@ -353,7 +659,8 @@ function createReferenceImageFromNativeImage(image, label, idPrefix) {
     throw new Error('剪贴板里没有图片')
   }
 
-  const size = image.getSize()
+  const encoded = encodeNativeReferenceJpeg(image)
+  const size = encoded.image.getSize()
   if (!size.width || !size.height) {
     throw new Error('无法读取图片尺寸')
   }
@@ -363,7 +670,7 @@ function createReferenceImageFromNativeImage(image, label, idPrefix) {
     label,
     width: Math.round(size.width),
     height: Math.round(size.height),
-    previewUrl: `data:image/png;base64,${image.toPNG().toString('base64')}`
+    previewUrl: `data:image/jpeg;base64,${encoded.buffer.toString('base64')}`
   })
 }
 
@@ -400,12 +707,9 @@ async function pickReferenceImageFile() {
   }
 
   const filePath = result.filePaths[0]
-  const image = nativeImage.createFromPath(filePath)
-  if (image.isEmpty()) {
-    throw new Error('无法读取图片文件')
-  }
+  const encoded = await compressReferenceImageFile(filePath)
 
-  const size = image.getSize()
+  const size = encoded.image.getSize()
   if (!size.width || !size.height) {
     throw new Error('无法读取图片尺寸')
   }
@@ -415,7 +719,7 @@ async function pickReferenceImageFile() {
     label: `上传图片：${basename(filePath)}`,
     width: Math.round(size.width),
     height: Math.round(size.height),
-    previewUrl: `data:${readReferenceMimeType(filePath)};base64,${readFileSync(filePath).toString('base64')}`
+    previewUrl: `data:image/jpeg;base64,${encoded.buffer.toString('base64')}`
   })
 }
 
@@ -1166,6 +1470,10 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
     return openMacPermissionSettings(payload)
   }
 
+  if (command === 'app.checkForUpdates') {
+    return checkForAppUpdate({ source: 'manual' })
+  }
+
   if (command === 'reference.pickUpload') {
     return pickReferenceImageFile()
   }
@@ -1185,10 +1493,11 @@ app.whenReady().then(async () => {
   await startBridgeServerWithFallback()
   await startBuiltInCodexImageServer()
   await createMainWindow()
+  scheduleStartupUpdateCheck()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow()
+      void createMainWindow().then(scheduleStartupUpdateCheck).catch((error) => console.error(error))
     }
   })
 })
@@ -1200,6 +1509,10 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  if (startupUpdateTimer) {
+    clearTimeout(startupUpdateTimer)
+    startupUpdateTimer = null
+  }
   state.server?.close()
   state.codexImageServer?.close()
 })

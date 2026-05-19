@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, shallowRef, useTemplateRef, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, shallowRef, useTemplateRef, watch } from 'vue'
 import type {
   CanvasOperationState,
   ChatTurn,
@@ -46,6 +46,7 @@ type RequestLogOwner = {
 
 const threadRef = useTemplateRef<HTMLElement>('thread')
 const openPlacementMenuId = shallowRef('')
+const imageContextMenu = shallowRef<{ id: string; image: GeneratedImage; x: number; y: number } | null>(null)
 const placementOptionIds = shallowRef<Record<string, string>>({})
 const visibleRequestLogs = shallowRef<Record<string, boolean>>({})
 const elapsedClickState = shallowRef<Record<string, { count: number; lastAt: number }>>({})
@@ -56,6 +57,19 @@ function closePlacementMenu() {
   }
 
   openPlacementMenuId.value = ''
+}
+
+function closeImageContextMenu() {
+  if (imageContextMenu.value) {
+    emit('menuOpen', '')
+  }
+
+  imageContextMenu.value = null
+}
+
+function closeThreadMenus() {
+  closePlacementMenu()
+  closeImageContextMenu()
 }
 
 function readPlacementMenuId(turnId: string, imageId: string) {
@@ -70,7 +84,35 @@ function togglePlacementMenu(turnId: string, imageId: string) {
   }
 
   openPlacementMenuId.value = id
+  imageContextMenu.value = null
   emit('menuOpen', `thread:${id}`)
+}
+
+function openImageContextMenu(event: MouseEvent, image: GeneratedImage) {
+  const thread = threadRef.value
+  if (!thread) {
+    return
+  }
+
+  const menuWidth = 148
+  const menuHeight = 34
+  const margin = 8
+  const rect = thread.getBoundingClientRect()
+  const localX = event.clientX - rect.left
+  const localY = event.clientY - rect.top
+  const maxX = Math.max(margin, thread.clientWidth - menuWidth - margin)
+  const maxY = Math.max(margin, thread.clientHeight - menuHeight - margin)
+  const x = Math.min(Math.max(margin, localX), maxX) + thread.scrollLeft
+  const y = Math.min(Math.max(margin, localY), maxY) + thread.scrollTop
+
+  openPlacementMenuId.value = ''
+  imageContextMenu.value = {
+    id: image.id,
+    image,
+    x,
+    y
+  }
+  emit('menuOpen', `thread:image:${image.id}`)
 }
 
 function readReferenceSelectionOption(reference: ChatTurn['references'][number], index: number): PlacementOption {
@@ -182,8 +224,16 @@ function selectPlacementOption(turn: ChatTurn, image: GeneratedImage, option: Pl
 }
 
 function placeImage(image: GeneratedImage, target: PlacementTarget) {
-  closePlacementMenu()
+  closeThreadMenus()
   emit('place', image, target)
+}
+
+function saveContextMenuImage() {
+  const image = imageContextMenu.value?.image
+  closeImageContextMenu()
+  if (image) {
+    emit('save', image)
+  }
 }
 
 function isPlacingImage(image: GeneratedImage) {
@@ -314,6 +364,13 @@ async function scrollThreadToBottom(behavior: ScrollBehavior = 'smooth') {
 
 onMounted(() => {
   void scrollThreadToBottom('auto')
+  window.addEventListener('blur', closeImageContextMenu)
+  window.addEventListener('scroll', closeImageContextMenu, true)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('blur', closeImageContextMenu)
+  window.removeEventListener('scroll', closeImageContextMenu, true)
 })
 
 watch(
@@ -331,12 +388,13 @@ watch(
     }
 
     openPlacementMenuId.value = ''
+    imageContextMenu.value = null
   }
 )
 </script>
 
 <template>
-  <section ref="thread" class="thread" aria-label="当前对话" @click="closePlacementMenu">
+  <section ref="thread" class="thread" aria-label="当前对话" @click="closeThreadMenus">
     <Transition name="empty-fade">
       <div v-if="turns.length === 0 && loading.length === 0" class="empty-state">
         <BoxIcon name="image" size="15" />
@@ -422,7 +480,12 @@ watch(
           </template>
           <div v-if="turn.results.length" class="result-grid">
             <article v-for="image in turn.results" :key="image.id" class="result-card">
-              <button class="thumbnail-button" type="button" @click="emit('preview', image)">
+              <button
+                class="thumbnail-button"
+                type="button"
+                @click="emit('preview', image)"
+                @contextmenu.prevent.stop="openImageContextMenu($event, image)"
+              >
                 <img :src="image.previewUrl" :alt="image.label" />
               </button>
               <div class="result-actions">
@@ -473,9 +536,6 @@ watch(
                 </div>
                 <button class="result-icon-action action-tooltip" type="button" aria-label="超分" data-tooltip="超分" title="超分" @click="emit('upscale', image)">
                   <BoxIcon name="zoom-in" size="15" />
-                </button>
-                <button class="result-icon-action action-tooltip" type="button" aria-label="保存到本地" data-tooltip="保存到本地" title="保存到本地" @click="emit('save', image)">
-                  <BoxIcon name="download" size="15" />
                 </button>
                 <button class="result-icon-action action-tooltip" type="button" aria-label="添加参考" data-tooltip="添加参考" title="添加参考" @click="emit('reference', image)">
                   <BoxIcon name="image-add" size="15" />
@@ -552,11 +612,27 @@ watch(
         </section>
       </section>
     </article>
+
+    <Transition name="menu-pop">
+      <div
+        v-if="imageContextMenu"
+        class="image-context-menu"
+        :style="{ left: `${imageContextMenu.x}px`, top: `${imageContextMenu.y}px` }"
+        role="menu"
+        @click.stop
+      >
+        <button type="button" role="menuitem" @click="saveContextMenuImage">
+          <BoxIcon name="download" size="14" />
+          下载到本地
+        </button>
+      </div>
+    </Transition>
   </section>
 </template>
 
 <style scoped>
 .thread {
+  position: relative;
   display: flex;
   min-height: 0;
   flex: 1 1 auto;
@@ -1056,6 +1132,39 @@ watch(
 .result-actions button:hover {
   background: var(--lb-surface-2);
   color: var(--lb-text);
+}
+
+.image-context-menu {
+  position: absolute;
+  z-index: 90;
+  display: grid;
+  width: 148px;
+  overflow: hidden;
+  border: 1px solid var(--lb-border-strong);
+  border-radius: 8px;
+  background: var(--lb-overlay);
+  box-shadow: 0 12px 32px var(--lb-shadow);
+  transform-origin: top left;
+}
+
+.image-context-menu button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lb-text);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.image-context-menu button:hover {
+  background: var(--lb-surface-2);
 }
 
 .menu-pop-enter-active,

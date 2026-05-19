@@ -58,9 +58,7 @@ const comfyNodeTypeOptions: SelectOption[] = [
 
 const customFormatOptions: SelectOption[] = [
   { value: 'openai-images', label: 'OPENAI Images', meta: '/v1/images/generations' },
-  { value: 'openai-chat', label: 'OPENAI Chat', meta: '/v1/chat/completions' },
-  { value: 'gemini', label: 'Gemini', meta: 'generateContent' },
-  { value: 'qwen', label: '通义千问', meta: 'input / parameters' }
+  { value: 'openai-chat', label: 'OPENAI Chat', meta: '/v1/chat/completions' }
 ]
 
 const providerOptions = computed<SelectOption[]>(() =>
@@ -93,22 +91,14 @@ const baseUrlPlaceholder = computed(() => {
 })
 const customModelPlaceholder = computed(() => {
   if (customFormat.value === 'openai-images') {
-    return 'doubao-seedream-5-0-260128'
+    return 'custom-image-model'
   }
 
   if (customFormat.value === 'openai-chat') {
-    return 'gemini-3-pro-image-preview-4k'
+    return 'custom-chat-model'
   }
 
-  if (customFormat.value === 'gemini') {
-    return 'nano-banana-pro-4k'
-  }
-
-  if (customFormat.value === 'qwen') {
-    return 'qwen-image-plus'
-  }
-
-  return 'gpt-image-2'
+  return 'custom-image-model'
 })
 const newModelPlaceholder = computed(() =>
   isCustomProvider.value

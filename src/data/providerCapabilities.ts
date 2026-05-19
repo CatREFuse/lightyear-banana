@@ -1,6 +1,7 @@
 import type { CustomModelFormat, ImageProviderId, ModelConfig, ProviderCapability } from '../types/lightyear'
 
 const gptImageQualityOptions = ['auto', 'high', 'medium', 'low']
+const openAiImageSizeOptions = ['auto', '1024x1024', '1536x1024', '1024x1536']
 const customSizeOptions = ['1k', '2k', '4k']
 
 export const providerCapabilities: Record<ImageProviderId, ProviderCapability> = {
@@ -9,7 +10,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     name: 'OpenAI',
     modelOptions: ['gpt-image-2'],
     referenceLimit: 16,
-    sizeOptions: ['auto', '1024x1024', '1536x1024', '1024x1536'],
+    sizeOptions: openAiImageSizeOptions,
     qualityOptions: gptImageQualityOptions,
     countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     ratioOptions: ['原图比例'],
@@ -33,23 +34,28 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     countOptions: [1],
     ratioOptions: ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
     supportsBaseUrl: false,
-    officialBaseUrl: 'https://generativelanguage.googleapis.com',
-    modelOverrides: {
-      'nano-banana-4k': {
-        sizeOptions: ['4k']
-      },
-      'nano-banana-pro-4k': {
-        sizeOptions: ['4k']
-      },
-      'gemini-3-pro-image-preview-4k': {
-        sizeOptions: ['4k']
-      },
-      'gemini-2.5-flash-image': {
-        referenceLimit: 3,
-        sizeOptions: ['默认'],
-        ratioOptions: ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
-      }
-    }
+    officialBaseUrl: 'https://generativelanguage.googleapis.com'
+  },
+  apimart: {
+    id: 'apimart',
+    name: 'APIMart',
+    modelOptions: [
+      'gemini-3.1-flash-image-preview',
+      'gemini-3.1-flash-image-preview-official',
+      'gemini-3-pro-image-preview',
+      'gemini-3-pro-image-preview-official',
+      'gpt-image-2',
+      'gpt-image-1-official',
+      'gpt-image-1.5-official',
+      'doubao-seedream-5-0-lite'
+    ],
+    referenceLimit: 14,
+    sizeOptions: ['0.5K', '1K', '2K', '4K'],
+    qualityOptions: ['自动'],
+    countOptions: [1, 2, 3, 4],
+    ratioOptions: ['自动', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://api.apimart.ai'
   },
   seedream: {
     id: 'seedream',
@@ -85,13 +91,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9],
     ratioOptions: ['16:9', '9:16', '1:1'],
     supportsBaseUrl: false,
-    officialBaseUrl: 'https://dashscope.aliyuncs.com',
-    modelOverrides: {
-      'kling/kling-v3-image-generation': {
-        referenceLimit: 1,
-        sizeOptions: ['1k', '2k']
-      }
-    }
+    officialBaseUrl: 'https://dashscope.aliyuncs.com'
   },
   flux: {
     id: 'flux',
@@ -111,18 +111,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     countOptions: [1],
     ratioOptions: ['原图比例'],
     supportsBaseUrl: false,
-    officialBaseUrl: 'https://api.bfl.ai',
-    modelOverrides: {
-      'flux-2-klein-9b-preview': {
-        referenceLimit: 4
-      },
-      'flux-2-klein-9b': {
-        referenceLimit: 4
-      },
-      'flux-2-klein-4b': {
-        referenceLimit: 4
-      }
-    }
+    officialBaseUrl: 'https://api.bfl.ai'
   },
   comfyui: {
     id: 'comfyui',
@@ -149,75 +138,18 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
   'custom-openai': {
     id: 'custom-openai',
     name: '自定义模型',
-    modelOptions: [
-      'gpt-image-2',
-      'gpt-image-1.5',
-      'gpt-image-1',
-      'gemini-3-pro-image-preview-4k',
-      'gemini-3-pro-image-preview',
-      'nano-banana-pro-4k',
-      'nano-banana-4k',
-      'doubao-seedream-5-0-260128',
-      'doubao-seedream-4-5-251128',
-      'qwen-image-plus',
-      'qwen-image-edit-plus'
-    ],
+    modelOptions: ['custom-image-model'],
     referenceLimit: 16,
-    sizeOptions: customSizeOptions,
+    sizeOptions: openAiImageSizeOptions,
     qualityOptions: [],
     countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    ratioOptions: ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
+    ratioOptions: ['原图比例'],
     supportsBaseUrl: true
   }
 }
 
-const customFormatCapabilityOverrides: Record<Exclude<CustomModelFormat, 'openai'>, Partial<ProviderCapability>> = {
-  'openai-images': {
-    referenceLimit: 10,
-    sizeOptions: customSizeOptions,
-    qualityOptions: [],
-    countOptions: [1, 2, 3, 4],
-    ratioOptions: ['原图比例']
-  },
-  'openai-chat': {
-    referenceLimit: 16,
-    sizeOptions: customSizeOptions,
-    qualityOptions: [],
-    countOptions: [1],
-    ratioOptions: ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
-  },
-  gemini: {
-    referenceLimit: 14,
-    sizeOptions: customSizeOptions,
-    qualityOptions: [],
-    countOptions: [1],
-    ratioOptions: ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
-  },
-  qwen: {
-    referenceLimit: 3,
-    sizeOptions: customSizeOptions,
-    qualityOptions: [],
-    countOptions: [1, 2, 3, 4, 5, 6],
-    ratioOptions: ['原图比例']
-  }
-}
-
-const customModelCapabilityOverrides: Array<{
-  format: Exclude<CustomModelFormat, 'openai'>
-  modelPattern: RegExp
-  override: Partial<ProviderCapability>
-}> = [
-  {
-    format: 'openai-images',
-    modelPattern: /^doubao-seedream-(?:4-5|5)-/i,
-    override: {
-      sizeOptions: customSizeOptions
-    }
-  }
-]
-
-export function normalizeCustomModelFormat(format: CustomModelFormat | undefined): Exclude<CustomModelFormat, 'openai'> {
-  return format === 'openai-chat' || format === 'gemini' || format === 'qwen' ? format : 'openai-images'
+export function normalizeCustomModelFormat(format: string | undefined): Exclude<CustomModelFormat, 'openai'> {
+  return format === 'openai-chat' ? 'openai-chat' : 'openai-images'
 }
 
 function readOpenAiQualityOptions(model: string) {
@@ -241,21 +173,9 @@ export function providerSupportsQuality(config: Pick<ModelConfig, 'provider' | '
 
 export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>): ProviderCapability {
   const capability = providerCapabilities[config.provider]
-  if (config.provider === 'custom-openai') {
-    const customFormat = normalizeCustomModelFormat(config.customFormat)
-    const formatOverride = customFormatCapabilityOverrides[customFormat]
-    const modelOverride = customModelCapabilityOverrides.find(
-      (item) => item.format === customFormat && item.modelPattern.test(config.model)
-    )?.override
-
-    return { ...capability, ...formatOverride, ...modelOverride }
-  }
-
-  const override = capability.modelOverrides?.[config.model]
   const qualityOptions = providerSupportsQuality(config) ? readOpenAiQualityOptions(config.model) : []
-  const resolvedCapability = { ...capability, qualityOptions }
 
-  return override ? { ...resolvedCapability, ...override } : resolvedCapability
+  return { ...capability, qualityOptions }
 }
 
 export function providerRequiresApiKey(provider: ImageProviderId) {

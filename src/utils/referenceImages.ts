@@ -1,5 +1,10 @@
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 
+const referenceJpegMaxEdge = 4096
+const referenceJpegMaxBytes = 9 * 1024 * 1024
+const referenceJpegMinQuality = 0.5
+const referenceJpegQualityStep = 0.08
+
 const imageMimeTypes: Record<string, string> = {
   gif: 'image/gif',
   jpeg: 'image/jpeg',
@@ -48,6 +53,86 @@ export function readImageDimensions(previewUrl: string) {
   })
 }
 
+function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('无法压缩参考图'))
+        return
+      }
+
+      resolve(blob)
+    }, 'image/jpeg', quality)
+  })
+}
+
+async function loadImage(previewUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.addEventListener('load', () => resolve(image))
+    image.addEventListener('error', () => reject(new Error('无法读取图片')))
+    image.src = previewUrl
+  })
+}
+
+function readResizedDimensions(width: number, height: number, maxEdge: number) {
+  const cleanWidth = Math.max(1, Math.round(width))
+  const cleanHeight = Math.max(1, Math.round(height))
+  const scale = Math.min(1, maxEdge / Math.max(cleanWidth, cleanHeight))
+
+  return {
+    width: Math.max(1, Math.round(cleanWidth * scale)),
+    height: Math.max(1, Math.round(cleanHeight * scale))
+  }
+}
+
+async function compressReferencePreview(previewUrl: string) {
+  const image = await loadImage(previewUrl)
+  let dimensions = readResizedDimensions(image.naturalWidth || image.width, image.naturalHeight || image.height, referenceJpegMaxEdge)
+  let lastBlob: Blob | null = null
+
+  for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
+    const canvas = document.createElement('canvas')
+    canvas.width = dimensions.width
+    canvas.height = dimensions.height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('无法压缩参考图')
+    }
+
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, dimensions.width, dimensions.height)
+    context.drawImage(image, 0, 0, dimensions.width, dimensions.height)
+
+    for (let quality = 0.9; quality >= referenceJpegMinQuality; quality -= referenceJpegQualityStep) {
+      lastBlob = await canvasToJpegBlob(canvas, quality)
+      if (lastBlob.size <= referenceJpegMaxBytes) {
+        return {
+          previewUrl: await readBlobAsDataUrl(lastBlob),
+          width: dimensions.width,
+          height: dimensions.height
+        }
+      }
+    }
+
+    dimensions = readResizedDimensions(Math.round(dimensions.width * 0.85), Math.round(dimensions.height * 0.85), referenceJpegMaxEdge)
+  }
+
+  if (!lastBlob) {
+    throw new Error('无法压缩参考图')
+  }
+
+  if (lastBlob.size > referenceJpegMaxBytes) {
+    throw new Error('参考图压缩后仍超过 9MB')
+  }
+
+  return {
+    previewUrl: await readBlobAsDataUrl(lastBlob),
+    width: dimensions.width,
+    height: dimensions.height
+  }
+}
+
 export async function createReferenceCanvasImage(input: {
   idPrefix: string
   label: string
@@ -55,12 +140,11 @@ export async function createReferenceCanvasImage(input: {
   width?: number
   height?: number
 }): Promise<CapturedCanvasImage> {
-  const dimensions = input.width && input.height
-    ? {
-        width: Math.max(1, Math.round(input.width)),
-        height: Math.max(1, Math.round(input.height))
-      }
-    : await readImageDimensions(input.previewUrl)
+  const compressed = await compressReferencePreview(input.previewUrl)
+  const dimensions = {
+    width: compressed.width,
+    height: compressed.height
+  }
 
   return {
     id: `${input.idPrefix}-${Date.now()}`,
@@ -73,7 +157,7 @@ export async function createReferenceCanvasImage(input: {
       right: dimensions.width,
       bottom: dimensions.height
     },
-    previewUrl: input.previewUrl,
+    previewUrl: compressed.previewUrl,
     rgba: new Uint8Array()
   }
 }

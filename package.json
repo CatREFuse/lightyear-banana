@@ -1,13 +1,14 @@
 {
   "name": "lightyear-banana",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "dev:electron": "node scripts/electron-dev.mjs",
     "build": "npm run build:web",
+    "build:site": "node scripts/build-site.mjs",
     "build:web": "node scripts/update-build-number.mjs && vue-tsc -b && vite build",
     "build:web:dev": "node scripts/update-build-number.mjs && vue-tsc -b && vite build --mode development",
     "build:uxp": "node scripts/update-build-number.mjs && vue-tsc -b && vite build --config vite.uxp.config.ts --mode development",

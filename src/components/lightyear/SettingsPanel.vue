@@ -2,6 +2,7 @@
 import { computed, onUnmounted, shallowRef } from 'vue'
 import { buildInfo } from '../../buildInfo'
 import type {
+  AppUpdateCheckState,
   ImageProviderId,
   MacPermissionPane,
   ModelConfig,
@@ -24,6 +25,8 @@ const props = defineProps<{
   editingCapability: ProviderCapability
   editingConfigId: string
   macPermissionSettingsAvailable: boolean
+  appUpdateCheckAvailable: boolean
+  appUpdateState: AppUpdateCheckState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   settingsDraftIsNew: boolean
   settingsDraft: ModelConfig
@@ -38,6 +41,7 @@ const emit = defineEmits<{
   delete: []
   duplicate: []
   edit: [id: string]
+  checkForUpdates: []
   openMacPermissionSettings: [pane: MacPermissionPane]
   save: []
   test: []
@@ -56,6 +60,25 @@ const configRows = computed(() =>
 )
 const transitionName = computed(() => (props.settingsView === 'detail' ? 'settings-forward' : 'settings-back'))
 const clearConversationLabel = computed(() => (clearConversationArmed.value ? '再次清空' : '清空'))
+const updateButtonLabel = computed(() => (props.appUpdateState.status === 'checking' ? '检查中' : '检查更新'))
+const updateCardTone = computed(() => {
+  if (props.appUpdateState.status === 'available') {
+    return 'available'
+  }
+
+  if (props.appUpdateState.status === 'error') {
+    return 'error'
+  }
+
+  return 'neutral'
+})
+const updateStatusText = computed(() => {
+  if (props.appUpdateState.message) {
+    return props.appUpdateState.message
+  }
+
+  return '启动时自动检查'
+})
 
 function readConfigStatus(config: ModelConfig): ConfigStatus {
   if (!config.enabled) {
@@ -122,6 +145,28 @@ onUnmounted(() => {
             <small>v{{ buildInfo.version }}</small>
           </div>
           <em>Build {{ buildInfo.buildNumber }}</em>
+        </section>
+
+        <section
+          v-if="appUpdateCheckAvailable"
+          class="update-card"
+          :class="`is-${updateCardTone}`"
+          aria-label="版本更新"
+        >
+          <div>
+            <strong>
+              <BoxIcon name="refresh" size="14" />
+              版本更新
+            </strong>
+            <small>{{ updateStatusText }}</small>
+          </div>
+          <button
+            type="button"
+            :disabled="appUpdateState.status === 'checking'"
+            @click="emit('checkForUpdates')"
+          >
+            {{ updateButtonLabel }}
+          </button>
         </section>
 
         <section v-if="macPermissionSettingsAvailable" class="permission-card" aria-label="macOS 权限">
@@ -278,6 +323,85 @@ onUnmounted(() => {
   color: var(--lb-muted);
   font-size: 11px;
   font-style: normal;
+}
+
+.update-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-card);
+}
+
+.update-card.is-available {
+  border-color: rgba(67, 209, 122, 0.28);
+  background: var(--lb-success-bg);
+}
+
+.update-card.is-error {
+  border-color: var(--lb-danger-border);
+  background: var(--lb-danger-bg);
+}
+
+.update-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.update-card strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--lb-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.update-card small {
+  overflow: hidden;
+  color: var(--lb-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.update-card.is-available small {
+  color: var(--lb-success);
+}
+
+.update-card.is-error small {
+  color: var(--lb-danger-muted);
+}
+
+.update-card button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-surface-2);
+  color: var(--lb-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.update-card button:hover:not(:disabled) {
+  background: var(--lb-hover);
+}
+
+.update-card button:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 
 .permission-heading {

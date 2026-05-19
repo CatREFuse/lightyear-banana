@@ -1,4 +1,5 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
+import { buildInfo } from '../buildInfo'
 import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
 import {
   defaultModelConfigs,
@@ -16,8 +17,9 @@ import {
 } from '../services/imageApiClient'
 import {
   type AppView,
+  type AppUpdateCheckResult,
+  type AppUpdateCheckState,
   type CanvasOperationState,
-  type CustomModelFormat,
   type ChatTurn,
   type GeneratedImage,
   type GenerationLoadingPhase,
@@ -79,7 +81,6 @@ const settingsStorageKey = 'lightyear-banana.settings.v1'
 const maxStoredTurns = 50
 const maxApiRetryCount = 3
 const apiRetryDelayMs = 800
-const customModelFormats: CustomModelFormat[] = ['openai', 'openai-images', 'openai-chat', 'gemini', 'qwen']
 const retiredBundledConfigIds = new Set([
   'nano-banana-pro',
   'gpt-image-2',
@@ -243,20 +244,30 @@ function normalizeModelList(models: unknown, selectedModel: string, fallbackMode
   return normalized.length ? normalized : ['custom-image-model']
 }
 
+function readNormalizedProvider(config: ModelConfig): ModelConfig['provider'] {
+  if (config.provider === 'custom-openai' && /apimart\.ai/i.test(config.baseUrl.trim())) {
+    return 'apimart'
+  }
+
+  return config.provider
+}
+
 function cloneModelConfig(config: ModelConfig): ModelConfig {
-  const capability = providerCapabilities[config.provider]
+  const provider = readNormalizedProvider(config)
+  const capability = providerCapabilities[provider]
   const models = normalizeModelList(config.models, config.model, capability.modelOptions)
   const model = models.includes(config.model.trim()) ? config.model.trim() : models[0] ?? config.model
-  const customFormat = config.provider === 'custom-openai' ? normalizeCustomModelFormat(config.customFormat) : undefined
+  const customFormat = provider === 'custom-openai' ? normalizeCustomModelFormat(config.customFormat) : undefined
 
   return {
     ...config,
+    provider,
     model,
     models,
     baseUrl: capability.supportsBaseUrl ? config.baseUrl : '',
     usesOfficialBaseUrl: false,
     customFormat,
-    comfyUi: config.provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
+    comfyUi: provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
   }
 }
 
@@ -313,10 +324,7 @@ function isModelConfig(value: unknown): value is ModelConfig {
     typeof config.apiKey === 'string' &&
     typeof config.baseUrl === 'string' &&
     (config.usesOfficialBaseUrl === undefined || typeof config.usesOfficialBaseUrl === 'boolean') &&
-    (
-      config.customFormat === undefined ||
-      typeof config.customFormat === 'string' && customModelFormats.includes(config.customFormat as CustomModelFormat)
-    ) &&
+    (config.customFormat === undefined || typeof config.customFormat === 'string') &&
     typeof config.enabled === 'boolean'
   )
 }
@@ -593,8 +601,8 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Lightyear App' : 'Photoshop 已连接')
-  const connectionStatus = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Photoshop 未连接' : 'Photoshop 已连接')
+  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Lightyear App' : '浏览器预览')
+  const connectionStatus = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Photoshop 未连接' : '浏览器预览')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
   const prompt = shallowRef('')
@@ -613,6 +621,11 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const editingConfigId = shallowRef(activeConfigId.value)
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
   const windowDeployState = shallowRef<WindowDeployState>({ status: 'idle', message: '' })
+  const appUpdateState = shallowRef<AppUpdateCheckState>({
+    status: 'idle',
+    message: `当前版本 v${buildInfo.version}`,
+    currentVersion: buildInfo.version
+  })
   const toastMessage = shallowRef('')
   const generationLoading = shallowRef<GenerationLoadingState[]>([])
   const canvasOperation = shallowRef<CanvasOperationState>({ type: 'idle', label: '' })
@@ -887,7 +900,7 @@ function readHighestQuality(options: string[]): string {
     }
 
     documentLabel.value = readActiveDocumentLabel()
-    connectionStatus.value = canUsePhotoshop.value || runtime === 'browser' ? 'Photoshop 已连接' : 'Photoshop 未连接'
+    connectionStatus.value = canUsePhotoshop.value ? 'Photoshop 已连接' : runtime === 'browser' ? '浏览器预览' : 'Photoshop 未连接'
   }
 
   async function refreshElectronDocument() {
@@ -899,7 +912,7 @@ function readHighestQuality(options: string[]): string {
     try {
       const bridgeStatus = await getElectronBridgeStatus()
       installPluginUrl.value = bridgeStatus.uxpPackage?.downloadUrl ?? ''
-      documentLabel.value = bridgeStatus.photoshop.documentLabel ?? (bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接')
+      documentLabel.value = bridgeStatus.photoshop.connected ? bridgeStatus.photoshop.documentLabel ?? 'Photoshop 已连接' : 'Photoshop 未连接'
       connectionStatus.value = bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接'
     } catch (error) {
       connectionStatus.value = 'Photoshop 未连接'
@@ -1119,8 +1132,9 @@ function readHighestQuality(options: string[]): string {
 
   async function buildGeneratedImagesWithRetries(params: ImageGenerationParams, modelConfigId: string) {
     let lastError: unknown
+    const retryLimit = params.config.provider === 'apimart' ? 0 : maxApiRetryCount
 
-    for (let retryIndex = 0; retryIndex <= maxApiRetryCount; retryIndex += 1) {
+    for (let retryIndex = 0; retryIndex <= retryLimit; retryIndex += 1) {
       const attempt = retryIndex + 1
 
       try {
@@ -1136,7 +1150,7 @@ function readHighestQuality(options: string[]): string {
               metadata: {
                 ...entry.metadata,
                 attempt,
-                maxRetries: maxApiRetryCount
+                maxRetries: retryLimit
               }
             })
           }
@@ -1145,7 +1159,7 @@ function readHighestQuality(options: string[]): string {
         return buildGeneratedImagesFromApi(apiImages, modelConfigId, params.config.model)
       } catch (error) {
         lastError = error
-        if (params.signal?.aborted || retryIndex >= maxApiRetryCount) {
+        if (params.signal?.aborted || retryIndex >= retryLimit) {
           throw error
         }
 
@@ -2000,6 +2014,86 @@ function readHighestQuality(options: string[]): string {
     }
   }
 
+  async function checkForUpdates() {
+    if (!isElectronRuntime || !canUseElectronBridge.value) {
+      const message = '请在 Lightyear App 中使用'
+      appUpdateState.value = {
+        status: 'error',
+        message,
+        currentVersion: buildInfo.version
+      }
+      status.value = message
+      showToast(message)
+      return
+    }
+
+    appUpdateState.value = {
+      status: 'checking',
+      message: '正在检查更新',
+      currentVersion: appUpdateState.value.currentVersion ?? buildInfo.version,
+      latestVersion: appUpdateState.value.latestVersion,
+      checkedAt: appUpdateState.value.checkedAt
+    }
+    status.value = '正在检查更新'
+
+    try {
+      const result = await withTimeout(
+        invokeElectronBridge<AppUpdateCheckResult>('app.checkForUpdates'),
+        15000,
+        '更新检测超时'
+      )
+
+      if (result.status === 'available') {
+        const message = `v${result.latestVersion} 可下载`
+        appUpdateState.value = {
+          status: 'available',
+          message,
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+          checkedAt: result.checkedAt
+        }
+        status.value = message
+        showToast(message)
+        return
+      }
+
+      if (result.status === 'current') {
+        const message = '已是最新版本'
+        appUpdateState.value = {
+          status: 'current',
+          message,
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+          checkedAt: result.checkedAt
+        }
+        status.value = message
+        showToast(message)
+        return
+      }
+
+      const message = result.message || '更新检测失败'
+      appUpdateState.value = {
+        status: 'error',
+        message,
+        currentVersion: result.currentVersion || buildInfo.version,
+        latestVersion: result.latestVersion,
+        checkedAt: result.checkedAt
+      }
+      status.value = message
+      showToast(message)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '更新检测失败'
+      appUpdateState.value = {
+        status: 'error',
+        message,
+        currentVersion: buildInfo.version,
+        checkedAt: new Date().toISOString()
+      }
+      status.value = message
+      showToast(message)
+    }
+  }
+
   function updateSettingsDraft(patch: Partial<ModelConfig>) {
     if (patch.provider && patch.provider !== settingsDraft.provider) {
       const capability = providerCapabilities[patch.provider]
@@ -2089,6 +2183,8 @@ function readHighestQuality(options: string[]): string {
     enabledConfigs,
     generationLoading,
     installPluginUrl,
+    appUpdateState,
+    checkForUpdates,
     openMacPermissionSettings,
     openSettings,
     placeImage,
