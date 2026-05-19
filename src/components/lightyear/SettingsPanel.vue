@@ -73,11 +73,23 @@ const updateCardTone = computed(() => {
   return 'neutral'
 })
 const updateStatusText = computed(() => {
-  if (props.appUpdateState.message) {
+  if (props.appUpdateState.status === 'checking') {
+    return '正在检查更新'
+  }
+
+  if (props.appUpdateState.status === 'current') {
+    return '已是最新版本'
+  }
+
+  if (props.appUpdateState.status === 'available' && props.appUpdateState.latestVersion) {
+    return `v${props.appUpdateState.latestVersion} 可下载`
+  }
+
+  if (props.appUpdateState.status === 'error' && props.appUpdateState.message) {
     return props.appUpdateState.message
   }
 
-  return '启动时自动检查'
+  return '已是最新版本'
 })
 
 function readConfigStatus(config: ModelConfig): ConfigStatus {
@@ -139,36 +151,6 @@ onUnmounted(() => {
   <main class="settings-panel">
     <Transition :name="transitionName" mode="out-in">
       <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
-        <section class="version-card" aria-label="版本信息">
-          <div>
-            <strong>Lightyear Banana</strong>
-            <small>v{{ buildInfo.version }}</small>
-          </div>
-          <em>Build {{ buildInfo.buildNumber }}</em>
-        </section>
-
-        <section
-          v-if="appUpdateCheckAvailable"
-          class="update-card"
-          :class="`is-${updateCardTone}`"
-          aria-label="版本更新"
-        >
-          <div>
-            <strong>
-              <BoxIcon name="refresh" size="14" />
-              版本更新
-            </strong>
-            <small>{{ updateStatusText }}</small>
-          </div>
-          <button
-            type="button"
-            :disabled="appUpdateState.status === 'checking'"
-            @click="emit('checkForUpdates')"
-          >
-            {{ updateButtonLabel }}
-          </button>
-        </section>
-
         <section v-if="macPermissionSettingsAvailable" class="permission-card" aria-label="macOS 权限">
           <div class="permission-heading">
             <strong>
@@ -230,6 +212,21 @@ onUnmounted(() => {
             <BoxIcon class="row-arrow" name="chevron-right" size="16" />
           </button>
         </div>
+
+        <footer class="settings-meta" aria-label="版本信息">
+          <span>v{{ buildInfo.version }}</span>
+          <span>Build {{ buildInfo.buildNumber }}</span>
+          <template v-if="appUpdateCheckAvailable">
+            <span :class="`is-${updateCardTone}`">{{ updateStatusText }}</span>
+            <button
+              type="button"
+              :disabled="appUpdateState.status === 'checking'"
+              @click="emit('checkForUpdates')"
+            >
+              {{ updateButtonLabel }}
+            </button>
+          </template>
+        </footer>
       </section>
 
       <section v-else key="detail" class="settings-page">
@@ -266,7 +263,7 @@ onUnmounted(() => {
   display: grid;
   align-content: start;
   gap: 12px;
-  min-height: min-content;
+  min-height: 100%;
   padding: 12px;
 }
 
@@ -284,124 +281,6 @@ onUnmounted(() => {
   border: 1px solid var(--lb-border);
   border-radius: 8px;
   background: var(--lb-card);
-}
-
-.version-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--lb-border);
-  border-radius: 8px;
-  background: var(--lb-card);
-}
-
-.version-card div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.version-card strong,
-.version-card small,
-.version-card em {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.version-card strong {
-  color: var(--lb-text);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.version-card small,
-.version-card em {
-  color: var(--lb-muted);
-  font-size: 11px;
-  font-style: normal;
-}
-
-.update-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--lb-border);
-  border-radius: 8px;
-  background: var(--lb-card);
-}
-
-.update-card.is-available {
-  border-color: rgba(67, 209, 122, 0.28);
-  background: var(--lb-success-bg);
-}
-
-.update-card.is-error {
-  border-color: var(--lb-danger-border);
-  background: var(--lb-danger-bg);
-}
-
-.update-card div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.update-card strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  color: var(--lb-text);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.update-card small {
-  overflow: hidden;
-  color: var(--lb-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.update-card.is-available small {
-  color: var(--lb-success);
-}
-
-.update-card.is-error small {
-  color: var(--lb-danger-muted);
-}
-
-.update-card button {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--lb-border);
-  border-radius: 8px;
-  background: var(--lb-surface-2);
-  color: var(--lb-text);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.update-card button:hover:not(:disabled) {
-  background: var(--lb-hover);
-}
-
-.update-card button:disabled {
-  cursor: default;
-  opacity: 0.62;
 }
 
 .permission-heading {
@@ -622,6 +501,51 @@ h2 {
 .status-badge.is-unavailable {
   background: var(--lb-danger-bg);
   color: var(--lb-danger-muted);
+}
+
+.settings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: auto;
+  padding: 2px 2px 0;
+  color: var(--lb-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.settings-meta span,
+.settings-meta button {
+  min-width: 0;
+  color: var(--lb-muted);
+  font: inherit;
+  white-space: nowrap;
+}
+
+.settings-meta span.is-available {
+  color: var(--lb-success);
+}
+
+.settings-meta span.is-error {
+  color: var(--lb-danger-muted);
+}
+
+.settings-meta button {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-meta button:hover:not(:disabled) {
+  color: var(--lb-text);
+}
+
+.settings-meta button:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 
 .row-arrow {
