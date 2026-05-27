@@ -149,7 +149,11 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
 }
 
 export function normalizeCustomModelFormat(format: string | undefined): Exclude<CustomModelFormat, 'openai'> {
-  return format === 'openai-chat' ? 'openai-chat' : 'openai-images'
+  if (format === 'openai-chat' || format === 'gemini') {
+    return format
+  }
+
+  return 'openai-images'
 }
 
 function readOpenAiQualityOptions(model: string) {
@@ -173,6 +177,18 @@ export function providerSupportsQuality(config: Pick<ModelConfig, 'provider' | '
 
 export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>): ProviderCapability {
   const capability = providerCapabilities[config.provider]
+  if (config.provider === 'custom-openai' && normalizeCustomModelFormat(config.customFormat) === 'gemini') {
+    const geminiCapability = providerCapabilities.gemini
+    return {
+      ...capability,
+      referenceLimit: geminiCapability.referenceLimit,
+      sizeOptions: geminiCapability.sizeOptions,
+      qualityOptions: [],
+      countOptions: geminiCapability.countOptions,
+      ratioOptions: geminiCapability.ratioOptions
+    }
+  }
+
   const qualityOptions = providerSupportsQuality(config) ? readOpenAiQualityOptions(config.model) : []
 
   return { ...capability, qualityOptions }

@@ -111,7 +111,7 @@ export type ImageProviderId =
   | 'codex-image-server'
   | 'custom-openai'
 
-export type CustomModelFormat = 'openai' | 'openai-images' | 'openai-chat'
+export type CustomModelFormat = 'openai' | 'openai-images' | 'openai-chat' | 'gemini'
 
 export type ComfyUiNodeMappingType =
   | 'model'

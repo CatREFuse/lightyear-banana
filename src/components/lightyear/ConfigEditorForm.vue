@@ -58,7 +58,8 @@ const comfyNodeTypeOptions: SelectOption[] = [
 
 const customFormatOptions: SelectOption[] = [
   { value: 'openai-images', label: 'OPENAI Images', meta: '/v1/images/generations' },
-  { value: 'openai-chat', label: 'OPENAI Chat', meta: '/v1/chat/completions' }
+  { value: 'openai-chat', label: 'OPENAI Chat', meta: '/v1/chat/completions' },
+  { value: 'gemini', label: 'Gemini', meta: '/v1beta/models/{model}:generateContent' }
 ]
 
 const providerOptions = computed<SelectOption[]>(() =>
@@ -90,6 +91,10 @@ const baseUrlPlaceholder = computed(() => {
   return props.editingCapability.supportsBaseUrl ? '请输入 URL' : '官方默认'
 })
 const customModelPlaceholder = computed(() => {
+  if (customFormat.value === 'gemini') {
+    return 'gemini-3-pro-image-preview'
+  }
+
   if (customFormat.value === 'openai-images') {
     return 'custom-image-model'
   }

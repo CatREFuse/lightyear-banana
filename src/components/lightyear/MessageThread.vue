@@ -22,6 +22,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   append: [turnId: string]
   cancel: [taskId: string]
+  edit: [turnId: string]
   menuOpen: [owner: string]
   place: [image: GeneratedImage, target: PlacementTarget]
   preview: [image: CapturedCanvasImage]
@@ -438,6 +439,9 @@ watch(
             </div>
             <p class="response-text">{{ readResponseText(turn) }}</p>
             <div v-if="turn.repeatRequest && (turn.results.length || turn.tone === 'error')" class="response-actions">
+              <button class="append-button" type="button" @click="emit('edit', turn.id)">
+                修改请求
+              </button>
               <button v-if="turn.results.length" class="append-button" type="button" @click="emit('append', turn.id)">
                 追加
               </button>
@@ -843,6 +847,7 @@ watch(
 .response-actions {
   display: flex;
   align-items: center;
+  gap: 6px;
   justify-content: flex-start;
 }
 

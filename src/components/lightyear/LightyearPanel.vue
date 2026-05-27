@@ -41,6 +41,7 @@ const {
   deployWindows,
   duplicateConfig,
   editConfig,
+  editGenerationRequest,
   editingCapability,
   editingConfigId,
   enabledConfigs,
@@ -262,6 +263,7 @@ function handleManageModels() {
           :turns="turns"
           @append="appendGeneration"
           @cancel="cancelGeneration"
+          @edit="editGenerationRequest"
           @menu-open="setWorkspaceMenu"
           @place="placeImage"
           @preview="openPreview"

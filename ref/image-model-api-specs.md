@@ -242,10 +242,26 @@ Content-Type: application/json
 
 Gemini 的图像生成和编辑都是对话式 `generateContent`。多轮编辑建议走 chat/session，而不是每一步重新发完整上下文。
 
+### New API 自定义 Gemini
+
+New API 同时提供 Gemini 原生格式。Lightyear Banana 使用自定义模型配置承载这类网关：
+
+| 配置项 | 值 |
+| --- | --- |
+| 供应商 | 自定义模型 |
+| API 格式 | Gemini |
+| Base URL | 网关根域名、`/v1`、`/v1beta` 或 `/v1beta/models` |
+| 鉴权 | `Authorization: Bearer <token>` |
+| 请求路径 | `/v1beta/models/{model}:generateContent` |
+
+当 Base URL 以 `/v1` 结尾时，客户端会按 New API 的原生 Gemini 路由切换到同级 `/v1beta`。请求体复用 Gemini `contents[].parts[]` 和 `generationConfig.imageConfig`，输出继续按 `candidates[].content.parts[].inlineData` 解析。部分 New API 实例需要把路径里的 `:generateContent` 编码为 `%3AgenerateContent` 才能正确识别模型名，客户端会自动处理。
+
 来源：
 
 - Gemini image generation: https://ai.google.dev/gemini-api/docs/image-generation
 - Vertex AI image understanding limits: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/multimodal/image-understanding
+- New API Gemini image generation: https://docs.newapi.pro/zh/docs/api/ai-model/images/gemini/geminirelayv1beta-383837589
+- New API Gemini model list: https://docs.newapi.pro/zh/docs/api/ai-model/models/list/listmodelsgemini
 
 ## ByteDance / Seedream
 

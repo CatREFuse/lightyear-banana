@@ -78,7 +78,8 @@ const providerPaths: Partial<Record<ImageProviderId, string>> = {
 const customFormatPathBase: Record<CustomModelFormat, string> = {
   openai: '/v1',
   'openai-images': '/v1',
-  'openai-chat': '/v1'
+  'openai-chat': '/v1',
+  gemini: '/v1beta'
 }
 
 const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
@@ -291,23 +292,36 @@ function shouldUseOpenAiChatFormat(config: ModelConfig) {
   return config.provider === 'custom-openai' && readCustomModelFormat(config) === 'openai-chat'
 }
 
-function resolveGeminiGenerateUrl(config: ModelConfig) {
+function shouldUseCustomGeminiFormat(config: ModelConfig) {
+  return config.provider === 'custom-openai' && readCustomModelFormat(config) === 'gemini'
+}
+
+function resolveGeminiBaseUrl(config: ModelConfig) {
   const baseUrl = resolveBaseUrl(config).replace(/\/+$/, '')
-  const encodedModel = encodeURIComponent(config.model)
+  if (shouldUseCustomGeminiFormat(config) && /\/v1$/i.test(baseUrl)) {
+    return baseUrl.replace(/\/v1$/i, '')
+  }
+
+  return baseUrl
+}
+
+function resolveGeminiGenerateUrl(config: ModelConfig) {
+  const baseUrl = resolveGeminiBaseUrl(config)
+  const encodedModelPath = `${encodeURIComponent(config.model)}%3AgenerateContent`
 
   if (/\/v1beta\/models$/i.test(baseUrl)) {
-    return joinUrl(baseUrl, `/${encodedModel}:generateContent`)
+    return joinUrl(baseUrl, `/${encodedModelPath}`)
   }
 
   if (/\/v1beta$/i.test(baseUrl)) {
-    return joinUrl(baseUrl, `/models/${encodedModel}:generateContent`)
+    return joinUrl(baseUrl, `/models/${encodedModelPath}`)
   }
 
-  return joinUrl(baseUrl, `/v1beta/models/${encodedModel}:generateContent`)
+  return joinUrl(baseUrl, `/v1beta/models/${encodedModelPath}`)
 }
 
 function resolveGeminiModelsUrl(config: ModelConfig) {
-  const baseUrl = resolveBaseUrl(config).replace(/\/+$/, '')
+  const baseUrl = resolveGeminiBaseUrl(config)
 
   if (/\/v1beta\/models$/i.test(baseUrl)) {
     return baseUrl
@@ -344,6 +358,13 @@ function createAuthHeaders(config: ModelConfig): Record<string, string> {
     return {
       'Content-Type': 'application/json',
       'x-goog-api-key': config.apiKey
+    }
+  }
+
+  if (shouldUseCustomGeminiFormat(config)) {
+    return {
+      Authorization: `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json'
     }
   }
 
@@ -1175,6 +1196,10 @@ async function requestOpenAiChatCompatible(params: ImageGenerationParams) {
 
 async function requestCustomProvider(params: ImageGenerationParams) {
   const format = readCustomModelFormat(params.config)
+  if (format === 'gemini') {
+    return requestGemini(params)
+  }
+
   if (format === 'openai-chat') {
     return requestOpenAiChatCompatible(params)
   }
@@ -1579,6 +1604,10 @@ function readImages(config: ModelConfig, payload: any) {
     return readGeminiImages(payload)
   }
 
+  if (shouldUseCustomGeminiFormat(config)) {
+    return readGeminiImages(payload)
+  }
+
   if (config.provider === 'apimart') {
     return readApimartImages(payload)
   }
@@ -1695,6 +1724,18 @@ export async function testImageConfig(config: ModelConfig) {
   }
 
   if (config.provider === 'custom-openai') {
+    if (shouldUseCustomGeminiFormat(config)) {
+      const payload = await fetchJson(resolveGeminiModelsUrl(config), {
+        method: 'GET',
+        headers: createAuthHeaders(config)
+      })
+      const message = readApiErrorMessage(payload as ApiErrorPayload, '')
+      if ((payload as ApiErrorPayload).error || message) {
+        throw new ImageApiError(message || 'Gemini API 配置不可用', 400)
+      }
+      return
+    }
+
     const url = resolveCustomModelsUrl(config)
     const payload = await fetchJson(url, {
       method: 'GET',

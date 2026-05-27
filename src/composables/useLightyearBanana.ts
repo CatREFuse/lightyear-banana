@@ -1178,6 +1178,21 @@ function readHighestQuality(options: string[]): string {
     return `${customWidth.value}x${customHeight.value}`
   }
 
+  function readResolutionDimensions(value: string) {
+    const match = /^(\d{2,5})[x*](\d{2,5})$/i.exec(value.trim())
+    if (!match) {
+      return undefined
+    }
+
+    const width = Math.round(Number(match[1]))
+    const height = Math.round(Number(match[2]))
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return undefined
+    }
+
+    return { width, height }
+  }
+
   function validateCustomResolution() {
     const width = Math.round(Number(customWidth.value))
     const height = Math.round(Number(customHeight.value))
@@ -1656,6 +1671,69 @@ function readHighestQuality(options: string[]): string {
         stopGenerationLoading(taskId)
       }
     })()
+  }
+
+  function selectRequestConfig(config: ModelConfig) {
+    const existing = configs.value.find((item) => item.id === config.id)
+    if (existing) {
+      const models = normalizeModelList(existing.models, config.model)
+      configs.value = configs.value.map((item) =>
+        item.id === existing.id ? cloneModelConfig({ ...item, model: config.model, models }) : item
+      )
+      activeConfigId.value = existing.id
+      return existing.id
+    }
+
+    const restored = cloneModelConfig({
+      ...config,
+      id: createId('config'),
+      name: readCopiedConfigName(config.name || config.model || '配置'),
+      enabled: true
+    })
+    configs.value = [...configs.value, restored]
+    activeConfigId.value = restored.id
+
+    return restored.id
+  }
+
+  function editGenerationRequest(turnId: string) {
+    const sourceTurn = turns.value.find((turn) => turn.id === turnId)
+    if (!sourceTurn?.repeatRequest) {
+      status.value = '没有可修改的生成请求'
+      return
+    }
+
+    const snapshot = cloneGenerationRequestSnapshot(sourceTurn.repeatRequest)
+    const configId = selectRequestConfig(snapshot.config)
+    const capability = readCapabilityForConfig(configId)
+    prompt.value = snapshot.prompt
+    references.value = snapshot.references.map((reference) => ({
+      ...reference,
+      id: createId('reference'),
+      image: { ...reference.image }
+    }))
+    count.value = readRequestCountForCapability(snapshot.count, capability)
+    quality.value = capability.qualityOptions.includes(snapshot.quality) ? snapshot.quality : readDefaultQuality(capability.qualityOptions)
+
+    const selectedSize = snapshot.selectedSize || snapshot.resolvedSize
+    const customDimensions = snapshot.ratio === '自定义' ? readResolutionDimensions(selectedSize) : undefined
+    if (customDimensions) {
+      resolutionMode.value = 'custom'
+      customWidth.value = customDimensions.width
+      customHeight.value = customDimensions.height
+    } else {
+      resolutionMode.value = 'preset'
+      size.value = capability.sizeOptions.includes(selectedSize) ? selectedSize : readDefaultSize(capability.sizeOptions)
+      ratio.value = capability.ratioOptions.includes(snapshot.ratio)
+        ? snapshot.ratio
+        : capability.ratioOptions.includes('原图比例')
+          ? '原图比例'
+          : capability.ratioOptions[0] ?? ratio.value
+    }
+
+    activeView.value = 'workspace'
+    status.value = '已填入修改请求'
+    showToast('已填入修改请求')
   }
 
   async function placeImage(image: GeneratedImage, target: PlacementTarget) {
@@ -2177,6 +2255,7 @@ function readHighestQuality(options: string[]): string {
     deleteConfig,
     documentLabel,
     duplicateConfig,
+    editGenerationRequest,
     editConfig,
     editingCapability,
     editingConfigId,
