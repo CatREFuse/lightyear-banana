@@ -8,6 +8,8 @@
 https://cake.catrefuse.com/releases/latest.json
 ```
 
+本手册是 Lightyear Banana 的固定发布流程。每次发布必须按本文顺序完成，不得跳过构建发行物、GitHub Release、服务器托管资产、官网部署和线上验证。官网面向用户的下载地址必须托管在 `https://cake.catrefuse.com/releases/$VERSION/`；GitHub Release 只作为发布记录和备份资产。
+
 ### 1. 更新版本
 
 确认 `package.json` 中的 `version` 是目标发行版本。涉及安装说明、下载链接和官网静态兜底链接时，同步替换旧版本号。
@@ -81,7 +83,14 @@ curl -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v
 
 ### 4. 更新官网版本检测
 
-GitHub Release 资产确认可访问后，更新 `site/releases/latest.json`。
+GitHub Release 资产确认可访问后，更新 `site/releases/latest.json`。下载地址必须指向官网服务器托管路径：
+
+```text
+https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-mac.zip
+https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-win.zip
+https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION.ccx
+https://cake.catrefuse.com/releases/$VERSION/SHA256SUMS.txt
+```
 
 必须同步的字段：
 
@@ -133,9 +142,18 @@ deploy/nginx/cake.catrefuse.com.conf
 部署：
 
 ```bash
-rsync -az --delete dist/site/ root@47.97.121.121:/etc/nginx/static/lightyear-banana-site/
-ssh root@47.97.121.121 'nginx -t && systemctl reload nginx'
+VERSION=$(node -p "require('./package.json').version")
+ssh codex-47-97-root "mkdir -p /etc/nginx/static/lightyear-banana-site/releases/$VERSION"
+rsync -az --delete "dist/release-$VERSION/" "codex-47-97-root:/etc/nginx/static/lightyear-banana-site/releases/$VERSION/"
+rsync -az --delete \
+  --exclude='/releases/***' \
+  dist/site/ codex-47-97-root:/etc/nginx/static/lightyear-banana-site/
+ssh codex-47-97-root 'nginx -t && systemctl reload nginx'
 ```
+
+发行物目录必须先单独同步到 `/releases/$VERSION/`。同步官网静态文件时保留整个 `/releases/` 目录，避免清理历史版本和当前版本下载资产。
+
+部署官网必须使用 SSH Host `codex-47-97-root`，它在 `~/.ssh/config` 中绑定了正确的私钥。不要使用裸地址 `root@47.97.121.121`，该地址不会自动使用本项目部署所需的 key。
 
 ### 6. 线上验证
 
@@ -148,9 +166,10 @@ curl --noproxy '*' -fsSL https://cake.catrefuse.com/releases/latest.json | node 
 
 ```bash
 VERSION=$(node -p "require('./package.json').version")
-curl --noproxy '*' -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/lightyear-banana-$VERSION-mac.zip"
-curl --noproxy '*' -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/lightyear-banana-$VERSION-win.zip"
-curl --noproxy '*' -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/lightyear-banana-$VERSION.ccx"
+curl --noproxy '*' -fsSI -L "https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-mac.zip"
+curl --noproxy '*' -fsSI -L "https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-win.zip"
+curl --noproxy '*' -fsSI -L "https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION.ccx"
+curl --noproxy '*' -fsSL "https://cake.catrefuse.com/releases/$VERSION/SHA256SUMS.txt"
 ```
 
 证书验证：
@@ -163,7 +182,7 @@ echo | openssl s_client -connect cake.catrefuse.com:443 -servername cake.catrefu
 
 - `https://cake.catrefuse.com/` 返回 `200`。
 - `latest.json` 的 `version` 等于 `package.json` 版本。
-- `latest.json` 中的 macOS、Windows、CCX 三个下载链接都指向当前 GitHub Release。
-- 三个下载链接都返回可下载资产。
+- `latest.json` 中的 macOS、Windows、CCX 三个下载链接都指向 `cake.catrefuse.com/releases/$VERSION/`。
+- 三个下载链接都返回可下载资产，`SHA256SUMS.txt` 和本地 `dist/release-$VERSION/SHA256SUMS.txt` 一致。
 - Electron 启动检测和设置页手动检测读取同一个 `latest.json`。
 - `cake.catrefuse.com` 证书域名匹配且未过期。
