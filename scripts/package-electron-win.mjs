@@ -87,6 +87,7 @@ const appPaths = await packager({
     /(^|\/)\.git($|\/)/,
     /(^|\/)\.vscode($|\/)/,
     /(^|\/)\.claude($|\/)/,
+    /(^|\/)\.tmp($|\/)/,
     /tsconfig\./,
     /vite\./,
     /AGENTS\.md$/,
@@ -97,6 +98,8 @@ const appPaths = await packager({
     /(^|\/)dist\/ps-uxp($|\/)/,
     /(^|\/)dist\/electron-icon($|\/)/,
     /(^|\/)dist\/electron-dl($|\/)/,
+    /(^|\/)dist\/release-[^/]+($|\/)/,
+    /(^|\/)dist\/[^/]+\.(ccx|zip)$/,
     /package-lock\.json$/
   ]
 })

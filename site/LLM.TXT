@@ -1,0 +1,15 @@
+# Lightyear Banana
+
+Lightyear Banana connects Adobe Photoshop canvas, selections, layers, and reference images to AI image generation.
+
+Version: 0.3.6
+Update manifest: https://cake.catrefuse.com/releases/latest.json
+
+Downloads:
+macOS: https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6-mac.zip
+Windows: https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6-win.zip
+Adobe Photoshop CCX: https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6.ccx
+SHA256: https://cake.catrefuse.com/releases/0.3.6/SHA256SUMS.txt
+
+GitHub: https://github.com/CatREFuse/lightyear-banana
+Contact: WeChat decopycat

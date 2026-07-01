@@ -5,142 +5,179 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Lightyear Banana 是面向 Photoshop 的 AI 生图工作台，支持桌面端、Photoshop CCX 插件和本地模型服务。"
+      content="Lightyear Banana 是面向 Adobe Photoshop 的 AI 生图工作台，支持 macOS、Windows、Adobe Photoshop 插件和本地模型服务。"
     />
     <meta property="og:title" content="Lightyear Banana" />
     <meta
       property="og:description"
-      content="在 Photoshop 里连接 AI 生图模型，把画布、选区和图层变成参考图。"
+      content="在 Adobe Photoshop 里连接 AI 生图模型，把画布、选区和图层变成参考图。"
     />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/assets/lightyear-workspace.png" />
+    <meta property="og:image" content="/assets/lightyear-hero-imagegen.png" />
     <title>Lightyear Banana</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/assets/lightyear-app-icon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/assets/lightyear-app-icon.png" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="site-header" aria-label="顶部导航">
       <a class="brand" href="#top" aria-label="Lightyear Banana 首页">
-        <span class="brand-mark">LB</span>
+        <span class="brand-mark" aria-hidden="true">
+          <img src="/assets/lightyear-app-icon.png" alt="" />
+        </span>
         <span>Lightyear Banana</span>
       </a>
       <nav class="nav-links" aria-label="页面导航">
         <a href="#downloads">下载</a>
         <a href="#workflow">工作流</a>
+        <a href="#models">模型</a>
         <a href="https://github.com/CatREFuse/lightyear-banana">GitHub</a>
       </nav>
     </header>
 
     <main id="top">
-      <section class="hero section-dark" aria-labelledby="hero-title">
-        <div class="hero-copy reveal">
-          <p class="eyebrow">Photoshop AI Workspace</p>
-          <h1 id="hero-title">Lightyear Banana</h1>
-          <p class="hero-text">把当前画布、选区和图层作为参考图，生成结果后直接置入 Photoshop。</p>
-          <div class="hero-actions" aria-label="主要操作">
-            <a class="button button-primary" href="#downloads">下载最新版</a>
-            <a class="button button-secondary" href="https://github.com/CatREFuse/lightyear-banana">查看源码</a>
-          </div>
-        </div>
-        <div class="hero-visual reveal" aria-label="Lightyear Banana 工作台预览">
-          <img src="/assets/lightyear-workspace.png" alt="Lightyear Banana 工作台界面" />
-        </div>
-      </section>
-
-      <section class="release-band reveal" aria-label="当前版本">
-        <div>
-          <span>当前版本</span>
-          <strong data-release-version>0.3.5</strong>
-        </div>
-        <div>
-          <span>桌面端</span>
-          <strong>macOS / Windows</strong>
-        </div>
-        <div>
-          <span>Photoshop</span>
-          <strong>2026 27.3+</strong>
-        </div>
-        <a href="/releases/latest.json">版本检测 JSON</a>
-      </section>
-
       <section id="downloads" class="downloads" aria-labelledby="downloads-title">
         <div class="section-heading reveal">
           <p class="eyebrow">Download</p>
-          <h2 id="downloads-title">下载 Lightyear Banana</h2>
-          <p>桌面本体和 Photoshop 插件使用同一版本号。下载桌面端后，再安装 CCX 插件。</p>
+          <h2 id="downloads-title">下载最新版</h2>
+          <p>选择你的系统，然后安装 Adobe Photoshop 插件。</p>
         </div>
 
-        <div class="download-layout">
+        <div class="download-grid">
           <a
             class="download-item reveal"
             data-download="mac"
-            href="https://cake.catrefuse.com/releases/0.3.5/lightyear-banana-0.3.5-mac.zip"
+            href="https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6-mac.zip"
           >
+            <span class="download-logo-surface" aria-hidden="true">
+              <span class="platform-logo apple-logo"></span>
+            </span>
             <span class="download-kicker">macOS</span>
-            <strong>桌面本体</strong>
-            <span>lightyear-banana-0.3.5-mac.zip</span>
+            <strong>macOS 端</strong>
+            <span class="download-file">lightyear-banana-0.3.6-mac.zip</span>
+            <span class="download-size" data-download-size="mac">104.5 MB</span>
           </a>
           <a
             class="download-item reveal"
             data-download="win"
-            href="https://cake.catrefuse.com/releases/0.3.5/lightyear-banana-0.3.5-win.zip"
+            href="https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6-win.zip"
           >
+            <span class="download-logo-surface" aria-hidden="true">
+              <span class="platform-logo windows-logo">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </span>
+            </span>
             <span class="download-kicker">Windows</span>
-            <strong>桌面本体</strong>
-            <span>lightyear-banana-0.3.5-win.zip</span>
+            <strong>Windows 端</strong>
+            <span class="download-file">lightyear-banana-0.3.6-win.zip</span>
+            <span class="download-size" data-download-size="win">134.2 MB</span>
           </a>
           <a
             class="download-item reveal"
             data-download="ccx"
-            href="https://cake.catrefuse.com/releases/0.3.5/lightyear-banana-0.3.5.ccx"
+            href="https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6.ccx"
           >
-            <span class="download-kicker">Photoshop</span>
-            <strong>CCX 插件</strong>
-            <span>lightyear-banana-0.3.5.ccx</span>
+            <span class="download-logo-surface" aria-hidden="true">
+              <span class="platform-logo photoshop-wordmark">Adobe Photoshop</span>
+            </span>
+            <span class="download-kicker">Adobe Photoshop</span>
+            <strong>Adobe Photoshop 插件</strong>
+            <span class="download-file">lightyear-banana-0.3.6.ccx</span>
+            <span class="download-size" data-download-size="ccx">20.5 KB</span>
           </a>
         </div>
 
         <div class="release-links reveal">
-          <a href="https://cake.catrefuse.com/releases/0.3.5/SHA256SUMS.txt">Release v0.3.5</a>
-          <a href="https://cake.catrefuse.com/releases/0.3.5/SHA256SUMS.txt">SHA256SUMS</a>
-          <a href="https://github.com/CatREFuse/lightyear-banana">GitHub 仓库</a>
+          <a data-release-url href="https://cake.catrefuse.com/releases/0.3.6/SHA256SUMS.txt">SHA256SUMS</a>
+          <a href="/LLM.TXT">LLM.TXT</a>
+          <a data-github-url href="https://github.com/CatREFuse/lightyear-banana">GitHub 仓库</a>
         </div>
       </section>
 
-      <section id="workflow" class="workflow section-dark" aria-labelledby="workflow-title">
-        <div class="section-heading reveal">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy reveal">
+          <p class="eyebrow">Creative AI Workspace</p>
+          <h1 id="hero-title">Lightyear Banana</h1>
+          <p class="hero-lede">Adobe Photoshop 里的 AI 生图工作台</p>
+          <p class="hero-text">把画布、选区和图层变成参考图，生成后直接回到当前文档。</p>
+          <div class="hero-actions" aria-label="主要操作">
+            <a class="button button-primary" href="#downloads">下载最新版</a>
+            <a class="button button-secondary" href="#workflow">查看工作流</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="workflow" class="workflow" aria-labelledby="workflow-title">
+        <div class="workflow-copy reveal">
           <p class="eyebrow">Workflow</p>
-          <h2 id="workflow-title">从 Photoshop 到 AI 结果流</h2>
+          <h2 id="workflow-title">从画布到结果</h2>
           <p>参考图、提示词、模型配置和置入操作集中在一个工作台里完成。</p>
         </div>
-        <div class="workflow-grid">
-          <figure class="media-panel reveal">
-            <img src="/assets/lightyear-settings.png" alt="模型配置界面" />
-            <figcaption>配置模型</figcaption>
+        <div class="workflow-steps" aria-label="工作流">
+          <div class="step reveal">
+            <span>01</span>
+            <strong>捕捉参考</strong>
+            <p>读取当前画布、选区、图层、文件和剪贴板。</p>
+          </div>
+          <div class="step reveal">
+            <span>02</span>
+            <strong>调用模型</strong>
+            <p>切换云端模型、本地 ComfyUI 和自定义接口。</p>
+          </div>
+          <div class="step reveal">
+            <span>03</span>
+            <strong>置入文档</strong>
+            <p>把结果放回全画布、当前选区或参考图位置。</p>
+          </div>
+        </div>
+        <div class="showcase-grid">
+          <figure class="media-panel media-panel-large reveal">
+            <img src="/assets/lightyear-workspace.png" alt="Lightyear Banana 工作台界面" />
+            <figcaption>工作台</figcaption>
           </figure>
           <figure class="media-panel reveal">
-            <img src="/assets/lightyear-result-flow.png" alt="结果流界面" />
-            <figcaption>生成与置入</figcaption>
+            <img src="/assets/lightyear-result-flow.png" alt="Lightyear Banana 结果流界面" />
+            <figcaption>结果流</figcaption>
           </figure>
         </div>
       </section>
 
-      <section class="update-section" aria-labelledby="update-title">
+      <section id="models" class="models" aria-labelledby="models-title">
         <div class="section-heading reveal">
-          <p class="eyebrow">Update Check</p>
-          <h2 id="update-title">发行版版本检测</h2>
-          <p>桌面端可以读取这个地址获取最新版号、下载地址和校验值。</p>
+          <p class="eyebrow">Models</p>
+          <h2 id="models-title">接入你的图像模型</h2>
+          <p>OpenAI、Gemini、APIMart、Seedream、Qwen、Kling、Flux、本地 ComfyUI 和 Codex Image Server 都能进入同一个工作台。</p>
         </div>
-        <div class="update-endpoint reveal">
-          <code>GET https://cake.catrefuse.com/releases/latest.json</code>
-          <a class="button button-primary" href="/releases/latest.json">打开 JSON</a>
+        <div class="model-line reveal" aria-label="模型供应商">
+          <span>OpenAI</span>
+          <span>Gemini</span>
+          <span>APIMart</span>
+          <span>ComfyUI</span>
+          <span>Codex Image Server</span>
+        </div>
+      </section>
+
+      <section class="llm-section" aria-labelledby="llm-title">
+        <div class="section-heading reveal">
+          <p class="eyebrow">LLM.TXT</p>
+          <h2 id="llm-title">版本检测与下载索引</h2>
+          <p>给自动化工具读取的版本信息入口。</p>
+        </div>
+        <div class="llm-panel reveal">
+          <code>GET https://cake.catrefuse.com/LLM.TXT</code>
+          <a class="button button-primary" href="/LLM.TXT">打开 LLM.TXT</a>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
       <span>Lightyear Banana</span>
+      <span>GitHub Stars <strong data-github-stars>--</strong></span>
       <a href="https://github.com/CatREFuse/lightyear-banana">GitHub</a>
+      <span>微信 decopycat</span>
     </footer>
 
     <script src="/app.js" type="module"></script>

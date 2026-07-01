@@ -79,7 +79,7 @@ type StoredSettings = {
 
 const settingsStorageKey = 'lightyear-banana.settings.v1'
 const maxStoredTurns = 50
-const maxApiRetryCount = 3
+const maxApiRetryCount = 99
 const apiRetryDelayMs = 800
 const retiredBundledConfigIds = new Set([
   'nano-banana-pro',
@@ -244,19 +244,36 @@ function normalizeModelList(models: unknown, selectedModel: string, fallbackMode
   return normalized.length ? normalized : ['custom-image-model']
 }
 
+function normalizeProviderId(provider: unknown): ModelConfig['provider'] | undefined {
+  if (provider === 'i-mini') {
+    return 'iMini'
+  }
+
+  return typeof provider === 'string' && provider in providerCapabilities ? provider as ModelConfig['provider'] : undefined
+}
+
 function readNormalizedProvider(config: ModelConfig): ModelConfig['provider'] {
+  const legacyProvider = normalizeProviderId(config.provider)
+  if (legacyProvider === 'iMini') {
+    return legacyProvider
+  }
+
   if (config.provider === 'custom-openai' && /apimart\.ai/i.test(config.baseUrl.trim())) {
     return 'apimart'
   }
 
-  return config.provider
+  return legacyProvider ?? config.provider
 }
 
 function cloneModelConfig(config: ModelConfig): ModelConfig {
   const provider = readNormalizedProvider(config)
   const capability = providerCapabilities[provider]
-  const models = normalizeModelList(config.models, config.model, capability.modelOptions)
-  const model = models.includes(config.model.trim()) ? config.model.trim() : models[0] ?? config.model
+  const selectedModel =
+    provider === 'iMini' && !capability.modelOptions.includes(config.model.trim())
+      ? capability.modelOptions[0] ?? config.model
+      : config.model
+  const models = normalizeModelList(provider === 'iMini' ? capability.modelOptions : config.models, selectedModel, capability.modelOptions)
+  const model = models.includes(selectedModel.trim()) ? selectedModel.trim() : models[0] ?? selectedModel
   const customFormat = provider === 'custom-openai' ? normalizeCustomModelFormat(config.customFormat) : undefined
 
   return {
@@ -301,7 +318,7 @@ function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string)
     return ''
   }
 
-  return capability.supportsBaseUrl ? fallback : ''
+  return capability.supportsBaseUrl ? capability.officialBaseUrl || fallback : ''
 }
 
 function readDefaultApiKey(provider: ModelConfig['provider'], fallback: string) {
@@ -318,7 +335,7 @@ function isModelConfig(value: unknown): value is ModelConfig {
     typeof config.id === 'string' &&
     typeof config.name === 'string' &&
     typeof config.provider === 'string' &&
-    config.provider in providerCapabilities &&
+    Boolean(normalizeProviderId(config.provider)) &&
     typeof config.model === 'string' &&
     (config.models === undefined || Array.isArray(config.models) && config.models.every((model) => typeof model === 'string')) &&
     typeof config.apiKey === 'string' &&
@@ -1132,7 +1149,7 @@ function readHighestQuality(options: string[]): string {
 
   async function buildGeneratedImagesWithRetries(params: ImageGenerationParams, modelConfigId: string) {
     let lastError: unknown
-    const retryLimit = params.config.provider === 'apimart' ? 0 : maxApiRetryCount
+    const retryLimit = maxApiRetryCount
 
     for (let retryIndex = 0; retryIndex <= retryLimit; retryIndex += 1) {
       const attempt = retryIndex + 1

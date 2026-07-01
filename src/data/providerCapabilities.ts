@@ -8,6 +8,10 @@ const apimartGeminiProRatioOptions = ['自动', '1:1', '2:3', '3:2', '3:4', '4:3
 const apimartGptImage1RatioOptions = ['1:1', '3:2', '2:3']
 const apimartGptImage2RatioOptions = ['1:1', '自动', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
 const apimartSeedream5LiteRatioOptions = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9', '自动']
+const iMiniModelOptions = ['google/nano-banana', 'google/nano-banana-pro', 'google/nano-banana-2', 'openai/gpt-image-2']
+const iMiniStandardRatioOptions = ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
+const iMiniNanoBanana2RatioOptions = [...iMiniStandardRatioOptions, '1:4', '1:8', '4:1', '8:1']
+const iMiniGptImage2RatioOptions = [...iMiniStandardRatioOptions, '9:21']
 
 export const providerCapabilities: Record<ImageProviderId, ProviderCapability> = {
   openai: {
@@ -21,6 +25,18 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     ratioOptions: ['原图比例'],
     supportsBaseUrl: false,
     officialBaseUrl: 'https://api.openai.com'
+  },
+  iMini: {
+    id: 'iMini',
+    name: 'i-mini',
+    modelOptions: iMiniModelOptions,
+    referenceLimit: 14,
+    sizeOptions: ['1K', '2K', '4K'],
+    qualityOptions: [],
+    countOptions: [1],
+    ratioOptions: iMiniStandardRatioOptions,
+    supportsBaseUrl: true,
+    officialBaseUrl: 'https://openapi.imini.ai/imini/router'
   },
   gemini: {
     id: 'gemini',
@@ -176,6 +192,7 @@ function readOpenAiQualityOptions(model: string) {
 export function providerSupportsQuality(config: Pick<ModelConfig, 'provider' | 'customFormat'>) {
   return (
     config.provider === 'openai' ||
+    config.provider === 'iMini' ||
     config.provider === 'codex-image-server'
   )
 }
@@ -198,6 +215,18 @@ function isApimartGptImage2Model(model: string) {
 
 function isApimartSeedream5LiteModel(model: string) {
   return /^doubao-seedream-5(?:[-.]0)?-lite$/i.test(model)
+}
+
+function isIMiniNanoBananaModel(model: string) {
+  return /^google\/nano-banana$/i.test(model)
+}
+
+function isIMiniNanoBanana2Model(model: string) {
+  return /^google\/nano-banana-2$/i.test(model)
+}
+
+function isIMiniGptImage2Model(model: string) {
+  return /^openai\/gpt-image-2$/i.test(model)
 }
 
 function readApimartCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>, capability: ProviderCapability): ProviderCapability {
@@ -259,6 +288,43 @@ function readApimartCapability(config: Pick<ModelConfig, 'provider' | 'model' | 
   return capability
 }
 
+function readIMiniCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>, capability: ProviderCapability): ProviderCapability {
+  if (isIMiniNanoBananaModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 3,
+      sizeOptions: ['1K'],
+      qualityOptions: [],
+      countOptions: [1],
+      ratioOptions: iMiniStandardRatioOptions
+    }
+  }
+
+  if (isIMiniNanoBanana2Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['512', '1K', '2K', '4K'],
+      qualityOptions: [],
+      countOptions: [1],
+      ratioOptions: iMiniNanoBanana2RatioOptions
+    }
+  }
+
+  if (isIMiniGptImage2Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 3,
+      sizeOptions: ['1K', '2K', '4K'],
+      qualityOptions: ['low', 'medium', 'high'],
+      countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      ratioOptions: iMiniGptImage2RatioOptions
+    }
+  }
+
+  return capability
+}
+
 export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>): ProviderCapability {
   const capability = providerCapabilities[config.provider]
   if (config.provider === 'custom-openai' && normalizeCustomModelFormat(config.customFormat) === 'gemini') {
@@ -275,6 +341,10 @@ export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'm
 
   if (config.provider === 'apimart') {
     return readApimartCapability(config, capability)
+  }
+
+  if (config.provider === 'iMini') {
+    return readIMiniCapability(config, capability)
   }
 
   const qualityOptions = providerSupportsQuality(config) ? readOpenAiQualityOptions(config.model) : []

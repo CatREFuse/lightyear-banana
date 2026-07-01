@@ -1,5 +1,5 @@
 export const buildInfo = {
-  version: '0.3.5',
-  buildNumber: '202607010009',
-  displayVersion: 'v0.3.5+202607010009'
+  version: '0.3.6',
+  buildNumber: '202607020010',
+  displayVersion: 'v0.3.6+202607020010'
 } as const

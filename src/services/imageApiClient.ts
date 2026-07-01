@@ -40,7 +40,7 @@ type ApiErrorPayload = {
   error?: {
     code?: string | number
     message?: string
-    status?: string
+    status?: string | number
     type?: string
   }
   code?: string | number
@@ -69,6 +69,7 @@ const providerPaths: Partial<Record<ImageProviderId, string>> = {
   apimart: '/v1/images/generations',
   'codex-image-server': '/v1/images/generate',
   gemini: '/v1beta/models',
+  iMini: '/v1/images/generate',
   kling: '/api/v1/services/aigc/image-generation/generation',
   openai: '/v1/images/generations',
   qwen: '/api/v1/services/aigc/multimodal-generation/generation',
@@ -88,6 +89,7 @@ const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
   'codex-image-server': 'http://127.0.0.1:17341',
   comfyui: 'http://127.0.0.1:8000',
   gemini: 'https://generativelanguage.googleapis.com',
+  iMini: 'https://openapi.imini.ai/imini/router',
   kling: 'https://dashscope.aliyuncs.com',
   openai: 'https://api.openai.com',
   qwen: 'https://dashscope.aliyuncs.com',
@@ -96,14 +98,19 @@ const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
 }
 
 const pollIntervalMs = 2000
-const pollAttempts = 45
+const pollAttempts = 99
 const apimartPollIntervalMs = 5000
 const apimartPollAttempts = 99
+const iMiniPollIntervalMs = 2000
+const iMiniPollAttempts = 99
 const apimartGemini31AspectRatios = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
 const apimartGeminiProAspectRatios = ['auto', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
 const apimartGptImage1AspectRatios = ['1:1', '3:2', '2:3']
 const apimartGptImage2AspectRatios = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
 const apimartSeedream5LiteAspectRatios = ['auto', '1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9']
+const iMiniStandardAspectRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
+const iMiniNanoBanana2AspectRatios = [...iMiniStandardAspectRatios, '1:4', '1:8', '4:1', '8:1']
+const iMiniGptImage2AspectRatios = [...iMiniStandardAspectRatios, '9:21']
 const gptImage2MinPixels = 655_360
 const gptImage2MaxPixels = 8_294_400
 const gptImage2MaxEdge = 3840
@@ -288,12 +295,12 @@ function emitFetchTimingEntry(
 
 function resolveBaseUrl(config: ModelConfig) {
   const capability = providerCapabilities[config.provider]
-  if (capability.officialBaseUrl && config.provider !== 'custom-openai') {
+  if (capability.officialBaseUrl && config.provider !== 'custom-openai' && !capability.supportsBaseUrl) {
     return capability.officialBaseUrl ?? ''
   }
 
-  if (config.provider === 'custom-openai' || config.provider === 'comfyui' || config.provider === 'codex-image-server') {
-    return config.baseUrl || providerBaseUrls[config.provider] || ''
+  if (config.provider === 'custom-openai' || config.provider === 'comfyui' || config.provider === 'codex-image-server' || capability.supportsBaseUrl) {
+    return config.baseUrl || capability.officialBaseUrl || providerBaseUrls[config.provider] || ''
   }
 
   return config.baseUrl || capability.officialBaseUrl || providerBaseUrls[config.provider] || ''
@@ -832,6 +839,181 @@ function buildApimartRequest(params: ImageGenerationParams, imageUrls: string[])
 
   if (imageUrls.length) {
     payload.image_urls = imageUrls
+  }
+
+  return payload
+}
+
+function isIMiniNanoBananaModel(model: string) {
+  return /^google\/nano-banana$/i.test(model)
+}
+
+function isIMiniNanoBanana2Model(model: string) {
+  return /^google\/nano-banana-2$/i.test(model)
+}
+
+function isIMiniGptImage2Model(model: string) {
+  return /^openai\/gpt-image-2$/i.test(model)
+}
+
+function readIMiniAspectRatioOptions(model: string) {
+  if (isIMiniNanoBanana2Model(model)) {
+    return iMiniNanoBanana2AspectRatios
+  }
+
+  if (isIMiniGptImage2Model(model)) {
+    return iMiniGptImage2AspectRatios
+  }
+
+  return iMiniStandardAspectRatios
+}
+
+function readIMiniReferenceLimit(model: string) {
+  if (isIMiniNanoBananaModel(model) || isIMiniGptImage2Model(model)) {
+    return 3
+  }
+
+  return 14
+}
+
+function readIMiniResolution(model: string, size: string) {
+  const normalized = size.trim().toUpperCase()
+  const dimensions = parseDimensionText(size)
+
+  if (isIMiniNanoBananaModel(model)) {
+    return '1K'
+  }
+
+  if (isIMiniNanoBanana2Model(model)) {
+    if (normalized === '512' || ['1K', '2K', '4K'].includes(normalized)) {
+      return normalized
+    }
+
+    if (!dimensions) {
+      return '1K'
+    }
+
+    const maxEdge = Math.max(dimensions.width, dimensions.height)
+    if (maxEdge <= 768) {
+      return '512'
+    }
+    if (maxEdge <= 1536) {
+      return '1K'
+    }
+    if (maxEdge <= 2560) {
+      return '2K'
+    }
+
+    return '4K'
+  }
+
+  if (['1K', '2K', '4K'].includes(normalized)) {
+    return normalized
+  }
+
+  if (!dimensions) {
+    return '1K'
+  }
+
+  const maxEdge = Math.max(dimensions.width, dimensions.height)
+  if (maxEdge <= 1536) {
+    return '1K'
+  }
+  if (maxEdge <= 2560) {
+    return '2K'
+  }
+
+  return '4K'
+}
+
+function normalizeIMiniAspectRatio(model: string, value: string, fallback = '1:1') {
+  return new Set(readIMiniAspectRatioOptions(model)).has(value) ? value : fallback
+}
+
+function findNearestIMiniAspectRatio(model: string, dimensions?: { width: number; height: number }) {
+  const sourceRatio = dimensions && dimensions.width > 0 && dimensions.height > 0 ? dimensions.width / dimensions.height : 1
+  let bestRatio = '1:1'
+  let bestDelta = Number.POSITIVE_INFINITY
+
+  for (const ratio of readIMiniAspectRatioOptions(model)) {
+    const parsed = parseRatioText(ratio)
+    if (!parsed) {
+      continue
+    }
+
+    const delta = Math.abs(Math.log(sourceRatio / (parsed.width / parsed.height)))
+    if (delta < bestDelta) {
+      bestRatio = ratio
+      bestDelta = delta
+    }
+  }
+
+  return bestRatio
+}
+
+function readIMiniSourceDimensions(params: ImageGenerationParams) {
+  if (params.ratio === '画布比例') {
+    return readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+  }
+
+  if (params.ratio === '自定义') {
+    return parseDimensionText(params.size) ?? readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+  }
+
+  return readDimensionsRatio(params.references[0]?.image) ?? readDimensionsRatio(params.canvasSize)
+}
+
+function readIMiniAspectRatio(params: ImageGenerationParams) {
+  if (params.ratio === '原图比例' || params.ratio === '参考图比例' || params.ratio === '画布比例' || params.ratio === '自定义') {
+    return findNearestIMiniAspectRatio(params.config.model, readIMiniSourceDimensions(params))
+  }
+
+  const directRatio = normalizeIMiniAspectRatio(params.config.model, params.ratio, '')
+  if (directRatio) {
+    return directRatio
+  }
+
+  const selectedRatio = parseRatioText(params.ratio)
+  if (selectedRatio) {
+    return findNearestIMiniAspectRatio(params.config.model, selectedRatio)
+  }
+
+  const dimensions = readIMiniSourceDimensions(params)
+  return dimensions ? findNearestIMiniAspectRatio(params.config.model, dimensions) : '1:1'
+}
+
+function readIMiniQuality(quality: string) {
+  const normalized = readOpenAiQuality(quality)
+  return ['low', 'medium', 'high'].includes(normalized) ? normalized : 'medium'
+}
+
+function readIMiniCount(params: ImageGenerationParams) {
+  return isIMiniGptImage2Model(params.config.model) ? clampInteger(params.count, 1, 10) : 1
+}
+
+function buildIMiniRequest(params: ImageGenerationParams) {
+  const payload: Record<string, unknown> = {
+    model: params.config.model,
+    prompt: params.prompt,
+    aspect_ratio: readIMiniAspectRatio(params),
+    resolution: readIMiniResolution(params.config.model, params.selectedSize ?? params.size)
+  }
+
+  if (isIMiniGptImage2Model(params.config.model)) {
+    payload.quality = readIMiniQuality(params.quality)
+    payload.num = readIMiniCount(params)
+  }
+
+  if (params.references.length) {
+    const referenceLimit = readIMiniReferenceLimit(params.config.model)
+    if (params.references.length > referenceLimit) {
+      throw new ImageApiError(`当前 i-mini 模型最多 ${referenceLimit} 张参考图`, 400)
+    }
+
+    payload.images = params.references.map((reference) => ({
+      url: reference.image.previewUrl,
+      reference_type: 'asset'
+    }))
   }
 
   return payload
@@ -1535,6 +1717,66 @@ async function requestApimart(params: ImageGenerationParams) {
   throw new ImageApiError(`APIMart 任务超时：${taskId}`, 504)
 }
 
+function readIMiniTaskId(payload: any) {
+  return typeof payload?.task_id === 'string' ? payload.task_id : undefined
+}
+
+function readIMiniTaskStatus(payload: any) {
+  return String(payload?.status ?? '').toLowerCase()
+}
+
+function readIMiniTaskError(payload: any) {
+  return payload?.error?.message ?? payload?.message
+}
+
+async function requestIMini(params: ImageGenerationParams) {
+  const baseUrl = resolveBaseUrl(params.config)
+  const payload = await fetchJson(joinUrl(baseUrl, providerPaths.iMini ?? ''), {
+    method: 'POST',
+    headers: createAuthHeaders(params.config),
+    signal: params.signal,
+    body: JSON.stringify(buildIMiniRequest(params))
+  }, readTimingContext(params, 'submit'))
+
+  const taskId = readIMiniTaskId(payload)
+  if (!taskId) {
+    return normalizeIMiniResultPayload(params, payload)
+  }
+
+  for (let attempt = 0; attempt < iMiniPollAttempts; attempt += 1) {
+    let result: any
+    try {
+      result = await fetchJson(joinUrl(baseUrl, `/v1/images/tasks/${encodeURIComponent(taskId)}`), {
+        method: 'GET',
+        headers: createAuthHeaders(params.config),
+        signal: params.signal
+      }, readTimingContext(params, 'poll', { taskId, attempt: attempt + 1 }))
+    } catch (error) {
+      if (params.signal?.aborted || (error instanceof ImageApiError && error.status === 499)) {
+        throw error
+      }
+
+      if (error instanceof ImageApiError && error.status === 0 && attempt < iMiniPollAttempts - 1) {
+        await wait(iMiniPollIntervalMs, params.signal)
+        continue
+      }
+
+      throw error
+    }
+
+    const status = readIMiniTaskStatus(result)
+    if (status === 'succeeded' || status === 'completed' || status === 'success') {
+      return normalizeIMiniResultPayload(params, result)
+    }
+    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
+      throw new ImageApiError(readIMiniTaskError(result) || 'i-mini 任务失败', 502)
+    }
+    await wait(iMiniPollIntervalMs, params.signal)
+  }
+
+  throw new ImageApiError(`i-mini 任务超时：${taskId}`, 504)
+}
+
 async function requestCodexImageServer(params: ImageGenerationParams) {
   const baseUrl = resolveBaseUrl(params.config)
   const payload = await fetchJson(joinUrl(baseUrl, providerPaths['codex-image-server'] ?? ''), {
@@ -1822,6 +2064,38 @@ function readApimartImages(payload: any): NormalizedImageResult[] {
   return readOpenAiImages(payload)
 }
 
+function readIMiniImages(payload: any): NormalizedImageResult[] {
+  if (!Array.isArray(payload?.images)) {
+    return readOpenAiImages(payload)
+  }
+
+  return payload.images
+    .map((item: any, index: number) => ({
+      previewUrl: item?.url ?? item?.image_url ?? item?.image ?? '',
+      label: `生成图 ${index + 1}`,
+      resolvedSize: item?.width && item?.height ? `${item.width}x${item.height}` : undefined
+    }))
+    .filter((item: NormalizedImageResult) => item.previewUrl)
+}
+
+async function normalizeIMiniImageResult(params: ImageGenerationParams, image: NormalizedImageResult) {
+  return {
+    ...image,
+    resolvedSize: image.resolvedSize ?? readIMiniResolution(params.config.model, params.selectedSize ?? params.size)
+  }
+}
+
+async function normalizeIMiniResultPayload(params: ImageGenerationParams, payload: any) {
+  const images = readIMiniImages(payload)
+  if (!images.length) {
+    return payload
+  }
+
+  return {
+    data: await Promise.all(images.map((image) => normalizeIMiniImageResult(params, image)))
+  }
+}
+
 async function normalizeApimartImageResult(params: ImageGenerationParams, image: NormalizedImageResult) {
   const resolvedSize = image.resolvedSize ?? readApimartResolution(params.config.model, params.selectedSize ?? params.size) ?? params.size
   return {
@@ -1905,6 +2179,10 @@ function readImages(config: ModelConfig, payload: any) {
     return readApimartImages(payload)
   }
 
+  if (config.provider === 'iMini') {
+    return readIMiniImages(payload)
+  }
+
   if (config.provider === 'qwen') {
     return readDashScopeImages(payload)
   }
@@ -1931,6 +2209,10 @@ async function requestProviderPayload(params: ImageGenerationParams) {
 
   if (params.config.provider === 'apimart') {
     return requestApimart(params)
+  }
+
+  if (params.config.provider === 'iMini') {
+    return requestIMini(params)
   }
 
   if (params.config.provider === 'custom-openai') {
