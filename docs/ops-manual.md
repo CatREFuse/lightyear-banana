@@ -148,10 +148,12 @@ rsync -az --delete "dist/release-$VERSION/" "codex-47-97-root:/etc/nginx/static/
 rsync -az --delete \
   --exclude='/releases/***' \
   dist/site/ codex-47-97-root:/etc/nginx/static/lightyear-banana-site/
+rsync -az dist/site/releases/latest.json codex-47-97-root:/etc/nginx/static/lightyear-banana-site/releases/latest.json
 ssh codex-47-97-root 'nginx -t && systemctl reload nginx'
 ```
 
 发行物目录必须先单独同步到 `/releases/$VERSION/`。同步官网静态文件时保留整个 `/releases/` 目录，避免清理历史版本和当前版本下载资产。
+由于静态文件同步会排除 `/releases/`，`dist/site/releases/latest.json` 必须在静态文件同步后单独上传到线上 `/releases/latest.json`，否则 Electron 版本检测会继续读取旧版本。
 
 部署官网必须使用 SSH Host `codex-47-97-root`，它在 `~/.ssh/config` 中绑定了正确的私钥。不要使用裸地址 `root@47.97.121.121`，该地址不会自动使用本项目部署所需的 key。
 
