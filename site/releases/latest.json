@@ -5,7 +5,7 @@
   "tag": "v0.3.5",
   "minimumSupportedVersion": "0.3.0",
   "publishedAt": "2026-07-01T13:50:47.000Z",
-  "releaseUrl": "https://github.com/CatREFuse/lightyear-banana/releases/tag/v0.3.5",
+  "releaseUrl": "https://cake.catrefuse.com/releases/0.3.5/SHA256SUMS.txt",
   "githubUrl": "https://github.com/CatREFuse/lightyear-banana",
   "updateCheckUrl": "https://cake.catrefuse.com/releases/latest.json",
   "mandatory": false,
@@ -13,21 +13,21 @@
     "mac": {
       "platform": "mac",
       "filename": "lightyear-banana-0.3.5-mac.zip",
-      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.5/lightyear-banana-0.3.5-mac.zip",
+      "url": "https://cake.catrefuse.com/releases/0.3.5/lightyear-banana-0.3.5-mac.zip",
       "sha256": "f75e443068e5704041520b564ba5ba441c81124391303c906dee2a7d78277e32",
       "size": 109606923
     },
     "windows": {
       "platform": "windows",
       "filename": "lightyear-banana-0.3.5-win.zip",
-      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.5/lightyear-banana-0.3.5-win.zip",
+      "url": "https://cake.catrefuse.com/releases/0.3.5/lightyear-banana-0.3.5-win.zip",
       "sha256": "a369686ef390989d7be5f88ebc00ea48513d19bb8fd5134238783f2faf41b856",
       "size": 140713050
     },
     "ccx": {
       "platform": "photoshop-ccx",
       "filename": "lightyear-banana-0.3.5.ccx",
-      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.5/lightyear-banana-0.3.5.ccx",
+      "url": "https://cake.catrefuse.com/releases/0.3.5/lightyear-banana-0.3.5.ccx",
       "sha256": "fdf84aca3f7be4402d63b61139081339d18335663546c5f37b72661ad3019bb6",
       "size": 20945
     }
