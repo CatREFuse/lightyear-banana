@@ -3,6 +3,11 @@ import type { CustomModelFormat, ImageProviderId, ModelConfig, ProviderCapabilit
 const gptImageQualityOptions = ['auto', 'high', 'medium', 'low']
 const openAiImageSizeOptions = ['auto', '1024x1024', '1536x1024', '1024x1536']
 const customSizeOptions = ['1k', '2k', '4k']
+const apimartGemini31RatioOptions = ['自动', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
+const apimartGeminiProRatioOptions = ['自动', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
+const apimartGptImage1RatioOptions = ['1:1', '3:2', '2:3']
+const apimartGptImage2RatioOptions = ['1:1', '自动', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
+const apimartSeedream5LiteRatioOptions = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9', '自动']
 
 export const providerCapabilities: Record<ImageProviderId, ProviderCapability> = {
   openai: {
@@ -175,6 +180,85 @@ export function providerSupportsQuality(config: Pick<ModelConfig, 'provider' | '
   )
 }
 
+function isApimartGemini31ImageModel(model: string) {
+  return /gemini-3\.1-flash-image-preview/i.test(model)
+}
+
+function isApimartProImageModel(model: string) {
+  return /gemini-3-pro-image-preview/i.test(model)
+}
+
+function isApimartGptImage1Model(model: string) {
+  return /^gpt-image-1(?:\.5)?-official$/i.test(model)
+}
+
+function isApimartGptImage2Model(model: string) {
+  return /^gpt-image-2$/i.test(model)
+}
+
+function isApimartSeedream5LiteModel(model: string) {
+  return /^doubao-seedream-5(?:[-.]0)?-lite$/i.test(model)
+}
+
+function readApimartCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>, capability: ProviderCapability): ProviderCapability {
+  if (isApimartGptImage1Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 15,
+      sizeOptions: ['默认'],
+      qualityOptions: gptImageQualityOptions,
+      countOptions: [1, 2, 3, 4],
+      ratioOptions: apimartGptImage1RatioOptions
+    }
+  }
+
+  if (isApimartGptImage2Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 16,
+      sizeOptions: customSizeOptions,
+      qualityOptions: [],
+      countOptions: [1],
+      ratioOptions: apimartGptImage2RatioOptions
+    }
+  }
+
+  if (isApimartSeedream5LiteModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['2K', '3K', '4K'],
+      qualityOptions: [],
+      countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      ratioOptions: apimartSeedream5LiteRatioOptions
+    }
+  }
+
+  if (isApimartProImageModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['1K', '2K', '4K'],
+      qualityOptions: [],
+      countOptions: [1, 2, 3, 4],
+      ratioOptions: apimartGeminiProRatioOptions
+    }
+  }
+
+  if (isApimartGemini31ImageModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['0.5K', '1K', '2K', '4K'],
+      qualityOptions: [],
+      countOptions: [1, 2, 3, 4],
+      ratioOptions: apimartGemini31RatioOptions
+    }
+  }
+
+  return capability
+}
+
 export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>): ProviderCapability {
   const capability = providerCapabilities[config.provider]
   if (config.provider === 'custom-openai' && normalizeCustomModelFormat(config.customFormat) === 'gemini') {
@@ -187,6 +271,10 @@ export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'm
       countOptions: geminiCapability.countOptions,
       ratioOptions: geminiCapability.ratioOptions
     }
+  }
+
+  if (config.provider === 'apimart') {
+    return readApimartCapability(config, capability)
   }
 
   const qualityOptions = providerSupportsQuality(config) ? readOpenAiQualityOptions(config.model) : []

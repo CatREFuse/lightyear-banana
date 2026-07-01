@@ -92,13 +92,21 @@ DOM API 覆盖不到时使用 `photoshop.action.batchPlay()`。当前 `createNam
 
 ## 插图能力
 
-插图流程：
+像素插图流程：
 
 1. 根据目标宽高 resize RGBA。
 2. 创建 pixel layer。
 3. 用 `createImageDataFromBuffer()` 创建 image data。
 4. 用 `putPixels()` 写入目标位置。
 5. dispose image data。
+
+生成结果置入流程：
+
+1. 从 `previewUrl` 读取 PNG、JPEG、WebP 或 GIF 文件。
+2. 写入 UXP 临时文件。
+3. 用 `createSessionToken()` 传给 Photoshop。
+4. 在 `executeAsModal()` 中调用 `placeEvent`。
+5. 按目标矩形缩放并移动置入图层。
 
 当前返回值是实际写入的 `{ left, top, width, height }`。
 
@@ -111,4 +119,3 @@ DOM API 覆盖不到时使用 `photoshop.action.batchPlay()`。当前 `createNam
 - `localFileSystem.createSessionToken(file)`
 
 Photoshop 需要访问 UXP file entry 时用 session token，不直接传 native path。
-

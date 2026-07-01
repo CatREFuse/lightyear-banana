@@ -438,14 +438,14 @@ async function placeImage(payload: any) {
   const target = payload.target
 
   if (target?.type === 'currentSelection') {
-    return canvasPrimitiveService.insertImageToSelection(image)
+    return canvasPrimitiveService.insertImageFromPreviewToSelection(image)
   }
 
   if (target?.type === 'bounds') {
-    return canvasPrimitiveService.insertImage(image, target.bounds as CanvasInsertTarget)
+    return canvasPrimitiveService.insertImageFromPreview(image, target.bounds as CanvasInsertTarget)
   }
 
-  return canvasPrimitiveService.insertImageToFullCanvas(image)
+  return canvasPrimitiveService.insertImageFromPreviewToFullCanvas(image)
 }
 
 async function buildCommandResponse(message: BridgeMessage) {

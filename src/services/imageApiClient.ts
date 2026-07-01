@@ -26,6 +26,7 @@ export type ImageGenerationParams = {
   ratio: string
   references: ReferenceImage[]
   onTiming?: (entry: ImageRequestLogEntry) => void
+  selectedSize?: string
   signal?: AbortSignal
   size: string
 }
@@ -97,9 +98,12 @@ const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
 const pollIntervalMs = 2000
 const pollAttempts = 45
 const apimartPollIntervalMs = 5000
-const apimartPollAttempts = 144
-const apimartAspectRatios = new Set(['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'])
-const apimartFixedAspectRatios = ['1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
+const apimartPollAttempts = 99
+const apimartGemini31AspectRatios = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
+const apimartGeminiProAspectRatios = ['auto', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
+const apimartGptImage1AspectRatios = ['1:1', '3:2', '2:3']
+const apimartGptImage2AspectRatios = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
+const apimartSeedream5LiteAspectRatios = ['auto', '1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9']
 const gptImage2MinPixels = 655_360
 const gptImage2MaxPixels = 8_294_400
 const gptImage2MaxEdge = 3840
@@ -187,6 +191,7 @@ function readTimingMetadata(params: ImageGenerationParams, phase: string, extra:
     model: params.config.model,
     baseUrl: resolveBaseUrl(params.config),
     count: params.count,
+    selectedSize: params.selectedSize,
     size: params.size,
     ratio: params.ratio,
     quality: params.quality,
@@ -214,7 +219,17 @@ async function fetchJson(url: string, init: RequestInit, timing?: TimingContext)
   try {
     response = await fetch(url, init)
   } catch (error) {
-    if (init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError') {
+    const failedAt = nowMs()
+    const aborted = init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError'
+    emitFetchTimingEntry(url, init, timing, {
+      contentLength: '',
+      headersAt: failedAt,
+      ok: false,
+      parsedAt: failedAt,
+      startedAt,
+      status: aborted ? 499 : 0
+    })
+    if (aborted) {
       throw new ImageApiError('请求已取消', 499)
     }
     throw new ImageApiError('无法连接 API', 0)
@@ -223,29 +238,52 @@ async function fetchJson(url: string, init: RequestInit, timing?: TimingContext)
   const headersAt = nowMs()
   const payload = await readResponseJson(response)
   const parsedAt = nowMs()
-  const entry: ImageRequestLogEntry = {
-    id: createRequestLogId(),
-    createdAt: new Date().toISOString(),
-    url,
-    method: init.method ?? 'GET',
-    status: response.status,
-    ok: response.ok,
+  emitFetchTimingEntry(url, init, timing, {
     contentLength: response.headers.get('content-length') ?? '',
-    metadata: timing?.metadata ?? {},
-    stages: {
-      headersMs: Math.round(headersAt - startedAt),
-      bodyParseMs: Math.round(parsedAt - headersAt),
-      totalMs: Math.round(parsedAt - startedAt)
-    }
-  }
-  logApiTiming('fetch', entry)
-  timing?.onTiming?.(entry)
+    headersAt,
+    ok: response.ok,
+    parsedAt,
+    startedAt,
+    status: response.status
+  })
 
   if (!response.ok) {
     throw new ImageApiError(readApiErrorMessage(payload as ApiErrorPayload, 'API 请求失败'), response.status)
   }
 
   return payload
+}
+
+function emitFetchTimingEntry(
+  url: string,
+  init: RequestInit,
+  timing: TimingContext | undefined,
+  fields: {
+    contentLength: string
+    headersAt: number
+    ok: boolean
+    parsedAt: number
+    startedAt: number
+    status: number
+  }
+) {
+  const entry: ImageRequestLogEntry = {
+    id: createRequestLogId(),
+    createdAt: new Date().toISOString(),
+    url,
+    method: init.method ?? 'GET',
+    status: fields.status,
+    ok: fields.ok,
+    contentLength: fields.contentLength,
+    metadata: timing?.metadata ?? {},
+    stages: {
+      headersMs: Math.round(fields.headersAt - fields.startedAt),
+      bodyParseMs: Math.round(fields.parsedAt - fields.headersAt),
+      totalMs: Math.round(fields.parsedAt - fields.startedAt)
+    }
+  }
+  logApiTiming('fetch', entry)
+  timing?.onTiming?.(entry)
 }
 
 function resolveBaseUrl(config: ModelConfig) {
@@ -379,6 +417,11 @@ function createAuthHeaders(config: ModelConfig): Record<string, string> {
     Authorization: `Bearer ${config.apiKey}`,
     'Content-Type': 'application/json'
   }
+}
+
+function createMultipartAuthHeaders(config: ModelConfig): Record<string, string> {
+  const apiKey = config.apiKey.trim()
+  return apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
 }
 
 function wait(ms: number, signal?: AbortSignal) {
@@ -548,13 +591,105 @@ function buildOpenAiChatRequest(params: ImageGenerationParams) {
   }
 }
 
-function readApimartResolution(size: string) {
+function isApimartProImageModel(model: string) {
+  return /gemini-3-pro-image-preview/i.test(model)
+}
+
+function isApimartGptImage1Model(model: string) {
+  return /^gpt-image-1(?:\.5)?-official$/i.test(model)
+}
+
+function isApimartGptImage2Model(model: string) {
+  return /^gpt-image-2$/i.test(model)
+}
+
+function isApimartSeedream5LiteModel(model: string) {
+  return /^doubao-seedream-5(?:[-.]0)?-lite$/i.test(model)
+}
+
+function readApimartAspectRatioOptions(model: string) {
+  if (isApimartGptImage1Model(model)) {
+    return apimartGptImage1AspectRatios
+  }
+
+  if (isApimartGptImage2Model(model)) {
+    return apimartGptImage2AspectRatios
+  }
+
+  if (isApimartSeedream5LiteModel(model)) {
+    return apimartSeedream5LiteAspectRatios
+  }
+
+  if (isApimartProImageModel(model)) {
+    return apimartGeminiProAspectRatios
+  }
+
+  return apimartGemini31AspectRatios
+}
+
+function readDefaultApimartAspectRatio(model: string, hasReferences: boolean) {
+  if (isApimartGptImage1Model(model) || isApimartSeedream5LiteModel(model) && !hasReferences) {
+    return '1:1'
+  }
+
+  return 'auto'
+}
+
+function readApimartResolution(model: string, size: string): string | undefined {
+  if (isApimartGptImage1Model(model)) {
+    return undefined
+  }
+
   const normalized = size.trim().toUpperCase()
-  if (['0.5K', '1K', '2K', '4K'].includes(normalized)) {
+
+  if (isApimartGptImage2Model(model)) {
+    const lowerResolution = size.trim().toLowerCase()
+    if (['1k', '2k', '4k'].includes(lowerResolution)) {
+      return lowerResolution
+    }
+  }
+
+  if (isApimartSeedream5LiteModel(model)) {
+    if (['2K', '3K', '4K'].includes(normalized)) {
+      return normalized
+    }
+  } else if (isApimartProImageModel(model)) {
+    if (['1K', '2K', '4K'].includes(normalized)) {
+      return normalized
+    }
+  } else if (['0.5K', '1K', '2K', '4K'].includes(normalized)) {
     return normalized
   }
 
   const dimensions = parseDimensionText(size)
+  if (!dimensions || isApimartSeedream5LiteModel(model)) {
+    return isApimartSeedream5LiteModel(model) ? '2K' : isApimartGptImage2Model(model) ? '1k' : '1K'
+  }
+
+  if (isApimartProImageModel(model)) {
+    const maxEdge = Math.max(dimensions.width, dimensions.height)
+    if (maxEdge <= 1536) {
+      return '1K'
+    }
+    if (maxEdge <= 2560) {
+      return '2K'
+    }
+
+    return '4K'
+  }
+
+  if (isApimartGptImage2Model(model)) {
+    const maxEdge = Math.max(dimensions.width, dimensions.height)
+    if (maxEdge <= 1536) {
+      return '1k'
+    }
+    if (maxEdge <= 2560) {
+      return '2k'
+    }
+
+    return '4k'
+  }
+
   if (!dimensions) {
     return '1K'
   }
@@ -573,21 +708,17 @@ function readApimartResolution(size: string) {
   return '4K'
 }
 
-function normalizeApimartAspectRatio(value: string) {
+function normalizeApimartAspectRatio(model: string, value: string, fallback = 'auto') {
   const normalized = value === '自动' ? 'auto' : value
-  return apimartAspectRatios.has(normalized) ? normalized : 'auto'
+  return new Set(readApimartAspectRatioOptions(model)).has(normalized) ? normalized : fallback
 }
 
-function isApimartProImageModel(model: string) {
-  return /gemini-3-pro-image-preview/i.test(model)
-}
-
-function findNearestApimartAspectRatio(dimensions?: { width: number; height: number }) {
+function findNearestApimartAspectRatio(model: string, dimensions?: { width: number; height: number }) {
   const sourceRatio = dimensions && dimensions.width > 0 && dimensions.height > 0 ? dimensions.width / dimensions.height : 1
   let bestRatio = '1:1'
   let bestDelta = Number.POSITIVE_INFINITY
 
-  for (const ratio of apimartFixedAspectRatios) {
+  for (const ratio of readApimartAspectRatioOptions(model).filter((option) => option !== 'auto')) {
     const parsed = parseRatioText(ratio)
     if (!parsed) {
       continue
@@ -616,36 +747,91 @@ function readApimartSourceDimensions(params: ImageGenerationParams) {
 }
 
 function readApimartAspectRatio(params: ImageGenerationParams) {
+  const defaultRatio = readDefaultApimartAspectRatio(params.config.model, Boolean(params.references.length))
+
+  if (isApimartGptImage2Model(params.config.model) && params.ratio === '自定义') {
+    const dimensions = parseDimensionText(params.size)
+    if (dimensions) {
+      return formatDimensions(dimensions)
+    }
+  }
+
   if (params.ratio === '自动' || params.ratio === '原图比例' || params.ratio === '参考图比例') {
-    return isApimartProImageModel(params.config.model) ? findNearestApimartAspectRatio(readApimartSourceDimensions(params)) : 'auto'
+    return isApimartGptImage1Model(params.config.model)
+      ? findNearestApimartAspectRatio(params.config.model, readApimartSourceDimensions(params))
+      : normalizeApimartAspectRatio(params.config.model, 'auto', defaultRatio)
   }
 
   const selectedRatio = parseRatioText(params.ratio)
   if (selectedRatio) {
-    return normalizeApimartAspectRatio(formatAspectRatio(selectedRatio))
+    return normalizeApimartAspectRatio(params.config.model, formatAspectRatio(selectedRatio), defaultRatio)
   }
 
   const dimensions = readApimartSourceDimensions(params)
 
   if (!dimensions) {
-    return isApimartProImageModel(params.config.model) ? findNearestApimartAspectRatio() : 'auto'
+    return defaultRatio
   }
 
-  const ratio = normalizeApimartAspectRatio(formatAspectRatio(dimensions))
-  return ratio === 'auto' && isApimartProImageModel(params.config.model) ? findNearestApimartAspectRatio(dimensions) : ratio
+  const ratio = normalizeApimartAspectRatio(params.config.model, formatAspectRatio(dimensions), defaultRatio)
+  return ratio === defaultRatio && defaultRatio !== 'auto' ? findNearestApimartAspectRatio(params.config.model, dimensions) : ratio
 }
 
-function buildApimartRequest(params: ImageGenerationParams) {
+function clampInteger(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) {
+    return min
+  }
+
+  return Math.min(max, Math.max(min, Math.round(value)))
+}
+
+function readApimartCount(params: ImageGenerationParams) {
+  if (isApimartGptImage2Model(params.config.model)) {
+    return 1
+  }
+
+  if (isApimartSeedream5LiteModel(params.config.model)) {
+    return clampInteger(params.count, 1, 15)
+  }
+
+  return clampInteger(params.count, 1, 4)
+}
+
+function readApimartReferenceLimit(params: ImageGenerationParams) {
+  if (isApimartGptImage2Model(params.config.model)) {
+    return 16
+  }
+
+  if (isApimartGptImage1Model(params.config.model)) {
+    return 15
+  }
+
+  if (isApimartSeedream5LiteModel(params.config.model)) {
+    return Math.max(0, 15 - readApimartCount(params))
+  }
+
+  return 14
+}
+
+function buildApimartRequest(params: ImageGenerationParams, imageUrls: string[]) {
   const payload: Record<string, unknown> = {
     model: params.config.model,
     prompt: params.prompt,
-    n: params.count,
-    size: readApimartAspectRatio(params),
-    resolution: readApimartResolution(params.size)
+    n: readApimartCount(params),
+    size: readApimartAspectRatio(params)
   }
 
-  if (params.references.length) {
-    payload.image_urls = params.references.map((reference) => reference.image.previewUrl)
+  const resolution = readApimartResolution(params.config.model, params.selectedSize ?? params.size)
+  if (resolution) {
+    payload.resolution = resolution
+  }
+
+  if (isApimartGptImage1Model(params.config.model)) {
+    payload.quality = readOpenAiQuality(params.quality)
+  }
+
+  if (imageUrls.length) {
+    payload.image_urls = imageUrls
   }
 
   return payload
@@ -778,6 +964,76 @@ async function fetchBlob(url: string, init: RequestInit) {
   }
 
   return response.blob()
+}
+
+function isRemoteImageUrl(value: string) {
+  return /^https?:\/\//i.test(value)
+}
+
+function readImageExtensionFromMimeType(mimeType: string) {
+  const subtype = mimeType.split(';')[0]?.split('/')[1]?.toLowerCase()
+  if (subtype === 'jpeg' || subtype === 'jpg') {
+    return 'jpg'
+  }
+  if (subtype === 'png' || subtype === 'webp' || subtype === 'gif') {
+    return subtype
+  }
+
+  return 'png'
+}
+
+async function readReferenceImageBlob(reference: ReferenceImage, signal?: AbortSignal) {
+  if (readDataUrlParts(reference.image.previewUrl)) {
+    return dataUrlToBlob(reference.image.previewUrl)
+  }
+
+  return fetchBlob(reference.image.previewUrl, { method: 'GET', signal })
+}
+
+async function uploadApimartReferenceImage(baseUrl: string, config: ModelConfig, reference: ReferenceImage, index: number, timing: TimingContext, signal?: AbortSignal) {
+  if (isRemoteImageUrl(reference.image.previewUrl)) {
+    return reference.image.previewUrl
+  }
+
+  const blob = await readReferenceImageBlob(reference, signal)
+  const form = new FormData()
+  const extension = readImageExtensionFromMimeType(blob.type || 'image/png')
+  form.append('file', blob, `lightyear-reference-${index + 1}.${extension}`)
+
+  const payload = await fetchJson(joinUrl(baseUrl, '/v1/uploads/images'), {
+    method: 'POST',
+    headers: createMultipartAuthHeaders(config),
+    signal,
+    body: form
+  }, timing)
+
+  const url = (payload as any).url
+  if (typeof url !== 'string' || !url) {
+    throw new ImageApiError('APIMart 上传参考图失败', 502)
+  }
+
+  return url
+}
+
+async function uploadApimartReferenceImages(params: ImageGenerationParams, baseUrl: string) {
+  const referenceLimit = readApimartReferenceLimit(params)
+  if (params.references.length > referenceLimit) {
+    throw new ImageApiError(`当前 APIMart 模型最多 ${referenceLimit} 张参考图`, 400)
+  }
+
+  const imageUrls: string[] = []
+  for (let index = 0; index < params.references.length; index += 1) {
+    imageUrls.push(await uploadApimartReferenceImage(
+      baseUrl,
+      params.config,
+      params.references[index],
+      index,
+      readTimingContext(params, 'upload', { referenceIndex: index + 1 }),
+      params.signal
+    ))
+  }
+
+  return imageUrls
 }
 
 async function uploadComfyUiImage(baseUrl: string, config: ModelConfig, reference: ReferenceImage, index: number) {
@@ -1231,27 +1487,44 @@ function readApimartTaskError(payload: any) {
 }
 
 async function requestApimart(params: ImageGenerationParams) {
-  const payload = await fetchJson(joinUrl(resolveBaseUrl(params.config), providerPaths.apimart ?? ''), {
+  const baseUrl = resolveBaseUrl(params.config)
+  const imageUrls = await uploadApimartReferenceImages(params, baseUrl)
+  const payload = await fetchJson(joinUrl(baseUrl, providerPaths.apimart ?? ''), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
-    body: JSON.stringify(buildApimartRequest(params))
+    body: JSON.stringify(buildApimartRequest(params, imageUrls))
   }, readTimingContext(params, 'submit'))
 
   const taskId = readApimartTaskId(payload)
   if (!taskId) {
-    return payload
+    return normalizeApimartResultPayload(params, payload)
   }
 
   for (let attempt = 0; attempt < apimartPollAttempts; attempt += 1) {
-    const result = await fetchJson(joinUrl(resolveBaseUrl(params.config), `/v1/tasks/${encodeURIComponent(taskId)}?language=zh`), {
-      method: 'GET',
-      headers: createAuthHeaders(params.config),
-      signal: params.signal
-    }, readTimingContext(params, 'poll', { taskId, attempt: attempt + 1 }))
+    let result: any
+    try {
+      result = await fetchJson(joinUrl(baseUrl, `/v1/tasks/${encodeURIComponent(taskId)}?language=zh`), {
+        method: 'GET',
+        headers: createAuthHeaders(params.config),
+        signal: params.signal
+      }, readTimingContext(params, 'poll', { taskId, attempt: attempt + 1 }))
+    } catch (error) {
+      if (params.signal?.aborted || (error instanceof ImageApiError && error.status === 499)) {
+        throw error
+      }
+
+      if (error instanceof ImageApiError && error.status === 0 && attempt < apimartPollAttempts - 1) {
+        await wait(apimartPollIntervalMs, params.signal)
+        continue
+      }
+
+      throw error
+    }
+
     const status = readApimartTaskStatus(result)
     if (!status || status === 'completed' || status === 'succeeded' || status === 'success') {
-      return result
+      return normalizeApimartResultPayload(params, result)
     }
     if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
       throw new ImageApiError(readApimartTaskError(result) || 'APIMart 任务失败', 502)
@@ -1480,7 +1753,8 @@ function readOpenAiImages(payload: any): NormalizedImageResult[] {
   return (payload.data ?? [])
     .map((item: any, index: number) => ({
       previewUrl: item.previewUrl ?? item.url ?? (item.b64_json ? `data:image/png;base64,${item.b64_json}` : ''),
-      label: `生成图 ${index + 1}`
+      label: item.label ?? `生成图 ${index + 1}`,
+      resolvedSize: item.resolvedSize ?? item.resolved_size
     }))
     .filter((item: NormalizedImageResult) => item.previewUrl)
 }
@@ -1546,6 +1820,25 @@ function readApimartImages(payload: any): NormalizedImageResult[] {
   }
 
   return readOpenAiImages(payload)
+}
+
+async function normalizeApimartImageResult(params: ImageGenerationParams, image: NormalizedImageResult) {
+  const resolvedSize = image.resolvedSize ?? readApimartResolution(params.config.model, params.selectedSize ?? params.size) ?? params.size
+  return {
+    ...image,
+    resolvedSize
+  }
+}
+
+async function normalizeApimartResultPayload(params: ImageGenerationParams, payload: any) {
+  const images = readApimartImages(payload)
+  if (!images.length) {
+    return payload
+  }
+
+  return {
+    data: await Promise.all(images.map((image) => normalizeApimartImageResult(params, image)))
+  }
 }
 
 function readDashScopeImages(payload: any): NormalizedImageResult[] {

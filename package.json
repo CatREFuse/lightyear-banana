@@ -1,7 +1,7 @@
 {
   "name": "lightyear-banana",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.3.5",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -28,6 +28,8 @@
     "vue": "^3.5.32"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
+    "@electron/osx-sign": "^2.4.0",
     "@electron/packager": "^20.0.0",
     "@types/node": "^24.12.2",
     "@vitejs/plugin-vue": "^6.0.6",

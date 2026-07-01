@@ -42,7 +42,7 @@ import {
 import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
-import { createCanvasImageFromApiAsset, hydrateCanvasImagePixels } from '../utils/imagePixels'
+import { createCanvasImageFromApiAsset } from '../utils/imagePixels'
 import {
   bytesToBase64,
   createReferenceCanvasImage,
@@ -1149,8 +1149,8 @@ function readHighestQuality(options: string[]): string {
               ...entry,
               metadata: {
                 ...entry.metadata,
-                attempt,
-                maxRetries: retryLimit
+                maxRequestRetries: retryLimit,
+                requestAttempt: attempt
               }
             })
           }
@@ -1226,28 +1226,6 @@ function readHighestQuality(options: string[]): string {
 
     if (canUsePhotoshop.value) {
       return canvasPrimitiveService.readCanvasSize()
-    }
-
-    return undefined
-  }
-
-  async function readPlacementPixelTarget(target: PlacementTarget, image: GeneratedImage) {
-    if (target.type === 'reference-selection') {
-      return {
-        width: target.bounds.right - target.bounds.left,
-        height: target.bounds.bottom - target.bounds.top
-      }
-    }
-
-    if (target.type === 'original-size') {
-      return {
-        width: image.width,
-        height: image.height
-      }
-    }
-
-    if (target.type === 'default' || target.type === 'full-canvas') {
-      return undefined
     }
 
     return undefined
@@ -1456,6 +1434,7 @@ function readHighestQuality(options: string[]): string {
             loadingTaskId: taskId,
             ratio: requestRatio,
             references: sentReferences,
+            selectedSize: requestSize,
             onTiming: (entry) => recordGenerationRequestLog(taskId, requestLogs, entry),
             signal: abortController.signal,
             size: requestResolvedSize
@@ -1532,6 +1511,7 @@ function readHighestQuality(options: string[]): string {
             loadingTaskId: taskId,
             ratio: requestSnapshot.ratio,
             references: requestSnapshot.references,
+            selectedSize: requestSnapshot.selectedSize,
             onTiming: (entry) => recordGenerationRequestLog(taskId, requestLogs, entry),
             signal: abortController.signal,
             size: readRequestSizeForSnapshot(requestSnapshot)
@@ -1610,6 +1590,7 @@ function readHighestQuality(options: string[]): string {
             loadingTaskId: taskId,
             ratio: requestSnapshot.ratio,
             references: requestSnapshot.references,
+            selectedSize: requestSnapshot.selectedSize,
             onTiming: (entry) => recordGenerationRequestLog(taskId, requestLogs, entry),
             signal: abortController.signal,
             size: readRequestSizeForSnapshot(requestSnapshot)
@@ -1738,8 +1719,7 @@ function readHighestQuality(options: string[]): string {
 
   async function placeImage(image: GeneratedImage, target: PlacementTarget) {
     await runCanvasAction({ type: 'place', label: '正在置入', imageId: image.id }, async () => {
-      const pixelTarget = await readPlacementPixelTarget(target, image)
-      const placeableImage = await hydrateCanvasImagePixels(image, pixelTarget)
+      const placeableImage = image
 
       if (canUseElectronBridge.value) {
         await invokeElectronBridge('canvas.placeImage', {
@@ -1757,7 +1737,7 @@ function readHighestQuality(options: string[]): string {
 
       if (target.type === 'reference-selection') {
         const bounds = target.bounds
-        await canvasPrimitiveService.insertImage(placeableImage, {
+        await canvasPrimitiveService.insertImageFromPreview(placeableImage, {
           left: bounds.left,
           top: bounds.top,
           width: bounds.right - bounds.left,
@@ -1768,13 +1748,13 @@ function readHighestQuality(options: string[]): string {
       }
 
       if (target.type === 'current-selection') {
-        await canvasPrimitiveService.insertImageToSelection(placeableImage)
+        await canvasPrimitiveService.insertImageFromPreviewToSelection(placeableImage)
         status.value = '已置入当前选区'
         return
       }
 
       if (target.type === 'original-size') {
-        await canvasPrimitiveService.insertImage(placeableImage, {
+        await canvasPrimitiveService.insertImageFromPreview(placeableImage, {
           left: 0,
           top: 0,
           width: placeableImage.width,
@@ -1784,7 +1764,7 @@ function readHighestQuality(options: string[]): string {
         return
       }
 
-      await canvasPrimitiveService.insertImageToFullCanvas(placeableImage)
+      await canvasPrimitiveService.insertImageFromPreviewToFullCanvas(placeableImage)
       status.value = '已置入全画布'
     })
   }

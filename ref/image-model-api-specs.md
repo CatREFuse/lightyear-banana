@@ -17,7 +17,7 @@
 | Gemini / Nano Banana | `gemini-2.5-flash-image` | 3 张 | 最多 10 张 | 固定约 1024px 档，多种比例 | `models/{model}:generateContent` | 官方 |
 | Gemini / Nano Banana 2 | `gemini-3.1-flash-image-preview` | 14 张 | 受输出 token 限制 | 1K/2K/4K，多种比例 | `models/{model}:generateContent` | 官方 |
 | Gemini / Nano Banana Pro | `gemini-3-pro-image-preview` | 14 张 | 受输出 token 限制 | 最高 4K | `models/{model}:generateContent` | 官方 |
-| APIMart 图像兼容层 | `gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`、`gpt-image-2` | 14 张 | 1-4 张 | `size` 表示比例，`resolution` 表示 0.5K/1K/2K/4K | `/v1/images/generations` + `/v1/tasks/{task_id}` | 平台官方 |
+| APIMart 图像兼容层 | `gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`、`gpt-image-2`、`gpt-image-1/1.5-official`、`doubao-seedream-5-0-lite` | 按模型 14/15/16 张 | 按模型 1-15 张 | `size` 表示比例，`resolution` 按模型使用 0.5K/1K/2K/3K/4K 或 1k/2k/4k | `/v1/uploads/images` + `/v1/images/generations` + `/v1/tasks/{task_id}` | 平台官方 |
 | FLUX.2 / BFL | `flux-2-pro-preview`、`flux-2-pro`、`flux-2-max`、`flux-2-flex` | API 8 张；`klein` 4 张；playground 10 张 | 通常单图 | 最高 4MP | `https://api.bfl.ai/v1/{model}` + polling | 官方 |
 | Midjourney | 无官方 public API | 无官方规格 | 无官方规格 | 无官方规格 | 仅 Web/Discord 产品；第三方 API 风险高 | 无官方 API |
 
@@ -153,8 +153,16 @@ Authorization: Bearer $APIMART_API_KEY
   "size": "1:1",
   "resolution": "1K",
   "n": 1,
-  "image_urls": ["data:image/png;base64,..."]
+  "image_urls": ["https://upload.apimart.ai/f/image/...png"]
 }
+```
+
+参考图推荐先上传：
+
+```http
+POST https://api.apimart.ai/v1/uploads/images
+Authorization: Bearer $APIMART_API_KEY
+Content-Type: multipart/form-data
 ```
 
 ### 规格
@@ -163,19 +171,20 @@ Authorization: Bearer $APIMART_API_KEY
 | --- | --- |
 | 输入 | 文本、参考图 |
 | 输出 | 异步任务，完成后返回图片 URL |
-| 参考图 | Gemini 系列最多 14 张 |
-| 数量 | 1-4 张 |
-| 比例 | `size` 字段，常用 `1:1`、`3:2`、`2:3`、`4:3`、`3:4`、`5:4`、`4:5`、`16:9`、`9:16`、`21:9` |
-| 分辨率 | `resolution` 字段，`0.5K`、`1K`、`2K`、`4K` |
+| 参考图 | Gemini 系列最多 14 张；GPT-Image(1/1.5) 最多 15 张；GPT-Image-2 最多 16 张；Seedream 5 Lite 为 `image_urls + n <= 15` |
+| 数量 | Gemini 与 GPT-Image(1/1.5) 为 1-4 张；GPT-Image-2 为 1 张；Seedream 5 Lite 为 1-15 张 |
+| 比例 | `size` 字段，各模型枚举不同；GPT-Image-2 额外支持 `2:1`、`1:2`、`3:1`、`1:3`、`9:21` 与直接像素尺寸 |
+| 分辨率 | `resolution` 字段，Gemini 3.1 使用 `0.5K`、`1K`、`2K`、`4K`；Gemini Pro 使用 `1K`、`2K`、`4K`；GPT-Image-2 使用 `1k`、`2k`、`4k`；Seedream 5 Lite 使用 `2K`、`3K`、`4K` |
 
 ### 接入注意
 
-APIMart 的图像接口使用 OpenAI 风格路径，但响应是平台 task 协议。提交成功返回 `data[0].task_id`，最终结果在任务状态响应的 `data.result.images[].url[]` 中。不要把这套路由放入中立 `custom-openai`。
+APIMart 的图像接口使用 OpenAI 风格路径，但响应是平台 task 协议。提交成功返回 `data[0].task_id`，最终结果在任务状态响应的 `data.result.images[].url[]` 中。参考图先通过 `/v1/uploads/images` 上传拿到公网 URL，再放进生成请求的 `image_urls`。不要把这套路由放入中立 `custom-openai`。
 
 来源：
 
 - APIMart Gemini 3.1 Flash Image generation: https://docs.apimart.ai/cn/api-reference/images/gemini-3.1-flash/generation
 - APIMart GPT-Image-2 generation: https://docs.apimart.ai/cn/api-reference/images/gpt-image-2/generation
+- APIMart upload image: https://docs.apimart.ai/cn/api-reference/uploads/images
 - APIMart task status: https://docs.apimart.ai/cn/api-reference/tasks/status
 
 ## Google Gemini / Nano Banana

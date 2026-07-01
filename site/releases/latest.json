@@ -1,35 +1,35 @@
 {
   "product": "lightyear-banana",
   "name": "Lightyear Banana",
-  "version": "0.3.3",
-  "tag": "v0.3.3",
+  "version": "0.3.5",
+  "tag": "v0.3.5",
   "minimumSupportedVersion": "0.3.0",
-  "publishedAt": "2026-05-27T15:29:03.383Z",
-  "releaseUrl": "https://github.com/CatREFuse/lightyear-banana/releases/tag/v0.3.3",
+  "publishedAt": "2026-07-01T13:50:47.000Z",
+  "releaseUrl": "https://github.com/CatREFuse/lightyear-banana/releases/tag/v0.3.5",
   "githubUrl": "https://github.com/CatREFuse/lightyear-banana",
   "updateCheckUrl": "https://cake.catrefuse.com/releases/latest.json",
   "mandatory": false,
   "downloads": {
     "mac": {
       "platform": "mac",
-      "filename": "lightyear-banana-0.3.3-mac.zip",
-      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.3/lightyear-banana-0.3.3-mac.zip",
-      "sha256": "2146c45fa2f4511a2be7b72e8d7377b06bf405af0f542146ab27894ddcaf9a3a",
-      "size": 109604942
+      "filename": "lightyear-banana-0.3.5-mac.zip",
+      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.5/lightyear-banana-0.3.5-mac.zip",
+      "sha256": "f75e443068e5704041520b564ba5ba441c81124391303c906dee2a7d78277e32",
+      "size": 109606923
     },
     "windows": {
       "platform": "windows",
-      "filename": "lightyear-banana-0.3.3-win.zip",
-      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.3/lightyear-banana-0.3.3-win.zip",
-      "sha256": "da6bc611221f4c30182ffa4064b760c545f1c4a05dd2c60381235e3afb20cdc3",
-      "size": 137014572
+      "filename": "lightyear-banana-0.3.5-win.zip",
+      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.5/lightyear-banana-0.3.5-win.zip",
+      "sha256": "a369686ef390989d7be5f88ebc00ea48513d19bb8fd5134238783f2faf41b856",
+      "size": 140713050
     },
     "ccx": {
       "platform": "photoshop-ccx",
-      "filename": "lightyear-banana-0.3.3.ccx",
-      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.3/lightyear-banana-0.3.3.ccx",
-      "sha256": "6adc64664de4174e731d2e5321eb25e02105583d20a4fb42b37ee7ee5112d6cb",
-      "size": 19842
+      "filename": "lightyear-banana-0.3.5.ccx",
+      "url": "https://github.com/CatREFuse/lightyear-banana/releases/download/v0.3.5/lightyear-banana-0.3.5.ccx",
+      "sha256": "fdf84aca3f7be4402d63b61139081339d18335663546c5f37b72661ad3019bb6",
+      "size": 20945
     }
   }
 }
