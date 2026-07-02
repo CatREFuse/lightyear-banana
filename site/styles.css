@@ -143,7 +143,6 @@ img {
 }
 
 .hero-layout,
-.download-heading,
 .hero .download-grid,
 .hero .release-links {
   position: relative;
@@ -152,7 +151,7 @@ img {
 
 .hero-layout {
   display: grid;
-  min-height: clamp(360px, 46svh, 540px);
+  min-height: clamp(300px, 38svh, 460px);
   align-items: center;
 }
 
@@ -198,7 +197,6 @@ h2 {
   line-height: 1.18;
 }
 
-.hero-text,
 .section-heading p,
 .workflow-copy p,
 .step p {
@@ -207,13 +205,6 @@ h2 {
   line-height: 1.62;
 }
 
-.hero-text {
-  max-width: 520px;
-  margin: 18px 0 0;
-  color: var(--hero-muted);
-}
-
-.hero-actions,
 .release-links {
   display: flex;
   flex-wrap: wrap;
@@ -328,20 +319,6 @@ h2 {
   margin: 22px 0 0;
 }
 
-.download-heading {
-  max-width: 680px;
-  margin-top: clamp(12px, 3vw, 34px);
-}
-
-.download-heading h2 {
-  font-size: clamp(30px, 4.5vw, 58px);
-  line-height: 1;
-}
-
-.hero .download-heading p {
-  color: var(--hero-muted);
-}
-
 .download-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -350,7 +327,7 @@ h2 {
 }
 
 .downloads.hero .download-grid {
-  margin-top: clamp(22px, 3vw, 38px);
+  margin-top: clamp(18px, 2.5vw, 32px);
 }
 
 .download-item {
@@ -633,7 +610,7 @@ code {
   }
 
   .hero-layout {
-    min-height: clamp(320px, 42svh, 480px);
+    min-height: clamp(280px, 34svh, 420px);
     align-items: end;
   }
 
@@ -687,7 +664,7 @@ code {
   }
 
   .hero-layout {
-    min-height: clamp(300px, 48svh, 420px);
+    min-height: clamp(260px, 36svh, 360px);
   }
 
   h1 {
@@ -703,11 +680,6 @@ code {
     font-size: clamp(20px, 6.4vw, 25px);
   }
 
-  .hero-text {
-    max-width: 330px;
-  }
-
-  .hero-actions,
   .release-links {
     align-items: stretch;
     flex-direction: column;
