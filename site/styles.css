@@ -305,8 +305,7 @@ h2 {
 
 .downloads,
 .workflow,
-.models,
-.llm-section {
+.models {
   padding: clamp(72px, 10vw, 132px) clamp(18px, 5vw, 72px);
 }
 
@@ -576,21 +575,6 @@ h2 {
   font-weight: 720;
 }
 
-.llm-section {
-  background: var(--bg);
-}
-
-.llm-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-top: 36px;
-  border-radius: var(--radius-lg);
-  padding: 28px;
-  background: var(--surface);
-}
-
 code {
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
@@ -744,8 +728,7 @@ code {
 
   .downloads,
   .workflow,
-  .models,
-  .llm-section {
+  .models {
     padding: 72px 18px;
   }
 
@@ -757,10 +740,6 @@ code {
     padding-top: 86px;
   }
 
-  .llm-panel {
-    align-items: stretch;
-    flex-direction: column;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
