@@ -349,8 +349,11 @@ h2 {
 
 .downloads.hero .download-item {
   min-height: 252px;
-  background: rgba(247, 247, 247, 0.12);
+  background: linear-gradient(135deg, rgba(247, 247, 247, 0.22), rgba(247, 247, 247, 0.08));
   color: var(--hero-text);
+  box-shadow: 0 28px 88px rgba(0, 0, 0, 0.24);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(28px) saturate(150%);
 }
 
 .download-item > :not(.download-logo-surface) {
@@ -413,7 +416,7 @@ h2 {
 }
 
 .downloads.hero .download-item:hover {
-  background: rgba(215, 25, 32, 0.88);
+  background: linear-gradient(135deg, rgba(215, 25, 32, 0.42), rgba(247, 247, 247, 0.12));
 }
 
 .download-item strong {
@@ -424,6 +427,7 @@ h2 {
 }
 
 .download-file,
+.download-note,
 .download-size {
   display: block;
   overflow-wrap: anywhere;
@@ -436,6 +440,11 @@ h2 {
 .download-size {
   color: var(--accent-strong);
   font-weight: 760;
+}
+
+.download-note {
+  color: var(--hero-text);
+  font-weight: 820;
 }
 
 .downloads.hero .download-kicker,
