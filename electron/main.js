@@ -23,7 +23,7 @@ let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.7.ccx'
+const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.2.ccx'
 const SETTINGS_FILE = 'lightyear-settings.json'
 const APP_UPDATE_MANIFEST_URL = 'https://cake.catrefuse.com/releases/latest.json'
 const APP_UPDATE_TIMEOUT_MS = 10000
@@ -1444,67 +1444,6 @@ async function openPreviewWindow(payload = {}) {
   return { ok: true }
 }
 
-async function fetchApiRequest(payload = {}) {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('API 请求无效')
-  }
-
-  const url = new URL(String(payload.url || ''))
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('API URL 无效')
-  }
-  const body = readApiRequestBody(payload.body)
-  const headers = payload.headers && typeof payload.headers === 'object' ? { ...payload.headers } : {}
-  if (body instanceof FormData) {
-    delete headers['content-type']
-    delete headers['Content-Type']
-  }
-
-  const response = await fetch(url.toString(), {
-    method: typeof payload.method === 'string' ? payload.method : 'GET',
-    headers,
-    body
-  })
-  const bodyText = await response.text()
-
-  return {
-    bodyText,
-    contentLength: response.headers.get('content-length') || '',
-    ok: response.ok,
-    status: response.status
-  }
-}
-
-function readApiRequestBody(body) {
-  if (!body) {
-    return undefined
-  }
-
-  if (body.kind === 'text') {
-    return String(body.value || '')
-  }
-
-  if (body.kind === 'formData' && Array.isArray(body.entries)) {
-    const form = new FormData()
-    body.entries.forEach((entry) => {
-      if (entry?.kind === 'field') {
-        form.append(String(entry.name || ''), String(entry.value || ''))
-        return
-      }
-
-      if (entry?.kind === 'file') {
-        const bytes = Buffer.from(String(entry.data || ''), 'base64')
-        const fileName = String(entry.fileName || 'file')
-        const mimeType = String(entry.mimeType || 'application/octet-stream')
-        form.append(String(entry.name || ''), new Blob([bytes], { type: mimeType }), fileName)
-      }
-    })
-    return form
-  }
-
-  return undefined
-}
-
 ipcMain.handle('lightyear:status', async () => readBridgeStatus())
 
 ipcMain.on('lightyear:settings:load', (event) => {
@@ -1533,10 +1472,6 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
 
   if (command === 'app.checkForUpdates') {
     return checkForAppUpdate({ source: 'manual' })
-  }
-
-  if (command === 'api.fetch') {
-    return fetchApiRequest(payload)
   }
 
   if (command === 'reference.pickUpload') {

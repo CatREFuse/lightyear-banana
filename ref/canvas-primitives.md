@@ -103,7 +103,6 @@ await canvasPrimitiveService.insertImageFromPreview(image, {
 - `getSelection()` 用于读取选区 mask。
 - `putPixels()` 用于写入像素。
 - `placeEvent()` 用于让 Photoshop 从临时文件置入生成结果。
-- 内部坐标使用 `{ left, top, right, bottom }`，传给 Photoshop Imaging API 前转换成 `{ left, top, width, height }`。
 - `encodeImageData()` 用于生成面板预览。
 - 写入 Photoshop 文档时进入 `core.executeAsModal()`。
 - 每个 `PhotoshopImageData` 都在 `finally` 中 `dispose()`。

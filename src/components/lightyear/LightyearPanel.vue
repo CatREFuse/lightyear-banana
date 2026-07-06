@@ -128,15 +128,12 @@ function setWorkspaceMenu(owner: string) {
 
 async function openPreview(image: CapturedCanvasImage) {
   activeWorkspaceMenu.value = ''
-  if (props.runtime === 'electron') {
-    if (hasElectronBridge()) {
-      try {
-        await openElectronPreviewImage(image)
-      } catch (error) {
-        console.warn('Failed to open Electron image preview', error)
-      }
+  if (props.runtime === 'electron' && hasElectronBridge()) {
+    try {
+      await openElectronPreviewImage(image)
+      return
+    } catch {
     }
-    return
   }
 
   previewImage.value = image
