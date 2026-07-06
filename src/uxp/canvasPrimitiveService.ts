@@ -1,9 +1,12 @@
 import {
   captureSelectionComposite,
   captureSelectedLayer,
+  captureSelectedLayerReference,
   captureVisibleComposite,
+  captureVisibleReference,
   createSampleCanvasImage,
   insertCapturedImage,
+  insertPreviewImage,
   readDocumentSize,
   readSelectionBounds,
   type CapturedCanvasImage
@@ -23,10 +26,16 @@ export type CanvasSize = {
 
 export interface CanvasPrimitiveService {
   captureVisibleImage: () => Promise<CapturedCanvasImage>
+  captureVisibleReferenceImage: () => Promise<CapturedCanvasImage>
   captureSelectionImage: () => Promise<CapturedCanvasImage>
+  captureSelectionReferenceImage: () => Promise<CapturedCanvasImage>
   captureSelectedLayerImage: () => Promise<CapturedCanvasImage>
+  captureSelectedLayerReferenceImage: () => Promise<CapturedCanvasImage>
   createSampleImage: () => CapturedCanvasImage
   insertImage: (image: CapturedCanvasImage, target: CanvasInsertTarget) => Promise<CanvasInsertTarget>
+  insertImageFromPreview: (image: CapturedCanvasImage, target: CanvasInsertTarget) => Promise<CanvasInsertTarget>
+  insertImageFromPreviewToFullCanvas: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
+  insertImageFromPreviewToSelection: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
   insertImageToFullCanvas: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
   insertImageToSelection: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
   readCanvasSize: () => CanvasSize
@@ -38,12 +47,28 @@ export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
     return captureVisibleComposite()
   }
 
+  async captureVisibleReferenceImage() {
+    return captureVisibleReference()
+  }
+
   async captureSelectionImage() {
     return captureSelectionComposite()
   }
 
+  async captureSelectionReferenceImage() {
+    const image = await captureSelectionComposite()
+    return {
+      ...image,
+      rgba: new Uint8Array()
+    }
+  }
+
   async captureSelectedLayerImage() {
     return captureSelectedLayer()
+  }
+
+  async captureSelectedLayerReferenceImage() {
+    return captureSelectedLayerReference()
   }
 
   createSampleImage() {
@@ -52,6 +77,27 @@ export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
 
   async insertImage(image: CapturedCanvasImage, target: CanvasInsertTarget) {
     return insertCapturedImage(image, target)
+  }
+
+  async insertImageFromPreview(image: CapturedCanvasImage, target: CanvasInsertTarget) {
+    return insertPreviewImage(image, target)
+  }
+
+  async insertImageFromPreviewToFullCanvas(image: CapturedCanvasImage) {
+    const size = this.readCanvasSize()
+
+    return this.insertImageFromPreview(image, {
+      left: 0,
+      top: 0,
+      width: size.width,
+      height: size.height
+    })
+  }
+
+  async insertImageFromPreviewToSelection(image: CapturedCanvasImage) {
+    const target = await this.readSelectionTarget()
+
+    return this.insertImageFromPreview(image, target)
   }
 
   async insertImageToFullCanvas(image: CapturedCanvasImage) {

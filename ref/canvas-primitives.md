@@ -53,6 +53,7 @@ type CapturedCanvasImage = {
 | 读取画布尺寸 | `readCanvasSize()` | `app.activeDocument.width/height` |
 | 读取选区写入位置 | `readSelectionTarget()` | `imaging.getSelection()` |
 | 插入图片到指定位置 | `insertImage(image, target)` | `imaging.putPixels()` |
+| 从预览图置入到指定位置 | `insertImageFromPreview(image, target)` | 临时文件 + `placeEvent` |
 | 插入图片铺满画布 | `insertImageToFullCanvas(image)` | `readCanvasSize()` + `insertImage()` |
 | 插入图片到选区位置 | `insertImageToSelection(image)` | `readSelectionTarget()` + `insertImage()` |
 
@@ -85,11 +86,23 @@ await canvasPrimitiveService.insertImage(image, {
 })
 ```
 
+生成结果置入优先使用预览图文件：
+
+```ts
+await canvasPrimitiveService.insertImageFromPreview(image, {
+  left: 80,
+  top: 80,
+  width: 320,
+  height: 240
+})
+```
+
 ## 底层实现要点
 
 - `getPixels()` 用于读取可见合成图或指定图层。
 - `getSelection()` 用于读取选区 mask。
 - `putPixels()` 用于写入像素。
+- `placeEvent()` 用于让 Photoshop 从临时文件置入生成结果。
 - `encodeImageData()` 用于生成面板预览。
 - 写入 Photoshop 文档时进入 `core.executeAsModal()`。
 - 每个 `PhotoshopImageData` 都在 `finally` 中 `dispose()`。
@@ -119,4 +132,3 @@ await canvasPrimitiveService.insertImage(image, {
 - 抓取指定画板范围。
 - 导出画板到文件。
 - 从用户选择的文件置入图片。
-

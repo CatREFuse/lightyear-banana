@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import type { DesktopPlatform, WindowDeploySide, WindowDeployState } from '../../types/lightyear'
 import BoxIcon from './BoxIcon.vue'
 
 const props = defineProps<{
+  activeMenuOwner?: string
   inSettings: boolean
   installPluginUrl: string
   status: string
@@ -20,10 +21,13 @@ const deployMenuWrap = useTemplateRef<HTMLElement>('deployMenuWrap')
 const connectionTone = computed(() => (props.status.includes('已连接') ? 'connected' : 'waiting'))
 const deployDisabled = computed(() => props.windowDeployState.status === 'deploying')
 const showInstallPlugin = computed(() => Boolean(props.installPluginUrl) && props.status.includes('未连接'))
+const showContentTitle = computed(() => props.desktopPlatform !== 'win32' || props.inSettings || !props.showWindowControls)
+const showTitlebarBack = computed(() => props.desktopPlatform === 'win32' && props.inSettings && props.showWindowControls)
 
 const emit = defineEmits<{
   back: []
   deployWindow: [side: WindowDeploySide]
+  menuOpen: [owner: string]
   openSettings: []
   toggleTheme: []
 }>()
@@ -34,10 +38,12 @@ function toggleDeployMenu() {
   }
 
   deployMenuOpen.value = !deployMenuOpen.value
+  emit('menuOpen', deployMenuOpen.value ? 'header:deploy' : '')
 }
 
 function selectDeploySide(side: WindowDeploySide) {
   deployMenuOpen.value = false
+  emit('menuOpen', '')
   emit('deployWindow', side)
 }
 
@@ -52,6 +58,7 @@ function handleDocumentPointerDown(event: PointerEvent) {
   }
 
   deployMenuOpen.value = false
+  emit('menuOpen', '')
 }
 
 onMounted(() => {
@@ -61,6 +68,17 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
 })
+
+watch(
+  () => props.activeMenuOwner,
+  (owner) => {
+    if (owner === 'header:deploy') {
+      return
+    }
+
+    deployMenuOpen.value = false
+  }
+)
 </script>
 
 <template>
@@ -70,7 +88,8 @@ onUnmounted(() => {
       `is-${desktopPlatform}`,
       {
         'has-titlebar-inset': titlebarInset,
-        'has-simulated-controls': showWindowControls
+        'has-simulated-controls': showWindowControls,
+        'has-titlebar-back': showTitlebarBack
       }
     ]"
   >
@@ -79,14 +98,19 @@ onUnmounted(() => {
       <span class="window-control is-minimize"></span>
       <span class="window-control is-maximize"></span>
     </div>
+    <div v-if="showWindowControls && desktopPlatform === 'win32' && !inSettings" class="window-brand" aria-hidden="true">Lightyear Banana</div>
+    <button v-if="showTitlebarBack" class="icon-button titlebar-back" type="button" @click="emit('back')">
+      <BoxIcon name="arrow-back" size="16" />
+      <span>返回</span>
+    </button>
 
     <div class="title-block">
-      <button v-if="inSettings" class="icon-button" type="button" @click="emit('back')">
+      <button v-if="inSettings && !showTitlebarBack" class="icon-button" type="button" @click="emit('back')">
         <BoxIcon name="arrow-back" size="16" />
         <span>返回</span>
       </button>
       <span class="heading-copy">
-        <h1>{{ title }}</h1>
+        <h1 v-if="showContentTitle">{{ title }}</h1>
         <span
           v-if="status && desktopPlatform === 'win32'"
           class="connection-status"
@@ -174,7 +198,8 @@ onUnmounted(() => {
 }
 
 .panel-header.has-titlebar-inset.is-win32 {
-  padding-top: 60px;
+  align-items: flex-start;
+  padding-top: 42px;
 }
 
 .title-block,
@@ -226,10 +251,15 @@ h1 {
 }
 
 .has-titlebar-inset.is-win32 .title-block {
-  position: absolute;
-  top: 13px;
-  right: 118px;
-  left: 12px;
+  flex: 1 1 auto;
+}
+
+.has-titlebar-inset.is-win32.has-titlebar-back .title-block {
+  margin-left: 9px;
+}
+
+.has-titlebar-inset.is-win32 .header-actions {
+  align-self: flex-start;
 }
 
 .window-controls {
@@ -245,8 +275,29 @@ h1 {
 }
 
 .panel-header.is-win32 .window-controls {
+  top: 12px;
   right: 12px;
   gap: 0;
+}
+
+.window-brand {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  overflow: hidden;
+  max-width: calc(100% - 132px);
+  color: var(--lb-text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titlebar-back {
+  position: absolute;
+  top: 10px;
+  left: 12px;
 }
 
 .window-control {
@@ -328,16 +379,16 @@ h1 {
 }
 
 .connection-status.is-connected .connection-dot {
-  background: #43d17a;
+  background: var(--lb-success);
   box-shadow:
-    0 0 0 2px rgba(67, 209, 122, 0.16),
+    0 0 0 2px var(--lb-success-ring),
     0 0 14px rgba(67, 209, 122, 0.74);
   animation: connection-glow 2.8s ease-in-out infinite;
 }
 
 .connection-status.is-waiting .connection-dot {
   background: #748093;
-  box-shadow: 0 0 0 2px rgba(116, 128, 147, 0.13);
+  box-shadow: 0 0 0 2px var(--lb-neutral-ring);
 }
 
 .icon-button {

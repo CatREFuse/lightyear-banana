@@ -34,6 +34,7 @@
 ## Lightyear Banana 开发参考路由
 
 开发本项目时优先查阅 `ref/`。`docs/` 保留研究过程和更完整背景，`ref/` 是后续开发的直接参考。
+发布版本时必须优先查阅并逐步执行 `docs/ops-manual.md`，不得临时改用未写入手册的发布路径。
 
 | 任务 | 查阅文件 |
 | --- | --- |
@@ -43,6 +44,7 @@
 | Vue 3、Vite、TypeScript、Manifest v5、UXP 构建和校验 | `ref/framework-build.md` |
 | UDT 加载、Reload/Unload、真实 Photoshop 验证、错误处理、UI 文案注意事项 | `ref/development-notes.md` |
 | 主流生图模型 API 格式、spec、参考图上限、Provider Adapter 设计 | `ref/image-model-api-specs.md` |
+| 版本发布、GitHub Release、官网部署、版本检测 JSON、下载资产托管、线上验证 | `docs/ops-manual.md` |
 | 参考文件总入口 | `ref/README.md` |
 
 ## 开发约定
@@ -53,3 +55,6 @@
 - 改 Vue、TypeScript、CSS 后运行 `npm run build:uxp`，再在 UXP Developer Tools 中 `Reload`。
 - 改 manifest、entrypoint、icon、权限后运行 `npm run verify:uxp`，再在 UXP Developer Tools 中 `Unload` / `Load`。
 - 完成 UXP 相关改动后至少运行 `npm run verify:uxp`。
+- 发布版本必须严格按照 `docs/ops-manual.md` 执行完整流程，包含版本更新、发行物构建、GitHub Release、服务器托管资产、官网版本检测、Nginx reload 和线上验证，不得跳过或临时替换任何环节。
+- 官网下载资产必须托管在 `https://cake.catrefuse.com/releases/$VERSION/`，`site/releases/latest.json` 和 `site/index.html` 的下载地址必须指向该服务器地址；GitHub Release 只作为发布记录和备份。
+- 部署官网时使用 SSH Host `codex-47-97-root` 同步到 `/etc/nginx/static/lightyear-banana-site/`，不要使用裸地址 `root@47.97.121.121`。

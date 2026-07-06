@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { notarize } from '@electron/notarize'
+import { sign } from '@electron/osx-sign'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const packageJson = JSON.parse(await readText(path.join(projectRoot, 'package.json')))
@@ -25,6 +27,92 @@ function run(command, args) {
     cwd: projectRoot,
     stdio: 'inherit'
   })
+}
+
+function readEnv(name) {
+  return process.env[name]?.trim() || ''
+}
+
+function isTruthyEnv(name) {
+  return ['1', 'true', 'yes'].includes(readEnv(name).toLowerCase())
+}
+
+function archiveAppBundle(bundlePath, destinationPath) {
+  execFileSync('ditto', ['--norsrc', '-c', '-k', '--keepParent', bundlePath, destinationPath], {
+    cwd: projectRoot,
+    stdio: 'inherit'
+  })
+}
+
+function readNotarizeOptions() {
+  const keychainProfile = readEnv('APPLE_NOTARY_KEYCHAIN_PROFILE')
+  if (keychainProfile) {
+    return {
+      appPath,
+      keychainProfile,
+      ...(readEnv('APPLE_NOTARY_KEYCHAIN') ? { keychain: readEnv('APPLE_NOTARY_KEYCHAIN') } : {})
+    }
+  }
+
+  const appleApiKey = readEnv('APPLE_API_KEY')
+  const appleApiKeyId = readEnv('APPLE_API_KEY_ID')
+  if (appleApiKey && appleApiKeyId) {
+    return {
+      appPath,
+      appleApiKey,
+      appleApiKeyId,
+      ...(readEnv('APPLE_API_ISSUER') ? { appleApiIssuer: readEnv('APPLE_API_ISSUER') } : {})
+    }
+  }
+
+  const appleId = readEnv('APPLE_ID')
+  const appleIdPassword = readEnv('APPLE_APP_SPECIFIC_PASSWORD')
+  const teamId = readEnv('APPLE_TEAM_ID')
+  if (appleId && appleIdPassword && teamId) {
+    return {
+      appPath,
+      appleId,
+      appleIdPassword,
+      teamId
+    }
+  }
+
+  return undefined
+}
+
+async function signAppBundle() {
+  const identity = readEnv('MAC_CODESIGN_IDENTITY') || readEnv('CODESIGN_IDENTITY')
+
+  if (!identity) {
+    run('codesign', ['--force', '--deep', '--sign', '-', appPath])
+    console.warn('Created an ad-hoc signed macOS app. Set MAC_CODESIGN_IDENTITY for a distributable build.')
+    return false
+  }
+
+  await sign({
+    app: appPath,
+    identity,
+    platform: 'darwin',
+    hardenedRuntime: true
+  })
+  run('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath])
+  return true
+}
+
+async function notarizeAppBundle() {
+  if (isTruthyEnv('LIGHTYEAR_SKIP_NOTARIZE')) {
+    console.warn('Notarization skipped because LIGHTYEAR_SKIP_NOTARIZE is enabled.')
+    return false
+  }
+
+  const notarizeOptions = readNotarizeOptions()
+  if (!notarizeOptions) {
+    throw new Error('Notarization credentials are required for a distributable macOS build. Set APPLE_NOTARY_KEYCHAIN_PROFILE, APPLE_API_KEY credentials, or APPLE_ID credentials. Set LIGHTYEAR_SKIP_NOTARIZE=1 only for local signed builds.')
+  }
+
+  await notarize(notarizeOptions)
+  run('xcrun', ['stapler', 'validate', appPath])
+  return true
 }
 
 function generateBananaIcon() {
@@ -90,7 +178,13 @@ const sourceDist = path.join(projectRoot, 'dist')
 const packagedDist = path.join(appResourcesDir, 'dist')
 mkdirSync(packagedDist, { recursive: true })
 for (const entry of readdirSync(sourceDist)) {
-  if (entry === 'mac') {
+  if (
+    entry === 'mac' ||
+    entry === 'electron-icon' ||
+    entry === 'ps-uxp' ||
+    entry.endsWith('.ccx') ||
+    entry.endsWith('.zip')
+  ) {
     continue
   }
 
@@ -134,12 +228,11 @@ run('plutil', [
 ])
 run('plutil', ['-remove', 'ElectronAsarIntegrity', plistPath])
 
-try {
-  run('codesign', ['--force', '--deep', '--sign', '-', appPath])
-} catch {
-  console.warn('codesign skipped. The app was packaged but may need local approval before launch.')
+const signedForDistribution = await signAppBundle()
+if (signedForDistribution) {
+  await notarizeAppBundle()
 }
 
-run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', appPath, archivePath])
+archiveAppBundle(appPath, archivePath)
 console.log(`Electron macOS app packaged: ${appPath}`)
 console.log(`Electron macOS archive packaged: ${archivePath}`)

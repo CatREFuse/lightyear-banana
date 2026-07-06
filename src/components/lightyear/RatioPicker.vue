@@ -18,7 +18,21 @@ const emit = defineEmits<{
 const localOpen = shallowRef(false)
 const rootRef = useTemplateRef<HTMLElement>('root')
 
-const displayValue = computed(() => (props.value === '原图比例' ? '原图' : props.value))
+const displayValue = computed(() => {
+  if (props.value === '原图比例') {
+    return '原图'
+  }
+
+  if (props.value === '参考图比例') {
+    return '参考图'
+  }
+
+  if (props.value === '画布比例') {
+    return '画布'
+  }
+
+  return props.value
+})
 const isOpen = computed(() => props.open ?? localOpen.value)
 
 function closeOpen() {
@@ -31,7 +45,7 @@ function closeOpen() {
 }
 
 function ratioStyle(option: string) {
-  if (option === '原图比例') {
+  if (option === '原图比例' || option === '参考图比例' || option === '画布比例') {
     return { aspectRatio: '4 / 3' }
   }
 
@@ -41,6 +55,18 @@ function ratioStyle(option: string) {
   }
 
   return { aspectRatio: `${width} / ${height}` }
+}
+
+function readRatioMeta(option: string) {
+  if (option === '原图比例' || option === '参考图比例') {
+    return '跟随参考图 1'
+  }
+
+  if (option === '画布比例') {
+    return '跟随当前画布'
+  }
+
+  return `比例 ${option}`
 }
 
 function selectRatio(option: string) {
@@ -83,7 +109,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
             <span class="ratio-shape" :style="ratioStyle(option)" />
             <span class="ratio-copy">
               <strong>{{ option }}</strong>
-              <small>{{ option === '原图比例' ? '跟随参考图 1' : '常用比例' }}</small>
+              <small>{{ readRatioMeta(option) }}</small>
             </span>
           </button>
         </div>

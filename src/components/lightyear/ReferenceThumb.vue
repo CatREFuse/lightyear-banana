@@ -10,16 +10,24 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
+  preview: [image: ReferenceImage['image']]
   remove: [id: string]
 }>()
 </script>
 
 <template>
   <figure class="reference-thumb" :class="[`is-${size ?? 'normal'}`]">
-    <div class="image-wrap">
+    <div
+      class="image-wrap"
+      role="button"
+      tabindex="0"
+      @click="emit('preview', reference.image)"
+      @keydown.enter.prevent="emit('preview', reference.image)"
+      @keydown.space.prevent="emit('preview', reference.image)"
+    >
       <img :src="reference.image.previewUrl" :alt="reference.label" />
       <span class="badge">{{ index }}</span>
-      <button v-if="removable" class="remove-button" type="button" @click="emit('remove', reference.id)">
+      <button v-if="removable" class="remove-button" type="button" @click.stop="emit('remove', reference.id)">
         <BoxIcon name="x" size="13" />
       </button>
     </div>
@@ -48,6 +56,7 @@ const emit = defineEmits<{
   border: 0;
   border-radius: 7px;
   background: var(--lb-field);
+  cursor: zoom-in;
 }
 
 .is-small .image-wrap {
