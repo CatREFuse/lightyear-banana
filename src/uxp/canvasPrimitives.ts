@@ -7,6 +7,13 @@ export type PixelBounds = {
   bottom: number
 }
 
+type ImagingSourceBounds = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
 export type CapturedCanvasImage = {
   id: string
   label: string
@@ -27,7 +34,10 @@ type PhotoshopImageResult = {
     getData: () => Promise<Uint8Array | Uint16Array | Float32Array>
     dispose: () => void
   }
-  sourceBounds: Partial<PixelBounds>
+  sourceBounds: Partial<PixelBounds> & {
+    width?: unknown
+    height?: unknown
+  }
 }
 
 type PhotoshopRuntime = {
@@ -37,8 +47,8 @@ type PhotoshopRuntime = {
   app: {
     activeDocument: {
       id: number
-      width: number
-      height: number
+      width: unknown
+      height: unknown
       activeLayers: PhotoshopLayer[]
     }
   }
@@ -127,21 +137,43 @@ async function executePhotoshopModal<T>(commandName: string, targetFunction: () 
   return photoshop.core.executeAsModal(targetFunction, { commandName, timeOut: 120 })
 }
 
-function getDocumentBounds(doc: { width: number; height: number }): PixelBounds {
+function getDocumentBounds(doc: { width: unknown; height: unknown }): PixelBounds {
+  const width = readRequiredCoordinate(doc.width, '文档宽度')
+  const height = readRequiredCoordinate(doc.height, '文档高度')
+
   return {
     left: 0,
     top: 0,
-    right: Math.round(doc.width),
-    bottom: Math.round(doc.height)
+    right: width,
+    bottom: height
   }
 }
 
-function normalizeBounds(bounds: Partial<PixelBounds>, fallback: PixelBounds): PixelBounds {
+function readRequiredCoordinate(value: unknown, label: string) {
+  const coordinate = readCoordinate(value)
+  if (coordinate === null) {
+    throw new Error(`${label}无法读取`)
+  }
+
+  return Math.round(coordinate)
+}
+
+function normalizeBounds(
+  bounds: Partial<PixelBounds> & { width?: unknown; height?: unknown },
+  fallback: PixelBounds
+): PixelBounds {
+  const left = readCoordinate(bounds.left) ?? fallback.left
+  const top = readCoordinate(bounds.top) ?? fallback.top
+  const right = readCoordinate(bounds.right)
+  const bottom = readCoordinate(bounds.bottom)
+  const width = readCoordinate(bounds.width)
+  const height = readCoordinate(bounds.height)
+
   return {
-    left: Math.round(bounds.left ?? fallback.left),
-    top: Math.round(bounds.top ?? fallback.top),
-    right: Math.round(bounds.right ?? fallback.right),
-    bottom: Math.round(bounds.bottom ?? fallback.bottom)
+    left: Math.round(left),
+    top: Math.round(top),
+    right: Math.round(right ?? (width === null ? fallback.right : left + width)),
+    bottom: Math.round(bottom ?? (height === null ? fallback.bottom : top + height))
   }
 }
 
@@ -166,11 +198,13 @@ function normalizeUnknownBounds(bounds: unknown): PixelBounds | null {
     return null
   }
 
-  const source = bounds as Partial<Record<keyof PixelBounds, unknown>>
+  const source = bounds as Partial<Record<keyof PixelBounds | 'width' | 'height', unknown>>
   const left = readCoordinate(source.left)
   const top = readCoordinate(source.top)
-  const right = readCoordinate(source.right)
-  const bottom = readCoordinate(source.bottom)
+  const width = readCoordinate(source.width)
+  const height = readCoordinate(source.height)
+  const right = readCoordinate(source.right) ?? (left !== null && width !== null ? left + width : null)
+  const bottom = readCoordinate(source.bottom) ?? (top !== null && height !== null ? top + height : null)
 
   if (left === null || top === null || right === null || bottom === null) {
     return null
@@ -208,7 +242,12 @@ function getLayerSourceBounds(layer: PhotoshopLayer, documentBounds: PixelBounds
 function imageResultBounds(result: PhotoshopImageResult, fallback: PixelBounds): PixelBounds {
   const width = result.imageData.width
   const height = result.imageData.height
-  const bounds = normalizeBounds(result.sourceBounds, fallback)
+  const resultBounds = result.sourceBounds ?? {}
+  const left = readCoordinate(resultBounds.left) ?? fallback.left
+  const top = readCoordinate(resultBounds.top) ?? fallback.top
+  const right = readCoordinate(resultBounds.right) ?? left + (readCoordinate(resultBounds.width) ?? width)
+  const bottom = readCoordinate(resultBounds.bottom) ?? top + (readCoordinate(resultBounds.height) ?? height)
+  const bounds = normalizeBounds({ left, top, right, bottom }, fallback)
 
   if (bounds.right <= bounds.left) {
     bounds.right = bounds.left + width
@@ -219,6 +258,15 @@ function imageResultBounds(result: PhotoshopImageResult, fallback: PixelBounds):
   }
 
   return bounds
+}
+
+function toImagingSourceBounds(bounds: PixelBounds): ImagingSourceBounds {
+  return {
+    left: bounds.left,
+    top: bounds.top,
+    width: Math.max(1, bounds.right - bounds.left),
+    height: Math.max(1, bounds.bottom - bounds.top)
+  }
 }
 
 function requireUint8(data: Uint8Array | Uint16Array | Float32Array): Uint8Array {
@@ -648,7 +696,7 @@ async function getCompositePixels(bounds?: PixelBounds) {
   const sourceBounds = bounds ?? documentBounds
   const result = await photoshop.imaging.getPixels({
     documentID: doc.id,
-    sourceBounds,
+    sourceBounds: toImagingSourceBounds(sourceBounds),
     colorSpace: 'RGB',
     componentSize: 8
   })
@@ -675,7 +723,7 @@ async function getCompositeReference(bounds?: PixelBounds) {
   const sourceBounds = bounds ?? documentBounds
   const result = await photoshop.imaging.getPixels({
     documentID: doc.id,
-    sourceBounds,
+    sourceBounds: toImagingSourceBounds(sourceBounds),
     colorSpace: 'RGB',
     componentSize: 8,
     applyAlpha: true
@@ -699,7 +747,7 @@ async function getSelectionPixels() {
   const documentBounds = getDocumentBounds(doc)
   const result = await photoshop.imaging.getSelection({
     documentID: doc.id,
-    sourceBounds: documentBounds
+    sourceBounds: toImagingSourceBounds(documentBounds)
   })
 
   try {
@@ -740,7 +788,7 @@ async function getLayerPixels(layer: PhotoshopLayer, bounds?: PixelBounds) {
   const result = await photoshop.imaging.getPixels({
     documentID: doc.id,
     layerID: layer.id,
-    sourceBounds,
+    sourceBounds: toImagingSourceBounds(sourceBounds),
     colorSpace: 'RGB',
     componentSize: 8
   })
@@ -774,7 +822,7 @@ async function getLayerReference(layer: PhotoshopLayer, bounds?: PixelBounds) {
   const result = await photoshop.imaging.getPixels({
     documentID: doc.id,
     layerID: layer.id,
-    sourceBounds,
+    sourceBounds: toImagingSourceBounds(sourceBounds),
     colorSpace: 'RGB',
     componentSize: 8,
     applyAlpha: true
@@ -1103,7 +1151,7 @@ export function readDocumentSize() {
   const doc = photoshop.app.activeDocument
 
   return {
-    width: Math.round(doc.width),
-    height: Math.round(doc.height)
+    width: readRequiredCoordinate(doc.width, '文档宽度'),
+    height: readRequiredCoordinate(doc.height, '文档高度')
   }
 }

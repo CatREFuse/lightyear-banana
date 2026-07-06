@@ -9,6 +9,7 @@ import type {
   ReferenceImage
 } from '../types/lightyear'
 import { normalizeCustomModelFormat, providerCapabilities } from '../data/providerCapabilities'
+import { hasElectronBridge, invokeElectronBridge } from './electronBridge'
 
 export type NormalizedImageResult = {
   previewUrl: string
@@ -48,6 +49,23 @@ type ApiErrorPayload = {
   message?: string
   request_id?: string
 }
+
+type ElectronApiFetchResponse = {
+  bodyText: string
+  contentLength?: string
+  ok: boolean
+  status: number
+}
+
+type ElectronApiFetchBody =
+  | { kind: 'text'; value: string }
+  | {
+      kind: 'formData'
+      entries: Array<
+        | { kind: 'field'; name: string; value: string }
+        | { kind: 'file'; data: string; fileName: string; mimeType: string; name: string }
+      >
+    }
 
 type KlingTaskResponse = {
   output?: {
@@ -161,8 +179,7 @@ function normalizeBaseUrl(baseUrl: string) {
   return `https://${cleanBaseUrl}`
 }
 
-async function readResponseJson(response: Response) {
-  const text = await response.text()
+function parseResponseJsonText(text: string) {
   if (!text) {
     return {}
   }
@@ -172,6 +189,10 @@ async function readResponseJson(response: Response) {
   } catch {
     return { message: text }
   }
+}
+
+async function readResponseJson(response: Response) {
+  return parseResponseJsonText(await response.text())
 }
 
 function readApiErrorMessage(payload: ApiErrorPayload, fallback: string) {
@@ -222,12 +243,27 @@ function readTimingContext(
 
 async function fetchJson(url: string, init: RequestInit, timing?: TimingContext) {
   const startedAt = nowMs()
+  if (shouldUseElectronApiFetch(url)) {
+    return fetchJsonWithElectronBridge(url, init, timing, startedAt)
+  }
+
   let response: Response
   try {
     response = await fetch(url, init)
   } catch (error) {
+    if (!isRequestAbort(init, error) && hasElectronBridge()) {
+      try {
+        return await fetchJsonWithElectronBridge(url, init, timing, startedAt)
+      } catch (bridgeError) {
+        if (bridgeError instanceof ImageApiError) {
+          throw bridgeError
+        }
+        throw new ImageApiError(bridgeError instanceof Error ? bridgeError.message : '无法连接 API', 0)
+      }
+    }
+
     const failedAt = nowMs()
-    const aborted = init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError'
+    const aborted = isRequestAbort(init, error)
     emitFetchTimingEntry(url, init, timing, {
       contentLength: '',
       headersAt: failedAt,
@@ -247,6 +283,83 @@ async function fetchJson(url: string, init: RequestInit, timing?: TimingContext)
   const parsedAt = nowMs()
   emitFetchTimingEntry(url, init, timing, {
     contentLength: response.headers.get('content-length') ?? '',
+    headersAt,
+    ok: response.ok,
+    parsedAt,
+    startedAt,
+    status: response.status
+  })
+
+  if (!response.ok) {
+    throw new ImageApiError(readApiErrorMessage(payload as ApiErrorPayload, 'API 请求失败'), response.status)
+  }
+
+  return payload
+}
+
+function isRequestAbort(init: RequestInit, error: unknown) {
+  return init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError'
+}
+
+function shouldUseElectronApiFetch(url: string) {
+  return hasElectronBridge() && /^https?:\/\//i.test(url)
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  }
+
+  return btoa(binary)
+}
+
+async function readProxyableRequestBody(body: BodyInit | null | undefined): Promise<ElectronApiFetchBody | undefined> {
+  if (body === undefined || body === null) {
+    return undefined
+  }
+
+  if (typeof body === 'string') {
+    return { kind: 'text', value: body }
+  }
+
+  if (body instanceof FormData) {
+    const entries: ElectronApiFetchBody & { kind: 'formData' } = { kind: 'formData', entries: [] }
+    for (const [name, value] of body.entries()) {
+      if (typeof value === 'string') {
+        entries.entries.push({ kind: 'field', name, value })
+        continue
+      }
+
+      entries.entries.push({
+        kind: 'file',
+        data: arrayBufferToBase64(await value.arrayBuffer()),
+        fileName: value instanceof File ? value.name : 'file',
+        mimeType: value.type || 'application/octet-stream',
+        name
+      })
+    }
+
+    return entries
+  }
+
+  throw new ImageApiError('当前请求无法通过本机代理发送', 400)
+}
+
+async function fetchJsonWithElectronBridge(url: string, init: RequestInit, timing: TimingContext | undefined, startedAt: number) {
+  const response = await invokeElectronBridge<ElectronApiFetchResponse>('api.fetch', {
+    body: await readProxyableRequestBody(init.body),
+    headers: Object.fromEntries(new Headers(init.headers).entries()),
+    method: init.method ?? 'GET',
+    url
+  })
+  const headersAt = nowMs()
+  const payload = parseResponseJsonText(response.bodyText)
+  const parsedAt = nowMs()
+  emitFetchTimingEntry(url, init, timing, {
+    contentLength: response.contentLength ?? '',
     headersAt,
     ok: response.ok,
     parsedAt,
@@ -1007,7 +1120,7 @@ function buildIMiniRequest(params: ImageGenerationParams) {
   if (params.references.length) {
     const referenceLimit = readIMiniReferenceLimit(params.config.model)
     if (params.references.length > referenceLimit) {
-      throw new ImageApiError(`当前 i-mini 模型最多 ${referenceLimit} 张参考图`, 400)
+      throw new ImageApiError(`当前 iMini 模型最多 ${referenceLimit} 张参考图`, 400)
     }
 
     payload.images = params.references.map((reference) => ({
@@ -1769,12 +1882,12 @@ async function requestIMini(params: ImageGenerationParams) {
       return normalizeIMiniResultPayload(params, result)
     }
     if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
-      throw new ImageApiError(readIMiniTaskError(result) || 'i-mini 任务失败', 502)
+      throw new ImageApiError(readIMiniTaskError(result) || 'iMini 任务失败', 502)
     }
     await wait(iMiniPollIntervalMs, params.signal)
   }
 
-  throw new ImageApiError(`i-mini 任务超时：${taskId}`, 504)
+  throw new ImageApiError(`iMini 任务超时：${taskId}`, 504)
 }
 
 async function requestCodexImageServer(params: ImageGenerationParams) {

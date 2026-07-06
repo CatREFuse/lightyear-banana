@@ -1,35 +1,35 @@
 {
   "product": "lightyear-banana",
   "name": "Lightyear Banana",
-  "version": "0.3.6",
-  "tag": "v0.3.6",
+  "version": "0.3.7",
+  "tag": "v0.3.7",
   "minimumSupportedVersion": "0.3.0",
-  "publishedAt": "2026-07-01T16:43:13.486Z",
-  "releaseUrl": "https://cake.catrefuse.com/releases/0.3.6/SHA256SUMS.txt",
+  "publishedAt": "2026-07-06T15:26:33.460Z",
+  "releaseUrl": "https://cake.catrefuse.com/releases/0.3.7/SHA256SUMS.txt",
   "githubUrl": "https://github.com/CatREFuse/lightyear-banana",
   "updateCheckUrl": "https://cake.catrefuse.com/releases/latest.json",
   "mandatory": false,
   "downloads": {
     "mac": {
       "platform": "mac",
-      "filename": "lightyear-banana-0.3.6-mac.zip",
-      "url": "https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6-mac.zip",
-      "sha256": "8356e3eff63cdd139556f981b3272e1bbb3d2c751218f140bcc09a365c0d5530",
-      "size": 109607809
+      "filename": "lightyear-banana-0.3.7-mac.zip",
+      "url": "https://cake.catrefuse.com/releases/0.3.7/lightyear-banana-0.3.7-mac.zip",
+      "sha256": "6220ccf3f73e1c766c0db70cd6b7b72e7821b4da31b230e171a77e089b9a2e0e",
+      "size": 109609179
     },
     "windows": {
       "platform": "windows",
-      "filename": "lightyear-banana-0.3.6-win.zip",
-      "url": "https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6-win.zip",
-      "sha256": "ce250deb3b75a1140bae1bf4b684119563febb449e9beae4d037dce27338c96a",
-      "size": 138903502
+      "filename": "lightyear-banana-0.3.7-win.zip",
+      "url": "https://cake.catrefuse.com/releases/0.3.7/lightyear-banana-0.3.7-win.zip",
+      "sha256": "6d4fe4a051f38b7e0b6f4194f2b9d79f3fcfc96e5f75ca2f2d72baaa9ae6fa9f",
+      "size": 138905859
     },
     "ccx": {
       "platform": "photoshop-ccx",
-      "filename": "lightyear-banana-0.3.6.ccx",
-      "url": "https://cake.catrefuse.com/releases/0.3.6/lightyear-banana-0.3.6.ccx",
-      "sha256": "8c1064685cdd7debe5a110936fc8ac72d9088526d82d683a7dceb161e3ed53da",
-      "size": 20945
+      "filename": "lightyear-banana-0.3.7.ccx",
+      "url": "https://cake.catrefuse.com/releases/0.3.7/lightyear-banana-0.3.7.ccx",
+      "sha256": "c4f9b3cbf5bbf534a01f26bcbd3506db6d17720e7ad1b379b22c9b3d29f90039",
+      "size": 21142
     }
   }
 }

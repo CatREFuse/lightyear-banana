@@ -9,6 +9,7 @@ import {
   readProviderCapability
 } from '../data/providerCapabilities'
 import {
+  ImageApiError,
   generateImagesWithProvider,
   resolveImageRequestSize,
   testImageConfig,
@@ -79,7 +80,7 @@ type StoredSettings = {
 
 const settingsStorageKey = 'lightyear-banana.settings.v1'
 const maxStoredTurns = 50
-const maxApiRetryCount = 99
+const maxApiRetryCount = 10
 const apiRetryDelayMs = 800
 const retiredBundledConfigIds = new Set([
   'nano-banana-pro',
@@ -110,6 +111,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
 
 function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
+}
+
+function shouldRetryApiError(error: unknown) {
+  if (!(error instanceof ImageApiError)) {
+    return true
+  }
+
+  return error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500
 }
 
 function createId(prefix: string) {
@@ -265,6 +274,28 @@ function readNormalizedProvider(config: ModelConfig): ModelConfig['provider'] {
   return legacyProvider ?? config.provider
 }
 
+function isDifferentOfficialBaseUrl(provider: ModelConfig['provider'], baseUrl: string) {
+  const cleanBaseUrl = baseUrl.trim().toLowerCase()
+  return Object.values(providerCapabilities).some((capability) => (
+    capability.id !== provider &&
+    Boolean(capability.officialBaseUrl) &&
+    cleanBaseUrl.includes(new URL(capability.officialBaseUrl as string).host.toLowerCase())
+  ))
+}
+
+function readNormalizedBaseUrl(provider: ModelConfig['provider'], baseUrl: string, capability: typeof providerCapabilities[ModelConfig['provider']]) {
+  if (!capability.supportsBaseUrl) {
+    return ''
+  }
+
+  const cleanBaseUrl = baseUrl.trim()
+  if (!cleanBaseUrl || capability.officialBaseUrl && isDifferentOfficialBaseUrl(provider, cleanBaseUrl)) {
+    return capability.officialBaseUrl ?? ''
+  }
+
+  return cleanBaseUrl.replace(/\/v1\/(?:images|videos)(?:\/.*)?$/i, '')
+}
+
 function cloneModelConfig(config: ModelConfig): ModelConfig {
   const provider = readNormalizedProvider(config)
   const capability = providerCapabilities[provider]
@@ -281,7 +312,7 @@ function cloneModelConfig(config: ModelConfig): ModelConfig {
     provider,
     model,
     models,
-    baseUrl: capability.supportsBaseUrl ? config.baseUrl : '',
+    baseUrl: readNormalizedBaseUrl(provider, config.baseUrl, capability),
     usesOfficialBaseUrl: false,
     customFormat,
     comfyUi: provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
@@ -1176,7 +1207,7 @@ function readHighestQuality(options: string[]): string {
         return buildGeneratedImagesFromApi(apiImages, modelConfigId, params.config.model)
       } catch (error) {
         lastError = error
-        if (params.signal?.aborted || retryIndex >= retryLimit) {
+        if (params.signal?.aborted || retryIndex >= retryLimit || !shouldRetryApiError(error)) {
           throw error
         }
 

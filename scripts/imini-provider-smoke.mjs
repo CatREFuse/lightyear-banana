@@ -35,7 +35,7 @@ function createConfig(port, model) {
     id: 'config-imini',
     model,
     models: ['google/nano-banana', 'google/nano-banana-pro', 'google/nano-banana-2', 'openai/gpt-image-2'],
-    name: 'i-mini Mock',
+    name: 'iMini Mock',
     provider: 'iMini',
     usesOfficialBaseUrl: false
   }
@@ -152,7 +152,7 @@ async function main() {
         'google/nano-banana-2',
         'openai/gpt-image-2'
       ]),
-      'i-mini default model list is incorrect'
+      'iMini default model list is incorrect'
     )
     assert(readProviderCapability(createConfig(port, 'google/nano-banana')).referenceLimit === 3, 'Nano Banana reference limit is incorrect')
     assert(readProviderCapability(createConfig(port, 'google/nano-banana-2')).sizeOptions.includes('512'), 'Nano Banana 2 512 tier is missing')
@@ -181,16 +181,16 @@ async function main() {
     })
 
     const posts = captured.filter((item) => item.method === 'POST')
-    assert(posts.length === 2, 'expected two i-mini submit requests')
-    assert(posts.every((item) => item.url === '/v1/images/generate'), 'i-mini submit path is incorrect')
-    assert(captured.filter((item) => item.method === 'GET').every((item) => item.url.startsWith('/v1/images/tasks/')), 'i-mini poll path is incorrect')
-    assert(captured.every((item) => item.auth === 'Bearer test-token'), 'i-mini requests must use Bearer auth')
+    assert(posts.length === 2, 'expected two iMini submit requests')
+    assert(posts.every((item) => item.url === '/v1/images/generate'), 'iMini submit path is incorrect')
+    assert(captured.filter((item) => item.method === 'GET').every((item) => item.url.startsWith('/v1/images/tasks/')), 'iMini poll path is incorrect')
+    assert(captured.every((item) => item.auth === 'Bearer test-token'), 'iMini requests must use Bearer auth')
 
     const nanoBody = JSON.parse(posts[0].bodyText)
     assert(nanoBody.model === 'google/nano-banana-2', 'Nano Banana 2 model was not forwarded')
     assert(nanoBody.aspect_ratio === '16:9', 'Nano Banana 2 aspect_ratio was not forwarded')
     assert(nanoBody.resolution === '512', 'Nano Banana 2 resolution was not forwarded')
-    assert(Array.isArray(nanoBody.images) && nanoBody.images[0]?.reference_type === 'asset', 'i-mini reference image was not forwarded')
+    assert(Array.isArray(nanoBody.images) && nanoBody.images[0]?.reference_type === 'asset', 'iMini reference image was not forwarded')
     assert(nanoBody.quality === undefined && nanoBody.num === undefined, 'Nano Banana 2 should not receive GPT Image 2 fields')
 
     const gptBody = JSON.parse(posts[1].bodyText)
@@ -199,10 +199,10 @@ async function main() {
     assert(gptBody.resolution === '4K', 'GPT Image 2 resolution was not forwarded')
     assert(gptBody.quality === 'high', 'GPT Image 2 quality was not forwarded')
     assert(gptBody.num === 3, 'GPT Image 2 num was not forwarded')
-    assert(nanoImages[0].previewUrl === 'https://file.iminicdn.com/file/test.png', 'i-mini image URL was not parsed')
-    assert(gptImages[0].resolvedSize === '1024x1024', 'i-mini result dimensions were not parsed')
+    assert(nanoImages[0].previewUrl === 'https://file.iminicdn.com/file/test.png', 'iMini image URL was not parsed')
+    assert(gptImages[0].resolvedSize === '1024x1024', 'iMini result dimensions were not parsed')
 
-    console.log('i-mini provider smoke passed')
+    console.log('iMini provider smoke passed')
   } finally {
     server.close()
     rmSync(outDir, { force: true, recursive: true })

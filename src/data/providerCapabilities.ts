@@ -28,7 +28,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
   },
   iMini: {
     id: 'iMini',
-    name: 'i-mini',
+    name: 'iMini',
     modelOptions: iMiniModelOptions,
     referenceLimit: 14,
     sizeOptions: ['1K', '2K', '4K'],
