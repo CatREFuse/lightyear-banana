@@ -1,11 +1,26 @@
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import path from 'node:path'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
 const uxpOutDir = path.resolve(projectRoot, 'dist/ps-uxp')
+
+type LightyearEnvironment = 'development' | 'test' | 'production'
+
+const environmentValues = new Set<LightyearEnvironment>(['development', 'test', 'production'])
+
+function resolveLightyearEnvironment(mode: string): LightyearEnvironment {
+  const env = loadEnv(mode, projectRoot, '')
+  const rawEnvironment = env.VITE_LIGHTYEAR_ENV ?? env.LIGHTYEAR_ENV
+
+  if (environmentValues.has(rawEnvironment as LightyearEnvironment)) {
+    return rawEnvironment as LightyearEnvironment
+  }
+
+  return mode === 'production' ? 'production' : 'development'
+}
 
 function uxpPostBuildPlugin(): Plugin {
   return {
@@ -73,27 +88,34 @@ function uxpPostBuildPlugin(): Plugin {
   }
 }
 
-export default defineConfig({
-  base: './',
-  publicDir: false,
-  plugins: [vue(), uxpPostBuildPlugin()],
-  build: {
-    modulePreload: {
-      polyfill: false
+export default defineConfig(({ mode }) => {
+  const lightyearEnvironment = resolveLightyearEnvironment(mode)
+
+  return {
+    base: './',
+    define: {
+      __LIGHTYEAR_APP_ENV__: JSON.stringify(lightyearEnvironment)
     },
-    outDir: uxpOutDir,
-    emptyOutDir: true,
-    sourcemap: true,
-    rollupOptions: {
-      input: fileURLToPath(new URL('./uxp-panel.html', import.meta.url)),
-      output: {
-        format: 'iife'
+    publicDir: false,
+    plugins: [vue(), uxpPostBuildPlugin()],
+    build: {
+      modulePreload: {
+        polyfill: false
+      },
+      outDir: uxpOutDir,
+      emptyOutDir: true,
+      sourcemap: lightyearEnvironment !== 'production',
+      rollupOptions: {
+        input: fileURLToPath(new URL('./uxp-panel.html', import.meta.url)),
+        output: {
+          format: 'iife'
+        }
       }
-    }
-  },
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+    },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url))
+      }
     }
   }
 })

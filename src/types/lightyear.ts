@@ -8,6 +8,8 @@ export type AppView = 'workspace' | 'settings'
 
 export type SettingsView = 'list' | 'detail'
 
+export type ResolutionInputMode = 'preset' | 'custom'
+
 export type WindowDeploySide = 'left' | 'right'
 
 export type WindowDeployStatus = 'idle' | 'deploying' | 'success' | 'error'
@@ -35,6 +37,34 @@ export type WindowDeployResult = {
   message: string
 }
 
+export type AppUpdateCheckStatus = 'idle' | 'checking' | 'current' | 'available' | 'error'
+
+export type AppUpdateCheckState = {
+  status: AppUpdateCheckStatus
+  message: string
+  currentVersion?: string
+  latestVersion?: string
+  checkedAt?: string
+}
+
+export type AppUpdateCheckResult = {
+  status: Exclude<AppUpdateCheckStatus, 'idle' | 'checking'>
+  currentVersion: string
+  latestVersion: string
+  mandatory: boolean
+  releaseUrl: string
+  downloadUrl: string
+  fileName: string
+  checkedAt: string
+  message?: string
+}
+
+export type CanvasOperationState = {
+  type: 'idle' | 'capture' | 'place'
+  label: string
+  imageId?: string
+}
+
 export type MacPermissionPane = 'accessibility' | 'automation' | 'screenCapture'
 
 export type SettingsTestStatus = 'idle' | 'testing' | 'success' | 'error'
@@ -44,21 +74,21 @@ export type SettingsTestState = {
   message: string
 }
 
-export type MockServerConfig = {
-  enabled: boolean
-  baseUrl: string
-}
+export type GenerationLoadingPhase = 'waiting-connection' | 'waiting-generation' | 'downloading' | 'waiting-retry'
 
 export type GenerationLoadingState = {
-  active: boolean
+  id: string
   references: ReferenceImage[]
   prompt: string
   elapsedSeconds: number
+  phase: GenerationLoadingPhase
+  requestLogs?: ImageRequestLogEntry[]
 }
 
 export type ReferenceSource = 'visible' | 'selection' | 'layer' | 'upload' | 'clipboard' | 'generated'
 
 export type PlacementTarget =
+  | { type: 'default' }
   | {
       type: 'reference-selection'
       referenceId: string
@@ -71,12 +101,44 @@ export type PlacementTarget =
 
 export type ImageProviderId =
   | 'openai'
+  | 'iMini'
   | 'gemini'
+  | 'apimart'
   | 'seedream'
   | 'qwen'
   | 'kling'
   | 'flux'
+  | 'comfyui'
+  | 'codex-image-server'
   | 'custom-openai'
+
+export type CustomModelFormat = 'openai' | 'openai-images' | 'openai-chat' | 'gemini'
+
+export type ComfyUiNodeMappingType =
+  | 'model'
+  | 'prompt'
+  | 'negative_prompt'
+  | 'image'
+  | 'width'
+  | 'height'
+  | 'batch_size'
+  | 'steps'
+  | 'seed'
+  | 'custom'
+
+export type ComfyUiNodeMapping = {
+  type: ComfyUiNodeMappingType
+  nodeIds: string[]
+  key: string
+  value?: string
+}
+
+export type ComfyUiSettings = {
+  workflow: string
+  workflowNodes: ComfyUiNodeMapping[]
+  timeoutMs: number
+  pollIntervalMs: number
+}
 
 export type ProviderCapability = {
   id: ImageProviderId
@@ -88,6 +150,7 @@ export type ProviderCapability = {
   countOptions: number[]
   ratioOptions: string[]
   supportsBaseUrl: boolean
+  officialBaseUrl?: string
 }
 
 export type ModelConfig = {
@@ -95,9 +158,13 @@ export type ModelConfig = {
   name: string
   provider: ImageProviderId
   model: string
+  models: string[]
   apiKey: string
   baseUrl: string
+  usesOfficialBaseUrl?: boolean
+  customFormat?: CustomModelFormat
   enabled: boolean
+  comfyUi?: ComfyUiSettings
 }
 
 export type ReferenceImage = {
@@ -109,6 +176,38 @@ export type ReferenceImage = {
 
 export type GeneratedImage = CapturedCanvasImage & {
   modelConfigId: string
+  modelName: string
+}
+
+export type GenerationRequestSnapshot = {
+  canvasSize?: { width: number; height: number }
+  config: ModelConfig
+  count: number
+  prompt: string
+  quality: string
+  ratio: string
+  references: ReferenceImage[]
+  resolvedSize: string
+  selectedSize: string
+  summary: string
+}
+
+export type ImageRequestLogValue = string | number | boolean | null | undefined
+
+export type ImageRequestLogEntry = {
+  id: string
+  createdAt: string
+  url: string
+  method: string
+  status: number
+  ok: boolean
+  contentLength: string
+  metadata: Record<string, ImageRequestLogValue>
+  stages: {
+    headersMs: number
+    bodyParseMs: number
+    totalMs: number
+  }
 }
 
 export type ChatTurn = {
@@ -117,6 +216,8 @@ export type ChatTurn = {
   references: ReferenceImage[]
   responseText: string
   elapsedLabel: string
+  repeatRequest?: GenerationRequestSnapshot
+  requestLogs?: ImageRequestLogEntry[]
   results: GeneratedImage[]
-  tone?: 'normal' | 'error'
+  tone?: 'normal' | 'error' | 'canceled'
 }

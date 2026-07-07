@@ -1,4 +1,17 @@
-import type { ImageProviderId, ModelConfig, ProviderCapability } from '../types/lightyear'
+import type { CustomModelFormat, ImageProviderId, ModelConfig, ProviderCapability } from '../types/lightyear'
+
+const gptImageQualityOptions = ['auto', 'high', 'medium', 'low']
+const openAiImageSizeOptions = ['auto', '1024x1024', '1536x1024', '1024x1536']
+const customSizeOptions = ['1k', '2k', '4k']
+const apimartGemini31RatioOptions = ['自动', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
+const apimartGeminiProRatioOptions = ['自动', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
+const apimartGptImage1RatioOptions = ['1:1', '3:2', '2:3']
+const apimartGptImage2RatioOptions = ['1:1', '自动', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
+const apimartSeedream5LiteRatioOptions = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9', '自动']
+const iMiniModelOptions = ['google/nano-banana', 'google/nano-banana-pro', 'google/nano-banana-2', 'openai/gpt-image-2']
+const iMiniStandardRatioOptions = ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
+const iMiniNanoBanana2RatioOptions = [...iMiniStandardRatioOptions, '1:4', '1:8', '4:1', '8:1']
+const iMiniGptImage2RatioOptions = [...iMiniStandardRatioOptions, '9:21']
 
 export const providerCapabilities: Record<ImageProviderId, ProviderCapability> = {
   openai: {
@@ -6,44 +19,88 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     name: 'OpenAI',
     modelOptions: ['gpt-image-2'],
     referenceLimit: 16,
-    sizeOptions: ['1024x1024', '1536x1024', '1024x1536', '2048x2048'],
-    qualityOptions: ['自动', '高', '中', '低'],
+    sizeOptions: openAiImageSizeOptions,
+    qualityOptions: gptImageQualityOptions,
+    countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    ratioOptions: ['原图比例'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://api.openai.com'
+  },
+  iMini: {
+    id: 'iMini',
+    name: 'i-mini',
+    modelOptions: iMiniModelOptions,
+    referenceLimit: 14,
+    sizeOptions: ['1K', '2K', '4K'],
+    qualityOptions: [],
     countOptions: [1],
-    ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
-    supportsBaseUrl: false
+    ratioOptions: iMiniStandardRatioOptions,
+    supportsBaseUrl: true,
+    officialBaseUrl: 'https://openapi.imini.ai/imini/router'
   },
   gemini: {
     id: 'gemini',
     name: 'Google Gemini',
-    modelOptions: ['gemini-3-pro-image-preview', 'gemini-2.5-flash-image'],
+    modelOptions: [
+      'nano-banana-4k',
+      'nano-banana-pro-4k',
+      'gemini-3-pro-image-preview-4k',
+      'gemini-3.1-flash-image-preview',
+      'gemini-3-pro-image-preview',
+      'gemini-2.5-flash-image'
+    ],
     referenceLimit: 14,
-    sizeOptions: ['1k', '2k', '4k'],
-    qualityOptions: ['自动', '高'],
+    sizeOptions: customSizeOptions,
+    qualityOptions: ['自动'],
+    countOptions: [1],
+    ratioOptions: ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://generativelanguage.googleapis.com'
+  },
+  apimart: {
+    id: 'apimart',
+    name: 'APIMart',
+    modelOptions: [
+      'gemini-3.1-flash-image-preview',
+      'gemini-3.1-flash-image-preview-official',
+      'gemini-3-pro-image-preview',
+      'gemini-3-pro-image-preview-official',
+      'gpt-image-2',
+      'gpt-image-1-official',
+      'gpt-image-1.5-official',
+      'doubao-seedream-5-0-lite'
+    ],
+    referenceLimit: 14,
+    sizeOptions: ['0.5K', '1K', '2K', '4K'],
+    qualityOptions: ['自动'],
     countOptions: [1, 2, 3, 4],
-    ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
-    supportsBaseUrl: false
+    ratioOptions: ['自动', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://api.apimart.ai'
   },
   seedream: {
     id: 'seedream',
     name: 'ByteDance Seedream',
     modelOptions: ['seedream-4-0-250828'],
     referenceLimit: 10,
-    sizeOptions: ['1k', '2k', '4k'],
-    qualityOptions: ['自动', '高'],
+    sizeOptions: customSizeOptions,
+    qualityOptions: ['自动'],
     countOptions: [1, 2, 3, 4],
-    ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
-    supportsBaseUrl: false
+    ratioOptions: ['原图比例'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://ark.ap-southeast.bytepluses.com'
   },
   qwen: {
     id: 'qwen',
     name: 'Alibaba Qwen',
-    modelOptions: ['qwen-image-2.0-pro', 'qwen-image-edit-max', 'qwen-image-edit-plus'],
+    modelOptions: ['qwen-image-2.0-pro', 'qwen-image-2.0', 'qwen-image-edit-max', 'qwen-image-edit-plus'],
     referenceLimit: 3,
-    sizeOptions: ['1024*1024', '1328*1328', '2048*2048'],
-    qualityOptions: ['自动', '高'],
+    sizeOptions: customSizeOptions,
+    qualityOptions: ['自动'],
     countOptions: [1, 2, 3, 4, 5, 6],
-    ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
-    supportsBaseUrl: false
+    ratioOptions: ['原图比例'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://dashscope.aliyuncs.com'
   },
   kling: {
     id: 'kling',
@@ -51,88 +108,252 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     modelOptions: ['kling/kling-v3-image-generation', 'kling/kling-v3-omni-image-generation'],
     referenceLimit: 10,
     sizeOptions: ['1k', '2k', '4k'],
-    qualityOptions: ['自动', '高'],
+    qualityOptions: ['自动'],
     countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-    ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
-    supportsBaseUrl: false
+    ratioOptions: ['16:9', '9:16', '1:1'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://dashscope.aliyuncs.com'
   },
   flux: {
     id: 'flux',
     name: 'Black Forest Labs',
-    modelOptions: ['flux-2-pro', 'flux-2-pro-preview', 'flux-2-max', 'flux-2-flex'],
+    modelOptions: [
+      'flux-2-pro-preview',
+      'flux-2-pro',
+      'flux-2-max',
+      'flux-2-flex',
+      'flux-2-klein-9b-preview',
+      'flux-2-klein-9b',
+      'flux-2-klein-4b'
+    ],
     referenceLimit: 8,
-    sizeOptions: ['1MP', '2MP', '4MP'],
-    qualityOptions: ['自动', '高'],
+    sizeOptions: customSizeOptions,
+    qualityOptions: ['自动'],
     countOptions: [1],
-    ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
-    supportsBaseUrl: false
+    ratioOptions: ['原图比例'],
+    supportsBaseUrl: false,
+    officialBaseUrl: 'https://api.bfl.ai'
+  },
+  comfyui: {
+    id: 'comfyui',
+    name: '本地 ComfyUI',
+    modelOptions: ['workflow-api-json'],
+    referenceLimit: 8,
+    sizeOptions: ['按工作流'],
+    qualityOptions: ['按工作流'],
+    countOptions: [1],
+    ratioOptions: ['按工作流'],
+    supportsBaseUrl: true
+  },
+  'codex-image-server': {
+    id: 'codex-image-server',
+    name: 'Codex Image Server',
+    modelOptions: ['gpt-image-2'],
+    referenceLimit: 16,
+    sizeOptions: customSizeOptions,
+    qualityOptions: gptImageQualityOptions,
+    countOptions: [1, 2, 3, 4],
+    ratioOptions: ['参考图比例', '画布比例', '1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '4:5', '5:4', '21:9'],
+    supportsBaseUrl: true
   },
   'custom-openai': {
     id: 'custom-openai',
-    name: '自定义 BaseURL（OpenAI 兼容）',
+    name: '自定义模型',
     modelOptions: ['custom-image-model'],
     referenceLimit: 16,
-    sizeOptions: ['1024x1024', '1536x1024', '1024x1536', '2048x2048'],
-    qualityOptions: ['自动', '高', '中', '低'],
-    countOptions: [1, 2, 3, 4],
-    ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
+    sizeOptions: openAiImageSizeOptions,
+    qualityOptions: [],
+    countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    ratioOptions: ['原图比例'],
     supportsBaseUrl: true
   }
 }
 
-export const defaultModelConfigs: ModelConfig[] = [
-  {
-    id: 'nano-banana-pro',
-    name: 'Nano Banana Pro',
-    provider: 'gemini',
-    model: 'gemini-3-pro-image-preview',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'gpt-image-2',
-    name: 'GPT Image 2',
-    provider: 'openai',
-    model: 'gpt-image-2',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'seedream-4',
-    name: 'Seedream 4.0',
-    provider: 'seedream',
-    model: 'seedream-4-0-250828',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'qwen-image-edit',
-    name: 'Qwen Image Edit',
-    provider: 'qwen',
-    model: 'qwen-image-2.0-pro',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'kling-v3',
-    name: 'Kling V3',
-    provider: 'kling',
-    model: 'kling/kling-v3-omni-image-generation',
-    apiKey: '',
-    baseUrl: '',
-    enabled: true
-  },
-  {
-    id: 'custom-openai',
-    name: '自定义 OpenAI 兼容',
-    provider: 'custom-openai',
-    model: 'custom-image-model',
-    apiKey: '',
-    baseUrl: 'https://api.example.com/v1',
-    enabled: false
+export function normalizeCustomModelFormat(format: string | undefined): Exclude<CustomModelFormat, 'openai'> {
+  if (format === 'openai-chat' || format === 'gemini') {
+    return format
   }
-]
+
+  return 'openai-images'
+}
+
+function readOpenAiQualityOptions(model: string) {
+  if (/^dall-e-2$/i.test(model)) {
+    return ['standard']
+  }
+
+  if (/^dall-e-3$/i.test(model)) {
+    return ['standard', 'hd']
+  }
+
+  return gptImageQualityOptions
+}
+
+export function providerSupportsQuality(config: Pick<ModelConfig, 'provider' | 'customFormat'>) {
+  return (
+    config.provider === 'openai' ||
+    config.provider === 'iMini' ||
+    config.provider === 'codex-image-server'
+  )
+}
+
+function isApimartGemini31ImageModel(model: string) {
+  return /gemini-3\.1-flash-image-preview/i.test(model)
+}
+
+function isApimartProImageModel(model: string) {
+  return /gemini-3-pro-image-preview/i.test(model)
+}
+
+function isApimartGptImage1Model(model: string) {
+  return /^gpt-image-1(?:\.5)?-official$/i.test(model)
+}
+
+function isApimartGptImage2Model(model: string) {
+  return /^gpt-image-2$/i.test(model)
+}
+
+function isApimartSeedream5LiteModel(model: string) {
+  return /^doubao-seedream-5(?:[-.]0)?-lite$/i.test(model)
+}
+
+function isIMiniNanoBananaModel(model: string) {
+  return /^google\/nano-banana$/i.test(model)
+}
+
+function isIMiniNanoBanana2Model(model: string) {
+  return /^google\/nano-banana-2$/i.test(model)
+}
+
+function isIMiniGptImage2Model(model: string) {
+  return /^openai\/gpt-image-2$/i.test(model)
+}
+
+function readApimartCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>, capability: ProviderCapability): ProviderCapability {
+  if (isApimartGptImage1Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 15,
+      sizeOptions: ['默认'],
+      qualityOptions: gptImageQualityOptions,
+      countOptions: [1, 2, 3, 4],
+      ratioOptions: apimartGptImage1RatioOptions
+    }
+  }
+
+  if (isApimartGptImage2Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 16,
+      sizeOptions: customSizeOptions,
+      qualityOptions: [],
+      countOptions: [1],
+      ratioOptions: apimartGptImage2RatioOptions
+    }
+  }
+
+  if (isApimartSeedream5LiteModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['2K', '3K', '4K'],
+      qualityOptions: [],
+      countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      ratioOptions: apimartSeedream5LiteRatioOptions
+    }
+  }
+
+  if (isApimartProImageModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['1K', '2K', '4K'],
+      qualityOptions: [],
+      countOptions: [1, 2, 3, 4],
+      ratioOptions: apimartGeminiProRatioOptions
+    }
+  }
+
+  if (isApimartGemini31ImageModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['0.5K', '1K', '2K', '4K'],
+      qualityOptions: [],
+      countOptions: [1, 2, 3, 4],
+      ratioOptions: apimartGemini31RatioOptions
+    }
+  }
+
+  return capability
+}
+
+function readIMiniCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>, capability: ProviderCapability): ProviderCapability {
+  if (isIMiniNanoBananaModel(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 3,
+      sizeOptions: ['1K'],
+      qualityOptions: [],
+      countOptions: [1],
+      ratioOptions: iMiniStandardRatioOptions
+    }
+  }
+
+  if (isIMiniNanoBanana2Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 14,
+      sizeOptions: ['512', '1K', '2K', '4K'],
+      qualityOptions: [],
+      countOptions: [1],
+      ratioOptions: iMiniNanoBanana2RatioOptions
+    }
+  }
+
+  if (isIMiniGptImage2Model(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 3,
+      sizeOptions: ['1K', '2K', '4K'],
+      qualityOptions: ['low', 'medium', 'high'],
+      countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      ratioOptions: iMiniGptImage2RatioOptions
+    }
+  }
+
+  return capability
+}
+
+export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>): ProviderCapability {
+  const capability = providerCapabilities[config.provider]
+  if (config.provider === 'custom-openai' && normalizeCustomModelFormat(config.customFormat) === 'gemini') {
+    const geminiCapability = providerCapabilities.gemini
+    return {
+      ...capability,
+      referenceLimit: geminiCapability.referenceLimit,
+      sizeOptions: geminiCapability.sizeOptions,
+      qualityOptions: [],
+      countOptions: geminiCapability.countOptions,
+      ratioOptions: geminiCapability.ratioOptions
+    }
+  }
+
+  if (config.provider === 'apimart') {
+    return readApimartCapability(config, capability)
+  }
+
+  if (config.provider === 'iMini') {
+    return readIMiniCapability(config, capability)
+  }
+
+  const qualityOptions = providerSupportsQuality(config) ? readOpenAiQualityOptions(config.model) : []
+
+  return { ...capability, qualityOptions }
+}
+
+export function providerRequiresApiKey(provider: ImageProviderId) {
+  return provider !== 'comfyui' && provider !== 'codex-image-server'
+}
+
+export const defaultModelConfigs: ModelConfig[] = []

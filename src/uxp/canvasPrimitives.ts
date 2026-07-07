@@ -46,6 +46,11 @@ type PhotoshopRuntime = {
       options: { commandName: string; timeOut?: number }
     ) => Promise<T>
   }
+  constants?: {
+    AnchorPosition?: {
+      TOPLEFT?: unknown
+    }
+  }
   imaging: {
     getPixels: (options: Record<string, unknown>) => Promise<PhotoshopImageResult>
     getSelection: (options: Record<string, unknown>) => Promise<PhotoshopImageResult>
@@ -65,6 +70,36 @@ type PhotoshopLayer = {
   name?: string
   bounds?: unknown
   boundsNoEffects?: unknown
+  scale?: (widthPercent: number, heightPercent: number, anchor?: unknown) => Promise<void>
+  translate?: (deltaX: number, deltaY: number) => Promise<void>
+}
+
+type UxpFile = {
+  write: (data: Uint8Array, options?: Record<string, unknown>) => Promise<void>
+  delete?: () => Promise<void>
+}
+
+type UxpFolder = {
+  createFile: (name: string, options?: { overwrite?: boolean }) => Promise<UxpFile>
+}
+
+type UxpRuntime = {
+  storage?: {
+    formats?: {
+      binary?: unknown
+    }
+    localFileSystem?: {
+      createSessionToken?: (file: UxpFile) => string
+      getTemporaryFolder?: () => Promise<UxpFolder>
+    }
+  }
+}
+
+type NormalizedInsertTarget = {
+  left: number
+  top: number
+  width: number
+  height: number
 }
 
 function getPhotoshop(): PhotoshopRuntime {
@@ -74,6 +109,15 @@ function getPhotoshop(): PhotoshopRuntime {
   }
 
   return hostRequire('photoshop') as PhotoshopRuntime
+}
+
+function getUxpRuntime(): UxpRuntime {
+  const hostRequire = getHostRequire()
+  if (!hostRequire) {
+    throw new Error('Photoshop UXP runtime is unavailable.')
+  }
+
+  return hostRequire('uxp') as UxpRuntime
 }
 
 async function executePhotoshopModal<T>(commandName: string, targetFunction: () => Promise<T>) {
@@ -363,6 +407,148 @@ function resizeRgba(source: Uint8Array, sourceWidth: number, sourceHeight: numbe
   }
 
   return output
+}
+
+function normalizeInsertTarget(target: { left: number; top: number; width: number; height: number }): NormalizedInsertTarget {
+  return {
+    left: Math.round(target.left),
+    top: Math.round(target.top),
+    width: Math.max(1, Math.round(target.width)),
+    height: Math.max(1, Math.round(target.height))
+  }
+}
+
+function insertTargetToBounds(target: NormalizedInsertTarget): PixelBounds {
+  return {
+    left: target.left,
+    top: target.top,
+    right: target.left + target.width,
+    bottom: target.top + target.height
+  }
+}
+
+function readImageExtensionFromMimeType(mimeType: string) {
+  const normalized = mimeType.split(';')[0]?.trim().toLowerCase()
+
+  if (normalized === 'image/png') {
+    return 'png'
+  }
+
+  if (normalized === 'image/jpeg' || normalized === 'image/jpg') {
+    return 'jpg'
+  }
+
+  if (normalized === 'image/webp') {
+    return 'webp'
+  }
+
+  if (normalized === 'image/gif') {
+    return 'gif'
+  }
+
+  return ''
+}
+
+function readImageExtensionFromUrl(previewUrl: string) {
+  const path = previewUrl.split('?')[0]?.split('#')[0] ?? ''
+  const extension = path.split('.').pop()?.toLowerCase() ?? ''
+
+  if (['gif', 'jpg', 'jpeg', 'png', 'webp'].includes(extension)) {
+    return extension === 'jpeg' ? 'jpg' : extension
+  }
+
+  return ''
+}
+
+function base64ToBytes(value: string) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+
+  return bytes
+}
+
+function textToBytes(value: string) {
+  const bytes = new Uint8Array(value.length)
+
+  for (let index = 0; index < value.length; index += 1) {
+    bytes[index] = value.charCodeAt(index) & 0xff
+  }
+
+  return bytes
+}
+
+function readDataUrlImageBytes(previewUrl: string) {
+  const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(previewUrl)
+  if (!match) {
+    throw new Error('图片文件无法读取')
+  }
+
+  const mimeType = match[1] || 'image/png'
+  const extension = readImageExtensionFromMimeType(mimeType)
+  if (!extension) {
+    throw new Error('图片格式暂不支持置入')
+  }
+
+  return {
+    bytes: match[2] ? base64ToBytes(match[3] ?? '') : textToBytes(decodeURIComponent(match[3] ?? '')),
+    extension
+  }
+}
+
+async function readPreviewImageBytes(previewUrl: string) {
+  if (previewUrl.startsWith('data:')) {
+    return readDataUrlImageBytes(previewUrl)
+  }
+
+  if (!/^https?:\/\//i.test(previewUrl)) {
+    throw new Error('图片文件无法直接置入')
+  }
+
+  const response = await fetch(previewUrl)
+  if (!response.ok) {
+    throw new Error('图片下载失败')
+  }
+
+  const mimeExtension = readImageExtensionFromMimeType(response.headers.get('content-type') ?? '')
+  const urlExtension = readImageExtensionFromUrl(previewUrl)
+
+  return {
+    bytes: new Uint8Array(await response.arrayBuffer()),
+    extension: mimeExtension || urlExtension || 'png'
+  }
+}
+
+async function createTemporaryPreviewFile(image: CapturedCanvasImage) {
+  const uxp = getUxpRuntime()
+  const localFileSystem = uxp.storage?.localFileSystem
+
+  if (!localFileSystem?.getTemporaryFolder || !localFileSystem.createSessionToken) {
+    throw new Error('当前环境无法置入图片')
+  }
+
+  const { bytes, extension } = await readPreviewImageBytes(image.previewUrl)
+  const folder = await localFileSystem.getTemporaryFolder()
+  const file = await folder.createFile(`lightyear-place-${Date.now()}.${extension}`, { overwrite: true })
+  const binaryFormat = uxp.storage?.formats?.binary
+
+  await file.write(bytes, binaryFormat ? { format: binaryFormat } : undefined)
+
+  return {
+    file,
+    token: localFileSystem.createSessionToken(file)
+  }
+}
+
+async function deleteTemporaryFile(file: UxpFile) {
+  try {
+    await file.delete?.()
+  } catch {
+    // Temporary files are best-effort cleanup in UXP.
+  }
 }
 
 export function createSampleCanvasImage(): CapturedCanvasImage {
@@ -655,15 +841,100 @@ async function createPixelLayer(name: string) {
   return photoshop.app.activeDocument.activeLayers[0]
 }
 
-export async function insertCapturedImage(
+function readPlacedLayerBounds(layer: PhotoshopLayer) {
+  return normalizeUnknownBounds(layer.boundsNoEffects) ?? normalizeUnknownBounds(layer.bounds)
+}
+
+async function fitPlacedLayerToTarget(photoshop: PhotoshopRuntime, layer: PhotoshopLayer, bounds: PixelBounds) {
+  const current = readPlacedLayerBounds(layer)
+  if (!current) {
+    throw new Error('置入图层无法读取位置')
+  }
+
+  if (typeof layer.scale !== 'function' || typeof layer.translate !== 'function') {
+    throw new Error('置入图层无法调整位置')
+  }
+
+  const currentWidth = Math.max(1, current.right - current.left)
+  const currentHeight = Math.max(1, current.bottom - current.top)
+  const scaleX = ((bounds.right - bounds.left) / currentWidth) * 100
+  const scaleY = ((bounds.bottom - bounds.top) / currentHeight) * 100
+
+  await layer.scale(scaleX, scaleY, photoshop.constants?.AnchorPosition?.TOPLEFT)
+
+  const next = readPlacedLayerBounds(layer)
+  if (!next) {
+    throw new Error('置入图层无法读取位置')
+  }
+
+  await layer.translate(bounds.left - next.left, bounds.top - next.top)
+}
+
+async function placeTemporaryImageFile(
   image: CapturedCanvasImage,
-  target: { left: number; top: number; width: number; height: number }
+  temporaryFile: { file: UxpFile; token: string },
+  target: NormalizedInsertTarget
 ) {
   const photoshop = getPhotoshop()
-  const width = Math.max(1, Math.round(target.width))
-  const height = Math.max(1, Math.round(target.height))
-  const left = Math.round(target.left)
-  const top = Math.round(target.top)
+  const bounds = insertTargetToBounds(target)
+
+  await photoshop.core.executeAsModal(
+    async () => {
+      await photoshop.action.batchPlay(
+        [
+          {
+            _obj: 'placeEvent',
+            null: {
+              _path: temporaryFile.token,
+              _kind: 'local'
+            },
+            freeTransformCenterState: {
+              _enum: 'quadCenterState',
+              _value: 'QCSAverage'
+            },
+            offset: {
+              _obj: 'offset',
+              horizontal: {
+                _unit: 'pixelsUnit',
+                _value: 0
+              },
+              vertical: {
+                _unit: 'pixelsUnit',
+                _value: 0
+              }
+            },
+            _isCommand: false,
+            _options: {
+              dialogOptions: 'dontDisplay'
+            }
+          }
+        ],
+        {}
+      )
+
+      const layer = photoshop.app.activeDocument.activeLayers[0]
+      if (!layer) {
+        throw new Error('图片置入失败')
+      }
+
+      try {
+        layer.name = `UXP 插入 ${image.label}`
+      } catch {
+        // Layer naming should not block a successful native placement.
+      }
+      await fitPlacedLayerToTarget(photoshop, layer, bounds)
+    },
+    { commandName: '置入插件图像', timeOut: 120 }
+  )
+}
+
+async function putCapturedImagePixels(image: CapturedCanvasImage, target: NormalizedInsertTarget) {
+  const photoshop = getPhotoshop()
+  const { left, top, width, height } = target
+
+  if (image.rgba.length < image.width * image.height * 4) {
+    throw new Error('图片像素尚未准备完成')
+  }
   const pixels = resizeRgba(image.rgba, image.width, image.height, width, height)
 
   await photoshop.core.executeAsModal(
@@ -693,10 +964,39 @@ export async function insertCapturedImage(
         imageData.dispose()
       }
     },
-    { commandName: '插入插件图像', timeOut: 2 }
+    { commandName: '插入插件图像', timeOut: 120 }
   )
 
   return { left, top, width, height }
+}
+
+export async function insertCapturedImage(
+  image: CapturedCanvasImage,
+  target: { left: number; top: number; width: number; height: number }
+) {
+  return putCapturedImagePixels(image, normalizeInsertTarget(target))
+}
+
+export async function insertPreviewImage(
+  image: CapturedCanvasImage,
+  target: { left: number; top: number; width: number; height: number }
+) {
+  const normalizedTarget = normalizeInsertTarget(target)
+  let temporaryFile: { file: UxpFile; token: string } | null = null
+
+  try {
+    temporaryFile = await createTemporaryPreviewFile(image)
+  } catch {
+    return putCapturedImagePixels(image, normalizedTarget)
+  }
+
+  try {
+    await placeTemporaryImageFile(image, temporaryFile, normalizedTarget)
+  } finally {
+    await deleteTemporaryFile(temporaryFile.file)
+  }
+
+  return normalizedTarget
 }
 
 export function readDocumentSize() {
