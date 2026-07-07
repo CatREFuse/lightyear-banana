@@ -1,4 +1,4 @@
-import { cpSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import path from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
@@ -64,7 +64,11 @@ function uxpPostBuildPlugin(): Plugin {
 
       mkdirSync(uxpOutDir, { recursive: true })
       copyFileSync(manifestSource, manifestTarget)
-      cpSync(iconsSource, iconsTarget, { recursive: true })
+      rmSync(iconsTarget, { recursive: true, force: true })
+      mkdirSync(iconsTarget, { recursive: true })
+      for (const iconFile of readdirSync(iconsSource)) {
+        copyFileSync(path.join(iconsSource, iconFile), path.join(iconsTarget, iconFile))
+      }
     }
   }
 }

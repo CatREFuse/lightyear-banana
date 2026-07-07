@@ -1,19 +1,70 @@
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { packager } from '@electron/packager'
 
+const require = createRequire(import.meta.url)
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'))
+const electronPackageJsonPath = require.resolve('electron/package.json')
+const electronPackageDir = path.dirname(electronPackageJsonPath)
+const electronPackageJson = JSON.parse(await readFile(electronPackageJsonPath, 'utf8'))
+const electronRuntimeDir = path.join(electronPackageDir, 'dist')
 const outDir = path.join(projectRoot, 'dist', 'win')
 const appName = 'Lightyear Banana'
+const packagedDir = path.join(outDir, `${appName}-win32-x64`)
 const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${packageJson.version}-win.zip`)
-const electronVersion = packageJson.devDependencies.electron.replace('^', '')
+const resourcesDir = path.join(packagedDir, 'resources')
+const appResourcesDir = path.join(resourcesDir, 'app')
 
 function run(command, args) {
   execFileSync(command, args, { cwd: projectRoot, stdio: 'inherit' })
+}
+
+function quotePowerShellString(value) {
+  return `'${String(value).replaceAll("'", "''")}'`
+}
+
+function copyDirectoryContents(source, destination) {
+  run('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    [
+      '$ErrorActionPreference = "Stop"',
+      `$source = ${quotePowerShellString(source)}`,
+      `$destination = ${quotePowerShellString(destination)}`,
+      'New-Item -ItemType Directory -Path $destination -Force | Out-Null',
+      'Copy-Item -Path (Join-Path $source "*") -Destination $destination -Recurse -Force'
+    ].join('; ')
+  ])
+}
+
+function copyPath(source, destination) {
+  if (statSync(source).isDirectory()) {
+    copyDirectoryContents(source, destination)
+    return
+  }
+
+  copyFileSync(source, destination)
+}
+
+function copyDist() {
+  const sourceDist = path.join(projectRoot, 'dist')
+  const packagedDist = path.join(appResourcesDir, 'dist')
+  const skippedEntries = new Set(['mac', 'win', 'ps-uxp', 'electron-icon', 'electron-dl'])
+
+  mkdirSync(packagedDist, { recursive: true })
+  for (const entry of readdirSync(sourceDist)) {
+    if (skippedEntries.has(entry)) {
+      continue
+    }
+
+    copyPath(path.join(sourceDist, entry), path.join(packagedDist, entry))
+  }
 }
 
 if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
@@ -21,55 +72,57 @@ if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
   process.exit(1)
 }
 
+if (!existsSync(path.join(electronRuntimeDir, 'electron.exe'))) {
+  throw new Error('Electron runtime not found. Run npm install first.')
+}
+
 rmSync(outDir, { force: true, recursive: true })
 rmSync(archivePath, { force: true })
 mkdirSync(outDir, { recursive: true })
 
-console.log(`Packaging Windows Electron v${electronVersion}...`)
+console.log(`Packaging Windows Electron v${electronPackageJson.version}...`)
 
-const appPaths = await packager({
-  dir: projectRoot,
-  name: appName,
-  platform: 'win32',
-  arch: 'x64',
-  out: outDir,
-  electronVersion,
-  download: {
-    mirrorOptions: {
-      mirror: 'https://npmmirror.com/mirrors/electron/',
-      customDir: 'v' + electronVersion
-    }
-  },
-  overwrite: true,
-  asar: false,
-  ignore: [
-    /(^|\/)node_modules($|\/)/,
-    /(^|\/)src($|\/)/,
-    /(^|\/)docs($|\/)/,
-    /(^|\/)ref($|\/)/,
-    /(^|\/)plugin($|\/)/,
-    /(^|\/)scripts($|\/)/,
-    /(^|\/)standalone-uxp-plugin($|\/)/,
-    /(^|\/)public($|\/)/,
-    /(^|\/)\.git($|\/)/,
-    /(^|\/)\.vscode($|\/)/,
-    /(^|\/)\.claude($|\/)/,
-    /tsconfig\./,
-    /vite\./,
-    /AGENTS\.md$/,
-    /uxp-panel\.html$/,
-    /\.DS_Store$/,
-    /(^|\/)dist\/mac($|\/)/,
-    /(^|\/)dist\/win($|\/)/,
-    /(^|\/)dist\/ps-uxp($|\/)/,
-    /(^|\/)dist\/electron-icon($|\/)/,
-    /(^|\/)dist\/electron-dl($|\/)/,
-    /package-lock\.json$/
-  ]
-})
+copyDirectoryContents(electronRuntimeDir, packagedDir)
+renameSync(path.join(packagedDir, 'electron.exe'), path.join(packagedDir, `${appName}.exe`))
+rmSync(path.join(resourcesDir, 'default_app.asar'), { force: true })
+rmSync(path.join(resourcesDir, 'default_app'), { force: true, recursive: true })
 
-const packagedDir = appPaths[0]
+mkdirSync(appResourcesDir, { recursive: true })
+copyDirectoryContents(path.join(projectRoot, 'electron'), path.join(appResourcesDir, 'electron'))
+copyDist()
+if (existsSync(path.join(projectRoot, 'favicon.svg'))) {
+  copyFileSync(path.join(projectRoot, 'favicon.svg'), path.join(appResourcesDir, 'favicon.svg'))
+}
+writeFileSync(
+  path.join(appResourcesDir, 'package.json'),
+  JSON.stringify(
+    {
+      name: packageJson.name,
+      version: packageJson.version,
+      type: 'module',
+      main: 'electron/main.js'
+    },
+    null,
+    2
+  )
+)
+
 console.log(`Windows app packaged: ${packagedDir}`)
 
-run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', packagedDir, archivePath])
+if (process.platform === 'win32') {
+  run('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    [
+      '$ErrorActionPreference = "Stop"',
+      `$source = ${quotePowerShellString(packagedDir)}`,
+      `$destination = ${quotePowerShellString(archivePath)}`,
+      'Compress-Archive -LiteralPath $source -DestinationPath $destination -Force'
+    ].join('; ')
+  ])
+} else {
+  run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', packagedDir, archivePath])
+}
 console.log(`Windows archive: ${archivePath}`)

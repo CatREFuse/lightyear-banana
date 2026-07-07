@@ -10,6 +10,7 @@ const listeners = new Map()
 const elements = new Map()
 const createdLayers = []
 const putPixelsCalls = []
+const selectionRequests = []
 
 function assert(condition, message) {
   if (!condition) {
@@ -159,9 +160,20 @@ const photoshop = {
     activeDocument: {
       id: 101,
       title: 'Smoke Test.psd',
-      width: 640,
-      height: 480,
-      activeLayers: [{ id: 7, name: 'Layer 1', bounds: { left: 10, top: 20, right: 210, bottom: 180 } }]
+      width: { _value: 640 },
+      height: { _value: 480 },
+      activeLayers: [
+        {
+          id: 7,
+          name: 'Layer 1',
+          bounds: {
+            left: { _value: 10 },
+            top: { _value: 20 },
+            right: { _value: 210 },
+            bottom: { _value: 180 }
+          }
+        }
+      ]
     }
   },
   core: {
@@ -182,13 +194,17 @@ const photoshop = {
       4,
       options.sourceBounds || { left: 0, top: 0, right: 128, bottom: 96 }
     ),
-    getSelection: async () => {
-      const width = 640
-      const height = 480
+    getSelection: async (options) => {
+      selectionRequests.push(options)
+      const sourceBounds = options.sourceBounds || { left: 0, top: 0, right: 640, bottom: 480 }
+      const width = Math.max(1, sourceBounds.right - sourceBounds.left)
+      const height = Math.max(1, sourceBounds.bottom - sourceBounds.top)
       const data = new Uint8Array(width * height)
       for (let y = 80; y < 220; y += 1) {
         for (let x = 120; x < 340; x += 1) {
-          data[y * width + x] = 255
+          if (x >= sourceBounds.left && x < sourceBounds.right && y >= sourceBounds.top && y < sourceBounds.bottom) {
+            data[(y - sourceBounds.top) * width + x - sourceBounds.left] = 255
+          }
         }
       }
       return {
@@ -199,7 +215,7 @@ const photoshop = {
           getData: async () => data,
           dispose: () => logs.push('dispose:selection')
         },
-        sourceBounds: { left: 0, top: 0, right: width, bottom: height }
+        sourceBounds
       }
     },
     createImageDataFromBuffer: async (data, options) => ({
@@ -273,6 +289,13 @@ await listeners.get('captureVisibleButton:click')()
 assert(ensureElement('referenceList').children.length === 1, 'reference strip was not rendered')
 assert(ensureElement('referenceCount').textContent === '1 / 4', 'reference count was not updated')
 
+listeners.get('clearReferencesButton:click')()
+await listeners.get('captureSelectionButton:click')()
+assert(selectionRequests[0]?.sourceBounds?.right === 640, 'selection capture did not read document _value width')
+assert(selectionRequests[0]?.sourceBounds?.bottom === 480, 'selection capture did not read document _value height')
+assert(ensureElement('referenceList').children.length === 1, 'selection reference was not rendered')
+assert(ensureElement('referenceCount').textContent === '1 / 4', 'selection reference count was not updated')
+
 await listeners.get('generateButton:click')()
 assert(ensureElement('threadContent').children.length === 1, 'result turn was not rendered')
 assert(ensureElement('referenceCount').textContent === '0 / 4', 'references were not cleared after generate')
@@ -298,9 +321,14 @@ listeners.get('uploadReferenceButton:click')()
 listeners.get('clipboardReferenceButton:click')()
 assert(ensureElement('referenceCount').textContent === '2 / 4', 'mock reference sources were not added')
 
+ensureElement('targetDropdown').value = 'current-selection'
 await placeAction.listeners.click()
 assert(putPixelsCalls.length === 1, 'putPixels was not called')
 assert(putPixelsCalls[0].documentID === 101, 'putPixels did not target active document')
 assert(typeof putPixelsCalls[0].layerID === 'number', 'putPixels did not target created layer')
+assert(putPixelsCalls[0].targetBounds.left === 120, 'selection insert did not use selection left')
+assert(putPixelsCalls[0].targetBounds.top === 80, 'selection insert did not use selection top')
+assert(putPixelsCalls[0].imageData.width === 220, 'selection insert did not use selection width')
+assert(putPixelsCalls[0].imageData.height === 140, 'selection insert did not use selection height')
 
 console.log('Standalone UXP plugin smoke test passed')

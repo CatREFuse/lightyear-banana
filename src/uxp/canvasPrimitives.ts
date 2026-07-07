@@ -35,8 +35,8 @@ type PhotoshopRuntime = {
   app: {
     activeDocument: {
       id: number
-      width: number
-      height: number
+      width: unknown
+      height: unknown
       activeLayers: PhotoshopLayer[]
     }
   }
@@ -82,21 +82,24 @@ async function executePhotoshopModal<T>(commandName: string, targetFunction: () 
   return photoshop.core.executeAsModal(targetFunction, { commandName, timeOut: 5 })
 }
 
-function getDocumentBounds(doc: { width: number; height: number }): PixelBounds {
+function getDocumentBounds(doc: { width: unknown; height: unknown }): PixelBounds {
+  const width = Math.max(1, Math.round(readCoordinate(doc.width) ?? 1))
+  const height = Math.max(1, Math.round(readCoordinate(doc.height) ?? 1))
+
   return {
     left: 0,
     top: 0,
-    right: Math.round(doc.width),
-    bottom: Math.round(doc.height)
+    right: width,
+    bottom: height
   }
 }
 
-function normalizeBounds(bounds: Partial<PixelBounds>, fallback: PixelBounds): PixelBounds {
+function normalizeBounds(bounds: Partial<Record<keyof PixelBounds, unknown>>, fallback: PixelBounds): PixelBounds {
   return {
-    left: Math.round(bounds.left ?? fallback.left),
-    top: Math.round(bounds.top ?? fallback.top),
-    right: Math.round(bounds.right ?? fallback.right),
-    bottom: Math.round(bounds.bottom ?? fallback.bottom)
+    left: Math.round(readCoordinate(bounds.left) ?? fallback.left),
+    top: Math.round(readCoordinate(bounds.top) ?? fallback.top),
+    right: Math.round(readCoordinate(bounds.right) ?? fallback.right),
+    bottom: Math.round(readCoordinate(bounds.bottom) ?? fallback.bottom)
   }
 }
 
@@ -110,6 +113,22 @@ function readCoordinate(value: unknown): number | null {
 
     if (typeof unitValue === 'number' && Number.isFinite(unitValue)) {
       return unitValue
+    }
+
+    if (typeof unitValue === 'string') {
+      const parsed = Number(unitValue)
+
+      if (Number.isFinite(parsed)) {
+        return parsed
+      }
+    }
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+
+    if (Number.isFinite(parsed)) {
+      return parsed
     }
   }
 
@@ -682,10 +701,10 @@ export async function insertCapturedImage(
 
 export function readDocumentSize() {
   const photoshop = getPhotoshop()
-  const doc = photoshop.app.activeDocument
+  const bounds = getDocumentBounds(photoshop.app.activeDocument)
 
   return {
-    width: Math.round(doc.width),
-    height: Math.round(doc.height)
+    width: bounds.right - bounds.left,
+    height: bounds.bottom - bounds.top
   }
 }

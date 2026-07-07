@@ -86,16 +86,26 @@ function readActiveDocument() {
   return app.activeDocument || null
 }
 
-function readUnitValue(value) {
-  if (typeof value === 'number') {
+function readUnitValue(value, fallback = 0) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value
   }
 
-  if (value && typeof value === 'object' && typeof value.value === 'number') {
-    return value.value
+  if (value && typeof value === 'object') {
+    const unitValue = value._value ?? value.value
+    if (unitValue !== undefined) {
+      return readUnitValue(unitValue, fallback)
+    }
   }
 
-  return Number(value) || 0
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return fallback
 }
 
 function readDocumentSize(document) {
@@ -111,8 +121,8 @@ function readDocumentSize(document) {
 
 function readImageDataSize(imageData) {
   return {
-    width: imageData.width || imageData.size?.width || 0,
-    height: imageData.height || imageData.size?.height || 0
+    width: Math.round(readUnitValue(imageData.width ?? imageData.size?.width)),
+    height: Math.round(readUnitValue(imageData.height ?? imageData.size?.height))
   }
 }
 
@@ -147,10 +157,10 @@ function readBounds(bounds, fallback) {
     return fallback
   }
 
-  const left = Math.max(0, Math.round(readUnitValue(bounds.left)))
-  const top = Math.max(0, Math.round(readUnitValue(bounds.top)))
-  const right = Math.max(left + 1, Math.round(readUnitValue(bounds.right)))
-  const bottom = Math.max(top + 1, Math.round(readUnitValue(bounds.bottom)))
+  const left = Math.max(0, Math.round(readUnitValue(bounds.left, fallback.left)))
+  const top = Math.max(0, Math.round(readUnitValue(bounds.top, fallback.top)))
+  const right = Math.max(left + 1, Math.round(readUnitValue(bounds.right, fallback.right)))
+  const bottom = Math.max(top + 1, Math.round(readUnitValue(bounds.bottom, fallback.bottom)))
 
   return { left, top, right, bottom }
 }
@@ -177,6 +187,10 @@ function buildFullBounds(document) {
     right: Math.max(1, size.width),
     bottom: Math.max(1, size.height)
   }
+}
+
+function executePhotoshopModal(commandName, callback) {
+  return core.executeAsModal(callback, { commandName, timeOut: 5 })
 }
 
 function toRgba(data, width, height, components) {
@@ -377,40 +391,42 @@ function readMaskBounds(maskData, width, height, sourceBounds) {
 }
 
 async function captureSelectionImage() {
-  const document = readActiveDocument()
-  if (!document) {
-    throw new Error('请先打开一个 Photoshop 文档')
-  }
+  return executePhotoshopModal('抓取选区图像', async () => {
+    const document = readActiveDocument()
+    if (!document) {
+      throw new Error('请先打开一个 Photoshop 文档')
+    }
 
-  let selectionResult
-  let pixelsResult
-  try {
-    const documentBounds = buildFullBounds(document)
-    selectionResult = await imaging.getSelection({
-      documentID: document.id,
-      sourceBounds: documentBounds
-    })
-    const selectionSize = readImageDataSize(selectionResult.imageData)
-    const selectionBuffer = await getImageDataBuffer(selectionResult.imageData)
-    const selectionSourceBounds = normalizeBounds(selectionResult.sourceBounds, documentBounds)
-    const selectionMask = toSelectionMask(
-      selectionBuffer,
-      selectionSize.width,
-      selectionSize.height,
-      selectionResult.imageData.components || 1
-    )
-    const bounds = readMaskBounds(selectionMask, selectionSize.width, selectionSize.height, selectionSourceBounds)
-    pixelsResult = await imaging.getPixels({
-      documentID: document.id,
-      sourceBounds: bounds,
-      colorSpace: 'RGB',
-      componentSize: 8
-    })
-    return await imageResultToCanvasImage('selection', '选区', pixelsResult, bounds)
-  } finally {
-    disposeImageData(selectionResult?.imageData)
-    disposeImageData(pixelsResult?.imageData)
-  }
+    let selectionResult
+    let pixelsResult
+    try {
+      const documentBounds = buildFullBounds(document)
+      selectionResult = await imaging.getSelection({
+        documentID: document.id,
+        sourceBounds: documentBounds
+      })
+      const selectionSize = readImageDataSize(selectionResult.imageData)
+      const selectionBuffer = await getImageDataBuffer(selectionResult.imageData)
+      const selectionSourceBounds = normalizeBounds(selectionResult.sourceBounds, documentBounds)
+      const selectionMask = toSelectionMask(
+        selectionBuffer,
+        selectionSize.width,
+        selectionSize.height,
+        selectionResult.imageData.components || 1
+      )
+      const bounds = readMaskBounds(selectionMask, selectionSize.width, selectionSize.height, selectionSourceBounds)
+      pixelsResult = await imaging.getPixels({
+        documentID: document.id,
+        sourceBounds: bounds,
+        colorSpace: 'RGB',
+        componentSize: 8
+      })
+      return await imageResultToCanvasImage('selection', '选区', pixelsResult, bounds)
+    } finally {
+      disposeImageData(selectionResult?.imageData)
+      disposeImageData(pixelsResult?.imageData)
+    }
+  })
 }
 
 function readGenerationOptions() {
@@ -917,32 +933,34 @@ async function createPixelLayer(name) {
 }
 
 async function readSelectionTarget() {
-  const document = readActiveDocument()
-  if (!document) {
-    throw new Error('请先打开一个 Photoshop 文档')
-  }
-
-  let selectionResult
-  try {
-    const documentBounds = buildFullBounds(document)
-    selectionResult = await imaging.getSelection({
-      documentID: document.id,
-      sourceBounds: documentBounds
-    })
-    const size = readImageDataSize(selectionResult.imageData)
-    const buffer = await getImageDataBuffer(selectionResult.imageData)
-    const sourceBounds = normalizeBounds(selectionResult.sourceBounds, documentBounds)
-    const mask = toSelectionMask(buffer, size.width, size.height, selectionResult.imageData.components || 1)
-    const bounds = readMaskBounds(mask, size.width, size.height, sourceBounds)
-    return {
-      left: bounds.left,
-      top: bounds.top,
-      width: bounds.right - bounds.left,
-      height: bounds.bottom - bounds.top
+  return executePhotoshopModal('读取选区位置', async () => {
+    const document = readActiveDocument()
+    if (!document) {
+      throw new Error('请先打开一个 Photoshop 文档')
     }
-  } finally {
-    disposeImageData(selectionResult?.imageData)
-  }
+
+    let selectionResult
+    try {
+      const documentBounds = buildFullBounds(document)
+      selectionResult = await imaging.getSelection({
+        documentID: document.id,
+        sourceBounds: documentBounds
+      })
+      const size = readImageDataSize(selectionResult.imageData)
+      const buffer = await getImageDataBuffer(selectionResult.imageData)
+      const sourceBounds = normalizeBounds(selectionResult.sourceBounds, documentBounds)
+      const mask = toSelectionMask(buffer, size.width, size.height, selectionResult.imageData.components || 1)
+      const bounds = readMaskBounds(mask, size.width, size.height, sourceBounds)
+      return {
+        left: bounds.left,
+        top: bounds.top,
+        width: bounds.right - bounds.left,
+        height: bounds.bottom - bounds.top
+      }
+    } finally {
+      disposeImageData(selectionResult?.imageData)
+    }
+  })
 }
 
 async function readInsertTarget() {
