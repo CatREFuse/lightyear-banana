@@ -1,5 +1,14 @@
 # AGENTS.md instructions for /Users/tanshow/Developer/lightyear-banana
 
+## Release Build Gate
+
+- 修改或提交 `package.json` 版本号前，必须先读取 `docs/build-todo-list.md`。
+- `docs/build-todo-list.md` 是版本提交、当前平台打包、跨平台派发判断、官网发布门禁的索引入口。
+- 提交版本号时必须打包当前平台版本：Windows 产出 `dist/lightyear-banana-$VERSION-win.zip`，macOS 产出 `dist/lightyear-banana-$VERSION-mac.zip`。
+- 不允许用跨平台临时包替代正式平台包。macOS 包必须由 macOS 环境打包，Windows 包必须由 Windows 环境打包。
+- 在 macOS 上打包时，必须判断是否需要派发 Windows 打包任务；在 Windows 上打包时，必须判断是否需要派发 macOS 打包任务。
+- 官网发布前必须确认 `dist/release-$VERSION/` 同时包含 macOS、Windows、CCX 和 `SHA256SUMS.txt`，否则只记录待办，不更新线上 `latest.json`。
+
 ## 拒绝 Comment 内容直接出现在最终产物文案中
 
 在执行文案写作任务（包含前端 coding 中的文案写作和文章写作任务时），需要时时刻刻主要你写的东西是面向**普通用户或者读者的**，因此的你的产物中不得包含任何包括工程性的文本（comment）。
