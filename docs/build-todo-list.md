@@ -36,5 +36,6 @@
 
 - Windows 包已由 Windows 环境构建并验证：`lightyear-banana-0.3.8-win.zip`。
 - CCX 已构建并验证：`lightyear-banana-0.3.8.ccx`。
-- macOS 包需要在 macOS 环境构建：`lightyear-banana-0.3.8-mac.zip`。
-- 官网发布等待 macOS 打包完成后继续。
+- macOS 包已由 macOS 环境构建并验证：`lightyear-banana-0.3.8-mac.zip`。
+- 官网 `latest.json` 已发布到 `https://cake.catrefuse.com/releases/latest.json`。
+- 线上下载资产已发布到 `https://cake.catrefuse.com/releases/0.3.8/`。
