@@ -68,9 +68,10 @@ const {
 
 const themeMode = shallowRef<'dark' | 'light'>('dark')
 const routeTransitionName = computed(() => (activeView.value === 'settings' ? 'route-forward' : 'route-back'))
+const appTitle = computed(() => `Lightyear Banana v${__LIGHTYEAR_VERSION__}`)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return 'Lightyear Banana v0.1'
+    return appTitle.value
   }
 
   if (settingsView.value === 'list') {

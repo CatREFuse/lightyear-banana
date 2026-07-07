@@ -2,6 +2,7 @@ const uxp = require('uxp')
 const photoshop = require('photoshop')
 const { app, core, imaging, action } = photoshop
 const LOG_PREFIX = '[Lightyear Banana Standalone]'
+const APP_TITLE = 'Lightyear Banana v0.3.8'
 
 console.log(LOG_PREFIX, 'script loaded')
 
@@ -1053,7 +1054,7 @@ function showWorkspace() {
   refs.settingsRoute.classList.add('is-hidden')
   refs.backButton.classList.add('is-hidden')
   refs.settingsButton.classList.remove('is-hidden')
-  refs.titleText.textContent = 'Lightyear Banana v0.1'
+  refs.titleText.textContent = APP_TITLE
   updateDocumentInfo()
 }
 

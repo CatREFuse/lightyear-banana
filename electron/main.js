@@ -15,7 +15,7 @@ const BRIDGE_PORT = Number(process.env.LIGHTYEAR_BRIDGE_PORT || 38321)
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.7.ccx'
+const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.8.ccx'
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.ccx': 'application/octet-stream',

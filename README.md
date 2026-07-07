@@ -10,20 +10,20 @@ Lightyear Banana 由桌面本体和 Photoshop CCX 插件一起工作。桌面本
 
 同一版本需要下载 2 个文件：
 
-- macOS 用户：`lightyear-banana-0.3.7-mac.zip` 和 `lightyear-banana-0.3.7.ccx`
-- Windows 用户：`lightyear-banana-0.3.7-win.zip` 和 `lightyear-banana-0.3.7.ccx`
+- macOS 用户：`lightyear-banana-0.3.8-mac.zip` 和 `lightyear-banana-0.3.8.ccx`
+- Windows 用户：`lightyear-banana-0.3.8-win.zip` 和 `lightyear-banana-0.3.8.ccx`
 
 ### 1. 安装桌面本体
 
 macOS：
 
-1. 解压 `lightyear-banana-0.3.7-mac.zip`。
+1. 解压 `lightyear-banana-0.3.8-mac.zip`。
 2. 把 `Lightyear Banana.app` 拖到“应用程序”文件夹。
 3. 打开 `Lightyear Banana.app`。
 
 Windows：
 
-1. 解压 `lightyear-banana-0.3.7-win.zip`。
+1. 解压 `lightyear-banana-0.3.8-win.zip`。
 2. 打开解压后的文件夹。
 3. 运行 `Lightyear Banana.exe`。
 
@@ -34,7 +34,7 @@ Windows：
 推荐使用 Adobe Creative Cloud 桌面端安装：
 
 1. 打开 Adobe Creative Cloud 桌面端。
-2. 把 `lightyear-banana-0.3.7.ccx` 拖进 Creative Cloud 窗口。
+2. 把 `lightyear-banana-0.3.8.ccx` 拖进 Creative Cloud 窗口。
 3. 按照弹窗完成安装。
 4. 重启 Photoshop，或在 Photoshop 中重新打开插件菜单。
 
@@ -144,9 +144,9 @@ npm run package:electron:win
 
 常用产物：
 
-- `dist/lightyear-banana-0.3.7.ccx`
-- `dist/lightyear-banana-0.3.7-mac.zip`
-- `dist/lightyear-banana-0.3.7-win.zip`
-- `dist/release-0.3.7/`
+- `dist/lightyear-banana-0.3.8.ccx`
+- `dist/lightyear-banana-0.3.8-mac.zip`
+- `dist/lightyear-banana-0.3.8-win.zip`
+- `dist/release-0.3.8/`
 
 修改 Vue、TypeScript、CSS 后运行 `npm run build:uxp`。完成 UXP 相关改动后至少运行 `npm run verify:uxp`。修改 manifest、entrypoint、icon 或权限后，在 UXP Developer Tools 中执行 Unload，再重新 Load。
