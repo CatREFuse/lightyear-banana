@@ -27,6 +27,29 @@ function run(command, args) {
   })
 }
 
+function readCommand(command, args) {
+  return execFileSync(command, args, {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+}
+
+function readCodesignIdentity() {
+  const configuredIdentity = process.env.LIGHTYEAR_MAC_CODESIGN_IDENTITY?.trim()
+  if (configuredIdentity) {
+    return configuredIdentity
+  }
+
+  try {
+    const identities = readCommand('security', ['find-identity', '-v', '-p', 'codesigning'])
+    const match = identities.match(/"([^"]*Developer ID Application:[^"]+)"/)
+    return match?.[1] || '-'
+  } catch {
+    return '-'
+  }
+}
+
 function generateBananaIcon() {
   const iconWorkDir = path.join(projectRoot, 'dist', 'electron-icon')
   const sourcePng = path.join(iconWorkDir, 'banana-1024.png')
@@ -134,8 +157,15 @@ run('plutil', [
 ])
 run('plutil', ['-remove', 'ElectronAsarIntegrity', plistPath])
 
+const codesignIdentity = readCodesignIdentity()
 try {
-  run('codesign', ['--force', '--deep', '--sign', '-', appPath])
+  const codesignArgs = ['--force', '--deep', '--sign', codesignIdentity]
+  if (codesignIdentity !== '-') {
+    codesignArgs.splice(2, 0, '--options', 'runtime', '--timestamp')
+  }
+
+  run('codesign', [...codesignArgs, appPath])
+  console.log(`codesign completed with identity: ${codesignIdentity}`)
 } catch {
   console.warn('codesign skipped. The app was packaged but may need local approval before launch.')
 }
