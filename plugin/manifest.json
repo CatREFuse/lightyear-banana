@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.tanshow.lightyearbanana",
   "name": "Lightyear Banana",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "main": "uxp-panel.html",
   "host": {
     "app": "PS",

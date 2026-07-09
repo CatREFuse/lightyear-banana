@@ -103,6 +103,8 @@ const apimartPollIntervalMs = 5000
 const apimartPollAttempts = 99
 const iMiniPollIntervalMs = 2000
 const iMiniPollAttempts = 99
+const originalRatioOption = '原图比例'
+const legacyAutoRatioOption = '自动'
 const apimartGemini31AspectRatios = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
 const apimartGeminiProAspectRatios = ['auto', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
 const apimartGptImage1AspectRatios = ['1:1', '3:2', '2:3']
@@ -528,8 +530,9 @@ function buildKlingRequest(params: ImageGenerationParams) {
 
 function buildGeminiRequest(params: ImageGenerationParams) {
   const imageConfig: Record<string, string> = {}
-  if (params.ratio !== '原图比例') {
-    imageConfig.aspectRatio = params.ratio
+  const aspectRatio = readRequestedAspectRatio(params)
+  if (aspectRatio) {
+    imageConfig.aspectRatio = aspectRatio
   }
   if (params.size !== '默认') {
     imageConfig.imageSize = readGeminiImageSize(params.size)
@@ -716,7 +719,7 @@ function readApimartResolution(model: string, size: string): string | undefined 
 }
 
 function normalizeApimartAspectRatio(model: string, value: string, fallback = 'auto') {
-  const normalized = value === '自动' ? 'auto' : value
+  const normalized = value === legacyAutoRatioOption ? 'auto' : value
   return new Set(readApimartAspectRatioOptions(model)).has(normalized) ? normalized : fallback
 }
 
@@ -743,14 +746,14 @@ function findNearestApimartAspectRatio(model: string, dimensions?: { width: numb
 
 function readApimartSourceDimensions(params: ImageGenerationParams) {
   if (params.ratio === '画布比例') {
-    return readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+    return readDimensionsRatio(params.canvasSize) ?? readFirstReferenceDimensions(params.references)
   }
 
   if (params.ratio === '自定义') {
-    return parseDimensionText(params.size) ?? readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+    return parseDimensionText(params.size) ?? readDimensionsRatio(params.canvasSize) ?? readFirstReferenceDimensions(params.references)
   }
 
-  return readDimensionsRatio(params.references[0]?.image) ?? readDimensionsRatio(params.canvasSize)
+  return readFirstReferenceDimensions(params.references) ?? readDimensionsRatio(params.canvasSize)
 }
 
 function readApimartAspectRatio(params: ImageGenerationParams) {
@@ -763,10 +766,18 @@ function readApimartAspectRatio(params: ImageGenerationParams) {
     }
   }
 
-  if (params.ratio === '自动' || params.ratio === '原图比例' || params.ratio === '参考图比例') {
-    return isApimartGptImage1Model(params.config.model)
-      ? findNearestApimartAspectRatio(params.config.model, readApimartSourceDimensions(params))
-      : normalizeApimartAspectRatio(params.config.model, 'auto', defaultRatio)
+  if (params.ratio === legacyAutoRatioOption || params.ratio === originalRatioOption || params.ratio === '参考图比例') {
+    const dimensions = readApimartSourceDimensions(params)
+    if (!dimensions) {
+      return defaultRatio
+    }
+
+    if (isApimartGptImage1Model(params.config.model)) {
+      return findNearestApimartAspectRatio(params.config.model, dimensions)
+    }
+
+    const ratio = normalizeApimartAspectRatio(params.config.model, formatAspectRatio(dimensions), defaultRatio)
+    return ratio === defaultRatio && defaultRatio !== 'auto' ? findNearestApimartAspectRatio(params.config.model, dimensions) : ratio
   }
 
   const selectedRatio = parseRatioText(params.ratio)
@@ -953,14 +964,14 @@ function findNearestIMiniAspectRatio(model: string, dimensions?: { width: number
 
 function readIMiniSourceDimensions(params: ImageGenerationParams) {
   if (params.ratio === '画布比例') {
-    return readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+    return readDimensionsRatio(params.canvasSize) ?? readFirstReferenceDimensions(params.references)
   }
 
   if (params.ratio === '自定义') {
-    return parseDimensionText(params.size) ?? readDimensionsRatio(params.canvasSize) ?? readDimensionsRatio(params.references[0]?.image)
+    return parseDimensionText(params.size) ?? readDimensionsRatio(params.canvasSize) ?? readFirstReferenceDimensions(params.references)
   }
 
-  return readDimensionsRatio(params.references[0]?.image) ?? readDimensionsRatio(params.canvasSize)
+  return readFirstReferenceDimensions(params.references) ?? readDimensionsRatio(params.canvasSize)
 }
 
 function readIMiniAspectRatio(params: ImageGenerationParams) {
@@ -1398,16 +1409,54 @@ function readDimensionsRatio(dimensions?: { width: number; height: number }) {
   return { width, height }
 }
 
+function readImageSourceDimensions(image?: ReferenceImage['image']) {
+  if (!image) {
+    return undefined
+  }
+
+  const boundsWidth = Math.abs(image.sourceBounds.right - image.sourceBounds.left)
+  const boundsHeight = Math.abs(image.sourceBounds.bottom - image.sourceBounds.top)
+  return readDimensionsRatio({
+    width: boundsWidth || image.width,
+    height: boundsHeight || image.height
+  })
+}
+
+function readFirstReferenceDimensions(references: ReferenceImage[]) {
+  return readImageSourceDimensions(references[0]?.image)
+}
+
+function readRequestedAspectDimensions(
+  params: Pick<ImageGenerationParams, 'canvasSize' | 'ratio' | 'references' | 'size'>
+) {
+  const normalized = params.ratio.trim()
+  const selectedRatio = parseRatioText(normalized)
+  if (selectedRatio) {
+    return selectedRatio
+  }
+
+  if (normalized === originalRatioOption || normalized === '参考图比例' || normalized === legacyAutoRatioOption) {
+    return readFirstReferenceDimensions(params.references)
+  }
+
+  if (normalized === '画布比例') {
+    return readDimensionsRatio(params.canvasSize) ?? readFirstReferenceDimensions(params.references)
+  }
+
+  if (normalized === '自定义') {
+    return parseDimensionText(params.size) ?? readDimensionsRatio(params.canvasSize) ?? readFirstReferenceDimensions(params.references)
+  }
+
+  return undefined
+}
+
+function readRequestedAspectRatio(params: Pick<ImageGenerationParams, 'canvasSize' | 'ratio' | 'references' | 'size'>) {
+  const dimensions = readRequestedAspectDimensions(params)
+  return dimensions ? formatAspectRatio(dimensions) : undefined
+}
+
 function resolveCodexAspectDimensions(params: Pick<ImageGenerationParams, 'canvasSize' | 'ratio' | 'references' | 'size'>) {
-  if (params.ratio === '参考图比例' || params.ratio === '原图比例') {
-    return readDimensionsRatio(params.references[0]?.image) ?? parseRatioText(params.size) ?? { width: 16, height: 9 }
-  }
-
-  if (params.ratio === '画布比例') {
-    return readDimensionsRatio(params.canvasSize) ?? parseRatioText(params.size) ?? { width: 16, height: 9 }
-  }
-
-  return parseRatioText(params.ratio) ?? parseRatioText(params.size) ?? { width: 16, height: 9 }
+  return readRequestedAspectDimensions(params) ?? parseRatioText(params.size) ?? { width: 16, height: 9 }
 }
 
 function roundDownToMultiple(value: number, multiple: number) {
@@ -1495,6 +1544,10 @@ function shouldResolveSizePresetToPixels(config: ModelConfig) {
   )
 }
 
+function shouldResolveOpenAiLikeSize(config: ModelConfig) {
+  return config.provider === 'openai' || (config.provider === 'custom-openai' && readCustomModelFormat(config) === 'openai-images')
+}
+
 function deriveCodexSizeForRatio(aspect: { width: number; height: number }, maxEdge: number, maxPixels: number) {
   const sourceRatio = aspect.width / aspect.height
   const ratio = Math.max(1 / gptImage2MaxRatio, Math.min(gptImage2MaxRatio, sourceRatio))
@@ -1537,6 +1590,17 @@ function deriveCodexSizeForRatio(aspect: { width: number; height: number }, maxE
   return `${candidate.width}x${candidate.height}`
 }
 
+function resolveOpenAiLikeSize(params: Pick<ImageGenerationParams, 'canvasSize' | 'config' | 'ratio' | 'references' | 'size'>) {
+  const aspect = readRequestedAspectDimensions(params)
+  if (!aspect) {
+    return params.size
+  }
+
+  const lowerSize = params.size.toLowerCase()
+  const preset = codexSizePresets.get(lowerSize) ?? (lowerSize === 'auto' ? { maxEdge: 1024, maxPixels: 1024 * 1024 } : undefined)
+  return preset ? deriveCodexSizeForRatio(aspect, preset.maxEdge, preset.maxPixels) : params.size
+}
+
 export function resolveImageRequestSize(params: Pick<ImageGenerationParams, 'canvasSize' | 'config' | 'ratio' | 'references' | 'size'>) {
   const pixelDimensions = parseDimensionText(params.size)
   if (pixelDimensions) {
@@ -1548,6 +1612,10 @@ export function resolveImageRequestSize(params: Pick<ImageGenerationParams, 'can
     if (preset) {
       return deriveCodexSizeForRatio(resolveCodexAspectDimensions(params), preset.maxEdge, preset.maxPixels)
     }
+  }
+
+  if (shouldResolveOpenAiLikeSize(params.config)) {
+    return resolveOpenAiLikeSize(params)
   }
 
   if (shouldResolveSizePresetToPixels(params.config)) {

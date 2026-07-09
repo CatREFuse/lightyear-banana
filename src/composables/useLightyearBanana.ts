@@ -237,6 +237,10 @@ function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
 }
 
+function readDefaultRatio(options: string[], fallback = ''): string {
+  return options.find((option) => option === '原图比例') ?? options[0] ?? fallback
+}
+
 function normalizeModelList(models: unknown, selectedModel: string, fallbackModels: string[] = []) {
   const rawModels = Array.isArray(models) ? models.filter((item): item is string => typeof item === 'string') : []
   const normalized = uniqueStrings([...rawModels, selectedModel, ...(rawModels.length ? [] : fallbackModels)])
@@ -633,7 +637,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const customHeight = shallowRef(2048)
   const quality = shallowRef(readDefaultQuality(initialCapability.qualityOptions))
   const count = shallowRef(initialCapability.countOptions.includes(1) ? 1 : initialCapability.countOptions[0] ?? 1)
-  const ratio = shallowRef(initialCapability.ratioOptions.includes('原图比例') ? '原图比例' : initialCapability.ratioOptions[0] ?? '')
+  const ratio = shallowRef(readDefaultRatio(initialCapability.ratioOptions))
   const installPluginUrl = shallowRef('')
   const editingConfigId = shallowRef(activeConfigId.value)
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
@@ -684,11 +688,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     size.value = capability.sizeOptions.includes(size.value) ? size.value : readDefaultSize(capability.sizeOptions)
     quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : readDefaultQuality(capability.qualityOptions)
     count.value = readRequestCountForCapability(count.value, capability)
-    ratio.value = capability.ratioOptions.includes(ratio.value)
-      ? ratio.value
-      : capability.ratioOptions.includes('原图比例')
-        ? '原图比例'
-        : capability.ratioOptions[0] ?? ratio.value
+    ratio.value = capability.ratioOptions.includes(ratio.value) ? ratio.value : readDefaultRatio(capability.ratioOptions, ratio.value)
   })
 
   function readCapabilityForConfig(configId: string) {
@@ -962,6 +962,7 @@ function readHighestQuality(options: string[]): string {
       return
     }
 
+    const isFirstReference = references.value.length === 0
     references.value = [
       ...references.value,
       {
@@ -971,6 +972,9 @@ function readHighestQuality(options: string[]): string {
         image
       }
     ]
+    if (isFirstReference) {
+      ratio.value = readDefaultRatio(activeCapability.value.ratioOptions, ratio.value)
+    }
     status.value = `已添加${referenceLabels[source]}`
   }
 
@@ -1096,11 +1100,7 @@ function readHighestQuality(options: string[]): string {
     size.value = readDefaultSize(capability.sizeOptions)
     quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : readDefaultQuality(capability.qualityOptions)
     count.value = capability.countOptions.includes(count.value) ? count.value : capability.countOptions[0] ?? 1
-    ratio.value = capability.ratioOptions.includes(ratio.value)
-      ? ratio.value
-      : capability.ratioOptions.includes('原图比例')
-        ? '原图比例'
-        : capability.ratioOptions[0] ?? ratio.value
+    ratio.value = readDefaultRatio(capability.ratioOptions, ratio.value)
   }
 
   async function buildGeneratedImagesFromApi(
@@ -1724,9 +1724,7 @@ function readHighestQuality(options: string[]): string {
       size.value = capability.sizeOptions.includes(selectedSize) ? selectedSize : readDefaultSize(capability.sizeOptions)
       ratio.value = capability.ratioOptions.includes(snapshot.ratio)
         ? snapshot.ratio
-        : capability.ratioOptions.includes('原图比例')
-          ? '原图比例'
-          : capability.ratioOptions[0] ?? ratio.value
+        : readDefaultRatio(capability.ratioOptions, ratio.value)
     }
 
     activeView.value = 'workspace'
@@ -1833,7 +1831,7 @@ function readHighestQuality(options: string[]): string {
     size.value = readUpscaleSize(capability.sizeOptions)
     quality.value = readHighestQuality(capability.qualityOptions)
     count.value = capability.countOptions.includes(1) ? 1 : capability.countOptions[0] ?? 1
-    ratio.value = capability.ratioOptions.includes('原图比例') ? '原图比例' : capability.ratioOptions[0] ?? ratio.value
+    ratio.value = readDefaultRatio(capability.ratioOptions, ratio.value)
     prompt.value = '提升分辨率'
     references.value = [
       {

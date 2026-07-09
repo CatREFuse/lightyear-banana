@@ -3,11 +3,11 @@ import type { CustomModelFormat, ImageProviderId, ModelConfig, ProviderCapabilit
 const gptImageQualityOptions = ['auto', 'high', 'medium', 'low']
 const openAiImageSizeOptions = ['auto', '1024x1024', '1536x1024', '1024x1536']
 const customSizeOptions = ['1k', '2k', '4k']
-const apimartGemini31RatioOptions = ['自动', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
-const apimartGeminiProRatioOptions = ['自动', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
-const apimartGptImage1RatioOptions = ['1:1', '3:2', '2:3']
-const apimartGptImage2RatioOptions = ['1:1', '自动', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
-const apimartSeedream5LiteRatioOptions = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9', '自动']
+const apimartGemini31RatioOptions = ['原图比例', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
+const apimartGeminiProRatioOptions = ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
+const apimartGptImage1RatioOptions = ['原图比例', '1:1', '3:2', '2:3']
+const apimartGptImage2RatioOptions = ['原图比例', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
+const apimartSeedream5LiteRatioOptions = ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9']
 const iMiniModelOptions = ['google/nano-banana', 'google/nano-banana-pro', 'google/nano-banana-2', 'openai/gpt-image-2']
 const iMiniStandardRatioOptions = ['原图比例', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
 const iMiniNanoBanana2RatioOptions = [...iMiniStandardRatioOptions, '1:4', '1:8', '4:1', '8:1']
@@ -74,7 +74,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     sizeOptions: ['0.5K', '1K', '2K', '4K'],
     qualityOptions: ['自动'],
     countOptions: [1, 2, 3, 4],
-    ratioOptions: ['自动', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'],
+    ratioOptions: ['原图比例', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'],
     supportsBaseUrl: false,
     officialBaseUrl: 'https://api.apimart.ai'
   },
