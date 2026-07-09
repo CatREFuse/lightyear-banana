@@ -32,10 +32,10 @@
 - `npm run build:site` 通过后才允许部署官网。
 - 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
 
-## 当前 0.3.8 状态
+## 当前 0.3.9 状态
 
-- Windows 包已由 Windows 环境构建并验证：`lightyear-banana-0.3.8-win.zip`。
-- CCX 已构建并验证：`lightyear-banana-0.3.8.ccx`。
-- macOS 包已由 macOS 环境构建并验证：`lightyear-banana-0.3.8-mac.zip`。
-- 官网 `latest.json` 已发布到 `https://cake.catrefuse.com/releases/latest.json`。
-- 线上下载资产已发布到 `https://cake.catrefuse.com/releases/0.3.8/`。
+- macOS 包已由 macOS 环境构建并验证：`lightyear-banana-0.3.9-mac.zip`。
+- Windows 包已在 macOS 上强制本地打包：`lightyear-banana-0.3.9-win.zip`；官网正式发布前仍需 Windows 环境重新打包并验证。
+- CCX 已构建并验证：`lightyear-banana-0.3.9.ccx`。
+- `dist/release-0.3.9/` 已生成本地 `SHA256SUMS.txt`。
+- 官网 `latest.json` 暂不更新，需等待 Windows 环境正式包就绪。

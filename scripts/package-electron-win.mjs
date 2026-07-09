@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -11,7 +11,10 @@ const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.js
 const electronPackageJsonPath = require.resolve('electron/package.json')
 const electronPackageDir = path.dirname(electronPackageJsonPath)
 const electronPackageJson = JSON.parse(await readFile(electronPackageJsonPath, 'utf8'))
-const electronRuntimeDir = path.join(electronPackageDir, 'dist')
+const electronRuntimeOverride = process.env.LIGHTYEAR_ELECTRON_WIN_RUNTIME_DIR?.trim()
+const electronRuntimeDir = electronRuntimeOverride
+  ? path.resolve(projectRoot, electronRuntimeOverride)
+  : path.join(electronPackageDir, 'dist')
 const outDir = path.join(projectRoot, 'dist', 'win')
 const appName = 'Lightyear Banana'
 const packagedDir = path.join(outDir, `${appName}-win32-x64`)
@@ -19,8 +22,8 @@ const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${packag
 const resourcesDir = path.join(packagedDir, 'resources')
 const appResourcesDir = path.join(resourcesDir, 'app')
 
-function run(command, args) {
-  execFileSync(command, args, { cwd: projectRoot, stdio: 'inherit' })
+function run(command, args, options = {}) {
+  execFileSync(command, args, { cwd: options.cwd ?? projectRoot, stdio: 'inherit' })
 }
 
 function quotePowerShellString(value) {
@@ -28,6 +31,14 @@ function quotePowerShellString(value) {
 }
 
 function copyDirectoryContents(source, destination) {
+  if (process.platform !== 'win32') {
+    mkdirSync(destination, { recursive: true })
+    for (const entry of readdirSync(source)) {
+      cpSync(path.join(source, entry), path.join(destination, entry), { force: true, recursive: true })
+    }
+    return
+  }
+
   run('powershell.exe', [
     '-NoProfile',
     '-ExecutionPolicy',
@@ -59,7 +70,7 @@ function copyDist() {
 
   mkdirSync(packagedDist, { recursive: true })
   for (const entry of readdirSync(sourceDist)) {
-    if (skippedEntries.has(entry)) {
+    if (skippedEntries.has(entry) || entry.endsWith('.zip') || entry.startsWith('release-')) {
       continue
     }
 
@@ -123,6 +134,6 @@ if (process.platform === 'win32') {
     ].join('; ')
   ])
 } else {
-  run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', packagedDir, archivePath])
+  run('zip', ['-r', '-q', archivePath, path.basename(packagedDir)], { cwd: outDir })
 }
 console.log(`Windows archive: ${archivePath}`)
