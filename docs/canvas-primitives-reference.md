@@ -56,7 +56,7 @@ type CapturedCanvasImage = {
 | 能力 | 服务层方法 | 底层 Photoshop 能力 | 返回 |
 | --- | --- | --- | --- |
 | 抓取可见图像 | `captureVisibleImage()` | `imaging.getPixels({ documentID })` | `CapturedCanvasImage` |
-| 抓取选区图像 | `captureSelectionImage()` | `imaging.getSelection()` + `imaging.getPixels()` | `CapturedCanvasImage` |
+| 抓取选区图像 | `captureSelectionImage()` | `imaging.getSelection()` + 可见合成图 `imaging.getPixels({ documentID })` | `CapturedCanvasImage` |
 | 抓取选中图层 | `captureSelectedLayerImage()` | `imaging.getPixels({ layerID })` | `CapturedCanvasImage` |
 | 读取画布尺寸 | `readCanvasSize()` | `app.activeDocument.width/height` | `CanvasSize` |
 | 读取选区写入位置 | `readSelectionTarget()` | `imaging.getSelection()` | `CanvasInsertTarget` |
@@ -110,6 +110,7 @@ await canvasPrimitiveService.insertImage(image, {
 - 调用 `imaging.getPixels()`、`imaging.getSelection()`、`imaging.putPixels()`。
 - 处理图层 bounds、选区 mask、RGBA 转换、预览 data URL。
 - 释放 `PhotoshopImageData`。
+- 选区图像必须读取所有可见图层的合成结果，不传 `layerID`。
 
 ## 使用约定
 

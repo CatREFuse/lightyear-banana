@@ -47,7 +47,7 @@ type CapturedCanvasImage = {
 | 能力 | 服务层方法 | 底层能力 |
 | --- | --- | --- |
 | 抓取可见图像 | `captureVisibleImage()` | `imaging.getPixels({ documentID })` |
-| 抓取选区图像 | `captureSelectionImage()` | `imaging.getSelection()` + `imaging.getPixels()` |
+| 抓取选区图像 | `captureSelectionImage()` | `imaging.getSelection()` + 可见合成图 `imaging.getPixels({ documentID })` |
 | 抓取选中图层 | `captureSelectedLayerImage()` | `imaging.getPixels({ layerID })` |
 | 创建 sample 图片 | `createSampleImage()` | 本地 RGBA buffer |
 | 读取画布尺寸 | `readCanvasSize()` | `app.activeDocument.width/height` |
@@ -89,6 +89,7 @@ await canvasPrimitiveService.insertImage(image, {
 
 - `getPixels()` 用于读取可见合成图或指定图层。
 - `getSelection()` 用于读取选区 mask。
+- 选区图像读取必须使用所有可见图层的合成结果，不能传 `layerID` 退化为当前选中图层。
 - `putPixels()` 用于写入像素。
 - `encodeImageData()` 用于生成面板预览。
 - 写入 Photoshop 文档时进入 `core.executeAsModal()`。

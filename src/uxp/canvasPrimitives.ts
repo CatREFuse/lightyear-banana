@@ -638,11 +638,12 @@ async function encodeRgbaPreview(photoshop: PhotoshopRuntime, rgba: Uint8Array, 
   }
 }
 
-async function getCompositePixels(bounds?: PixelBounds) {
+async function getVisibleCompositePixels(bounds?: PixelBounds) {
   const photoshop = getPhotoshop()
   const doc = photoshop.app.activeDocument
   const documentBounds = getDocumentBounds(doc)
   const sourceBounds = bounds ?? documentBounds
+  // No layerID here: selection capture must sample all visible layers in the document composite.
   const result = await photoshop.imaging.getPixels({
     documentID: doc.id,
     sourceBounds,
@@ -735,7 +736,7 @@ async function getLayerPixels(layer: PhotoshopLayer, bounds?: PixelBounds) {
 export async function captureVisibleComposite(): Promise<CapturedCanvasImage> {
   return executePhotoshopModal('抓取可见图像', async () => {
     const photoshop = getPhotoshop()
-    const captured = await getCompositePixels()
+    const captured = await getVisibleCompositePixels()
     const previewUrl = await encodeRgbaPreview(photoshop, captured.rgba, captured.width, captured.height)
 
     return {
@@ -779,7 +780,7 @@ export async function captureSelectionComposite(): Promise<CapturedCanvasImage> 
     const photoshop = getPhotoshop()
     const selection = await getSelectionPixels()
     const selectionBounds = selection.selectionBounds
-    const composite = await getCompositePixels(selectionBounds)
+    const composite = await getVisibleCompositePixels(selectionBounds)
     const mask = cropMaskToBounds(
       selection.mask,
       selection.width,

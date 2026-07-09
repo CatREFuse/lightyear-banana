@@ -56,6 +56,8 @@
 
 ## 开发约定
 
+- 所有功能改动必须符合需求文档；动手前先核对 `docs/lightyear-banana-prototype-requirements.md` 和相关交互文档，改完后自查本次变更是否违背需求文档。
+- 如果实现和需求文档不一致，先更新或确认需求文档，再继续改代码；不得把临时实现默认为新需求。
 - 新增 Photoshop 画布能力时，先在 `src/uxp/canvasPrimitives.ts` 增加最小原子函数，再由 `src/uxp/canvasPrimitiveService.ts` 暴露服务层方法。
 - Vue 组件和 composable 不直接拼复杂 batchPlay descriptor。
 - 修改 Photoshop 文档状态的操作必须进入 `core.executeAsModal()`。

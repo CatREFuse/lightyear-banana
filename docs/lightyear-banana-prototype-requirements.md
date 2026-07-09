@@ -124,7 +124,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 | 来源 | 当前状态 | 说明 |
 | --- | --- | --- |
 | 可见图层 | 已接 Photoshop | 抓取当前文档可见合成图 |
-| 选区 | 已接 Photoshop | 抓取当前选区合成图和选区 bounds |
+| 选区 | 已接 Photoshop | 抓取当前选区内所有可见图层的合成图和选区 bounds |
 | 当前选中图层 | 已接 Photoshop | 抓取当前 active layer 像素 |
 | 上传文件 | 占位 | 当前使用 mock 图像 |
 | 剪贴板 | 占位 | 当前使用 mock 图像 |
@@ -135,6 +135,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 面板显示 `参考图 当前数量 / 当前模型上限`。
 - 达到上限后不能继续添加。
 - 可见图层、选区、选中图层在 Photoshop UXP 中调用 `canvasPrimitiveService`。
+- 选区参考图必须来自所有可见图层的合成结果，不能只读取当前选中图层的像素。
 - 浏览器预览中使用 mock 图像。
 - 用户可以删除单张参考图。
 - 用户可以清空全部参考图。
