@@ -72,6 +72,7 @@ export type PlacementTarget =
 export type ImageProviderId =
   | 'openai'
   | 'gemini'
+  | 'apimart'
   | 'seedream'
   | 'qwen'
   | 'kling'

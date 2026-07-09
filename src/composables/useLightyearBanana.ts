@@ -264,6 +264,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
     )
   }
 
+  function readDefaultRatio(options: string[]) {
+    return options.find((option) => option === '原图比例') ?? options[0] ?? ratio.value
+  }
+
   function showToast(message: string) {
     toastMessage.value = message
     if (toastTimer) {
@@ -353,6 +357,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
       return
     }
 
+    const isFirstReference = references.value.length === 0
     references.value = [
       ...references.value,
       {
@@ -362,6 +367,9 @@ export function useLightyearBanana(runtime: RuntimeName) {
         image
       }
     ]
+    if (isFirstReference) {
+      ratio.value = readDefaultRatio(activeCapability.value.ratioOptions)
+    }
     status.value = `已添加${referenceLabels[source]}`
   }
 
@@ -416,7 +424,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     size.value = capability.sizeOptions.at(-1) ?? size.value
     quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : capability.qualityOptions[0] ?? '自动'
     count.value = capability.countOptions.includes(count.value) ? count.value : capability.countOptions[0] ?? 1
-    ratio.value = capability.ratioOptions.includes(ratio.value) ? ratio.value : '原图比例'
+    ratio.value = readDefaultRatio(capability.ratioOptions)
   }
 
   async function buildGeneratedImagesFromApi(apiImages: Array<{ previewUrl: string; label: string }>) {
@@ -567,7 +575,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
     size.value = readUpscaleSize(capability.sizeOptions)
     quality.value = readHighestQuality(capability.qualityOptions)
     count.value = capability.countOptions.includes(1) ? 1 : capability.countOptions[0] ?? 1
-    ratio.value = capability.ratioOptions.includes('原图比例') ? '原图比例' : capability.ratioOptions[0] ?? ratio.value
+    ratio.value = readDefaultRatio(capability.ratioOptions)
     prompt.value = '提升分辨率'
     references.value = [
       {

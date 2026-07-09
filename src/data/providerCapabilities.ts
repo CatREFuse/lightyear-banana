@@ -23,6 +23,26 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
     ratioOptions: ['原图比例', '1:1', '4:3', '3:4', '16:9', '9:16'],
     supportsBaseUrl: false
   },
+  apimart: {
+    id: 'apimart',
+    name: 'APIMart',
+    modelOptions: [
+      'gemini-3.1-flash-image-preview',
+      'gemini-3.1-flash-image-preview-official',
+      'gemini-3-pro-image-preview',
+      'gemini-3-pro-image-preview-official',
+      'gpt-image-2',
+      'gpt-image-1-official',
+      'gpt-image-1.5-official',
+      'doubao-seedream-5-0-lite'
+    ],
+    referenceLimit: 14,
+    sizeOptions: ['0.5K', '1K', '2K', '4K'],
+    qualityOptions: ['自动'],
+    countOptions: [1, 2, 3, 4],
+    ratioOptions: ['原图比例', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'],
+    supportsBaseUrl: false
+  },
   seedream: {
     id: 'seedream',
     name: 'ByteDance Seedream',
@@ -95,6 +115,15 @@ export const defaultModelConfigs: ModelConfig[] = [
     name: 'GPT Image 2',
     provider: 'openai',
     model: 'gpt-image-2',
+    apiKey: '',
+    baseUrl: '',
+    enabled: true
+  },
+  {
+    id: 'apimart-gemini-31',
+    name: 'APIMart Gemini 3.1',
+    provider: 'apimart',
+    model: 'gemini-3.1-flash-image-preview',
     apiKey: '',
     baseUrl: '',
     enabled: true

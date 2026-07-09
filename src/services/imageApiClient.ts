@@ -37,6 +37,7 @@ type KlingTaskResponse = {
 }
 
 const providerPaths: Partial<Record<ImageProviderId, string>> = {
+  apimart: '/v1/images/generations',
   gemini: '/v1beta/models',
   kling: '/api/v1/services/aigc/multimodal-generation/generation',
   openai: '/v1/images/generations',
@@ -46,11 +47,23 @@ const providerPaths: Partial<Record<ImageProviderId, string>> = {
 }
 
 const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
+  apimart: 'https://api.apimart.ai',
   gemini: 'https://generativelanguage.googleapis.com',
   kling: 'https://dashscope.aliyuncs.com',
   openai: 'https://api.openai.com',
   qwen: 'https://dashscope.aliyuncs.com',
   seedream: 'https://ark.ap-southeast.bytepluses.com'
+}
+
+const apimartPollIntervalMs = 5000
+const apimartPollAttempts = 99
+const originalRatioOption = '原图比例'
+
+type DimensionConstraints = {
+  maxPixels?: number
+  maxSide?: number
+  minPixels?: number
+  multiple?: number
 }
 
 export class ImageApiError extends Error {
@@ -100,6 +113,171 @@ async function fetchJson(url: string, init: RequestInit) {
   return payload
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function isRemoteImageUrl(value: string) {
+  return /^https?:\/\//i.test(value)
+}
+
+function readImageExtensionFromMimeType(mimeType: string) {
+  const normalized = mimeType.split(';')[0]?.trim().toLowerCase()
+
+  if (normalized === 'image/png') {
+    return 'png'
+  }
+
+  if (normalized === 'image/jpeg' || normalized === 'image/jpg') {
+    return 'jpg'
+  }
+
+  if (normalized === 'image/webp') {
+    return 'webp'
+  }
+
+  return 'png'
+}
+
+function greatestCommonDivisor(left: number, right: number): number {
+  let a = Math.abs(Math.round(left))
+  let b = Math.abs(Math.round(right))
+
+  while (b) {
+    const remainder = a % b
+    a = b
+    b = remainder
+  }
+
+  return a || 1
+}
+
+function readAspectRatio(width: number, height: number) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return undefined
+  }
+
+  const divisor = greatestCommonDivisor(width, height)
+  return `${Math.round(width) / divisor}:${Math.round(height) / divisor}`
+}
+
+function readReferenceAspectRatio(references: ReferenceImage[]) {
+  const image = references[0]?.image
+  if (!image) {
+    return undefined
+  }
+
+  const boundsWidth = Math.abs(image.sourceBounds.right - image.sourceBounds.left)
+  const boundsHeight = Math.abs(image.sourceBounds.bottom - image.sourceBounds.top)
+
+  return readAspectRatio(boundsWidth || image.width, boundsHeight || image.height)
+}
+
+function readRequestedAspectRatio(params: ImageGenerationParams) {
+  const normalized = params.ratio.trim()
+  if (/^\d+:\d+$/.test(normalized)) {
+    return normalized
+  }
+
+  if (normalized === originalRatioOption) {
+    return readReferenceAspectRatio(params.references)
+  }
+
+  return undefined
+}
+
+function readTargetPixelArea(size: string) {
+  const dimensions = size.match(/^(\d+)\s*[x*]\s*(\d+)$/i)
+  if (dimensions) {
+    return Number(dimensions[1]) * Number(dimensions[2])
+  }
+
+  const kilo = size.match(/^(\d+(?:\.\d+)?)\s*k$/i)
+  if (kilo) {
+    return (Number(kilo[1]) * 1024) ** 2
+  }
+
+  const megaPixels = size.match(/^(\d+(?:\.\d+)?)\s*mp$/i)
+  if (megaPixels) {
+    return Number(megaPixels[1]) * 1_000_000
+  }
+
+  return 1024 * 1024
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, value))
+}
+
+function roundToMultiple(value: number, multiple: number) {
+  return Math.max(multiple, Math.round(value / multiple) * multiple)
+}
+
+function readDimensionSize(aspectRatio: string, size: string, constraints: DimensionConstraints = {}) {
+  const [rawWidth, rawHeight] = aspectRatio.split(':').map(Number)
+  if (!rawWidth || !rawHeight) {
+    return undefined
+  }
+
+  const multiple = constraints.multiple ?? 16
+  const minPixels = constraints.minPixels ?? multiple * multiple
+  const maxPixels = constraints.maxPixels ?? Number.POSITIVE_INFINITY
+  const maxSide = constraints.maxSide ?? Number.POSITIVE_INFINITY
+  let targetArea = clamp(readTargetPixelArea(size), minPixels, maxPixels)
+  let width = Math.sqrt(targetArea * (rawWidth / rawHeight))
+  let height = width / (rawWidth / rawHeight)
+  const longestSide = Math.max(width, height)
+
+  if (longestSide > maxSide) {
+    const scale = maxSide / longestSide
+    width *= scale
+    height *= scale
+    targetArea = width * height
+  }
+
+  if (targetArea < minPixels) {
+    const scale = Math.sqrt(minPixels / targetArea)
+    width *= scale
+    height *= scale
+  }
+
+  return `${roundToMultiple(width, multiple)}x${roundToMultiple(height, multiple)}`
+}
+
+function resolveOpenAiSize(params: ImageGenerationParams) {
+  const aspectRatio = readRequestedAspectRatio(params)
+
+  if (!aspectRatio) {
+    return params.size
+  }
+
+  return (
+    readDimensionSize(aspectRatio, params.size, {
+      maxPixels: 8_294_400,
+      maxSide: 3840,
+      minPixels: 655_360,
+      multiple: 16
+    }) ?? params.size
+  )
+}
+
+function resolveModelArkSize(params: ImageGenerationParams) {
+  const aspectRatio = readRequestedAspectRatio(params)
+
+  if (!aspectRatio) {
+    return params.size
+  }
+
+  return (
+    readDimensionSize(aspectRatio, params.size, {
+      maxSide: 4096,
+      multiple: 16
+    }) ?? params.size
+  )
+}
+
 function resolveBaseUrl(config: ModelConfig, mockServer: MockServerConfig) {
   if (mockServer.enabled) {
     return mockServer.baseUrl
@@ -133,6 +311,12 @@ function createAuthHeaders(config: ModelConfig): Record<string, string> {
   }
 }
 
+function createMultipartAuthHeaders(config: ModelConfig): Record<string, string> {
+  return {
+    Authorization: `Bearer ${config.apiKey}`
+  }
+}
+
 function resolveRequestConfig(config: ModelConfig, mockServer: MockServerConfig): ModelConfig {
   if (!mockServer.enabled) {
     return config
@@ -154,6 +338,16 @@ function buildDashScopeRequest(params: ImageGenerationParams) {
   params.references.forEach((reference) => {
     content.push({ image: reference.image.previewUrl })
   })
+  const aspectRatio = readRequestedAspectRatio(params)
+  const parameters: Record<string, unknown> = {
+    n: params.count,
+    size: params.size,
+    quality: params.quality
+  }
+
+  if (aspectRatio) {
+    parameters.aspect_ratio = aspectRatio
+  }
 
   return {
     model: params.config.model,
@@ -165,16 +359,13 @@ function buildDashScopeRequest(params: ImageGenerationParams) {
         }
       ]
     },
-    parameters: {
-      n: params.count,
-      size: params.size,
-      quality: params.quality,
-      aspect_ratio: params.ratio
-    }
+    parameters
   }
 }
 
 function buildGeminiRequest(params: ImageGenerationParams) {
+  const aspectRatio = readRequestedAspectRatio(params)
+
   return {
     contents: [
       {
@@ -194,7 +385,7 @@ function buildGeminiRequest(params: ImageGenerationParams) {
       responseModalities: ['TEXT', 'IMAGE'],
       candidateCount: params.count,
       imageConfig: {
-        aspectRatio: params.ratio === '原图比例' ? undefined : params.ratio,
+        aspectRatio,
         imageSize: params.size
       }
     }
@@ -206,7 +397,7 @@ function buildOpenAiRequest(params: ImageGenerationParams) {
     model: params.config.model,
     prompt: params.prompt,
     n: params.count,
-    size: params.size,
+    size: resolveOpenAiSize(params),
     quality: readOpenAiQuality(params.quality),
     output_format: 'png'
   }
@@ -228,6 +419,95 @@ function readOpenAiQuality(quality: string) {
   return 'auto'
 }
 
+function buildApimartRequest(params: ImageGenerationParams, imageUrls: string[]) {
+  const payload: Record<string, unknown> = {
+    model: params.config.model,
+    prompt: params.prompt,
+    n: params.count,
+    resolution: params.size
+  }
+  const aspectRatio = readRequestedAspectRatio(params)
+
+  if (aspectRatio) {
+    payload.size = aspectRatio
+  }
+
+  if (/^gpt-image-1(?:\.5)?-official$/i.test(params.config.model)) {
+    payload.quality = readOpenAiQuality(params.quality)
+  }
+
+  if (imageUrls.length) {
+    payload.image_urls = imageUrls
+  }
+
+  return payload
+}
+
+async function readReferenceBlob(reference: ReferenceImage) {
+  const response = await fetch(reference.image.previewUrl)
+  if (!response.ok) {
+    throw new ImageApiError('APIMart 上传参考图失败', 502)
+  }
+
+  return response.blob()
+}
+
+async function uploadApimartReferenceImage(baseUrl: string, config: ModelConfig, reference: ReferenceImage, index: number) {
+  if (isRemoteImageUrl(reference.image.previewUrl)) {
+    return reference.image.previewUrl
+  }
+
+  const blob = await readReferenceBlob(reference)
+  const extension = readImageExtensionFromMimeType(blob.type || 'image/png')
+  const form = new FormData()
+  form.append('file', blob, `lightyear-reference-${index + 1}.${extension}`)
+
+  const payload = await fetchJson(joinUrl(baseUrl, '/v1/uploads/images'), {
+    method: 'POST',
+    headers: createMultipartAuthHeaders(config),
+    body: form
+  })
+
+  const url = (payload as any).url ?? (payload as any).data?.url
+  if (typeof url !== 'string' || !url) {
+    throw new ImageApiError('APIMart 上传参考图失败', 502)
+  }
+
+  return url
+}
+
+async function uploadApimartReferenceImages(params: ImageGenerationParams, baseUrl: string) {
+  const imageUrls: string[] = []
+  for (const [index, reference] of params.references.entries()) {
+    imageUrls.push(await uploadApimartReferenceImage(baseUrl, params.config, reference, index))
+  }
+
+  return imageUrls
+}
+
+function readApimartTaskId(payload: any) {
+  if (typeof payload?.task_id === 'string') {
+    return payload.task_id
+  }
+
+  if (typeof payload?.data?.task_id === 'string') {
+    return payload.data.task_id
+  }
+
+  const firstItem = Array.isArray(payload?.data) ? payload.data[0] : undefined
+  return typeof firstItem?.task_id === 'string' ? firstItem.task_id : undefined
+}
+
+function readApimartTaskStatus(payload: any) {
+  const task = payload?.data && !Array.isArray(payload.data) ? payload.data : payload
+  return String(task?.status ?? task?.task_status ?? '').toLowerCase()
+}
+
+function readApimartTaskError(payload: any) {
+  const task = payload?.data && !Array.isArray(payload.data) ? payload.data : payload
+  return task?.error?.message ?? task?.error_message ?? task?.message ?? payload?.message
+}
+
 async function requestOpenAiLike(params: ImageGenerationParams) {
   const path = resolveOpenAiLikePath(params.config, params.mockServer, Boolean(params.references.length))
   const url = joinUrl(resolveBaseUrl(params.config, params.mockServer), path)
@@ -244,7 +524,7 @@ async function requestOpenAiLike(params: ImageGenerationParams) {
   form.append('model', params.config.model)
   form.append('prompt', params.prompt)
   form.append('n', String(params.count))
-  form.append('size', params.size)
+  form.append('size', resolveOpenAiSize(params))
   form.append('quality', readOpenAiQuality(params.quality))
   params.references.forEach((reference, index) => {
     form.append('image[]', new Blob([reference.image.previewUrl], { type: 'image/png' }), `reference-${index + 1}.png`)
@@ -257,6 +537,45 @@ async function requestOpenAiLike(params: ImageGenerationParams) {
     },
     body: form
   })
+}
+
+async function requestApimart(params: ImageGenerationParams) {
+  if (params.mockServer.enabled) {
+    return requestOpenAiLike(params)
+  }
+
+  const baseUrl = resolveBaseUrl(params.config, params.mockServer)
+  const imageUrls = await uploadApimartReferenceImages(params, baseUrl)
+  const payload = await fetchJson(joinUrl(baseUrl, providerPaths.apimart ?? ''), {
+    method: 'POST',
+    headers: createAuthHeaders(params.config),
+    body: JSON.stringify(buildApimartRequest(params, imageUrls))
+  })
+
+  const taskId = readApimartTaskId(payload)
+  if (!taskId) {
+    return payload
+  }
+
+  for (let attempt = 0; attempt < apimartPollAttempts; attempt += 1) {
+    const result = await fetchJson(joinUrl(baseUrl, `/v1/tasks/${encodeURIComponent(taskId)}?language=zh`), {
+      method: 'GET',
+      headers: createAuthHeaders(params.config)
+    })
+    const status = readApimartTaskStatus(result)
+
+    if (!status || status === 'completed' || status === 'succeeded' || status === 'success') {
+      return result
+    }
+
+    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
+      throw new ImageApiError(readApimartTaskError(result) || 'APIMart 任务失败', 502)
+    }
+
+    await wait(apimartPollIntervalMs)
+  }
+
+  throw new ImageApiError(`APIMart 任务超时：${taskId}`, 504)
 }
 
 async function requestGemini(params: ImageGenerationParams) {
@@ -298,7 +617,7 @@ async function requestSeedream(params: ImageGenerationParams) {
       prompt: params.prompt,
       image: params.references.map((reference) => reference.image.previewUrl),
       response_format: 'url',
-      size: params.size,
+      size: resolveModelArkSize(params),
       watermark: false
     })
   })
@@ -343,9 +662,38 @@ function readKlingImages(payload: any): NormalizedImageResult[] {
   }))
 }
 
+function readApimartImages(payload: any): NormalizedImageResult[] {
+  const task = payload?.data && !Array.isArray(payload.data) ? payload.data : payload
+  const resultImages = task?.result?.images ?? payload?.result?.images ?? []
+  const urls = Array.isArray(resultImages)
+    ? resultImages.flatMap((item: any) => {
+        if (Array.isArray(item?.url)) {
+          return item.url
+        }
+
+        return item?.url ?? item?.image_url ?? item?.image ?? []
+      })
+    : []
+
+  if (urls.length) {
+    return urls
+      .filter((url: unknown): url is string => typeof url === 'string' && Boolean(url))
+      .map((previewUrl, index) => ({
+        previewUrl,
+        label: `生成图 ${index + 1}`
+      }))
+  }
+
+  return readOpenAiImages(payload)
+}
+
 function readImages(provider: ImageProviderId, payload: any) {
   if (provider === 'gemini') {
     return readGeminiImages(payload)
+  }
+
+  if (provider === 'apimart') {
+    return readApimartImages(payload)
   }
 
   if (provider === 'qwen') {
@@ -367,6 +715,8 @@ export async function generateImagesWithProvider(params: ImageGenerationParams) 
   let payload: any
   if (requestParams.config.provider === 'gemini') {
     payload = await requestGemini(requestParams)
+  } else if (requestParams.config.provider === 'apimart') {
+    payload = await requestApimart(requestParams)
   } else if (requestParams.config.provider === 'qwen' || requestParams.config.provider === 'kling') {
     payload = await requestDashScope(requestParams)
   } else if (requestParams.config.provider === 'seedream') {
@@ -391,9 +741,9 @@ export async function testImageConfig(config: ModelConfig, mockServer: MockServe
     mockServer,
     prompt,
     quality: '自动',
-    ratio: '1:1',
+    ratio: '原图比例',
     references: [],
-    size: config.provider === 'qwen' ? '1024*1024' : '1024x1024'
+    size: config.provider === 'qwen' ? '1024*1024' : config.provider === 'apimart' ? '1K' : '1024x1024'
   }
   await generateImagesWithProvider(params)
 }
