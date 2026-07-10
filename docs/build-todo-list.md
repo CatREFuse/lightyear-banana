@@ -32,10 +32,10 @@
 - `npm run build:site` 通过后才允许部署官网。
 - 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
 
-## 当前 0.3.11 状态
+## 当前 0.3.12 状态
 
-- Windows 包已由 Windows 环境构建并验证：`lightyear-banana-0.3.11-win.zip`。
-- CCX 已构建并验证：`lightyear-banana-0.3.11.ccx`。
-- macOS 包缺失，需派发 macOS 环境构建：`lightyear-banana-0.3.11-mac.zip`。
-- `dist/release-0.3.11/` 尚未汇总 macOS、Windows、CCX 和 `SHA256SUMS.txt`。
-- 官网 `latest.json` 暂不更新，需等待 macOS 包和完整校验和就绪。
+- macOS 包已由 macOS 环境构建、签名并验证：`lightyear-banana-0.3.12-mac.zip`。
+- Windows 原生打包任务将在版本提交推送后派发到 GitHub Actions `Package Windows`，目标文件为 `lightyear-banana-0.3.12-win.zip`，要求返回 SHA256 校验文件。
+- CCX 已构建并验证：`lightyear-banana-0.3.12.ccx`。
+- `dist/release-0.3.12/` 等待双平台包和 CCX 就绪后生成覆盖三个安装包的 `SHA256SUMS.txt`。
+- 官网源码和 `build:site` 命令不在当前仓库，暂不更新线上 `latest.json`。

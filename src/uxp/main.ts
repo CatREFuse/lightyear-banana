@@ -1,5 +1,11 @@
 import { canvasPrimitiveService, type CanvasInsertTarget } from './canvasPrimitiveService'
-import type { CapturedCanvasImage } from './canvasPrimitives'
+import { readCanvasDiagnosticContext, type CapturedCanvasImage } from './canvasPrimitives'
+import {
+  createUxpDiagnosticTrace,
+  normalizeUxpDiagnosticError,
+  type UxpDiagnosticEvent,
+  type UxpDiagnosticTrace
+} from './diagnosticTrace'
 import { createNamedLayer, readActiveDocumentLabel } from './photoshopHost'
 
 type UxpRequire = (name: string) => any
@@ -426,19 +432,35 @@ function deserializeCanvasImage(image: SerializedCanvasImage): CapturedCanvasIma
   }
 }
 
-function readDocumentStatus() {
-  return {
-    connected: true,
-    documentLabel: readActiveDocumentLabel()
+function readSafeCanvasDiagnosticContext() {
+  try {
+    return readCanvasDiagnosticContext()
+  } catch (error) {
+    return {
+      contextError: normalizeUxpDiagnosticError(error)
+    }
   }
 }
 
-async function placeImage(payload: any) {
+function readDocumentStatus() {
+  const context = readSafeCanvasDiagnosticContext()
+  const uxp = getUxpRequire()('uxp')
+  return {
+    connected: true,
+    documentLabel: readActiveDocumentLabel(),
+    photoshopVersion: 'photoshopVersion' in context ? context.photoshopVersion : '',
+    uxpVersion: uxp?.versions?.uxp ?? uxp?.version ?? '',
+    document: 'document' in context ? context.document : undefined,
+    contextError: 'contextError' in context ? context.contextError : undefined
+  }
+}
+
+async function placeImage(payload: any, trace?: UxpDiagnosticTrace) {
   const image = deserializeCanvasImage(payload.image)
   const target = payload.target
 
   if (target?.type === 'currentSelection') {
-    return canvasPrimitiveService.insertImageFromPreviewToSelection(image)
+    return canvasPrimitiveService.insertImageFromPreviewToSelection(image, trace)
   }
 
   if (target?.type === 'bounds') {
@@ -448,7 +470,36 @@ async function placeImage(payload: any) {
   return canvasPrimitiveService.insertImageFromPreviewToFullCanvas(image)
 }
 
+async function postUxpDiagnostic(requestId: string, event: UxpDiagnosticEvent) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      requestBridge('/uxp/diagnostics', {
+        method: 'POST',
+        body: JSON.stringify({ requestId, event })
+      }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Diagnostic progress timeout')), 1500)
+      })
+    ])
+  } finally {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  }
+}
+
 async function buildCommandResponse(message: BridgeMessage) {
+  const trace = createUxpDiagnosticTrace({
+    requestId: message.id,
+    reporter: postUxpDiagnostic
+  })
+  const commandStartedAt = Date.now()
+  await trace.emit('uxp.command', 'start', {
+    command: message.type,
+    ...readSafeCanvasDiagnosticContext()
+  })
+
   try {
     let payload: unknown
 
@@ -457,11 +508,25 @@ async function buildCommandResponse(message: BridgeMessage) {
     } else if (message.type === 'canvas.captureVisible') {
       payload = serializeReferenceImage(await canvasPrimitiveService.captureVisibleReferenceImage())
     } else if (message.type === 'canvas.captureSelection') {
-      payload = serializeReferenceImage(await canvasPrimitiveService.captureSelectionReferenceImage())
+      const image = await canvasPrimitiveService.captureSelectionReferenceImage(trace)
+      await trace.emit('uxp.payload.serialize', 'start', {
+        command: message.type,
+        imageId: image.id,
+        width: image.width,
+        height: image.height
+      })
+      payload = serializeReferenceImage(image)
+      await trace.emit('uxp.payload.serialize', 'success', {
+        command: message.type,
+        imageId: image.id,
+        width: image.width,
+        height: image.height,
+        previewLength: image.previewUrl.length
+      })
     } else if (message.type === 'canvas.captureLayer') {
       payload = serializeReferenceImage(await canvasPrimitiveService.captureSelectedLayerReferenceImage())
     } else if (message.type === 'canvas.placeImage') {
-      payload = await placeImage(message.payload)
+      payload = await placeImage(message.payload, trace)
     } else if (message.type === 'canvas.readSize') {
       payload = canvasPrimitiveService.readCanvasSize()
     } else if (message.type === 'canvas.createLayer') {
@@ -471,19 +536,44 @@ async function buildCommandResponse(message: BridgeMessage) {
       throw new Error('未知操作')
     }
 
+    await trace.emit('uxp.command', 'success', {
+      command: message.type,
+      durationMs: Date.now() - commandStartedAt
+    })
     return {
-      id: message.id,
-      ok: true,
-      payload
+      trace,
+      response: {
+        id: message.id,
+        ok: true,
+        payload,
+        diagnostics: trace.snapshot()
+      }
     }
   } catch (error) {
+    const normalizedError = normalizeUxpDiagnosticError(error)
+    await trace.emit('uxp.command', 'error', {
+      command: message.type,
+      durationMs: Date.now() - commandStartedAt
+    }, error)
+    const messageText = error instanceof Error ? error.message : 'Photoshop 操作失败'
+    const code = messageText === '当前没有可读取的选区'
+      ? 'NO_SELECTION'
+      : typeof normalizedError.code === 'string'
+        ? normalizedError.code
+        : 'PHOTOSHOP_ACTION_FAILED'
+
     return {
-      id: message.id,
-      ok: false,
-      error: {
-        code: 'PHOTOSHOP_ACTION_FAILED',
-        message: error instanceof Error ? error.message : 'Photoshop 操作失败',
-        recoverable: true
+      trace,
+      response: {
+        id: message.id,
+        ok: false,
+        error: {
+          ...normalizedError,
+          code,
+          message: messageText,
+          recoverable: true
+        },
+        diagnostics: trace.snapshot()
       }
     }
   }
@@ -526,11 +616,26 @@ async function runPollLoop(loopId: number) {
         continue
       }
 
-      const response = await buildCommandResponse(message)
-      await requestBridge('/uxp/respond', {
-        method: 'POST',
-        body: JSON.stringify(response)
-      })
+      const command = await buildCommandResponse(message)
+      await command.trace.emit('bridge.response.post', 'start', { command: message.type })
+      command.response.diagnostics = command.trace.snapshot()
+      const responseStartedAt = Date.now()
+      try {
+        await requestBridge('/uxp/respond', {
+          method: 'POST',
+          body: JSON.stringify(command.response)
+        })
+        await command.trace.emit('bridge.response.post', 'success', {
+          command: message.type,
+          durationMs: Date.now() - responseStartedAt
+        })
+      } catch (error) {
+        await command.trace.emit('bridge.response.post', 'error', {
+          command: message.type,
+          durationMs: Date.now() - responseStartedAt
+        }, error)
+        throw error
+      }
     }
   } catch (error) {
     console.error(LOG_PREFIX, error)

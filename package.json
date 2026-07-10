@@ -1,7 +1,7 @@
 {
   "name": "lightyear-banana",
   "private": true,
-  "version": "0.3.11",
+  "version": "0.3.12",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -17,7 +17,8 @@
     "package:uxp": "npm run verify:uxp && cd dist/ps-uxp && zip -r -q ../${npm_package_name}-${npm_package_version}.ccx .",
     "verify:uxp": "npm run build:uxp && node scripts/verify-uxp-build.mjs",
     "preview": "vite preview",
-    "start:electron": "electron electron/main.js"
+    "start:electron": "electron electron/main.js",
+    "test:diagnostics": "node --test electron/diagnosticLogger.test.js"
   },
   "dependencies": {
     "vue": "^3.5.32"

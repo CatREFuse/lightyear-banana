@@ -1,0 +1,79 @@
+name: Package Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify requested version
+        shell: pwsh
+        run: |
+          $packageVersion = node -p "require('./package.json').version"
+          if ($packageVersion -ne '${{ inputs.version }}') {
+            throw "package.json is $packageVersion, expected ${{ inputs.version }}"
+          }
+
+      - name: Run diagnostics tests
+        run: npm run test:diagnostics
+
+      - name: Package Windows app
+        run: npm run package:electron:win
+
+      - name: Verify Windows archive
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.version }}'
+          $archive = "dist/lightyear-banana-$version-win.zip"
+          $extract = "dist/windows-release-check"
+          if (-not (Test-Path $archive -PathType Leaf)) {
+            throw "Missing $archive"
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+          $packageJson = Get-ChildItem -Path $extract -Filter package.json -Recurse |
+            Where-Object { $_.FullName -like '*resources*app*package.json' } |
+            Select-Object -First 1
+          if (-not $packageJson) {
+            throw 'Packaged package.json was not found'
+          }
+          $packagedVersion = (Get-Content $packageJson.FullName -Raw | ConvertFrom-Json).version
+          if ($packagedVersion -ne $version) {
+            throw "Packaged version is $packagedVersion, expected $version"
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          "$hash  lightyear-banana-$version-win.zip" | Set-Content "$archive.sha256" -Encoding ascii
+          Get-Item $archive | Select-Object FullName, Length
+          Get-Content "$archive.sha256"
+
+      - name: Upload Windows release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lightyear-banana-${{ inputs.version }}-windows
+          path: |
+            dist/lightyear-banana-${{ inputs.version }}-win.zip
+            dist/lightyear-banana-${{ inputs.version }}-win.zip.sha256
+          if-no-files-found: error
+          retention-days: 7

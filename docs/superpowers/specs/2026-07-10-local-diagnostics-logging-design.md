@@ -4,7 +4,7 @@
 
 Add enough structured local diagnostics to explain intermittent Windows failures when reading a Photoshop selection and to diagnose adjacent file, clipboard, bridge, and canvas IO failures. Keep only events from the most recent 24 hours and let the user export them from Settings.
 
-The release target is `0.3.10`.
+The release target is `0.3.12` after rebasing onto the remotely published `0.3.11` baseline.
 
 ## Architecture
 
@@ -152,17 +152,17 @@ Before the Windows release is accepted, the packaged app and CCX must be exercis
 
 ## Release Gate
 
-After implementation tests pass, update all version-bearing files in the working tree to `0.3.10`, build and verify the current-platform package, and only then commit the version change. Version-bearing files include `package.json`, `package-lock.json`, both UXP manifests, `electron/main.js`, `src/buildInfo.ts`, `README.md`, `standalone-uxp-plugin/index.html`, `standalone-uxp-plugin/main.js`, and `standalone-uxp-plugin/package.mjs`.
+After implementation tests pass, update all version-bearing files in the working tree to `0.3.12`, build and verify the current-platform package, and only then commit the version change. Version-bearing files include `package.json`, `package-lock.json`, both UXP manifests, `electron/main.js`, `src/buildInfo.ts`, `README.md`, `standalone-uxp-plugin/index.html`, `standalone-uxp-plugin/main.js`, and `standalone-uxp-plugin/package.mjs`.
 
 Build and verify:
 
-- `dist/release-0.3.10/lightyear-banana-0.3.10-mac.zip` on macOS;
-- `dist/release-0.3.10/lightyear-banana-0.3.10-win.zip` on Windows;
-- `dist/release-0.3.10/lightyear-banana-0.3.10.ccx`;
-- `dist/release-0.3.10/SHA256SUMS.txt` covering all three packages.
+- `dist/release-0.3.12/lightyear-banana-0.3.12-mac.zip` on macOS;
+- `dist/release-0.3.12/lightyear-banana-0.3.12-win.zip` on Windows;
+- `dist/release-0.3.12/lightyear-banana-0.3.12.ccx`;
+- `dist/release-0.3.12/SHA256SUMS.txt` covering all three packages.
 
-The website release manifest and fallback links can move to `0.3.10` only after both native desktop packages, CCX, and checksums pass the documented gate.
+The website release manifest and fallback links can move to `0.3.12` only after both native desktop packages, CCX, and checksums pass the documented gate.
 
-The Windows packaging dispatch must state version `0.3.10`, target `lightyear-banana-0.3.10-win.zip`, the required returned archive, SHA256 verification, Windows Photoshop smoke cases, exported diagnostic log evidence, and whether `SHA256SUMS.txt` must be regenerated.
+The Windows packaging dispatch must state version `0.3.12`, target `lightyear-banana-0.3.12-win.zip`, the required returned archive, SHA256 verification, Windows Photoshop smoke cases, exported diagnostic log evidence, and whether `SHA256SUMS.txt` must be regenerated.
 
 This repository currently has no `site/` directory and no `build:site` command. Website publication is recorded as externally blocked until the website source or deployment repository is available; local release artifacts may still be assembled without changing an online `latest.json`.

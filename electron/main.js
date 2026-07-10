@@ -1,10 +1,10 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, screen, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, powerMonitor, screen, shell } from 'electron'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { release as osRelease, tmpdir, version as osVersion } from 'node:os'
 import { basename, dirname, extname, join, normalize } from 'node:path'
 import http from 'node:http'
 import { promisify } from 'node:util'
@@ -13,6 +13,7 @@ import {
   defaultCodexImageServerPort,
   listenCodexImageServer
 } from './codexImageServer.js'
+import { createDiagnosticLogger, normalizeDiagnosticError } from './diagnosticLogger.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = join(__dirname, '..', 'dist')
@@ -23,8 +24,9 @@ let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.11.ccx'
+const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.12.ccx'
 const SETTINGS_FILE = 'lightyear-settings.json'
+const DIAGNOSTICS_DIRECTORY = 'diagnostics'
 const APP_UPDATE_MANIFEST_URL = 'https://cake.catrefuse.com/releases/latest.json'
 const APP_UPDATE_TIMEOUT_MS = 10000
 const MIME_TYPES = {
@@ -62,13 +64,165 @@ const state = {
   pollWaiters: [],
   pending: new Map(),
   previewImages: new Map(),
+  expiredRequests: new Map(),
+  diagnosticEventIds: new Map(),
   lastDocumentLabel: '',
   startedAt: Date.now()
 }
 
 let mainWindow = null
 let startupUpdateTimer = null
+let diagnosticLogger = null
 const previewWindows = new Set()
+
+function readApplicationVersion() {
+  if (!app.isPackaged) {
+    return process.env.npm_package_version || UXP_PACKAGE_FILE.match(/lightyear-banana-(.+)\.ccx$/)?.[1] || app.getVersion()
+  }
+
+  return app.getVersion()
+}
+
+function readDiagnosticRuntime() {
+  return {
+    appVersion: readApplicationVersion(),
+    arch: process.arch,
+    chromeVersion: process.versions.chrome,
+    electronVersion: process.versions.electron,
+    locale: app.getLocale?.() || Intl.DateTimeFormat().resolvedOptions().locale,
+    nodeVersion: process.versions.node,
+    osRelease: osRelease(),
+    osVersion: osVersion(),
+    platform: process.platform,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  }
+}
+
+async function initializeDiagnostics() {
+  diagnosticLogger = createDiagnosticLogger({
+    directory: join(app.getPath('userData'), DIAGNOSTICS_DIRECTORY),
+    runtime: readDiagnosticRuntime
+  })
+  await diagnosticLogger.initialize()
+  await diagnosticLogger.log({
+    category: 'app',
+    operation: 'app.start',
+    phase: 'success',
+    details: {
+      startedAt: new Date(state.startedAt).toISOString(),
+      userDataPath: app.getPath('userData')
+    }
+  })
+}
+
+function writeDiagnostic(event) {
+  if (!diagnosticLogger) {
+    return Promise.resolve(null)
+  }
+
+  return diagnosticLogger.log(event)
+}
+
+function readCommandPayloadSummary(command, payload) {
+  if (!payload || typeof payload !== 'object') {
+    return {}
+  }
+
+  if (command === 'app.deployWindows') {
+    return { side: payload.side }
+  }
+
+  if (command === 'app.openMacPermissionSettings') {
+    return { pane: payload.pane }
+  }
+
+  if (command === 'canvas.placeImage') {
+    return {
+      image: payload.image
+        ? {
+            height: payload.image.height,
+            id: payload.image.id,
+            label: payload.image.label,
+            width: payload.image.width
+          }
+        : null,
+      target: payload.target
+    }
+  }
+
+  if (command === 'result.saveImage') {
+    return {
+      fileName: payload.fileName,
+      previewKind: String(payload.previewUrl || '').startsWith('data:') ? 'data-url' : 'remote-url'
+    }
+  }
+
+  return {}
+}
+
+function rememberDiagnosticEvent(requestId, eventId) {
+  if (!requestId || !eventId) {
+    return true
+  }
+
+  let eventIds = state.diagnosticEventIds.get(requestId)
+  if (!eventIds) {
+    eventIds = new Set()
+    state.diagnosticEventIds.set(requestId, eventIds)
+  }
+
+  if (eventIds.has(eventId)) {
+    return false
+  }
+
+  eventIds.add(eventId)
+  if (state.diagnosticEventIds.size > 200) {
+    state.diagnosticEventIds.delete(state.diagnosticEventIds.keys().next().value)
+  }
+  return true
+}
+
+function ingestUxpDiagnostic(requestId, event, source) {
+  if (!event || typeof event !== 'object' || !rememberDiagnosticEvent(requestId, event.eventId)) {
+    return false
+  }
+
+  void writeDiagnostic({
+    timestamp: event.timestamp,
+    level: event.phase === 'error' ? 'error' : event.phase === 'timeout' ? 'warn' : 'info',
+    requestId,
+    eventId: event.eventId,
+    sequence: event.sequence,
+    offsetMs: event.offsetMs,
+    category: 'photoshop',
+    operation: event.operation || 'photoshop.unknown',
+    phase: event.phase || 'progress',
+    durationMs: event.durationMs,
+    details: {
+      source,
+      ...(event.details && typeof event.details === 'object' ? event.details : {})
+    },
+    error: event.error
+  })
+  return true
+}
+
+function ingestUxpTrace(requestId, diagnostics, source) {
+  const events = Array.isArray(diagnostics) ? diagnostics : diagnostics?.events
+  if (!Array.isArray(events)) {
+    return 0
+  }
+
+  return events.reduce((count, event) => count + (ingestUxpDiagnostic(requestId, event, source) ? 1 : 0), 0)
+}
+
+function scheduleDiagnosticEventCleanup(requestId) {
+  const timer = setTimeout(() => {
+    state.diagnosticEventIds.delete(requestId)
+    state.expiredRequests.delete(requestId)
+  }, 10 * 60 * 1000)
+  timer.unref?.()
+}
 
 function readBridgeOrigin() {
   return `http://${BRIDGE_HOST}:${bridgePort}`
@@ -132,16 +286,59 @@ function readSettingsFilePath() {
 }
 
 function readPersistedSettings() {
+  const startedAt = Date.now()
+  const filePath = readSettingsFilePath()
   try {
-    return JSON.parse(readFileSync(readSettingsFilePath(), 'utf8'))
-  } catch {
+    const raw = readFileSync(filePath, 'utf8')
+    const settings = JSON.parse(raw)
+    void writeDiagnostic({
+      category: 'settings',
+      operation: 'settings.read',
+      phase: 'success',
+      durationMs: Date.now() - startedAt,
+      details: { byteLength: Buffer.byteLength(raw), filePath }
+    })
+    return settings
+  } catch (error) {
+    void writeDiagnostic({
+      level: error?.code === 'ENOENT' ? 'info' : 'error',
+      category: 'settings',
+      operation: 'settings.read',
+      phase: error?.code === 'ENOENT' ? 'cancel' : 'error',
+      durationMs: Date.now() - startedAt,
+      details: { filePath },
+      error: normalizeDiagnosticError(error)
+    })
     return null
   }
 }
 
 function writePersistedSettings(settings) {
-  mkdirSync(app.getPath('userData'), { recursive: true })
-  writeFileSync(readSettingsFilePath(), JSON.stringify(settings), 'utf8')
+  const startedAt = Date.now()
+  const filePath = readSettingsFilePath()
+  const content = JSON.stringify(settings)
+  try {
+    mkdirSync(app.getPath('userData'), { recursive: true })
+    writeFileSync(filePath, content, 'utf8')
+    void writeDiagnostic({
+      category: 'settings',
+      operation: 'settings.write',
+      phase: 'success',
+      durationMs: Date.now() - startedAt,
+      details: { byteLength: Buffer.byteLength(content), filePath }
+    })
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'settings',
+      operation: 'settings.write',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      details: { byteLength: Buffer.byteLength(content), filePath },
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
+  }
 }
 
 function isPlainObject(value) {
@@ -223,6 +420,13 @@ function normalizeUpdateManifest(value) {
 async function fetchUpdateManifest() {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), APP_UPDATE_TIMEOUT_MS)
+  const startedAt = Date.now()
+  void writeDiagnostic({
+    category: 'update',
+    operation: 'update.manifest.fetch',
+    phase: 'start',
+    details: { url: APP_UPDATE_MANIFEST_URL }
+  })
 
   try {
     const response = await fetch(APP_UPDATE_MANIFEST_URL, {
@@ -234,14 +438,37 @@ async function fetchUpdateManifest() {
       throw new Error(`更新检测失败 ${response.status}`)
     }
 
-    return normalizeUpdateManifest(await response.json())
+    const manifest = normalizeUpdateManifest(await response.json())
+    void writeDiagnostic({
+      category: 'update',
+      operation: 'update.manifest.fetch',
+      phase: 'success',
+      durationMs: Date.now() - startedAt,
+      details: {
+        latestVersion: manifest.version,
+        status: response.status,
+        url: APP_UPDATE_MANIFEST_URL
+      }
+    })
+    return manifest
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'update',
+      operation: 'update.manifest.fetch',
+      phase: error?.name === 'AbortError' ? 'timeout' : 'error',
+      durationMs: Date.now() - startedAt,
+      details: { url: APP_UPDATE_MANIFEST_URL },
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
   } finally {
     clearTimeout(timer)
   }
 }
 
 function buildUpdateCheckResult(manifest) {
-  const currentVersion = app.getVersion()
+  const currentVersion = readApplicationVersion()
   const hasUpdate = compareVersions(manifest.version, currentVersion) > 0
   const belowMinimum =
     Boolean(manifest.minimumSupportedVersion) && compareVersions(currentVersion, manifest.minimumSupportedVersion) < 0
@@ -314,7 +541,7 @@ async function checkForAppUpdate(options = {}) {
     if (source === 'startup') {
       return {
         status: 'error',
-        currentVersion: app.getVersion(),
+        currentVersion: readApplicationVersion(),
         latestVersion: '',
         mandatory: false,
         releaseUrl: '',
@@ -328,7 +555,7 @@ async function checkForAppUpdate(options = {}) {
 
     return {
       status: 'error',
-      currentVersion: app.getVersion(),
+      currentVersion: readApplicationVersion(),
       latestVersion: '',
       mandatory: false,
       releaseUrl: '',
@@ -691,6 +918,12 @@ function readNativeImageFromClipboardBuffer() {
 }
 
 async function pickReferenceImageFile() {
+  const startedAt = Date.now()
+  void writeDiagnostic({
+    category: 'file',
+    operation: 'reference.file.pick',
+    phase: 'start'
+  })
   const result = await dialog.showOpenDialog(mainWindow ?? undefined, {
     title: '选择参考图',
     properties: ['openFile'],
@@ -703,16 +936,58 @@ async function pickReferenceImageFile() {
   })
 
   if (result.canceled || !result.filePaths[0]) {
+    void writeDiagnostic({
+      category: 'file',
+      operation: 'reference.file.pick',
+      phase: 'cancel',
+      durationMs: Date.now() - startedAt
+    })
     return null
   }
 
   const filePath = result.filePaths[0]
-  const encoded = await compressReferenceImageFile(filePath)
+  const fileStat = statSync(filePath)
+  void writeDiagnostic({
+    category: 'file',
+    operation: 'reference.file.read',
+    phase: 'start',
+    details: { byteLength: fileStat.size, filePath }
+  })
+
+  let encoded
+  try {
+    encoded = await compressReferenceImageFile(filePath)
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'file',
+      operation: 'reference.file.compress',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      details: { byteLength: fileStat.size, filePath },
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
+  }
 
   const size = encoded.image.getSize()
   if (!size.width || !size.height) {
     throw new Error('无法读取图片尺寸')
   }
+
+  void writeDiagnostic({
+    category: 'file',
+    operation: 'reference.file.compress',
+    phase: 'success',
+    durationMs: Date.now() - startedAt,
+    details: {
+      filePath,
+      inputByteLength: fileStat.size,
+      outputByteLength: encoded.buffer.length,
+      width: Math.round(size.width),
+      height: Math.round(size.height)
+    }
+  })
 
   return createSerializedReferenceImage({
     idPrefix: 'upload',
@@ -724,17 +999,50 @@ async function pickReferenceImageFile() {
 }
 
 function readClipboardReferenceImage() {
+  const startedAt = Date.now()
+  const formats = clipboard.availableFormats()
+  void writeDiagnostic({
+    category: 'clipboard',
+    operation: 'clipboard.image.read',
+    phase: 'start',
+    details: { formats }
+  })
   const image = clipboard.readImage()
   if (!image.isEmpty()) {
-    return createReferenceImageFromNativeImage(image, '剪贴板', 'clipboard')
+    const result = createReferenceImageFromNativeImage(image, '剪贴板', 'clipboard')
+    void writeDiagnostic({
+      category: 'clipboard',
+      operation: 'clipboard.image.read',
+      phase: 'success',
+      durationMs: Date.now() - startedAt,
+      details: { formats, height: result.height, width: result.width, source: 'readImage' }
+    })
+    return result
   }
 
   const fallbackImage = readNativeImageFromClipboardBuffer()
   if (!fallbackImage) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'clipboard',
+      operation: 'clipboard.image.read',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      details: { formats },
+      error: { message: '剪贴板里没有图片' }
+    })
     throw new Error('剪贴板里没有图片')
   }
 
-  return createReferenceImageFromNativeImage(fallbackImage, '剪贴板', 'clipboard')
+  const result = createReferenceImageFromNativeImage(fallbackImage, '剪贴板', 'clipboard')
+  void writeDiagnostic({
+    category: 'clipboard',
+    operation: 'clipboard.image.read',
+    phase: 'success',
+    durationMs: Date.now() - startedAt,
+    details: { formats, height: result.height, width: result.width, source: 'readBuffer' }
+  })
+  return result
 }
 
 function readImageSaveExtensionFromMime(mimeType = '') {
@@ -799,11 +1107,35 @@ async function readImageSaveBuffer(previewUrl) {
 }
 
 async function saveGeneratedImageFile(payload = {}) {
+  const startedAt = Date.now()
   if (!payload.previewUrl) {
     throw new Error('图片地址为空')
   }
 
-  const imageData = await readImageSaveBuffer(payload.previewUrl)
+  void writeDiagnostic({
+    category: 'file',
+    operation: 'result.image.save',
+    phase: 'start',
+    details: {
+      fileName: payload.fileName,
+      source: String(payload.previewUrl).startsWith('data:') ? 'data-url' : 'remote-url'
+    }
+  })
+
+  let imageData
+  try {
+    imageData = await readImageSaveBuffer(payload.previewUrl)
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'file',
+      operation: 'result.image.decode',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
+  }
   const fileName = withImageSaveExtension(sanitizeSaveFileName(payload.fileName), imageData.extension)
   const result = await dialog.showSaveDialog(mainWindow ?? undefined, {
     title: '保存图片',
@@ -817,12 +1149,101 @@ async function saveGeneratedImageFile(payload = {}) {
   })
 
   if (result.canceled || !result.filePath) {
+    void writeDiagnostic({
+      category: 'file',
+      operation: 'result.image.save',
+      phase: 'cancel',
+      durationMs: Date.now() - startedAt,
+      details: { byteLength: imageData.buffer.length, fileName }
+    })
     return { saved: false }
   }
 
-  writeFileSync(result.filePath, imageData.buffer)
+  try {
+    writeFileSync(result.filePath, imageData.buffer)
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'file',
+      operation: 'result.image.write',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      details: { byteLength: imageData.buffer.length, filePath: result.filePath },
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
+  }
+
+  void writeDiagnostic({
+    category: 'file',
+    operation: 'result.image.write',
+    phase: 'success',
+    durationMs: Date.now() - startedAt,
+    details: { byteLength: imageData.buffer.length, filePath: result.filePath }
+  })
 
   return { saved: true, filePath: result.filePath }
+}
+
+function readDiagnosticExportFileName() {
+  const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13)
+  return `lightyear-banana-diagnostics-${timestamp}.jsonl`
+}
+
+async function exportDiagnosticLog() {
+  if (!diagnosticLogger) {
+    throw new Error('诊断日志尚未准备完成')
+  }
+
+  const startedAt = Date.now()
+  void writeDiagnostic({
+    category: 'diagnostics',
+    operation: 'diagnostics.export',
+    phase: 'start'
+  })
+  const result = await dialog.showSaveDialog(mainWindow ?? undefined, {
+    title: '下载诊断日志',
+    defaultPath: readDiagnosticExportFileName(),
+    filters: [
+      {
+        name: '诊断日志',
+        extensions: ['jsonl']
+      }
+    ]
+  })
+
+  if (result.canceled || !result.filePath) {
+    void writeDiagnostic({
+      category: 'diagnostics',
+      operation: 'diagnostics.export',
+      phase: 'cancel',
+      durationMs: Date.now() - startedAt
+    })
+    return { saved: false }
+  }
+
+  try {
+    const exported = await diagnosticLogger.exportTo(result.filePath)
+    void writeDiagnostic({
+      category: 'diagnostics',
+      operation: 'diagnostics.export',
+      phase: 'success',
+      durationMs: Date.now() - startedAt,
+      details: exported
+    })
+    return { saved: true, ...exported }
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'diagnostics',
+      operation: 'diagnostics.export',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      details: { filePath: result.filePath },
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
+  }
 }
 
 async function readJsonBody(request) {
@@ -850,17 +1271,50 @@ function broadcastRendererEvent(event) {
 function resolvePending(message) {
   const pending = state.pending.get(message.id)
   if (!pending) {
+    const expired = state.expiredRequests.get(message.id)
+    if (expired) {
+      void writeDiagnostic({
+        level: 'warn',
+        requestId: message.id,
+        category: 'bridge',
+        operation: 'bridge.uxp.lateResponse',
+        phase: message.ok ? 'success' : 'error',
+        durationMs: Date.now() - expired.startedAt,
+        details: { command: expired.command },
+        error: message.ok ? undefined : message.error
+      })
+      scheduleDiagnosticEventCleanup(message.id)
+    }
     return false
   }
 
   clearTimeout(pending.timer)
   state.pending.delete(message.id)
+  scheduleDiagnosticEventCleanup(message.id)
 
   if (message.ok) {
+    void writeDiagnostic({
+      requestId: message.id,
+      category: 'bridge',
+      operation: 'bridge.uxp.command',
+      phase: 'success',
+      durationMs: Date.now() - pending.startedAt,
+      details: { command: pending.command }
+    })
     pending.resolve(message.payload)
   } else {
     const error = new Error(message.error?.message || 'Photoshop 操作失败')
     error.code = message.error?.code
+    void writeDiagnostic({
+      level: 'error',
+      requestId: message.id,
+      category: 'bridge',
+      operation: 'bridge.uxp.command',
+      phase: 'error',
+      durationMs: Date.now() - pending.startedAt,
+      details: { command: pending.command },
+      error: message.error || normalizeDiagnosticError(error)
+    })
     pending.reject(error)
   }
 
@@ -881,10 +1335,19 @@ function readUxpCommandTimeout(command) {
 
 function sendToUxp(type, payload = {}) {
   if (!isPhotoshopConnected()) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'bridge',
+      operation: 'bridge.uxp.command',
+      phase: 'error',
+      details: { command: type },
+      error: { code: 'UXP_NOT_CONNECTED', message: 'Photoshop 插件未连接' }
+    })
     return Promise.reject(new Error('Photoshop 插件未连接'))
   }
 
   const id = randomUUID()
+  const startedAt = Date.now()
   const message = {
     id,
     type,
@@ -893,13 +1356,39 @@ function sendToUxp(type, payload = {}) {
     createdAt: Date.now()
   }
 
+  void writeDiagnostic({
+    requestId: id,
+    category: 'bridge',
+    operation: 'bridge.uxp.command',
+    phase: 'start',
+    details: {
+      command: type,
+      payload: readCommandPayloadSummary(type, payload),
+      queueLength: state.uxpQueue.length
+    }
+  })
+
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       state.pending.delete(id)
-      reject(new Error('Photoshop 操作超时'))
+      const error = new Error('Photoshop 操作超时')
+      error.code = 'UXP_COMMAND_TIMEOUT'
+      state.expiredRequests.set(id, { command: type, startedAt, timedOutAt: Date.now() })
+      scheduleDiagnosticEventCleanup(id)
+      void writeDiagnostic({
+        level: 'error',
+        requestId: id,
+        category: 'bridge',
+        operation: 'bridge.uxp.command',
+        phase: 'timeout',
+        durationMs: Date.now() - startedAt,
+        details: { command: type, queueLength: state.uxpQueue.length },
+        error: normalizeDiagnosticError(error)
+      })
+      reject(error)
     }, readUxpCommandTimeout(type))
 
-    state.pending.set(id, { resolve, reject, timer })
+    state.pending.set(id, { command: type, resolve, reject, startedAt, timer })
     state.uxpQueue.push(message)
     flushPollWaiters()
   })
@@ -910,11 +1399,25 @@ function markUxpConnected(payload = {}) {
   state.lastDocumentLabel = payload.documentLabel || state.lastDocumentLabel
 }
 
+function shiftUxpMessage() {
+  const message = state.uxpQueue.shift()
+  if (message) {
+    void writeDiagnostic({
+      requestId: message.id,
+      category: 'bridge',
+      operation: 'bridge.uxp.dispatch',
+      phase: 'success',
+      details: { command: message.type, queueLength: state.uxpQueue.length }
+    })
+  }
+  return message
+}
+
 function flushPollWaiters() {
   while (state.pollWaiters.length && state.uxpQueue.length) {
     const waiter = state.pollWaiters.shift()
     clearTimeout(waiter.timer)
-    sendJson(waiter.response, 200, state.uxpQueue.shift())
+    sendJson(waiter.response, 200, shiftUxpMessage())
   }
 }
 
@@ -927,6 +1430,16 @@ async function handleHttpUxpRequest(request, response, url) {
   if (request.method === 'POST' && url.pathname === '/uxp/hello') {
     const body = await readJsonBody(request)
     markUxpConnected(body.payload)
+    void writeDiagnostic({
+      category: 'bridge',
+      operation: 'bridge.uxp.hello',
+      phase: 'success',
+      details: {
+        documentLabel: body.payload?.documentLabel,
+        photoshopVersion: body.payload?.photoshopVersion,
+        uxpVersion: body.payload?.uxpVersion
+      }
+    })
     broadcastRendererEvent({
       type: 'photoshop.connected',
       payload: readBridgeStatus()
@@ -935,10 +1448,18 @@ async function handleHttpUxpRequest(request, response, url) {
     return true
   }
 
+  if (request.method === 'POST' && url.pathname === '/uxp/diagnostics') {
+    const body = await readJsonBody(request)
+    markUxpConnected(body.payload)
+    const accepted = ingestUxpDiagnostic(body.requestId, body.event, 'live')
+    sendJson(response, 200, { ok: true, accepted })
+    return true
+  }
+
   if (request.method === 'GET' && url.pathname === '/uxp/poll') {
     markUxpConnected()
     if (state.uxpQueue.length) {
-      sendJson(response, 200, state.uxpQueue.shift())
+      sendJson(response, 200, shiftUxpMessage())
       return true
     }
 
@@ -967,6 +1488,7 @@ async function handleHttpUxpRequest(request, response, url) {
     const body = await readJsonBody(request)
     markUxpConnected(body.payload)
     if (body.id) {
+      ingestUxpTrace(body.id, body.diagnostics, 'final-response')
       resolvePending(body)
     }
     sendJson(response, 200, { ok: true })
@@ -1457,7 +1979,7 @@ ipcMain.handle('lightyear:settings:save', async (_event, settings) => {
 
 ipcMain.handle('lightyear:preview:open', async (_event, payload) => openPreviewWindow(payload))
 
-ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
+async function runRendererCommand(command, payload) {
   if (command === 'app.status') {
     return readBridgeStatus()
   }
@@ -1474,6 +1996,10 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
     return checkForAppUpdate({ source: 'manual' })
   }
 
+  if (command === 'diagnostics.export') {
+    return exportDiagnosticLog()
+  }
+
   if (command === 'reference.pickUpload') {
     return pickReferenceImageFile()
   }
@@ -1487,12 +2013,72 @@ ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
   }
 
   return sendToUxp(command, payload)
+}
+
+ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
+  const startedAt = Date.now()
+  void writeDiagnostic({
+    category: 'app',
+    operation: 'renderer.invoke',
+    phase: 'start',
+    details: { command, payload: readCommandPayloadSummary(command, payload) }
+  })
+
+  try {
+    const result = await runRendererCommand(command, payload)
+    void writeDiagnostic({
+      category: 'app',
+      operation: 'renderer.invoke',
+      phase: result?.saved === false ? 'cancel' : 'success',
+      durationMs: Date.now() - startedAt,
+      details: { command }
+    })
+    return result
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'app',
+      operation: 'renderer.invoke',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      details: { command },
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
+  }
 })
 
 app.whenReady().then(async () => {
+  try {
+    await initializeDiagnostics()
+  } catch (error) {
+    diagnosticLogger = null
+    console.error('[Lightyear diagnostics] initialization failed', error)
+  }
+
   await startBridgeServerWithFallback()
+  void writeDiagnostic({
+    category: 'bridge',
+    operation: 'bridge.server.start',
+    phase: 'success',
+    details: { origin: readBridgeOrigin() }
+  })
   await startBuiltInCodexImageServer()
   await createMainWindow()
+  void writeDiagnostic({
+    category: 'app',
+    operation: 'app.window.create',
+    phase: 'success',
+    details: { bounds: mainWindow?.getBounds() }
+  })
+  powerMonitor.on('resume', () => {
+    void diagnosticLogger?.prune()
+    void writeDiagnostic({
+      category: 'app',
+      operation: 'app.resume',
+      phase: 'success'
+    })
+  })
   scheduleStartupUpdateCheck()
 
   app.on('activate', () => {
@@ -1509,10 +2095,17 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  void writeDiagnostic({
+    category: 'app',
+    operation: 'app.quit',
+    phase: 'start',
+    details: { uptimeMs: Date.now() - state.startedAt }
+  })
   if (startupUpdateTimer) {
     clearTimeout(startupUpdateTimer)
     startupUpdateTimer = null
   }
   state.server?.close()
   state.codexImageServer?.close()
+  void diagnosticLogger?.close()
 })

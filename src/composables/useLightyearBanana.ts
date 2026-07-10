@@ -21,6 +21,7 @@ import {
   type AppUpdateCheckState,
   type CanvasOperationState,
   type ChatTurn,
+  type DiagnosticExportState,
   type GeneratedImage,
   type GenerationLoadingPhase,
   type GenerationRequestSnapshot,
@@ -52,6 +53,7 @@ import {
 } from '../utils/referenceImages'
 import {
   deserializeCanvasImage,
+  exportElectronDiagnostics,
   getElectronBridgeStatus,
   hasElectronBridge,
   invokeElectronBridge,
@@ -646,6 +648,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
     status: 'idle',
     message: `当前版本 v${buildInfo.version}`,
     currentVersion: buildInfo.version
+  })
+  const diagnosticExportState = shallowRef<DiagnosticExportState>({
+    status: 'idle',
+    message: '最近 24 小时'
   })
   const toastMessage = shallowRef('')
   const generationLoading = shallowRef<GenerationLoadingState[]>([])
@@ -2167,6 +2173,39 @@ function readHighestQuality(options: string[]): string {
     }
   }
 
+  async function exportDiagnostics() {
+    if (!isElectronRuntime || !canUseElectronBridge.value) {
+      const message = '请在 Lightyear App 中使用'
+      diagnosticExportState.value = { status: 'error', message }
+      status.value = message
+      showToast(message)
+      return
+    }
+
+    diagnosticExportState.value = {
+      status: 'exporting',
+      message: '正在整理最近 24 小时的日志'
+    }
+
+    try {
+      const result = await withTimeout(exportElectronDiagnostics(), 30000, '日志整理超时')
+      if (!result.saved) {
+        diagnosticExportState.value = { status: 'idle', message: '最近 24 小时' }
+        return
+      }
+
+      const message = result.recordCount === undefined ? '日志已保存' : `已保存 ${result.recordCount} 条记录`
+      diagnosticExportState.value = { status: 'success', message }
+      status.value = message
+      showToast(message)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '日志下载失败'
+      diagnosticExportState.value = { status: 'error', message }
+      status.value = message
+      showToast(message)
+    }
+  }
+
   function updateSettingsDraft(patch: Partial<ModelConfig>) {
     if (patch.provider && patch.provider !== settingsDraft.provider) {
       const capability = providerCapabilities[patch.provider]
@@ -2259,6 +2298,8 @@ function readHighestQuality(options: string[]): string {
     installPluginUrl,
     appUpdateState,
     checkForUpdates,
+    diagnosticExportState,
+    exportDiagnostics,
     openMacPermissionSettings,
     openSettings,
     placeImage,

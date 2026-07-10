@@ -3,6 +3,7 @@ import { computed, onUnmounted, shallowRef } from 'vue'
 import { buildInfo } from '../../buildInfo'
 import type {
   AppUpdateCheckState,
+  DiagnosticExportState,
   ImageProviderId,
   MacPermissionPane,
   ModelConfig,
@@ -13,6 +14,7 @@ import type {
 import { providerRequiresApiKey } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
+import DiagnosticLogCard from './DiagnosticLogCard.vue'
 
 type ConfigStatus = {
   icon: 'check-circle' | 'x'
@@ -27,6 +29,8 @@ const props = defineProps<{
   macPermissionSettingsAvailable: boolean
   appUpdateCheckAvailable: boolean
   appUpdateState: AppUpdateCheckState
+  diagnosticExportAvailable: boolean
+  diagnosticExportState: DiagnosticExportState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   settingsDraftIsNew: boolean
   settingsDraft: ModelConfig
@@ -42,6 +46,7 @@ const emit = defineEmits<{
   duplicate: []
   edit: [id: string]
   checkForUpdates: []
+  downloadDiagnostics: []
   openMacPermissionSettings: [pane: MacPermissionPane]
   save: []
   test: []
@@ -179,6 +184,12 @@ onUnmounted(() => {
             {{ clearConversationLabel }}
           </button>
         </section>
+
+        <DiagnosticLogCard
+          v-if="diagnosticExportAvailable"
+          :state="diagnosticExportState"
+          @download="emit('downloadDiagnostics')"
+        />
 
         <div class="config-list">
           <div class="section-header">

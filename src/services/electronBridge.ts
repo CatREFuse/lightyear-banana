@@ -1,5 +1,5 @@
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
-import type { PlacementTarget } from '../types/lightyear'
+import type { DiagnosticExportResult, PlacementTarget } from '../types/lightyear'
 
 type BridgeStatus = {
   bridge: {
@@ -121,6 +121,10 @@ export async function invokeElectronBridge<T = unknown>(command: string, payload
   }
 
   return window.lightyearBridge.invoke<T>(command, payload)
+}
+
+export async function exportElectronDiagnostics() {
+  return invokeElectronBridge<DiagnosticExportResult>('diagnostics.export')
 }
 
 export function onElectronBridgeEvent(callback: (event: unknown) => void) {

@@ -9,6 +9,7 @@ import {
   readSelectionBounds,
   type CapturedCanvasImage
 } from './canvasPrimitives'
+import type { UxpDiagnosticTrace } from './diagnosticTrace'
 
 export type CanvasInsertTarget = {
   left: number
@@ -25,19 +26,19 @@ export type CanvasSize = {
 export interface CanvasPrimitiveService {
   captureVisibleImage: () => Promise<CapturedCanvasImage>
   captureVisibleReferenceImage: () => Promise<CapturedCanvasImage>
-  captureSelectionImage: () => Promise<CapturedCanvasImage>
-  captureSelectionReferenceImage: () => Promise<CapturedCanvasImage>
+  captureSelectionImage: (trace?: UxpDiagnosticTrace) => Promise<CapturedCanvasImage>
+  captureSelectionReferenceImage: (trace?: UxpDiagnosticTrace) => Promise<CapturedCanvasImage>
   captureSelectedLayerImage: () => Promise<CapturedCanvasImage>
   captureSelectedLayerReferenceImage: () => Promise<CapturedCanvasImage>
   createSampleImage: () => CapturedCanvasImage
   insertImage: (image: CapturedCanvasImage, target: CanvasInsertTarget) => Promise<CanvasInsertTarget>
   insertImageFromPreview: (image: CapturedCanvasImage, target: CanvasInsertTarget) => Promise<CanvasInsertTarget>
   insertImageFromPreviewToFullCanvas: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
-  insertImageFromPreviewToSelection: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
+  insertImageFromPreviewToSelection: (image: CapturedCanvasImage, trace?: UxpDiagnosticTrace) => Promise<CanvasInsertTarget>
   insertImageToFullCanvas: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
   insertImageToSelection: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
   readCanvasSize: () => CanvasSize
-  readSelectionTarget: () => Promise<CanvasInsertTarget>
+  readSelectionTarget: (trace?: UxpDiagnosticTrace) => Promise<CanvasInsertTarget>
 }
 
 export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
@@ -53,12 +54,12 @@ export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
     }
   }
 
-  async captureSelectionImage() {
-    return captureSelectionComposite()
+  async captureSelectionImage(trace?: UxpDiagnosticTrace) {
+    return captureSelectionComposite(trace)
   }
 
-  async captureSelectionReferenceImage() {
-    const image = await this.captureSelectionImage()
+  async captureSelectionReferenceImage(trace?: UxpDiagnosticTrace) {
+    const image = await this.captureSelectionImage(trace)
     return {
       ...image,
       rgba: new Uint8Array()
@@ -100,8 +101,8 @@ export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
     })
   }
 
-  async insertImageFromPreviewToSelection(image: CapturedCanvasImage) {
-    const target = await this.readSelectionTarget()
+  async insertImageFromPreviewToSelection(image: CapturedCanvasImage, trace?: UxpDiagnosticTrace) {
+    const target = await this.readSelectionTarget(trace)
 
     return this.insertImageFromPreview(image, target)
   }
@@ -127,8 +128,8 @@ export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
     return readDocumentSize()
   }
 
-  async readSelectionTarget() {
-    return readSelectionBounds()
+  async readSelectionTarget(trace?: UxpDiagnosticTrace) {
+    return readSelectionBounds(trace)
   }
 }
 

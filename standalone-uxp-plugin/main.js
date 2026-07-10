@@ -2,7 +2,7 @@ const uxp = require('uxp')
 const photoshop = require('photoshop')
 const { app, core, imaging, action } = photoshop
 const LOG_PREFIX = '[Lightyear Banana Standalone]'
-const APP_TITLE = 'Lightyear Banana v0.3.9'
+const APP_TITLE = 'Lightyear Banana v0.3.12'
 
 console.log(LOG_PREFIX, 'script loaded')
 

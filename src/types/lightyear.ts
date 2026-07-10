@@ -59,6 +59,22 @@ export type AppUpdateCheckResult = {
   message?: string
 }
 
+export type DiagnosticExportStatus = 'idle' | 'exporting' | 'success' | 'error'
+
+export type DiagnosticExportState = {
+  status: DiagnosticExportStatus
+  message: string
+}
+
+export type DiagnosticExportResult = {
+  saved: boolean
+  fileName?: string
+  filePath?: string
+  recordCount?: number
+  cutoff?: string
+  snapshotTime?: string
+}
+
 export type CanvasOperationState = {
   type: 'idle' | 'capture' | 'place'
   label: string

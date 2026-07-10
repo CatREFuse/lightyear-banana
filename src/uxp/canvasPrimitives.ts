@@ -1,4 +1,5 @@
 import { getHostRequire } from './photoshopHost'
+import type { UxpDiagnosticTrace } from './diagnosticTrace'
 
 export type PixelBounds = {
   left: number
@@ -33,10 +34,15 @@ type PhotoshopRuntime = {
     batchPlay: (commands: unknown[], options: Record<string, unknown>) => Promise<unknown[]>
   }
   app: {
+    version?: string
     activeDocument: {
       id: number
+      name?: string
+      title?: string
       width: unknown
       height: unknown
+      mode?: unknown
+      bitsPerChannel?: unknown
       activeLayers: PhotoshopLayer[]
     }
   }
@@ -120,10 +126,69 @@ function getUxpRuntime(): UxpRuntime {
   return hostRequire('uxp') as UxpRuntime
 }
 
-async function executePhotoshopModal<T>(commandName: string, targetFunction: () => Promise<T>) {
-  const photoshop = getPhotoshop()
+async function emitTrace(
+  trace: UxpDiagnosticTrace | undefined,
+  operation: string,
+  phase: 'start' | 'progress' | 'success' | 'cancel' | 'error' | 'timeout',
+  details?: Record<string, unknown>,
+  error?: unknown
+) {
+  await trace?.emit(operation, phase, details, error)
+}
 
-  return photoshop.core.executeAsModal(targetFunction, { commandName, timeOut: 5 })
+function readTypedArrayDetails(data: Uint8Array | Uint16Array | Float32Array) {
+  return {
+    arrayType: data.constructor.name,
+    byteLength: data.byteLength,
+    bytesPerElement: data.BYTES_PER_ELEMENT,
+    elementLength: data.length
+  }
+}
+
+function countNonZeroBytes(data: Uint8Array) {
+  let count = 0
+  for (const value of data) {
+    if (value > 0) {
+      count += 1
+    }
+  }
+  return count
+}
+
+async function executePhotoshopModal<T>(
+  commandName: string,
+  targetFunction: () => Promise<T>,
+  trace?: UxpDiagnosticTrace
+) {
+  const photoshop = getPhotoshop()
+  const startedAt = Date.now()
+  await emitTrace(trace, 'photoshop.modal', 'start', { commandName, timeoutSeconds: 5 })
+  try {
+    const result = await photoshop.core.executeAsModal(targetFunction, { commandName, timeOut: 5 })
+    await emitTrace(trace, 'photoshop.modal', 'success', { commandName, durationMs: Date.now() - startedAt })
+    return result
+  } catch (error) {
+    await emitTrace(trace, 'photoshop.modal', 'error', { commandName, durationMs: Date.now() - startedAt }, error)
+    throw error
+  }
+}
+
+export function readCanvasDiagnosticContext() {
+  const photoshop = getPhotoshop()
+  const document = photoshop.app.activeDocument
+
+  return {
+    photoshopVersion: photoshop.app.version,
+    document: {
+      id: document.id,
+      name: document.name ?? document.title ?? '',
+      width: readCoordinate(document.width),
+      height: readCoordinate(document.height),
+      mode: String(document.mode ?? ''),
+      bitsPerChannel: String(document.bitsPerChannel ?? ''),
+      activeLayers: document.activeLayers.map((layer) => ({ id: layer.id, name: layer.name ?? '' }))
+    }
+  }
 }
 
 function getDocumentBounds(doc: { width: unknown; height: unknown }): PixelBounds {
@@ -616,43 +681,128 @@ export function createSampleCanvasImage(): CapturedCanvasImage {
   }
 }
 
-async function encodeRgbaPreview(photoshop: PhotoshopRuntime, rgba: Uint8Array, width: number, height: number) {
+async function encodeRgbaPreview(
+  photoshop: PhotoshopRuntime,
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+  trace?: UxpDiagnosticTrace
+) {
   const rgb = rgbaToPreviewRgb(rgba)
-  const imageData = await photoshop.imaging.createImageDataFromBuffer(rgb, {
+  const createStartedAt = Date.now()
+  await emitTrace(trace, 'preview.createImageData', 'start', {
     width,
     height,
     components: 3,
-    colorProfile: COLOR_PROFILE,
-    colorSpace: 'RGB'
+    byteLength: rgb.byteLength
   })
 
+  let imageData: PhotoshopImageResult['imageData']
   try {
-    const base64 = await photoshop.imaging.encodeImageData({
-      imageData,
-      base64: true
+    imageData = await photoshop.imaging.createImageDataFromBuffer(rgb, {
+      width,
+      height,
+      components: 3,
+      colorProfile: COLOR_PROFILE,
+      colorSpace: 'RGB'
     })
+    await emitTrace(trace, 'preview.createImageData', 'success', {
+      durationMs: Date.now() - createStartedAt,
+      width: imageData.width,
+      height: imageData.height,
+      components: imageData.components
+    })
+  } catch (error) {
+    await emitTrace(trace, 'preview.createImageData', 'error', { durationMs: Date.now() - createStartedAt }, error)
+    throw error
+  }
+
+  try {
+    const encodeStartedAt = Date.now()
+    await emitTrace(trace, 'preview.encodeImageData', 'start', { width, height })
+    let base64: string
+    try {
+      base64 = await photoshop.imaging.encodeImageData({
+        imageData,
+        base64: true
+      })
+      await emitTrace(trace, 'preview.encodeImageData', 'success', {
+        durationMs: Date.now() - encodeStartedAt,
+        encodedLength: base64.length
+      })
+    } catch (error) {
+      await emitTrace(trace, 'preview.encodeImageData', 'error', { durationMs: Date.now() - encodeStartedAt }, error)
+      throw error
+    }
 
     return `data:image/jpeg;base64,${base64}`
   } finally {
+    await emitTrace(trace, 'preview.imageData.dispose', 'start')
     imageData.dispose()
+    await emitTrace(trace, 'preview.imageData.dispose', 'success')
   }
 }
 
-async function getVisibleCompositePixels(bounds?: PixelBounds) {
+async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: UxpDiagnosticTrace) {
   const photoshop = getPhotoshop()
   const doc = photoshop.app.activeDocument
   const documentBounds = getDocumentBounds(doc)
   const sourceBounds = bounds ?? documentBounds
-  // No layerID here: selection capture must sample all visible layers in the document composite.
-  const result = await photoshop.imaging.getPixels({
-    documentID: doc.id,
-    sourceBounds,
+  const requestStartedAt = Date.now()
+  await emitTrace(trace, 'composite.getPixels', 'start', {
+    documentId: doc.id,
+    requestedBounds: sourceBounds,
     colorSpace: 'RGB',
     componentSize: 8
   })
 
+  let result: PhotoshopImageResult
   try {
-    const data = requireUint8(await result.imageData.getData())
+    // No layerID here: selection capture must sample all visible layers in the document composite.
+    result = await photoshop.imaging.getPixels({
+      documentID: doc.id,
+      sourceBounds,
+      colorSpace: 'RGB',
+      componentSize: 8
+    })
+    await emitTrace(trace, 'composite.getPixels', 'success', {
+      durationMs: Date.now() - requestStartedAt,
+      width: result.imageData.width,
+      height: result.imageData.height,
+      components: result.imageData.components,
+      returnedBounds: imageResultBounds(result, sourceBounds)
+    })
+  } catch (error) {
+    await emitTrace(trace, 'composite.getPixels', 'error', { durationMs: Date.now() - requestStartedAt }, error)
+    throw error
+  }
+
+  try {
+    const dataStartedAt = Date.now()
+    await emitTrace(trace, 'composite.getData', 'start', {
+      width: result.imageData.width,
+      height: result.imageData.height,
+      components: result.imageData.components
+    })
+    let rawData: Uint8Array | Uint16Array | Float32Array
+    try {
+      rawData = await result.imageData.getData()
+      await emitTrace(trace, 'composite.getData', 'success', {
+        durationMs: Date.now() - dataStartedAt,
+        ...readTypedArrayDetails(rawData),
+        expectedElementLength: result.imageData.width * result.imageData.height * result.imageData.components
+      })
+    } catch (error) {
+      await emitTrace(trace, 'composite.getData', 'error', { durationMs: Date.now() - dataStartedAt }, error)
+      throw error
+    }
+
+    await emitTrace(trace, 'composite.buffer.validate', 'start', readTypedArrayDetails(rawData))
+    const data = requireUint8(rawData)
+    await emitTrace(trace, 'composite.buffer.validate', 'success', {
+      ...readTypedArrayDetails(data),
+      expectedByteLength: result.imageData.width * result.imageData.height * result.imageData.components
+    })
     const rgba = toRgba(data, result.imageData.width, result.imageData.height, result.imageData.components)
 
     return {
@@ -662,29 +812,91 @@ async function getVisibleCompositePixels(bounds?: PixelBounds) {
       sourceBounds: imageResultBounds(result, sourceBounds)
     }
   } finally {
+    await emitTrace(trace, 'composite.imageData.dispose', 'start')
     result.imageData.dispose()
+    await emitTrace(trace, 'composite.imageData.dispose', 'success')
   }
 }
 
-async function getSelectionPixels() {
+async function getSelectionPixels(trace?: UxpDiagnosticTrace) {
   const photoshop = getPhotoshop()
   const doc = photoshop.app.activeDocument
   const documentBounds = getDocumentBounds(doc)
-  const result = await photoshop.imaging.getSelection({
-    documentID: doc.id,
-    sourceBounds: documentBounds
+  const requestStartedAt = Date.now()
+  await emitTrace(trace, 'selection.getSelection', 'start', {
+    documentId: doc.id,
+    requestedBounds: documentBounds
   })
 
+  let result: PhotoshopImageResult
   try {
-    const data = requireUint8(await result.imageData.getData())
+    result = await photoshop.imaging.getSelection({
+      documentID: doc.id,
+      sourceBounds: documentBounds
+    })
+    await emitTrace(trace, 'selection.getSelection', 'success', {
+      durationMs: Date.now() - requestStartedAt,
+      width: result.imageData.width,
+      height: result.imageData.height,
+      components: result.imageData.components,
+      returnedBounds: imageResultBounds(result, documentBounds)
+    })
+  } catch (error) {
+    await emitTrace(trace, 'selection.getSelection', 'error', { durationMs: Date.now() - requestStartedAt }, error)
+    throw error
+  }
+
+  try {
+    const dataStartedAt = Date.now()
+    await emitTrace(trace, 'selection.getData', 'start', {
+      width: result.imageData.width,
+      height: result.imageData.height,
+      components: result.imageData.components
+    })
+    let rawData: Uint8Array | Uint16Array | Float32Array
+    try {
+      rawData = await result.imageData.getData()
+      await emitTrace(trace, 'selection.getData', 'success', {
+        durationMs: Date.now() - dataStartedAt,
+        ...readTypedArrayDetails(rawData),
+        expectedElementLength: result.imageData.width * result.imageData.height * result.imageData.components
+      })
+    } catch (error) {
+      await emitTrace(trace, 'selection.getData', 'error', { durationMs: Date.now() - dataStartedAt }, error)
+      throw error
+    }
+
+    await emitTrace(trace, 'selection.buffer.validate', 'start', readTypedArrayDetails(rawData))
+    const data = requireUint8(rawData)
+    await emitTrace(trace, 'selection.buffer.validate', 'success', {
+      ...readTypedArrayDetails(data),
+      expectedByteLength: result.imageData.width * result.imageData.height * result.imageData.components
+    })
     const width = result.imageData.width
     const height = result.imageData.height
     const sourceBounds = imageResultBounds(result, documentBounds)
+    await emitTrace(trace, 'selection.mask.convert', 'start', { width, height, components: result.imageData.components })
     const mask = toSelectionMask(data, width, height, result.imageData.components)
     const selectionBounds = calculateMaskBounds(mask, width, height, sourceBounds)
+    await emitTrace(trace, 'selection.mask.convert', 'success', {
+      width,
+      height,
+      sourceBounds,
+      selectionBounds,
+      byteLength: mask.byteLength,
+      nonZeroPixelCount: countNonZeroBytes(mask)
+    })
 
     if (!selectionBounds) {
-      throw new Error('当前没有可读取的选区')
+      const error = new Error('当前没有可读取的选区')
+      await emitTrace(trace, 'selection.mask.bounds', 'error', {
+        width,
+        height,
+        sourceBounds,
+        byteLength: mask.byteLength,
+        nonZeroPixelCount: 0
+      }, error)
+      throw error
     }
 
     return {
@@ -695,7 +907,9 @@ async function getSelectionPixels() {
       selectionBounds
     }
   } finally {
+    await emitTrace(trace, 'selection.imageData.dispose', 'start')
     result.imageData.dispose()
+    await emitTrace(trace, 'selection.imageData.dispose', 'success')
   }
 }
 
@@ -775,12 +989,21 @@ export async function captureSelectedLayer(): Promise<CapturedCanvasImage> {
   })
 }
 
-export async function captureSelectionComposite(): Promise<CapturedCanvasImage> {
+export async function captureSelectionComposite(trace?: UxpDiagnosticTrace): Promise<CapturedCanvasImage> {
   return executePhotoshopModal('抓取选区图像', async () => {
     const photoshop = getPhotoshop()
-    const selection = await getSelectionPixels()
+    await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
+    const selection = await getSelectionPixels(trace)
     const selectionBounds = selection.selectionBounds
-    const composite = await getVisibleCompositePixels(selectionBounds)
+    const composite = await getVisibleCompositePixels(selectionBounds, trace)
+    await emitTrace(trace, 'selection.mask.crop', 'start', {
+      sourceWidth: selection.width,
+      sourceHeight: selection.height,
+      sourceBounds: selection.sourceBounds,
+      targetWidth: composite.width,
+      targetHeight: composite.height,
+      targetBounds: composite.sourceBounds
+    })
     const mask = cropMaskToBounds(
       selection.mask,
       selection.width,
@@ -790,8 +1013,23 @@ export async function captureSelectionComposite(): Promise<CapturedCanvasImage> 
       composite.width,
       composite.height
     )
+    await emitTrace(trace, 'selection.mask.crop', 'success', {
+      width: composite.width,
+      height: composite.height,
+      byteLength: mask.byteLength,
+      nonZeroPixelCount: countNonZeroBytes(mask)
+    })
+    await emitTrace(trace, 'selection.rgba.composite', 'start', {
+      rgbaByteLength: composite.rgba.byteLength,
+      maskByteLength: mask.byteLength
+    })
     const selectedRgba = compositeSelection(composite.rgba, mask)
-    const previewUrl = await encodeRgbaPreview(photoshop, selectedRgba, composite.width, composite.height)
+    await emitTrace(trace, 'selection.rgba.composite', 'success', {
+      width: composite.width,
+      height: composite.height,
+      byteLength: selectedRgba.byteLength
+    })
+    const previewUrl = await encodeRgbaPreview(photoshop, selectedRgba, composite.width, composite.height, trace)
 
     return {
       id: `selection-${Date.now()}`,
@@ -802,12 +1040,13 @@ export async function captureSelectionComposite(): Promise<CapturedCanvasImage> 
       previewUrl,
       rgba: selectedRgba
     }
-  })
+  }, trace)
 }
 
-export async function readSelectionBounds() {
+export async function readSelectionBounds(trace?: UxpDiagnosticTrace) {
   return executePhotoshopModal('读取选区位置', async () => {
-    const selection = await getSelectionPixels()
+    await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
+    const selection = await getSelectionPixels(trace)
     const bounds = selection.selectionBounds
 
     return {
@@ -816,7 +1055,7 @@ export async function readSelectionBounds() {
       width: Math.max(1, bounds.right - bounds.left),
       height: Math.max(1, bounds.bottom - bounds.top)
     }
-  })
+  }, trace)
 }
 
 async function createPixelLayer(name: string) {

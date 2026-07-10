@@ -39,9 +39,11 @@ const {
   customWidth,
   deleteConfig,
   deployWindows,
+  diagnosticExportState,
   duplicateConfig,
   editConfig,
   editGenerationRequest,
+  exportDiagnostics,
   editingCapability,
   editingConfigId,
   enabledConfigs,
@@ -229,6 +231,8 @@ function handleManageModels() {
         :editing-config-id="editingConfigId"
         :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
         :app-update-check-available="props.runtime === 'electron'"
+        :diagnostic-export-available="props.runtime === 'electron'"
+        :diagnostic-export-state="diagnosticExportState"
         :provider-capabilities="providerCapabilities"
         :app-update-state="appUpdateState"
         :settings-draft-is-new="settingsDraftIsNew"
@@ -240,6 +244,7 @@ function handleManageModels() {
         @create="createConfig"
         @delete="deleteConfig"
         @duplicate="duplicateConfig"
+        @download-diagnostics="exportDiagnostics"
         @edit="editConfig"
         @open-mac-permission-settings="openMacPermissionSettings"
         @check-for-updates="checkForUpdates"
