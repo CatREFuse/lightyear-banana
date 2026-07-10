@@ -34,8 +34,8 @@
 
 ## 当前 0.3.12 状态
 
-- macOS 包已由 macOS 环境构建、签名并验证：`lightyear-banana-0.3.12-mac.zip`。
-- Windows 原生打包任务将在版本提交推送后派发到 GitHub Actions `Package Windows`，目标文件为 `lightyear-banana-0.3.12-win.zip`，要求返回 SHA256 校验文件。
-- CCX 已构建并验证：`lightyear-banana-0.3.12.ccx`。
-- `dist/release-0.3.12/` 等待双平台包和 CCX 就绪后生成覆盖三个安装包的 `SHA256SUMS.txt`。
+- macOS 包已由 macOS 环境构建、签名并验证：`lightyear-banana-0.3.12-mac.zip`，SHA256：`9d94272ef11a1ea3865dc3800998e540ffb09e7d81fb31779a8fac4c138381e1`。
+- Windows 原生打包工作流已推送到 GitHub Actions：`Package Windows`，目标文件为 `lightyear-banana-0.3.12-win.zip`，要求返回 SHA256 校验文件；本次运行尚未从当前环境成功 dispatch，原因是本机 GitHub CLI token 已失效。
+- CCX 已构建并验证：`lightyear-banana-0.3.12.ccx`，SHA256：`7d0d95888295a8fd3a454d093fa9b7a19fab70c238a9e3533ff9df58c2b4f122`。
+- `dist/release-0.3.12/` 等待 Windows 原生包和 SHA256 返回后生成覆盖三个安装包的 `SHA256SUMS.txt`。
 - 官网源码和 `build:site` 命令不在当前仓库，暂不更新线上 `latest.json`。
