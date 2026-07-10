@@ -92,7 +92,14 @@ base.resize((1024, 1024), Image.Resampling.LANCZOS).save(out)
     run('sips', ['-z', String(size), String(size), sourcePng, '--out', path.join(iconsetDir, fileName)])
   }
 
-  run('iconutil', ['-c', 'icns', iconsetDir, '-o', appIconPath])
+  try {
+    run('iconutil', ['-c', 'icns', iconsetDir, '-o', appIconPath])
+    return true
+  } catch {
+    rmSync(appIconPath, { force: true })
+    console.warn('custom macOS icon generation skipped; packaging with the Electron default icon')
+    return false
+  }
 }
 
 if (!existsSync(electronApp)) {
@@ -105,7 +112,7 @@ mkdirSync(outDir, { recursive: true })
 run('ditto', [electronApp, appPath])
 
 rmSync(path.join(resourcesDir, 'default_app.asar'), { force: true })
-generateBananaIcon()
+const hasCustomIcon = generateBananaIcon()
 mkdirSync(appResourcesDir, { recursive: true })
 cpSync(path.join(projectRoot, 'electron'), path.join(appResourcesDir, 'electron'), { recursive: true })
 
@@ -136,7 +143,11 @@ writeFileSync(
 
 const plistPath = path.join(appPath, 'Contents', 'Info.plist')
 run('plutil', ['-replace', 'CFBundleDisplayName', '-string', appName, plistPath])
-run('plutil', ['-replace', 'CFBundleIconFile', '-string', appIconName, plistPath])
+if (hasCustomIcon) {
+  run('plutil', ['-replace', 'CFBundleIconFile', '-string', appIconName, plistPath])
+} else {
+  run('plutil', ['-remove', 'CFBundleIconFile', plistPath])
+}
 run('plutil', ['-replace', 'CFBundleName', '-string', appName, plistPath])
 run('plutil', ['-replace', 'CFBundleIdentifier', '-string', 'com.lightyear.banana', plistPath])
 run('plutil', ['-replace', 'CFBundleShortVersionString', '-string', packageJson.version, plistPath])
