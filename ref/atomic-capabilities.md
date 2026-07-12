@@ -79,8 +79,9 @@ DOM API 覆盖不到时使用 `photoshop.action.batchPlay()`。当前 `createNam
 1. `imaging.getSelection()` 取得 selection image data。
 2. 转为 mask。
 3. 计算 mask 有效边界。
-4. 使用边界抓取 composite pixels。
-5. 用 mask 合成透明 RGBA。
+4. 创建只含可见图层合成结果的临时文档副本。
+5. 使用边界从副本合并图层抓取 composite pixels。
+6. 用 mask 合成透明 RGBA，并关闭临时副本且不保存。
 
 无有效选区时抛出 `当前没有可读取的选区`。
 

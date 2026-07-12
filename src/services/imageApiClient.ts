@@ -132,6 +132,15 @@ const pixelSizePresetMaxPixels = new Map([
   ['4k', 4096 * 4096]
 ])
 
+function followsReferenceRatio(params: Pick<ImageGenerationParams, 'ratio' | 'references'>) {
+  if (!params.references.length) {
+    return false
+  }
+
+  const ratio = params.ratio.trim()
+  return ratio === originalRatioOption || ratio === '参考图比例' || ratio === legacyAutoRatioOption
+}
+
 export class ImageApiError extends Error {
   status: number
 
@@ -528,9 +537,61 @@ function buildKlingRequest(params: ImageGenerationParams) {
   }
 }
 
+function readInlineImageData(reference: ReferenceImage) {
+  const match = /^data:([^;,]+);base64,(.*)$/is.exec(reference.image.previewUrl)
+
+  if (!match?.[1]?.toLowerCase().startsWith('image/') || !match[2]) {
+    throw new ImageApiError('参考图无法转换为 Gemini 可读取的图片', 400)
+  }
+
+  return {
+    mimeType: match[1],
+    data: match[2]
+  }
+}
+
+async function prepareGeminiReferences(params: ImageGenerationParams) {
+  const references = await Promise.all(
+    params.references.map(async (reference) => {
+      if (/^data:image\/[^;,]+;base64,/i.test(reference.image.previewUrl)) {
+        return reference
+      }
+
+      if (!isRemoteImageUrl(reference.image.previewUrl)) {
+        throw new ImageApiError('参考图无法转换为 Gemini 可读取的图片', 400)
+      }
+
+      try {
+        const previewUrl = await blobToDataUrl(
+          await fetchBlob(reference.image.previewUrl, {
+            method: 'GET',
+            signal: params.signal
+          })
+        )
+
+        return {
+          ...reference,
+          image: {
+            ...reference.image,
+            previewUrl
+          }
+        }
+      } catch (error) {
+        if (params.signal?.aborted || error instanceof ImageApiError && error.status === 499) {
+          throw error
+        }
+
+        throw new ImageApiError('远程参考图读取失败，请保存后重新上传', 400)
+      }
+    })
+  )
+
+  return references
+}
+
 function buildGeminiRequest(params: ImageGenerationParams) {
   const imageConfig: Record<string, string> = {}
-  const aspectRatio = readRequestedAspectRatio(params)
+  const aspectRatio = followsReferenceRatio(params) ? undefined : readRequestedAspectRatio(params)
   if (aspectRatio) {
     imageConfig.aspectRatio = aspectRatio
   }
@@ -545,10 +606,7 @@ function buildGeminiRequest(params: ImageGenerationParams) {
         parts: [
           { text: params.prompt },
           ...params.references.map((reference) => ({
-            inlineData: {
-              mimeType: 'image/png',
-              data: reference.image.previewUrl.split(',').at(1) ?? ''
-            }
+            inlineData: readInlineImageData(reference)
           }))
         ]
       }
@@ -602,7 +660,11 @@ function buildOpenAiChatRequest(params: ImageGenerationParams) {
 }
 
 function isApimartProImageModel(model: string) {
-  return /gemini-3-pro-image-preview/i.test(model)
+  return /^(?:gemini-3-pro-image-preview(?:-official)?|nano-banana-pro(?:-ext)?)$/i.test(model)
+}
+
+function isApimartGeminiImageModel(model: string) {
+  return /^(?:gemini-3\.1-flash-image-preview(?:-official)?|gemini-3-pro-image-preview(?:-official)?|nano-banana-2(?:-ext)?|nano-banana-pro(?:-ext)?)$/i.test(model)
 }
 
 function isApimartGptImage1Model(model: string) {
@@ -767,6 +829,14 @@ function readApimartAspectRatio(params: ImageGenerationParams) {
   }
 
   if (params.ratio === legacyAutoRatioOption || params.ratio === originalRatioOption || params.ratio === '参考图比例') {
+    if (followsReferenceRatio(params) && isApimartGeminiImageModel(params.config.model)) {
+      return 'auto'
+    }
+
+    if (followsReferenceRatio(params) && isApimartGptImage2Model(params.config.model)) {
+      return undefined
+    }
+
     const dimensions = readApimartSourceDimensions(params)
     if (!dimensions) {
       return defaultRatio
@@ -835,8 +905,12 @@ function buildApimartRequest(params: ImageGenerationParams, imageUrls: string[])
   const payload: Record<string, unknown> = {
     model: params.config.model,
     prompt: params.prompt,
-    n: readApimartCount(params),
-    size: readApimartAspectRatio(params)
+    n: readApimartCount(params)
+  }
+
+  const aspectRatio = readApimartAspectRatio(params)
+  if (aspectRatio) {
+    payload.size = aspectRatio
   }
 
   const resolution = readApimartResolution(params.config.model, params.selectedSize ?? params.size)
@@ -1414,11 +1488,16 @@ function readImageSourceDimensions(image?: ReferenceImage['image']) {
     return undefined
   }
 
+  const intrinsicDimensions = readDimensionsRatio({ width: image.width, height: image.height })
+  if (intrinsicDimensions) {
+    return intrinsicDimensions
+  }
+
   const boundsWidth = Math.abs(image.sourceBounds.right - image.sourceBounds.left)
   const boundsHeight = Math.abs(image.sourceBounds.bottom - image.sourceBounds.top)
   return readDimensionsRatio({
-    width: boundsWidth || image.width,
-    height: boundsHeight || image.height
+    width: boundsWidth,
+    height: boundsHeight
   })
 }
 
@@ -1895,11 +1974,15 @@ async function requestCodexImageServer(params: ImageGenerationParams) {
 }
 
 async function requestGemini(params: ImageGenerationParams) {
+  const preparedParams = params.references.length
+    ? { ...params, references: await prepareGeminiReferences(params) }
+    : params
+
   return fetchJson(resolveGeminiGenerateUrl(params.config), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
-    body: JSON.stringify(buildGeminiRequest(params))
+    body: JSON.stringify(buildGeminiRequest(preparedParams))
   }, readTimingContext(params, 'generateContent'))
 }
 

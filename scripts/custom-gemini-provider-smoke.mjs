@@ -15,7 +15,7 @@ function assert(condition, message) {
 }
 
 function readTscBin() {
-  return join(process.cwd(), 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc')
+  return join(process.cwd(), 'node_modules', 'typescript', 'bin', 'tsc')
 }
 
 async function readRequestBody(request) {
@@ -31,7 +31,7 @@ async function main() {
   const outDir = join(tmpdir(), 'lightyear-banana-custom-gemini-smoke')
   rmSync(outDir, { force: true, recursive: true })
 
-  execFileSync(readTscBin(), [
+  execFileSync(process.execPath, [readTscBin(),
     '--ignoreConfig',
     '--target',
     'ES2022',

@@ -29,22 +29,29 @@ type PhotoshopImageResult = {
   sourceBounds: Partial<PixelBounds>
 }
 
+type PhotoshopDocument = {
+  id: number
+  name?: string
+  title?: string
+  width: unknown
+  height: unknown
+  mode?: unknown
+  bitsPerChannel?: unknown
+  activeLayers: PhotoshopLayer[]
+  layers?: PhotoshopLayer[]
+  duplicate?: (name?: string, mergeLayersOnly?: boolean) => Promise<PhotoshopDocument>
+  mergeVisibleLayers?: () => Promise<void>
+  closeWithoutSaving?: () => Promise<void> | void
+  close?: (saveDialogOptions?: unknown) => Promise<void>
+}
+
 type PhotoshopRuntime = {
   action: {
     batchPlay: (commands: unknown[], options: Record<string, unknown>) => Promise<unknown[]>
   }
   app: {
     version?: string
-    activeDocument: {
-      id: number
-      name?: string
-      title?: string
-      width: unknown
-      height: unknown
-      mode?: unknown
-      bitsPerChannel?: unknown
-      activeLayers: PhotoshopLayer[]
-    }
+    activeDocument: PhotoshopDocument
   }
   core: {
     executeAsModal: <T>(
@@ -55,6 +62,9 @@ type PhotoshopRuntime = {
   constants?: {
     AnchorPosition?: {
       TOPLEFT?: unknown
+    }
+    SaveOptions?: {
+      DONOTSAVECHANGES?: unknown
     }
   }
   imaging: {
@@ -743,81 +753,6 @@ async function encodeRgbaPreview(
   }
 }
 
-async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: UxpDiagnosticTrace) {
-  const photoshop = getPhotoshop()
-  const doc = photoshop.app.activeDocument
-  const documentBounds = getDocumentBounds(doc)
-  const sourceBounds = bounds ?? documentBounds
-  const requestStartedAt = Date.now()
-  await emitTrace(trace, 'composite.getPixels', 'start', {
-    documentId: doc.id,
-    requestedBounds: sourceBounds,
-    colorSpace: 'RGB',
-    componentSize: 8
-  })
-
-  let result: PhotoshopImageResult
-  try {
-    // No layerID here: selection capture must sample all visible layers in the document composite.
-    result = await photoshop.imaging.getPixels({
-      documentID: doc.id,
-      sourceBounds,
-      colorSpace: 'RGB',
-      componentSize: 8
-    })
-    await emitTrace(trace, 'composite.getPixels', 'success', {
-      durationMs: Date.now() - requestStartedAt,
-      width: result.imageData.width,
-      height: result.imageData.height,
-      components: result.imageData.components,
-      returnedBounds: imageResultBounds(result, sourceBounds)
-    })
-  } catch (error) {
-    await emitTrace(trace, 'composite.getPixels', 'error', { durationMs: Date.now() - requestStartedAt }, error)
-    throw error
-  }
-
-  try {
-    const dataStartedAt = Date.now()
-    await emitTrace(trace, 'composite.getData', 'start', {
-      width: result.imageData.width,
-      height: result.imageData.height,
-      components: result.imageData.components
-    })
-    let rawData: Uint8Array | Uint16Array | Float32Array
-    try {
-      rawData = await result.imageData.getData()
-      await emitTrace(trace, 'composite.getData', 'success', {
-        durationMs: Date.now() - dataStartedAt,
-        ...readTypedArrayDetails(rawData),
-        expectedElementLength: result.imageData.width * result.imageData.height * result.imageData.components
-      })
-    } catch (error) {
-      await emitTrace(trace, 'composite.getData', 'error', { durationMs: Date.now() - dataStartedAt }, error)
-      throw error
-    }
-
-    await emitTrace(trace, 'composite.buffer.validate', 'start', readTypedArrayDetails(rawData))
-    const data = requireUint8(rawData)
-    await emitTrace(trace, 'composite.buffer.validate', 'success', {
-      ...readTypedArrayDetails(data),
-      expectedByteLength: result.imageData.width * result.imageData.height * result.imageData.components
-    })
-    const rgba = toRgba(data, result.imageData.width, result.imageData.height, result.imageData.components)
-
-    return {
-      rgba,
-      width: result.imageData.width,
-      height: result.imageData.height,
-      sourceBounds: imageResultBounds(result, sourceBounds)
-    }
-  } finally {
-    await emitTrace(trace, 'composite.imageData.dispose', 'start')
-    result.imageData.dispose()
-    await emitTrace(trace, 'composite.imageData.dispose', 'success')
-  }
-}
-
 async function getSelectionPixels(trace?: UxpDiagnosticTrace) {
   const photoshop = getPhotoshop()
   const doc = photoshop.app.activeDocument
@@ -947,10 +882,110 @@ async function getLayerPixels(layer: PhotoshopLayer, bounds?: PixelBounds) {
   }
 }
 
+async function closeTemporaryDocument(photoshop: PhotoshopRuntime, document: PhotoshopDocument) {
+  if (document.closeWithoutSaving) {
+    await document.closeWithoutSaving()
+    return
+  }
+
+  const doNotSave = photoshop.constants?.SaveOptions?.DONOTSAVECHANGES
+  if (document.close && doNotSave !== undefined) {
+    await document.close(doNotSave)
+    return
+  }
+
+  throw new Error('当前 Photoshop 无法关闭临时合成副本')
+}
+
+async function readMergedLayerPixels(
+  photoshop: PhotoshopRuntime,
+  document: PhotoshopDocument,
+  layer: PhotoshopLayer,
+  sourceBounds: PixelBounds
+) {
+  const result = await photoshop.imaging.getPixels({
+    documentID: document.id,
+    layerID: layer.id,
+    sourceBounds,
+    colorSpace: 'RGB',
+    componentSize: 8
+  })
+
+  try {
+    const data = requireUint8(await result.imageData.getData())
+    return {
+      rgba: toRgba(data, result.imageData.width, result.imageData.height, result.imageData.components),
+      width: result.imageData.width,
+      height: result.imageData.height,
+      sourceBounds: imageResultBounds(result, sourceBounds)
+    }
+  } finally {
+    result.imageData.dispose()
+  }
+}
+
+async function getMergedVisiblePixels(bounds: PixelBounds, trace?: UxpDiagnosticTrace) {
+  const photoshop = getPhotoshop()
+  const sourceDocument = photoshop.app.activeDocument
+  if (!sourceDocument.duplicate) {
+    throw new Error('当前 Photoshop 无法创建可见图层合成副本')
+  }
+
+  await emitTrace(trace, 'composite.fallback.duplicate', 'start', { documentId: sourceDocument.id, bounds })
+  const mergedDocument = await sourceDocument.duplicate(`Lightyear Banana ${Date.now()}`, true)
+  await emitTrace(trace, 'composite.fallback.duplicate', 'success', { documentId: mergedDocument.id })
+
+  try {
+    if ((mergedDocument.layers?.length ?? 0) > 1) {
+      if (!mergedDocument.mergeVisibleLayers) {
+        throw new Error('当前 Photoshop 无法合并可见图层')
+      }
+
+      await emitTrace(trace, 'composite.fallback.mergeVisible', 'start', { documentId: mergedDocument.id })
+      await mergedDocument.mergeVisibleLayers()
+      await emitTrace(trace, 'composite.fallback.mergeVisible', 'success', { documentId: mergedDocument.id })
+    }
+
+    const mergedLayer = mergedDocument.activeLayers[0] ?? mergedDocument.layers?.[0]
+    if (!mergedLayer) {
+      throw new Error('当前文档没有可读取的可见图层')
+    }
+
+    await emitTrace(trace, 'composite.fallback.getPixels', 'start', {
+      documentId: mergedDocument.id,
+      layerId: mergedLayer.id,
+      bounds
+    })
+    const captured = await readMergedLayerPixels(photoshop, mergedDocument, mergedLayer, bounds)
+    await emitTrace(trace, 'composite.fallback.getPixels', 'success', {
+      width: captured.width,
+      height: captured.height,
+      returnedBounds: captured.sourceBounds
+    })
+    return captured
+  } finally {
+    await emitTrace(trace, 'composite.fallback.close', 'start', { documentId: mergedDocument.id })
+    try {
+      await closeTemporaryDocument(photoshop, mergedDocument)
+      await emitTrace(trace, 'composite.fallback.close', 'success', { documentId: mergedDocument.id })
+    } catch (error) {
+      await emitTrace(trace, 'composite.fallback.close', 'error', { documentId: mergedDocument.id }, error)
+      throw error
+    }
+  }
+}
+
+async function getMergedVisibleCompositePixels(bounds?: PixelBounds, trace?: UxpDiagnosticTrace) {
+  const photoshop = getPhotoshop()
+  const sourceDocument = photoshop.app.activeDocument
+  const requestedBounds = bounds ?? getDocumentBounds(sourceDocument)
+  return getMergedVisiblePixels(requestedBounds, trace)
+}
+
 export async function captureVisibleComposite(): Promise<CapturedCanvasImage> {
   return executePhotoshopModal('抓取可见图像', async () => {
     const photoshop = getPhotoshop()
-    const captured = await getVisibleCompositePixels()
+    const captured = await getMergedVisibleCompositePixels()
     const previewUrl = await encodeRgbaPreview(photoshop, captured.rgba, captured.width, captured.height)
 
     return {
@@ -995,7 +1030,7 @@ export async function captureSelectionComposite(trace?: UxpDiagnosticTrace): Pro
     await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
     const selection = await getSelectionPixels(trace)
     const selectionBounds = selection.selectionBounds
-    const composite = await getVisibleCompositePixels(selectionBounds, trace)
+    const composite = await getMergedVisibleCompositePixels(selectionBounds, trace)
     await emitTrace(trace, 'selection.mask.crop', 'start', {
       sourceWidth: selection.width,
       sourceHeight: selection.height,

@@ -198,11 +198,11 @@ export function providerSupportsQuality(config: Pick<ModelConfig, 'provider' | '
 }
 
 function isApimartGemini31ImageModel(model: string) {
-  return /gemini-3\.1-flash-image-preview/i.test(model)
+  return /^(?:gemini-3\.1-flash-image-preview(?:-official)?|nano-banana-2(?:-ext)?)$/i.test(model)
 }
 
 function isApimartProImageModel(model: string) {
-  return /gemini-3-pro-image-preview/i.test(model)
+  return /^(?:gemini-3-pro-image-preview(?:-official)?|nano-banana-pro(?:-ext)?)$/i.test(model)
 }
 
 function isApimartGptImage1Model(model: string) {

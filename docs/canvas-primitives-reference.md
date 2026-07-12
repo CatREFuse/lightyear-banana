@@ -110,7 +110,7 @@ await canvasPrimitiveService.insertImage(image, {
 - 调用 `imaging.getPixels()`、`imaging.getSelection()`、`imaging.putPixels()`。
 - 处理图层 bounds、选区 mask、RGBA 转换、预览 data URL。
 - 释放 `PhotoshopImageData`。
-- 选区图像必须读取所有可见图层的合成结果，不传 `layerID`。
+- 选区图像必须从临时文档副本的合并可见图层读取，不依赖当前选中图层。读取结束后关闭副本且不保存。
 
 ## 使用约定
 

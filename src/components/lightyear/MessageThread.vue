@@ -51,6 +51,28 @@ const imageContextMenu = shallowRef<{ id: string; image: GeneratedImage; x: numb
 const placementOptionIds = shallowRef<Record<string, string>>({})
 const visibleRequestLogs = shallowRef<Record<string, boolean>>({})
 const elapsedClickState = shallowRef<Record<string, { count: number; lastAt: number }>>({})
+const renderedImageRatios = shallowRef<Record<string, string>>({})
+
+function readResultAspectRatio(image: GeneratedImage) {
+  return renderedImageRatios.value[image.id] ?? `${image.width} / ${image.height}`
+}
+
+function handleResultImageLoad(event: Event, image: GeneratedImage) {
+  const element = event.currentTarget as HTMLImageElement | null
+  const width = element?.naturalWidth ?? 0
+  const height = element?.naturalHeight ?? 0
+  if (width <= 0 || height <= 0) {
+    return
+  }
+
+  renderedImageRatios.value = {
+    ...renderedImageRatios.value,
+    [image.id]: `${width} / ${height}`
+  }
+  image.width = width
+  image.height = height
+  image.sourceBounds = { left: 0, top: 0, right: width, bottom: height }
+}
 
 function closePlacementMenu() {
   if (openPlacementMenuId.value) {
@@ -490,7 +512,12 @@ watch(
                 @click="emit('preview', image)"
                 @contextmenu.prevent.stop="openImageContextMenu($event, image)"
               >
-                <img :src="image.previewUrl" :alt="image.label" />
+                <img
+                  :src="image.previewUrl"
+                  :alt="image.label"
+                  :style="{ aspectRatio: readResultAspectRatio(image) }"
+                  @load="handleResultImageLoad($event, image)"
+                />
               </button>
               <div class="result-actions">
                 <div class="place-control">
@@ -997,7 +1024,6 @@ watch(
 .thumbnail-button img {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
   border-radius: 7px 7px 0 0;
   object-fit: contain;
   background: transparent;

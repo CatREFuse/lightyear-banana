@@ -18,7 +18,8 @@
     "verify:uxp": "npm run build:uxp && node scripts/verify-uxp-build.mjs",
     "preview": "vite preview",
     "start:electron": "electron electron/main.js",
-    "test:diagnostics": "node --test electron/diagnosticLogger.test.js"
+    "test:diagnostics": "node --test electron/diagnosticLogger.test.js",
+    "test:regressions": "node scripts/regression-smoke.mjs"
   },
   "dependencies": {
     "vue": "^3.5.32"
