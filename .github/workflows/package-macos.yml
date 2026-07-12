@@ -93,7 +93,7 @@ jobs:
           app_resources="$(dirname "$package_json")"
           packaged_main="$app_resources/electron/main.js"
           packaged_ccx="$app_resources/dist/lightyear-banana-$REQUESTED_VERSION.ccx"
-          packaged_plist="$(find "$extract" -type f -path '*.app/Contents/Info.plist' -print -quit)"
+          packaged_plist="$(dirname "$(dirname "$app_resources")")/Info.plist"
           if [[ ! -f "$packaged_main" ]]; then
             echo 'Packaged electron/main.js was not found' >&2
             exit 1
@@ -106,7 +106,7 @@ jobs:
             echo "Missing packaged CCX: $packaged_ccx" >&2
             exit 1
           fi
-          if [[ -z "$packaged_plist" ]]; then
+          if [[ ! -f "$packaged_plist" ]]; then
             echo 'Packaged Info.plist was not found' >&2
             exit 1
           fi
@@ -155,4 +155,5 @@ jobs:
             dist/lightyear-banana-${{ inputs.version }}-mac.zip.sha256
           if-no-files-found: error
           retention-days: 7
+
 
