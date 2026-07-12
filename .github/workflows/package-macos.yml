@@ -1,0 +1,158 @@
+name: Package macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the v prefix
+        required: true
+        type: string
+      build_number:
+        description: Twelve-digit release build number, for example 202607120001
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      REQUESTED_VERSION: ${{ inputs.version }}
+      REQUESTED_BUILD_NUMBER: ${{ inputs.build_number }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Stamp release version
+        run: >-
+          node scripts/stamp-release-version.mjs
+          --version "$REQUESTED_VERSION"
+          --build-number "$REQUESTED_BUILD_NUMBER"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install macOS icon dependency
+        shell: bash
+        env:
+          PIP_BREAK_SYSTEM_PACKAGES: "1"
+        run: /usr/bin/python3 -m pip install --user --disable-pip-version-check Pillow
+
+      - name: Run diagnostics tests
+        run: npm run test:diagnostics
+
+      - name: Run regression tests
+        run: npm run test:regressions
+
+      - name: Verify stamped release version
+        run: >-
+          node scripts/stamp-release-version.mjs
+          --check
+          --version "$REQUESTED_VERSION"
+          --build-number "$REQUESTED_BUILD_NUMBER"
+
+      - name: Package macOS app
+        run: npm run package:electron:mac
+
+      - name: Verify macOS archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="dist/lightyear-banana-$REQUESTED_VERSION-mac.zip"
+          extract="dist/macos-release-check"
+          if [[ ! -f "$archive" ]]; then
+            echo "Missing $archive" >&2
+            exit 1
+          fi
+
+          rm -rf "$extract"
+          mkdir -p "$extract"
+          ditto -x -k "$archive" "$extract"
+          package_json="$(find "$extract" -type f -path '*/Contents/Resources/app/package.json' -print -quit)"
+          if [[ -z "$package_json" ]]; then
+            echo 'Packaged package.json was not found' >&2
+            exit 1
+          fi
+
+          packaged_version="$(node -p "require(require('node:path').resolve(process.argv[1])).version" "$package_json")"
+          if [[ "$packaged_version" != "$REQUESTED_VERSION" ]]; then
+            echo "Packaged version is $packaged_version, expected $REQUESTED_VERSION" >&2
+            exit 1
+          fi
+
+          app_resources="$(dirname "$package_json")"
+          packaged_main="$app_resources/electron/main.js"
+          packaged_ccx="$app_resources/dist/lightyear-banana-$REQUESTED_VERSION.ccx"
+          packaged_plist="$(find "$extract" -type f -path '*.app/Contents/Info.plist' -print -quit)"
+          if [[ ! -f "$packaged_main" ]]; then
+            echo 'Packaged electron/main.js was not found' >&2
+            exit 1
+          fi
+          if ! grep -Fq "const UXP_PACKAGE_FILE = 'lightyear-banana-$REQUESTED_VERSION.ccx'" "$packaged_main"; then
+            echo 'Packaged Electron CCX filename does not match the requested version' >&2
+            exit 1
+          fi
+          if [[ ! -f "$packaged_ccx" ]]; then
+            echo "Missing packaged CCX: $packaged_ccx" >&2
+            exit 1
+          fi
+          if [[ -z "$packaged_plist" ]]; then
+            echo 'Packaged Info.plist was not found' >&2
+            exit 1
+          fi
+
+          plist_version="$(plutil -extract CFBundleShortVersionString raw -o - "$packaged_plist")"
+          if [[ "$plist_version" != "$REQUESTED_VERSION" ]]; then
+            echo "Packaged bundle version is $plist_version, expected $REQUESTED_VERSION" >&2
+            exit 1
+          fi
+          plist_build_version="$(plutil -extract CFBundleVersion raw -o - "$packaged_plist")"
+          if [[ "$plist_build_version" != "$REQUESTED_VERSION" ]]; then
+            echo "Packaged bundle build version is $plist_build_version, expected $REQUESTED_VERSION" >&2
+            exit 1
+          fi
+
+          ccx_extract="dist/macos-ccx-release-check"
+          rm -rf "$ccx_extract"
+          mkdir -p "$ccx_extract"
+          ditto -x -k "$packaged_ccx" "$ccx_extract"
+          ccx_version="$(node -p "require(require('node:path').resolve(process.argv[1])).version" "$ccx_extract/manifest.json")"
+          if [[ "$ccx_version" != "$REQUESTED_VERSION" ]]; then
+            echo "Packaged CCX version is $ccx_version, expected $REQUESTED_VERSION" >&2
+            exit 1
+          fi
+
+          if ! grep -R -Fq "$REQUESTED_BUILD_NUMBER" "$app_resources/dist/assets"; then
+            echo "Packaged web assets do not contain build $REQUESTED_BUILD_NUMBER" >&2
+            exit 1
+          fi
+
+          hash="$(shasum -a 256 "$archive" | awk '{print tolower($1)}')"
+          printf '%s  %s\n' "$hash" "$(basename "$archive")" > "$archive.sha256"
+          (
+            cd dist
+            shasum -a 256 -c "$(basename "$archive").sha256"
+          )
+          ls -lh "$archive"
+          cat "$archive.sha256"
+
+      - name: Upload macOS release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lightyear-banana-${{ inputs.version }}-macos
+          path: |
+            dist/lightyear-banana-${{ inputs.version }}-mac.zip
+            dist/lightyear-banana-${{ inputs.version }}-mac.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
+
