@@ -32,10 +32,11 @@
 - `npm run build:site` 通过后才允许部署官网。
 - 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
 
-## 当前 0.3.12 状态
+## 当前 0.3.13 状态
 
-- macOS 包已由 macOS 环境构建、签名并验证：`lightyear-banana-0.3.12-mac.zip`，SHA256：`9d94272ef11a1ea3865dc3800998e540ffb09e7d81fb31779a8fac4c138381e1`。
-- Windows 原生打包工作流已推送到 GitHub Actions：`Package Windows`，目标文件为 `lightyear-banana-0.3.12-win.zip`，要求返回 SHA256 校验文件；本次运行尚未从当前环境成功 dispatch，原因是本机 GitHub CLI token 已失效。
-- CCX 已构建并验证：`lightyear-banana-0.3.12.ccx`，SHA256：`7d0d95888295a8fd3a454d093fa9b7a19fab70c238a9e3533ff9df58c2b4f122`。
-- `dist/release-0.3.12/` 等待 Windows 原生包和 SHA256 返回后生成覆盖三个安装包的 `SHA256SUMS.txt`。
-- 官网源码和 `build:site` 命令不在当前仓库，暂不更新线上 `latest.json`。
+- macOS 包由 GitHub Actions 的原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.13-mac.zip`，SHA256：`8343212d60671b6d8715532b6584d132e681cbda745bf5f3ec17b03b27121c1e`。
+- Windows 包由当前 Windows 环境构建并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.13-win.zip`，SHA256：`c8e45b744d73d9945825a9c013a0ea6712469463632b8cc900f28f24ed159fd8`。
+- CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.13.ccx`，SHA256：`dc1f8d7d8b26c80b9cc322974ec93ef7e634f10ac9764c32fc561136e5fdd754`。
+- `dist/release-0.3.13/` 已包含 macOS、Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`，三项校验均通过。
+- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，官网源码已同步 0.3.13 的文件名、大小、SHA256 与下载地址。
+- 当前 Windows 环境没有官网服务器的 SSH 别名和 `rsync`，线上 `latest.json` 保持原版本；取得部署凭据后按 `docs/ops-manual.md` 先上传并验证三个资源，最后更新 `latest.json`。
