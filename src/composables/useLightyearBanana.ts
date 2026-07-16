@@ -6,7 +6,8 @@ import {
   normalizeCustomModelFormat,
   providerCapabilities,
   providerRequiresApiKey,
-  readProviderCapability
+  readProviderCapability,
+  validateProviderConfig
 } from '../data/providerCapabilities'
 import {
   generateImagesWithProvider,
@@ -30,6 +31,7 @@ import {
   type MacPermissionPane,
   type ModelConfig,
   type PlacementTarget,
+  type PromptPreset,
   type ReferenceImage,
   type ReferenceSource,
   type ResolutionInputMode,
@@ -63,6 +65,7 @@ import {
   serializePlacementTarget,
   writeElectronStoredSettings
 } from '../services/electronBridge'
+import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
 
 const referenceLabels: Record<ReferenceSource, string> = {
   visible: '可见图层',
@@ -77,6 +80,7 @@ type StoredSettings = {
   activeConfigId: string
   configs: ModelConfig[]
   generationHistory: ChatTurn[]
+  promptPresets: PromptPreset[]
 }
 
 const settingsStorageKey = 'lightyear-banana.settings.v1'
@@ -562,7 +566,8 @@ function readStoredSettings(): StoredSettings {
   const fallback: StoredSettings = {
     activeConfigId: fallbackConfigs[0]?.id ?? '',
     configs: fallbackConfigs,
-    generationHistory: []
+    generationHistory: [],
+    promptPresets: []
   }
 
   try {
@@ -578,7 +583,8 @@ function readStoredSettings(): StoredSettings {
       return {
         activeConfigId,
         configs,
-        generationHistory: normalizeStoredTurns(parsed.generationHistory)
+        generationHistory: normalizeStoredTurns(parsed.generationHistory),
+        promptPresets: normalizePromptPresets(parsed.promptPresets)
       }
     }
 
@@ -597,7 +603,8 @@ function readStoredSettings(): StoredSettings {
     return {
       activeConfigId,
       configs,
-      generationHistory: normalizeStoredTurns(parsed.generationHistory)
+      generationHistory: normalizeStoredTurns(parsed.generationHistory),
+      promptPresets: normalizePromptPresets(parsed.promptPresets)
     }
   } catch {
     return fallback
@@ -631,6 +638,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const prompt = shallowRef('')
   const references = shallowRef<ReferenceImage[]>([])
   const turns = shallowRef<ChatTurn[]>(storedSettings.generationHistory)
+  const promptPresets = shallowRef<PromptPreset[]>(storedSettings.promptPresets)
   const configs = shallowRef<ModelConfig[]>(storedSettings.configs)
   const activeConfigId = shallowRef(storedSettings.activeConfigId)
   const size = shallowRef(readDefaultSize(initialCapability.sizeOptions))
@@ -678,17 +686,23 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const enabledConfigs = computed(() => configs.value.filter((config) => config.enabled))
   const referenceLimit = computed(() => activeCapability.value.referenceLimit)
   const canAddReference = computed(() => references.value.length < referenceLimit.value)
-  const canSend = computed(() => configs.value.length > 0 && (Boolean(prompt.value.trim()) || references.value.length > 0))
+  const canSend = computed(() => (
+    configs.value.length > 0 &&
+    activeConfig.value.enabled &&
+    validateProviderConfig(activeConfig.value).valid &&
+    (Boolean(prompt.value.trim()) || references.value.length > 0)
+  ))
 
   function writeCurrentStoredSettings() {
     writeStoredSettings({
       activeConfigId: activeConfigId.value,
       configs: configs.value.map(cloneModelConfig),
-      generationHistory: cloneTurnsForStorage(turns.value)
+      generationHistory: cloneTurnsForStorage(turns.value),
+      promptPresets: normalizePromptPresets(promptPresets.value)
     })
   }
 
-  watch([configs, activeConfigId, turns], writeCurrentStoredSettings, { deep: true })
+  watch([configs, activeConfigId, turns, promptPresets], writeCurrentStoredSettings, { deep: true })
 
   watch(activeCapability, (capability) => {
     size.value = capability.sizeOptions.includes(size.value) ? size.value : readDefaultSize(capability.sizeOptions)
@@ -1357,8 +1371,18 @@ function readHighestQuality(options: string[]): string {
     }
   }
 
-  async function sendPrompt() {
-    const cleanPrompt = prompt.value.trim()
+  async function sendPrompt(skipPresetResolution = false) {
+    const promptResolution = resolvePromptPresetInput(
+      prompt.value.trim(),
+      promptPresets.value,
+      { alreadyExpanded: skipPresetResolution }
+    )
+    if (promptResolution.kind === 'error') {
+      status.value = promptResolution.message
+      showToast(promptResolution.message)
+      return
+    }
+    const cleanPrompt = promptResolution.prompt.trim()
     const hasReferences = references.value.length > 0
     if (!cleanPrompt && !hasReferences) {
       status.value = '请输入提示词或添加参考图'
@@ -1380,15 +1404,11 @@ function readHighestQuality(options: string[]): string {
     let requestSize = resolutionMode.value === 'custom' ? readCustomResolutionSize() : size.value
     let requestCanvasSize: { width: number; height: number } | undefined
 
-    if (providerRequiresApiKey(requestConfig.provider) && !requestConfig.apiKey.trim()) {
-      status.value = '请输入 API Key'
-      showToast('请输入 API Key')
-      return
-    }
-
-    if (requestCapability.supportsBaseUrl && !requestConfig.baseUrl.trim()) {
-      status.value = '请输入 Base URL'
-      showToast('请输入 Base URL')
+    const configValidation = validateProviderConfig(requestConfig)
+    if (!configValidation.valid) {
+      const message = configValidation.issues[0]?.message ?? '模型配置不可用'
+      status.value = message
+      showToast(message)
       return
     }
 
@@ -1861,6 +1881,17 @@ function readHighestQuality(options: string[]): string {
     activeView.value = 'settings'
   }
 
+  function openPromptPresets() {
+    settingsView.value = 'presets'
+    settingsDraftIsNew.value = false
+    activeView.value = 'settings'
+  }
+
+  function updatePromptPresets(nextPresets: PromptPreset[]) {
+    promptPresets.value = normalizePromptPresets(nextPresets)
+    status.value = '预设已更新'
+  }
+
   function closeSettings() {
     activeView.value = 'workspace'
   }
@@ -1988,15 +2019,7 @@ function readHighestQuality(options: string[]): string {
   }
 
   async function testConfig() {
-    const capability = providerCapabilities[settingsDraft.provider]
-
     if (settingsDraft.provider === 'codex-image-server') {
-      if (!settingsDraft.baseUrl.trim()) {
-        setSettingsTestState({ status: 'error', message: '请输入 Base URL' }, { resetAfterMs: 3000 })
-        status.value = '请输入 Base URL'
-        return
-      }
-
       setSettingsTestState({ status: 'testing', message: '正在测试本机服务' })
       status.value = '正在测试本机服务'
 
@@ -2017,15 +2040,11 @@ function readHighestQuality(options: string[]): string {
       return
     }
 
-    if (providerRequiresApiKey(settingsDraft.provider) && !settingsDraft.apiKey.trim()) {
-      setSettingsTestState({ status: 'error', message: '请输入 API Key' }, { resetAfterMs: 3000 })
-      status.value = '请输入 API Key'
-      return
-    }
-
-    if (capability.supportsBaseUrl && !settingsDraft.baseUrl.trim()) {
-      setSettingsTestState({ status: 'error', message: '请输入 Base URL' }, { resetAfterMs: 3000 })
-      status.value = '请输入 Base URL'
+    const configValidation = validateProviderConfig(settingsDraft)
+    if (!configValidation.valid) {
+      const message = configValidation.issues[0]?.message ?? 'API 配置不可用'
+      setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
+      status.value = message
       return
     }
 
@@ -2301,9 +2320,11 @@ function readHighestQuality(options: string[]): string {
     diagnosticExportState,
     exportDiagnostics,
     openMacPermissionSettings,
+    openPromptPresets,
     openSettings,
     placeImage,
     prompt,
+    promptPresets,
     providerCapabilities,
     quality,
     ratio,
@@ -2331,6 +2352,7 @@ function readHighestQuality(options: string[]): string {
     deployWindows,
     upscaleImage,
     updateSettingsDraft,
+    updatePromptPresets,
     windowDeployState,
     useResultAsReference
   }

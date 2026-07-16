@@ -421,7 +421,8 @@ watch(
     <Transition name="empty-fade">
       <div v-if="turns.length === 0 && loading.length === 0" class="empty-state">
         <BoxIcon name="image" size="15" />
-        <span>暂无生成结果</span>
+        <span>READY</span>
+        <small>输入提示词，或从 Photoshop 添加参考图</small>
       </div>
     </Transition>
 

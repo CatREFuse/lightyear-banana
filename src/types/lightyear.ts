@@ -6,7 +6,19 @@ export type DesktopPlatform = 'darwin' | 'win32'
 
 export type AppView = 'workspace' | 'settings'
 
-export type SettingsView = 'list' | 'detail'
+export type SettingsView = 'list' | 'detail' | 'presets'
+
+export type VisualTheme = 'classic' | 'nothing'
+
+export type ColorMode = 'system' | 'dark' | 'light'
+
+export type ResolvedColorMode = Exclude<ColorMode, 'system'>
+
+export type PromptPreset = {
+  id: string
+  name: string
+  content: string
+}
 
 export type ResolutionInputMode = 'preset' | 'custom'
 

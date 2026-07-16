@@ -1,3 +1,4 @@
+import '../styles/fonts.css'
 import { canvasPrimitiveService, type CanvasInsertTarget } from './canvasPrimitiveService'
 import { readCanvasDiagnosticContext, type CapturedCanvasImage } from './canvasPrimitives'
 import {
@@ -47,14 +48,14 @@ function getUxpRequire(): UxpRequire {
 
 function readToneLabel() {
   if (currentTone === 'ready') {
-    return '桌面 App 已连接'
+    return '[CONNECTED]'
   }
 
   if (currentTone === 'error') {
-    return '连接失败'
+    return '[ERROR]'
   }
 
-  return '等待桌面 App'
+  return '[WAITING]'
 }
 
 function isMountElement(value: unknown): value is HTMLElement {
@@ -88,6 +89,25 @@ function ensurePanelStyles() {
   const style = document.createElement('style')
   style.id = PANEL_STYLE_ID
   style.textContent = `
+    :root {
+      --lb-background: #000000;
+      --lb-border: #333333;
+      --lb-text: #e8e8e8;
+      --lb-text-secondary: #999999;
+      --lb-font-display: "Doto Variable", "Space Mono", monospace;
+      --lb-font-body: "Space Grotesk Variable", "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+      --lb-font-label: "Space Mono", "SF Mono", monospace;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --lb-background: #f5f5f5;
+        --lb-border: #cccccc;
+        --lb-text: #1a1a1a;
+        --lb-text-secondary: #666666;
+      }
+    }
+
     html,
     body,
     #app {
@@ -98,9 +118,9 @@ function ensurePanelStyles() {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: var(--uxp-host-background-color, #11161f);
-      color: var(--uxp-host-text-color, #f5f7fb);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: var(--uxp-host-background-color, var(--lb-background));
+      color: var(--uxp-host-text-color, var(--lb-text));
+      font-family: var(--lb-font-body);
       box-sizing: border-box;
     }
 
@@ -112,9 +132,7 @@ function ensurePanelStyles() {
       min-width: 260px;
       min-height: 220px;
       overflow: auto;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0) 92px),
-        var(--uxp-host-background-color, #11161f);
+      background-color: var(--uxp-host-background-color, var(--lb-background));
       box-sizing: border-box;
     }
 
@@ -125,128 +143,136 @@ function ensurePanelStyles() {
     .lb-uxp-shell {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 24px;
       width: 100%;
       min-height: 100%;
-      padding: 14px;
+      padding: 16px;
     }
 
     .lb-uxp-header {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
+      justify-content: flex-start;
       min-width: 0;
     }
 
     .lb-uxp-title {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 4px;
       min-width: 0;
     }
 
-    .lb-uxp-status {
+    .lb-uxp-brand {
+      margin: 0;
+      color: var(--uxp-host-text-color, var(--lb-text));
+      font-family: var(--lb-font-body);
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    .lb-uxp-kicker,
+    .lb-uxp-section-label,
+    .lb-uxp-meta-label,
+    .lb-uxp-meta-value {
+      margin: 0;
+      font-family: var(--lb-font-label);
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.4;
+      letter-spacing: 0.08em;
+    }
+
+    .lb-uxp-kicker,
+    .lb-uxp-section-label,
+    .lb-uxp-meta-label {
+      color: var(--uxp-host-text-color, var(--lb-text-secondary));
+      opacity: 0.62;
+    }
+
+    .lb-uxp-divider {
+      width: 100%;
+      margin: 0;
+      color: var(--uxp-host-border-color, var(--lb-border));
+      opacity: 0.7;
+    }
+
+    .lb-uxp-main {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      gap: 24px;
       min-width: 0;
     }
 
-    .lb-uxp-status-line {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      min-width: 0;
-    }
-
-    .lb-uxp-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      flex: 0 0 auto;
-    }
-
-    .lb-uxp-dot-ready {
-      background: #2d9d54;
-      box-shadow: 0 0 0 2px rgba(45, 157, 84, 0.18), 0 0 12px rgba(45, 157, 84, 0.72);
-    }
-
-    .lb-uxp-dot-waiting {
-      background: #8f99a8;
-      box-shadow: 0 0 0 2px rgba(143, 153, 168, 0.14);
-    }
-
-    .lb-uxp-dot-error {
-      background: #d7373f;
-      box-shadow: 0 0 0 2px rgba(215, 55, 63, 0.18);
-    }
-
-    .lb-uxp-panel {
+    .lb-uxp-status-group {
       display: flex;
       flex-direction: column;
       gap: 8px;
       min-width: 0;
     }
 
-    .lb-uxp-card {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px;
-      border: 1px solid rgba(180, 190, 205, 0.16);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.055);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
-      overflow: hidden;
+    .lb-uxp-status-value {
+      width: 100%;
+      margin: 0;
+      color: var(--uxp-host-text-color, var(--lb-text));
+      font-family: var(--lb-font-display);
+      font-size: 36px;
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      white-space: nowrap;
     }
 
-    .lb-uxp-card-ready {
-      border-color: rgba(45, 157, 84, 0.34);
-      background: linear-gradient(180deg, rgba(45, 157, 84, 0.12), rgba(255, 255, 255, 0.045));
-    }
-
-    .lb-uxp-card-error {
-      border-color: rgba(215, 55, 63, 0.32);
-      background: linear-gradient(180deg, rgba(215, 55, 63, 0.12), rgba(255, 255, 255, 0.045));
-    }
-
-    .lb-uxp-card-waiting {
-      border-color: rgba(143, 153, 168, 0.24);
+    .lb-uxp-status-copy {
+      max-width: 360px;
+      margin: 0;
+      color: var(--uxp-host-text-color, var(--lb-text));
+      font-family: var(--lb-font-body);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.5;
+      opacity: 0.74;
     }
 
     .lb-uxp-meta {
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 2px;
-    }
-
-    .lb-uxp-chip {
-      display: inline-flex;
-      align-items: center;
+      flex-direction: column;
       min-width: 0;
-      max-width: 100%;
-      min-height: 20px;
-      padding: 1px 7px;
-      border-radius: 5px;
-      background: rgba(255, 255, 255, 0.075);
-      color: var(--uxp-host-text-color, #f5f7fb);
-      border: 1px solid rgba(180, 190, 205, 0.13);
     }
 
-    .lb-uxp-chip sp-detail {
-      line-height: 16px;
+    .lb-uxp-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-width: 0;
+      padding: 12px 0;
+    }
+
+    .lb-uxp-meta-value {
+      min-width: 0;
+      color: var(--uxp-host-text-color, var(--lb-text));
+      letter-spacing: 0;
+      text-align: right;
       white-space: nowrap;
     }
 
     .lb-uxp-footer {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 16px;
       margin-top: auto;
+    }
+
+    .lb-uxp-reconnect {
+      width: 100%;
+      min-height: 44px;
+      margin: 0;
+      border-radius: 4px;
+      font-family: var(--lb-font-label);
+      font-size: 11px;
+      letter-spacing: 0.08em;
     }
   `
   document.head.appendChild(style)
@@ -303,68 +329,67 @@ function renderPanel() {
   titleBlock.className = 'lb-uxp-title'
 
   const title = createSpectrumElement('sp-heading', 'Lightyear Banana', { size: 'XS' })
-  const subtitle = createSpectrumElement('sp-detail', 'Photoshop 中转面板', { size: 'S' })
+  title.className = 'lb-uxp-brand'
+  const subtitle = createSpectrumElement('sp-label', 'PHOTOSHOP LINK')
+  subtitle.className = 'lb-uxp-kicker'
   titleBlock.append(title, subtitle)
 
-  const reconnectTop = createSpectrumElement('sp-action-button', '重连', { quiet: 'true' })
-  reconnectTop.setAttribute('title', '重新连接桌面 App')
-  reconnectTop.addEventListener('click', () => {
-    connectBridge(true)
-  })
+  header.append(titleBlock)
 
-  header.append(titleBlock, reconnectTop)
+  const topDivider = createSpectrumElement('sp-divider')
+  topDivider.className = 'lb-uxp-divider'
 
-  const statusRow = document.createElement('div')
-  statusRow.className =
-    currentTone === 'ready'
-      ? 'lb-uxp-card lb-uxp-card-ready'
-      : currentTone === 'error'
-        ? 'lb-uxp-card lb-uxp-card-error'
-        : 'lb-uxp-card lb-uxp-card-waiting'
+  const main = document.createElement('div')
+  main.className = 'lb-uxp-main'
 
-  const statusLine = document.createElement('div')
-  statusLine.className = 'lb-uxp-status-line'
-
-  const badge = document.createElement('div')
-  badge.className = 'lb-uxp-status'
-
-  const dotClass =
-    currentTone === 'ready'
-      ? 'lb-uxp-dot lb-uxp-dot-ready'
-      : currentTone === 'error'
-        ? 'lb-uxp-dot lb-uxp-dot-error'
-        : 'lb-uxp-dot lb-uxp-dot-waiting'
-  const dot = document.createElement('span')
-  dot.className = dotClass
-
-  const badgeText = createSpectrumElement('sp-label', readToneLabel())
-  badge.append(dot, badgeText)
-  statusLine.append(badge)
-
+  const statusGroup = document.createElement('div')
+  statusGroup.className = 'lb-uxp-status-group'
+  const statusLabel = createSpectrumElement('sp-label', '连接状态')
+  statusLabel.className = 'lb-uxp-section-label'
+  const statusValue = createSpectrumElement('sp-heading', readToneLabel(), { size: 'M' })
+  statusValue.className = 'lb-uxp-status-value'
   const body = createSpectrumElement('sp-body', currentStatus, { size: 'S' })
+  body.className = 'lb-uxp-status-copy'
+  statusGroup.append(statusLabel, statusValue, body)
+
   const meta = document.createElement('div')
   meta.className = 'lb-uxp-meta'
 
-  const bridgeChip = document.createElement('span')
-  bridgeChip.className = 'lb-uxp-chip'
-  bridgeChip.append(createSpectrumElement('sp-detail', `本地桥接 ${BRIDGE_ORIGIN}`, { size: 'S' }))
+  const bridgeRow = document.createElement('div')
+  bridgeRow.className = 'lb-uxp-meta-row'
+  const bridgeLabel = createSpectrumElement('sp-detail', '本地连接', { size: 'S' })
+  bridgeLabel.className = 'lb-uxp-meta-label'
+  const bridgeValue = createSpectrumElement('sp-detail', BRIDGE_ORIGIN, { size: 'S' })
+  bridgeValue.className = 'lb-uxp-meta-value'
+  bridgeRow.append(bridgeLabel, bridgeValue)
 
-  const roleChip = document.createElement('span')
-  roleChip.className = 'lb-uxp-chip'
-  roleChip.append(createSpectrumElement('sp-detail', 'Photoshop 写入通道', { size: 'S' }))
+  const metaDivider = createSpectrumElement('sp-divider')
+  metaDivider.className = 'lb-uxp-divider'
 
-  meta.append(bridgeChip, roleChip)
-  statusRow.append(statusLine, body, meta)
+  const roleRow = document.createElement('div')
+  roleRow.className = 'lb-uxp-meta-row'
+  const roleLabel = createSpectrumElement('sp-detail', '通道', { size: 'S' })
+  roleLabel.className = 'lb-uxp-meta-label'
+  const roleValue = createSpectrumElement('sp-detail', 'PHOTOSHOP 写入', { size: 'S' })
+  roleValue.className = 'lb-uxp-meta-value'
+  roleRow.append(roleLabel, roleValue)
+
+  meta.append(bridgeRow, metaDivider, roleRow)
+  main.append(statusGroup, meta)
 
   const footer = document.createElement('div')
   footer.className = 'lb-uxp-footer'
-  const reconnect = createSpectrumElement('sp-button', '重新连接', { variant: 'primary' })
+  const footerDivider = createSpectrumElement('sp-divider')
+  footerDivider.className = 'lb-uxp-divider'
+  const reconnect = createSpectrumElement('sp-button', '重新连接', { variant: 'secondary' })
+  reconnect.className = 'lb-uxp-reconnect'
+  reconnect.setAttribute('title', '重新连接桌面 App')
   reconnect.addEventListener('click', () => {
     connectBridge(true)
   })
-  footer.append(reconnect)
+  footer.append(footerDivider, reconnect)
 
-  shell.append(header, statusRow, footer)
+  shell.append(header, topDivider, main, footer)
   panelRoot.appendChild(shell)
 }
 
@@ -639,7 +664,7 @@ async function runPollLoop(loopId: number) {
     }
   } catch (error) {
     console.error(LOG_PREFIX, error)
-    writePanel('未连接到桌面 App。请启动 App，或点击重新连接。', 'waiting')
+    writePanel('未连接到桌面 App。请启动 App，或点击重新连接。', 'error')
     polling = false
     reconnectTimer = setTimeout(() => connectBridge(true), 2000)
   }
@@ -650,7 +675,7 @@ function mountPanel(rootNode?: unknown) {
   console.log(`${LOG_PREFIX} mount target`, mountNode?.tagName, mountNode?.id, mountNode?.childNodes.length)
 
   if (polling) {
-    writePanel('连接正常。请在桌面 App 中操作生图和 Photoshop 写入。', 'ready')
+    renderPanel()
     return
   }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { boxIconPaths, type BoxIconName } from './boxIcons'
+import { boxIconPaths, boxIconStrokePaths, type BoxIconName } from './boxIcons'
 
 const props = withDefaults(
   defineProps<{
@@ -22,13 +22,24 @@ const paths = computed(() => boxIconPaths[props.name])
     :width="size"
     :height="size"
     viewBox="0 0 24 24"
-    fill="currentColor"
     focusable="false"
     :aria-hidden="title ? undefined : true"
     :role="title ? 'img' : undefined"
   >
     <title v-if="title">{{ title }}</title>
-    <path v-for="path in paths" :key="path" :d="path" />
+    <g class="box-icon-classic" fill="currentColor">
+      <path v-for="path in paths" :key="path" :d="path" />
+    </g>
+    <g
+      class="box-icon-nothing"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path v-for="path in boxIconStrokePaths[name]" :key="path" :d="path" />
+    </g>
   </svg>
 </template>
 
@@ -36,5 +47,17 @@ const paths = computed(() => boxIconPaths[props.name])
 .box-icon {
   display: inline-block;
   flex: 0 0 auto;
+}
+
+.box-icon-nothing {
+  display: none;
+}
+
+:global(.lightyear-shell.design-nothing .box-icon-classic) {
+  display: none;
+}
+
+:global(.lightyear-shell.design-nothing .box-icon-nothing) {
+  display: inline;
 }
 </style>

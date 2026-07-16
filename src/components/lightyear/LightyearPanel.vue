@@ -2,6 +2,7 @@
 import { computed, shallowRef } from 'vue'
 import { buildInfo } from '../../buildInfo'
 import { useLightyearBanana } from '../../composables/useLightyearBanana'
+import { useThemePreferences } from '../../composables/useThemePreferences'
 import { hasElectronBridge, openElectronPreviewImage } from '../../services/electronBridge'
 import type { DesktopPlatform, RuntimeName } from '../../types/lightyear'
 import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
@@ -52,9 +53,11 @@ const {
   appUpdateState,
   checkForUpdates,
   openMacPermissionSettings,
+  openPromptPresets,
   openSettings,
   placeImage,
   prompt,
+  promptPresets,
   providerCapabilities,
   quality,
   ratio,
@@ -79,11 +82,18 @@ const {
   toggleConfigEnabled,
   upscaleImage,
   updateSettingsDraft,
+  updatePromptPresets,
   windowDeployState,
   useResultAsReference
 } = useLightyearBanana(props.runtime)
 
-const themeMode = shallowRef<'dark' | 'light'>('dark')
+const {
+  colorMode,
+  resolvedColorMode,
+  setColorMode,
+  setVisualTheme,
+  visualTheme
+} = useThemePreferences()
 const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
 const previewDialogStyle = computed(() => {
@@ -112,17 +122,16 @@ const navigationTitle = computed(() => {
     return '设置'
   }
 
+  if (settingsView.value === 'presets') {
+    return '预设提示词'
+  }
+
   if (settingsDraftIsNew.value) {
     return '新建配置'
   }
 
   return settingsDraft.name || '配置详情'
 })
-
-function toggleTheme() {
-  activeWorkspaceMenu.value = ''
-  themeMode.value = themeMode.value === 'dark' ? 'light' : 'dark'
-}
 
 function setWorkspaceMenu(owner: string) {
   activeWorkspaceMenu.value = owner
@@ -180,7 +189,7 @@ async function savePreviewImage() {
 
 function handleHeaderBack() {
   activeWorkspaceMenu.value = ''
-  if (activeView.value === 'settings' && settingsView.value === 'detail') {
+  if (activeView.value === 'settings' && settingsView.value !== 'list') {
     closeSettingsDetail()
     return
   }
@@ -201,7 +210,14 @@ function handleManageModels() {
 </script>
 
 <template>
-  <main class="lightyear-shell" :class="`theme-${themeMode}`">
+  <main
+    class="lightyear-shell"
+    :class="[
+      `theme-${resolvedColorMode}`,
+      `design-${visualTheme}`,
+      `mode-${resolvedColorMode}`
+    ]"
+  >
     <PanelHeader
       :active-menu-owner="activeWorkspaceMenu"
       :in-settings="activeView === 'settings'"
@@ -210,14 +226,17 @@ function handleManageModels() {
       :titlebar-inset="props.runtime === 'electron' || props.showWindowControls"
       :desktop-platform="props.desktopPlatform"
       :show-window-controls="props.showWindowControls"
-      :theme-mode="themeMode"
+      :color-mode="colorMode"
+      :resolved-color-mode="resolvedColorMode"
+      :visual-theme="visualTheme"
       :title="navigationTitle"
       :window-deploy-state="windowDeployState"
       @back="handleHeaderBack"
       @deploy-window="deployWindows"
       @menu-open="setWorkspaceMenu"
       @open-settings="handleOpenSettings"
-      @toggle-theme="toggleTheme"
+      @set-color-mode="setColorMode"
+      @set-visual-theme="setVisualTheme"
     />
 
     <div class="route-shell" :class="{ 'is-settings-active': activeView === 'settings' }">
@@ -234,6 +253,7 @@ function handleManageModels() {
         :diagnostic-export-available="props.runtime === 'electron'"
         :diagnostic-export-state="diagnosticExportState"
         :provider-capabilities="providerCapabilities"
+        :prompt-presets="promptPresets"
         :app-update-state="appUpdateState"
         :settings-draft-is-new="settingsDraftIsNew"
         :settings-draft="settingsDraft"
@@ -247,11 +267,13 @@ function handleManageModels() {
         @download-diagnostics="exportDiagnostics"
         @edit="editConfig"
         @open-mac-permission-settings="openMacPermissionSettings"
+        @open-prompt-presets="openPromptPresets"
         @check-for-updates="checkForUpdates"
         @save="saveConfig"
         @test="testConfig"
         @toggle-enabled="toggleConfigEnabled"
         @update-draft="updateSettingsDraft"
+        @update-prompt-presets="updatePromptPresets"
       />
 
       <section
@@ -278,13 +300,9 @@ function handleManageModels() {
           @upscale="upscaleImage"
         />
 
-        <div class="toast-anchor" aria-live="polite">
-          <Transition name="toast-pop">
-            <div v-if="toastMessage" class="toast" role="status">
-              <BoxIcon name="check-circle" size="15" />
-              <span>{{ toastMessage }}</span>
-            </div>
-          </Transition>
+        <div v-if="toastMessage" class="operation-status" aria-live="polite" role="status">
+          <span>[STATUS]</span>
+          <strong>{{ toastMessage }}</strong>
         </div>
 
         <ComposerDock
@@ -300,6 +318,7 @@ function handleManageModels() {
           :custom-height="customHeight"
           :custom-width="customWidth"
           :prompt="prompt"
+          :prompt-presets="promptPresets"
           :quality="quality"
           :ratio="ratio"
           :references="references"
@@ -373,6 +392,31 @@ function handleManageModels() {
   overflow: hidden;
   background: var(--lb-bg);
   color: var(--lb-text);
+}
+
+.operation-status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--lb-hairline);
+  background: var(--lb-composer);
+  color: var(--lb-secondary);
+  font-size: 11px;
+}
+
+.operation-status > span {
+  color: var(--lb-muted);
+}
+
+.operation-status > strong {
+  overflow: hidden;
+  color: var(--lb-text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toast-anchor {

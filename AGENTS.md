@@ -46,6 +46,7 @@
 
 | 任务 | 查阅文件 |
 | --- | --- |
+| 当前功能规格、Nothing 主题、Provider 注册层、预设提示词 | `docs/spec.md` |
 | 项目定位、当前验证状态、运行命令、源码入口 | `ref/project-baseline.md` |
 | Photoshop 画布抓图、选区、图层、插图等交互原语 | `ref/canvas-primitives.md` |
 | UXP entrypoint、Photoshop host、imaging、modal、batchPlay、文件访问等原子能力 | `ref/atomic-capabilities.md` |

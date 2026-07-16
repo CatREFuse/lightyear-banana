@@ -1,7 +1,7 @@
 # Lightyear Banana 技术原型功能需求
 
-版本：0.1  
-日期：2026-04-28  
+版本：0.2
+日期：2026-07-17
 范围：当前技术原型已标定和已暴露的功能
 
 ## 产品定位
@@ -31,6 +31,9 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 | Vue 面板挂载 | 已实现 | `src/uxp/main.ts`、`src/App.vue` |
 | Photoshop 创建图层命令 | 已实现 | `createLayer` command |
 | 主工作台 | 已实现 | `LightyearPanel.vue`、`ComposerDock.vue`、`MessageThread.vue` |
+| Nothing 主题 | 已实现 | `nothing-theme.css`、`useThemePreferences.ts` |
+| 预设提示词 | 已实现 | `PromptPresetMenu.vue`、`PromptPresetSettings.vue` |
+| Provider 注册层 | 已实现 | `src/providers/definitions.ts`、`src/providers/registry.ts` |
 | 参考图采集 | 部分实现 | `useLightyearBanana.ts`、`canvasPrimitiveService.ts` |
 | 生图请求 | 已实现原型 | `imageApiClient.ts` |
 | 结果展示 | 已实现 | `MessageThread.vue` |
@@ -108,7 +111,8 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 设置页显示 `设置`、`新建配置` 或当前配置名称。
 - 用户可以打开设置。
 - 用户可以从配置详情返回配置列表，也可以返回工作台。
-- 用户可以切换浅色和深色主题。
+- 用户可以切换 Nothing 和经典主题。
+- 用户可以选择跟随系统、深色或浅色模式。
 
 来源：
 
@@ -164,6 +168,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 生成中禁用发送。
 - 发送前校验 API Key。
 - 自定义 Base URL 配置在真实 API 模式下必须填写 Base URL。
+- 输入精确的 `/名称` 可以调用预设提示词，`//正文` 发送字面量 `/正文`。
 - 发送后清空输入框和当前参考图。
 
 来源：
@@ -210,7 +215,10 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 验收标准：
 
-- 每个 provider 有独立请求构造函数。
+- Provider 能力、配置要求和适配器通过静态注册表关联。
+- 所有请求在派发前校验 Provider ID、模型、API Key 和必填 Base URL。
+- 已验证的请求构造、轮询和响应解析保留在 wire 兼容层。
+- `supportsBaseUrl` 与 `requiresBaseUrl` 分开声明。
 - OpenAI 风格接口读取 `data[].url` 或 `data[].b64_json`。
 - Gemini 读取 `candidates[].content.parts[].inlineData`。
 - Qwen 读取 `output.choices[].message.content[].image`。
@@ -220,6 +228,10 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 来源：
 
+- `src/providers/contracts.ts`
+- `src/providers/definitions.ts`
+- `src/providers/registry.ts`
+- `src/providers/legacyRuntime.ts`
 - `providerCapabilities.ts`
 - `imageApiClient.ts`
 - `image-model-api-specs.md`
@@ -400,6 +412,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 模型配置数组。
 - Mock Server 开关。
 - Mock Server Base URL。
+- 预设提示词数组。
 
 验收标准：
 
@@ -519,6 +532,77 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - `vite.uxp.config.ts`
 - `scripts/verify-uxp-build.mjs`
 
+### FR-023 Nothing 主题
+
+用户可以在保留工作台主流程的前提下使用 Nothing 视觉主题，并在浅色和深色环境中获得一致的操作体验。
+
+验收标准：
+
+- Nothing 为首次使用的默认主题，经典主题可随时恢复。
+- Doto、Space Grotesk、Space Mono 以本地资源进入构建产物。
+- 深色使用 OLED 黑，浅色使用暖白。
+- 不使用渐变、阴影、发光、动画和过渡。
+- 使用开放分组、细分隔线、技术标签和 1.5px 线性图标。
+- 主题菜单点击外部区域后收起。
+- 260px 宽度下不产生水平溢出或内容裁切。
+- 主题偏好保存在 `lightyear-banana.theme.v1`。
+- UXP 中转面板使用相同视觉语言，并保留 Spectrum 控件与桥接行为。
+
+来源：
+
+- `src/styles/nothing-theme.css`
+- `src/styles/fonts.css`
+- `src/composables/useThemePreferences.ts`
+- `src/components/lightyear/PanelHeader.vue`
+- `src/components/lightyear/BoxIcon.vue`
+- `src/uxp/main.ts`
+
+### FR-024 预设提示词
+
+用户可以在设置页管理常用提示词，并在输入框中使用 `/名称` 调用。
+
+验收标准：
+
+- 支持新增、编辑和删除，最多 100 条。
+- 名称长度为 1–24 个字符，只支持中文、英文字母、数字、`_` 和 `-`。
+- 名称按 NFKC 和 ASCII 小写规则判重。
+- 输入 `/` 或 `/片段` 显示最多 6 条匹配结果。
+- 支持方向键、Enter、Escape、鼠标选择和点击外部关闭。
+- 菜单键盘事件只处理提示词输入框。
+- 精确 `/名称` 在发送时也能解析；未知命令显示错误并保留输入。
+- `//正文` 发送字面量 `/正文`。
+- 预设正文只展开一次。
+- 预设随设置持久化并在重载后恢复。
+
+来源：
+
+- `src/utils/promptPresets.ts`
+- `src/components/lightyear/PromptPresetMenu.vue`
+- `src/components/lightyear/PromptPresetSettings.vue`
+- `src/composables/useLightyearBanana.ts`
+- `scripts/prompt-presets-smoke.mjs`
+
+### FR-025 Provider 注册架构
+
+开发者可以在明确的合同、定义、注册、wire 边界内维护 Provider，同时保持现有公开 import 和配置数据兼容。
+
+验收标准：
+
+- 11 个 Provider ID 静态注册，能力定义和注册表一一对应。
+- 旧 `providerCapabilities.ts` 和 `imageApiClient.ts` 只承担兼容导出。
+- 注册层拒绝未知 Provider 和适配器不匹配。
+- iMini、ComfyUI、Codex Image Server 保留默认 Base URL fallback。
+- 自定义 OpenAI 配置要求 Base URL。
+- Provider 模块不存在循环依赖。
+
+来源：
+
+- `src/providers/contracts.ts`
+- `src/providers/definitions.ts`
+- `src/providers/registry.ts`
+- `src/providers/legacyRuntime.ts`
+- `scripts/regression-smoke.mjs`
+
 ## 非功能需求
 
 ### UXP 兼容性
@@ -560,9 +644,8 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 | 自定义 Base URL 受 manifest 限制 | 任意域名无法直接请求 | 明确白名单、代理或配置策略 |
 | OpenAI edit 的 reference Blob 仍需修正 | 多参考图真实请求可能失败 | 把 data URL 转成二进制 Blob |
 | 远程图片转 RGBA 依赖 canvas | UXP runtime 下需要实机验证 | 增加 UXP 兼容图像读取方案 |
-| UI 大量使用普通 HTML/CSS 动效 | UXP 稳定性风险 | 迁移 Spectrum UXP Widgets 或 SWC wrapper |
+| 经典主题仍使用普通 HTML/CSS 动效 | UXP 稳定性风险 | 继续迁移 Spectrum UXP Widgets 或 SWC wrapper |
 | 当前只处理 8-bit 图像 | 16-bit、32-bit 文档不可用 | 扩展像素转换 |
-| Flux provider 仅声明能力 | 当前请求层未实现 Flux API | 增加 BFL 请求和 polling |
 
 ## 里程碑建议
 
@@ -595,7 +678,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 交付内容：
 
 - 修复 OpenAI edit reference 上传。
-- 完成 Flux provider。
+- 增加 Flux 真实 API 回归。
 - 明确自定义 Base URL 策略。
 - API Key 使用 secureStorage。
 - 增加 provider 级错误展示。
@@ -627,4 +710,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 生成结果可置入当前选区。
 - 设置页可新建、编辑、启用、删除配置。
 - 配置保存后重开面板可恢复。
+- 预设保存后重开面板可恢复，`/名称` 可通过菜单和直接发送调用。
+- Nothing 深色、浅色和 260px 面板通过视觉检查。
+- Provider 注册表与能力定义完整对应。
 - 浏览器预览不阻断 UI 开发。

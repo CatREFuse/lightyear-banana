@@ -86,4 +86,35 @@ export const boxIconPaths = {
   ]
 } as const
 
+export const boxIconStrokePaths = {
+  'arrow-back': ['M19 12H5m7 7-7-7 7-7'],
+  'check-circle': ['M21 11.08V12a9 9 0 1 1-5.34-8.23', 'm9 11 3 3L22 4'],
+  'chevron-down': ['m6 9 6 6 6-6'],
+  'chevron-right': ['m9 18 6-6-6-6'],
+  clipboard: ['M9 5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3', 'M9 3h6v4H9z'],
+  'copy-alt': ['M8 8h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2Z', 'M16 6V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h1'],
+  download: ['M12 3v12m-5-5 5 5 5-5', 'M5 17v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3'],
+  cog: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z', 'M12 2v3m0 14v3M4.93 4.93l2.12 2.12m9.9 9.9 2.12 2.12M2 12h3m14 0h3M4.93 19.07l2.12-2.12m9.9-9.9 2.12-2.12'],
+  crop: ['M6 2v14a2 2 0 0 0 2 2h14', 'M2 6h14a2 2 0 0 1 2 2v14'],
+  'expand-alt': ['M8 3H3v5m0-5 6 6', 'M16 21h5v-5m0 5-6-6'],
+  'grid-alt': ['M4 3h6v6H4zM14 3h6v6h-6zM4 13h6v6H4zM14 13h6v6h-6z'],
+  image: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z', 'm3 16 4-4 4 4 3-3 6 6', 'M8.5 8.5h.01'],
+  'image-add': ['M13 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6', 'm3 16 4-4 4 4 2-2', 'M8.5 8.5h.01', 'M18 14v8m-4-4h8'],
+  key: ['M15.5 7.5a4.5 4.5 0 1 1-3-3 4.5 4.5 0 0 1 3 3Z', 'm12.3 10.7 8.7-8.7M17 6l2 2m-4 2 2 2'],
+  layer: ['m12 2 9 5-9 5-9-5 9-5Z', 'm3 12 9 5 9-5M3 17l9 5 9-5'],
+  moon: ['M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z'],
+  plus: ['M12 5v14M5 12h14'],
+  refresh: ['M20 6v5h-5M4 18v-5h5', 'M18.5 9A7 7 0 0 0 6 6l-2 2m2 7a7 7 0 0 0 12.5 3l1.5-2'],
+  reset: ['M3 12a9 9 0 1 0 3-6.7L3 8', 'M3 3v5h5'],
+  selection: ['M9 4H4v5m11-5h5v5m0 6v5h-5M9 20H4v-5'],
+  send: ['M22 2 11 13 2 9l20-7Z', 'm22 2-7 20-4-9'],
+  'slider-alt': ['M4 6h5m6 0h5M12 3v6', 'M4 12h2m6 0h8M9 9v6', 'M4 18h8m6 0h2M15 15v6'],
+  'switch-horizontal': ['M7 7h14m-4-4 4 4-4 4', 'M17 17H3m4-4-4 4 4 4'],
+  sun: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z', 'M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42'],
+  trash: ['M3 6h18M8 6V4h8v2m3 0-1 15H6L5 6', 'M10 10v7m4-7v7'],
+  upload: ['M12 16V4m-5 5 5-5 5 5', 'M5 17v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3'],
+  x: ['m6 6 12 12M18 6 6 18'],
+  'zoom-in': ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z', 'm20 20-4-4M11 8v6M8 11h6']
+} as const satisfies Record<keyof typeof boxIconPaths, readonly string[]>
+
 export type BoxIconName = keyof typeof boxIconPaths

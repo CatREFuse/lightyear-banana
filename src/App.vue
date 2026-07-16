@@ -82,11 +82,7 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
   justify-content: center;
   overflow: hidden;
   padding: 58px 24px 24px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    #0f1115;
-  background-size: 28px 28px;
+  background: #090909;
 }
 
 .preview-platform-switch {
@@ -97,9 +93,8 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
   display: inline-flex;
   overflow: hidden;
   border: 1px solid rgba(168, 179, 196, 0.18);
-  border-radius: 8px;
-  background: rgba(27, 34, 44, 0.84);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  border-radius: 4px;
+  background: #111111;
   transform: translateX(-50%);
 }
 
@@ -124,9 +119,8 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
   height: 100%;
   overflow: hidden;
   border: 1px solid var(--lb-border);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--lb-bg);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.46);
 }
 
 @media (max-width: 430px) {

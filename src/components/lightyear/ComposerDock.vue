@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, shallowRef, useTemplateRef, watch } from 'vue'
-import type { CanvasOperationState, ModelConfig, ReferenceImage, ReferenceSource, ResolutionInputMode } from '../../types/lightyear'
+import type { CanvasOperationState, ModelConfig, PromptPreset, ReferenceImage, ReferenceSource, ResolutionInputMode } from '../../types/lightyear'
 import type { ProviderCapability } from '../../types/lightyear'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
-import { providerRequiresApiKey, providerSupportsQuality, readProviderCapability } from '../../data/providerCapabilities'
+import { providerSupportsQuality, validateProviderConfig } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
 import type { BoxIconName } from './boxIcons'
 import ControlSelect from './ControlSelect.vue'
 import RatioPicker from './RatioPicker.vue'
 import ReferenceThumb from './ReferenceThumb.vue'
+import PromptPresetMenu from './PromptPresetMenu.vue'
 
 type SelectOption = {
   icon?: BoxIconName
@@ -37,6 +38,7 @@ const props = defineProps<{
   customHeight: number
   customWidth: number
   prompt: string
+  promptPresets: PromptPreset[]
   quality: string
   ratio: string
   references: ReferenceImage[]
@@ -55,7 +57,7 @@ const emit = defineEmits<{
   removeReference: [id: string]
   selectConfig: [id: string]
   selectModel: [model: string]
-  send: []
+  send: [skipPresetResolution?: boolean]
   updateCount: [value: number]
   updatePrompt: [value: string]
   updateQuality: [value: string]
@@ -67,6 +69,7 @@ const emit = defineEmits<{
 }>()
 
 const openPanel = shallowRef('')
+const expandedPresetContent = shallowRef<string | null>(null)
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
 const customSizeValue = '__lightyear_custom_resolution__'
 
@@ -162,13 +165,14 @@ function readModelStatus(config: ModelConfig): ModelStatus {
     return { label: '停用', tone: 'muted' }
   }
 
-  const capability = readProviderCapability(config)
-  if (providerRequiresApiKey(config.provider) && !config.apiKey.trim()) {
-    return { label: '缺少 Key', tone: 'warning' }
-  }
-
-  if (capability.supportsBaseUrl && !config.baseUrl.trim()) {
-    return { label: '缺少 URL', tone: 'warning' }
+  const issue = validateProviderConfig(config).issues[0]
+  if (issue) {
+    const label = issue.code === 'missing-api-key'
+      ? '缺少 Key'
+      : issue.code === 'missing-base-url'
+        ? '缺少 URL'
+        : '不可用'
+    return { label, tone: 'warning' }
   }
 
   return { label: '可用', tone: 'ready' }
@@ -201,6 +205,22 @@ function usePresetResolution() {
   emit('updateResolutionMode', 'preset')
 }
 
+function applyPromptPreset(preset: PromptPreset) {
+  openPanel.value = ''
+  expandedPresetContent.value = preset.content
+  emit('menuOpen', '')
+  emit('updatePrompt', preset.content)
+}
+
+function updatePromptInput(value: string) {
+  expandedPresetContent.value = null
+  emit('updatePrompt', value)
+}
+
+function requestSend() {
+  emit('send', expandedPresetContent.value === props.prompt)
+}
+
 function handlePromptKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
     return
@@ -212,7 +232,7 @@ function handlePromptKeydown(event: KeyboardEvent) {
   }
 
   closePanel()
-  emit('send')
+  requestSend()
 }
 
 useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'reference')
@@ -225,6 +245,15 @@ watch(
     }
 
     openPanel.value = ''
+  }
+)
+
+watch(
+  () => props.prompt,
+  (nextPrompt) => {
+    if (expandedPresetContent.value !== null && nextPrompt !== expandedPresetContent.value) {
+      expandedPresetContent.value = null
+    }
   }
 )
 </script>
@@ -281,15 +310,25 @@ watch(
       />
     </div>
 
-    <textarea
-      class="prompt-input"
-      :value="prompt"
-      placeholder="输入提示词"
-      rows="3"
-      @focus="closePanel"
-      @input="emit('updatePrompt', ($event.target as HTMLTextAreaElement).value)"
-      @keydown="handlePromptKeydown"
-    />
+    <div class="prompt-shell">
+      <PromptPresetMenu
+        :disabled="busy"
+        :input="prompt"
+        :presets="promptPresets"
+        @close="emit('menuOpen', '')"
+        @open="emit('menuOpen', 'composer:preset')"
+        @select="applyPromptPreset"
+      />
+      <textarea
+        class="prompt-input"
+        :value="prompt"
+        placeholder="输入提示词，或输入 / 调用预设"
+        rows="3"
+        @focus="closePanel"
+        @input="updatePromptInput(($event.target as HTMLTextAreaElement).value)"
+        @keydown="handlePromptKeydown"
+      />
+    </div>
 
     <div class="control-grid">
       <ControlSelect
@@ -385,7 +424,7 @@ watch(
       />
     </div>
 
-    <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" @click="emit('send')">
+    <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" @click="requestSend">
       <BoxIcon name="send" size="16" />
       发送
     </button>
@@ -402,6 +441,16 @@ watch(
   padding: 10px 12px 12px;
   border-top: 1px solid var(--lb-hairline);
   background: var(--lb-composer);
+}
+
+.prompt-shell {
+  position: relative;
+  min-width: 0;
+}
+
+.prompt-shell .prompt-input {
+  display: block;
+  width: 100%;
 }
 
 .reference-header {
