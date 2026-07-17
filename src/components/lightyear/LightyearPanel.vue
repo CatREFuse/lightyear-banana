@@ -385,7 +385,7 @@ function handleManageModels() {
   position: relative;
   display: flex;
   width: 100%;
-  min-width: 280px;
+  min-width: 260px;
   height: 100%;
   min-height: 100%;
   flex-direction: column;

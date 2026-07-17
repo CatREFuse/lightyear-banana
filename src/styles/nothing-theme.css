@@ -7,12 +7,6 @@
   --nd-accent: #d71921;
   --nd-success: #4a9e5c;
   --nd-warning: #d4a843;
-  --nd-space-1: 4px;
-  --nd-space-2: 8px;
-  --nd-space-3: 16px;
-  --nd-space-4: 24px;
-  --nd-space-5: 32px;
-  min-width: 260px;
   font-family: var(--font-ui);
 }
 
@@ -129,55 +123,20 @@
 }
 
 .lightyear-shell.design-nothing .panel-header {
-  min-height: 56px;
-  padding: 12px 16px;
   border-bottom-color: var(--lb-border);
   background: var(--lb-bg);
-}
-
-.lightyear-shell.design-nothing .panel-header.has-titlebar-inset {
-  padding-top: 44px;
 }
 
 .lightyear-shell.design-nothing .panel-header h1 {
   color: var(--lb-text);
   font-family: var(--font-ui);
-  font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
 
-.lightyear-shell.design-nothing .connection-dot {
-  display: none;
-}
-
 .lightyear-shell.design-nothing .connection-status {
-  gap: 2px;
-  color: var(--lb-secondary);
-  font-size: 10px;
-}
-
-.lightyear-shell.design-nothing .connection-status::before {
-  content: "[";
-}
-
-.lightyear-shell.design-nothing .connection-status::after {
-  content: "]";
-}
-
-.lightyear-shell.design-nothing .select-status {
-  width: auto;
-  height: auto;
-  border-radius: 0;
-  background: transparent;
   color: var(--lb-secondary);
   font-family: var(--font-data);
-  font-size: 8px;
-  line-height: 1;
-}
-
-.lightyear-shell.design-nothing .select-status::before {
-  content: "[" attr(aria-label) "]";
 }
 
 .lightyear-shell.design-nothing .select-status.is-warning {
@@ -185,31 +144,20 @@
 }
 
 .lightyear-shell.design-nothing .icon-button {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 10px;
   border: 0;
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing .icon-button.icon-only {
-  width: 44px;
-}
-
 .lightyear-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) {
-  padding: 4px;
   border: 1px solid var(--lb-border-strong);
   border-radius: 8px;
   background: var(--lb-overlay);
-  max-width: calc(100vw - 24px);
 }
 
 .lightyear-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) button {
-  min-height: 44px;
   border-radius: 4px;
   font-family: var(--font-data);
-  font-size: 11px;
   font-weight: 400;
 }
 
@@ -218,108 +166,45 @@
   border-left: 2px solid var(--nd-accent);
 }
 
-.lightyear-shell.design-nothing .route-page {
-  transform: none;
-}
-
 .lightyear-shell.design-nothing .thread {
-  gap: 32px;
-  padding: 24px 16px 32px;
   background: var(--lb-thread-bg);
-  scroll-behavior: auto;
 }
 
 .lightyear-shell.design-nothing .thread > .empty-state {
-  display: grid;
-  width: 100%;
-  justify-items: start;
-  gap: 8px;
-  margin: auto 0;
-  padding: 64px 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--lb-muted);
-  white-space: normal;
-}
-
-.lightyear-shell.design-nothing .thread > .empty-state .box-icon {
-  display: none;
 }
 
 .lightyear-shell.design-nothing .thread > .empty-state > span:first-of-type {
   color: var(--lb-text);
   font-family: var(--font-display);
-  font-size: 42px;
   font-weight: 500;
-  line-height: 1;
   letter-spacing: -0.03em;
 }
 
 .lightyear-shell.design-nothing .thread > .empty-state > small {
-  max-width: 260px;
   color: var(--lb-secondary);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.lightyear-shell.design-nothing .turn-list {
-  gap: 32px;
-}
-
-.lightyear-shell.design-nothing .turn {
-  gap: 16px;
-}
-
-.lightyear-shell.design-nothing .user-message {
-  max-width: 92%;
 }
 
 .lightyear-shell.design-nothing .user-message p {
-  padding: 12px 16px;
   border-radius: 4px;
   background: var(--lb-thread-surface-2);
   color: var(--lb-text);
-  font-size: 14px;
-  line-height: 1.5;
 }
 
 .lightyear-shell.design-nothing :is(.assistant-message, .response-text) {
   color: var(--lb-text);
-  font-size: 14px;
-  line-height: 1.5;
 }
 
 .lightyear-shell.design-nothing .loading-message {
-  width: 100%;
-  padding: 16px 0;
   border-width: 1px 0;
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing :is(.loading-spinner, .action-spinner, .inline-spinner) {
-  width: auto;
-  height: auto;
-  border: 0;
-  border-radius: 0;
-  background: transparent !important;
-  color: var(--lb-secondary);
-  font-family: var(--font-data);
-  font-size: 9px;
-  line-height: 1;
-}
-
-.lightyear-shell.design-nothing :is(.loading-spinner, .action-spinner, .inline-spinner)::before {
-  content: "[•••]";
-}
-
-.lightyear-shell.design-nothing .result-grid {
-  gap: 16px;
-}
-
 .lightyear-shell.design-nothing .result-card {
-  overflow: visible;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -331,14 +216,11 @@
 }
 
 .lightyear-shell.design-nothing .result-actions {
-  gap: 4px;
-  padding: 8px 0 0;
   border: 0;
   background: transparent;
 }
 
 .lightyear-shell.design-nothing .result-actions button {
-  min-height: 36px;
   border: 1px solid var(--lb-border-strong);
   border-radius: 4px;
   background: transparent;
@@ -346,11 +228,8 @@
 }
 
 .lightyear-shell.design-nothing .operation-status {
-  min-height: 32px;
-  padding: 6px 16px;
   border-top: 1px solid var(--lb-border);
   background: var(--lb-bg);
-  font-size: 10px;
 }
 
 .lightyear-shell.design-nothing .operation-status > span {
@@ -358,51 +237,36 @@
 }
 
 .lightyear-shell.design-nothing .composer {
-  gap: 12px;
-  padding: 12px 16px 16px;
   border-top: 1px solid var(--lb-border-visible, var(--lb-border-strong));
   background: var(--lb-composer);
 }
 
 .lightyear-shell.design-nothing .reference-header {
   color: var(--lb-secondary);
-  font-size: 10px;
   letter-spacing: 0.06em;
 }
 
 .lightyear-shell.design-nothing :is(.clear-reference, .add-reference-inline) {
-  min-height: 36px;
   border: 0;
   border-radius: 0;
   color: var(--lb-secondary);
   font-family: var(--font-data);
-  font-size: 10px;
 }
 
 .lightyear-shell.design-nothing .prompt-input {
-  min-height: 88px;
-  padding: 12px 0 14px;
   border: 0;
-  border-bottom: 1px solid var(--lb-border-strong);
   border-radius: 0;
   background: transparent;
   color: var(--lb-text);
   font-family: var(--font-ui);
-  font-size: 16px;
-  line-height: 1.5;
 }
 
 .lightyear-shell.design-nothing .prompt-input:focus {
-  border-bottom-color: var(--lb-text);
-  outline: 0;
-}
-
-.lightyear-shell.design-nothing .control-grid {
-  gap: 8px;
+  outline: 1px solid var(--lb-text);
+  outline-offset: -1px;
 }
 
 .lightyear-shell.design-nothing :is(.select-trigger, .ratio-trigger, .dimension-field input, .dimension-preset-button) {
-  min-height: 40px;
   border: 1px solid var(--lb-border-strong);
   border-radius: 4px;
   background: transparent;
@@ -411,7 +275,6 @@
 .lightyear-shell.design-nothing :is(.select-label, .ratio-label, .dimension-field > span) {
   color: var(--lb-secondary);
   font-family: var(--font-data);
-  font-size: 9px;
   letter-spacing: 0.07em;
 }
 
@@ -421,12 +284,10 @@
 }
 
 .lightyear-shell.design-nothing .send-button {
-  min-height: 44px;
   border: 0;
   border-radius: 999px;
   background: var(--lb-text);
   color: var(--lb-bg);
-  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
@@ -440,11 +301,6 @@
   background: var(--lb-workspace);
 }
 
-.lightyear-shell.design-nothing .settings-page {
-  gap: 32px;
-  padding: 24px 16px 48px;
-}
-
 .lightyear-shell.design-nothing :is(.permission-card, .data-card, .diagnostic-card, .config-list, .field-card, .capability-box, .comfy-panel) {
   border-width: 0 0 1px;
   border-color: var(--lb-border);
@@ -452,24 +308,16 @@
   background: transparent;
 }
 
-.lightyear-shell.design-nothing :is(.permission-card, .data-card, .diagnostic-card) {
-  padding: 0 0 24px;
-}
-
 .lightyear-shell.design-nothing .section-header {
-  padding: 0 0 12px;
   border-bottom: 1px solid var(--lb-border-strong);
 }
 
 .lightyear-shell.design-nothing .section-header h2 {
   font-family: var(--font-ui);
-  font-size: 18px;
   font-weight: 500;
 }
 
 .lightyear-shell.design-nothing .config-row {
-  min-height: 64px;
-  padding: 12px 0;
   border-width: 0 0 1px;
   border-color: var(--lb-border);
   border-radius: 0;
@@ -477,25 +325,18 @@
 }
 
 .lightyear-shell.design-nothing .config-row.selected {
-  padding-left: 10px;
   border-left: 2px solid var(--nd-accent);
 }
 
 .lightyear-shell.design-nothing .status-badge {
-  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--lb-secondary);
-  font-size: 9px;
 }
 
 .lightyear-shell.design-nothing .status-badge.is-unavailable {
   color: var(--nd-accent);
-}
-
-.lightyear-shell.design-nothing .config-form {
-  gap: 32px;
 }
 
 .lightyear-shell.design-nothing :is(.form-control input, .form-control textarea, .form-control select, .model-inline-add input) {
@@ -506,7 +347,6 @@
 }
 
 .lightyear-shell.design-nothing :is(.form-actions button, .permission-actions button, .data-card button, .section-header button) {
-  min-height: 40px;
   border: 1px solid var(--lb-border-strong);
   border-radius: 4px;
   background: transparent;
@@ -524,45 +364,5 @@
 }
 
 .lightyear-shell.design-nothing .preview-header button {
-  min-height: 36px;
   border-radius: 4px;
-}
-
-@media (max-width: 319px) {
-  .lightyear-shell.design-nothing .panel-header {
-    padding-inline: 12px;
-  }
-
-  .lightyear-shell.design-nothing .connection-status {
-    max-width: 88px;
-  }
-
-  .lightyear-shell.design-nothing .thread,
-  .lightyear-shell.design-nothing .composer,
-  .lightyear-shell.design-nothing .settings-page {
-    padding-inline: 12px;
-  }
-
-  .lightyear-shell.design-nothing .control-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .lightyear-shell.design-nothing :is(.config-control, .model-control, .dimension-fields) {
-    grid-column: 1 / -1;
-  }
-
-  .lightyear-shell.design-nothing .result-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .lightyear-shell.design-nothing .theme-menu {
-    right: -48px;
-    max-width: calc(100vw - 24px);
-  }
-}
-
-@media (min-width: 480px) {
-  .lightyear-shell.design-nothing .result-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }

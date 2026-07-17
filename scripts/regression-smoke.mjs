@@ -521,6 +521,95 @@ async function testRemoteImageDimensionsAndPreviewStyle(requireFromBuild, outDir
   assert.match(messageThread, /object-fit:\s*contain/)
 }
 
+async function testNothingThemePreservesGeometry() {
+  const themeCss = await readFile(new URL('../src/styles/nothing-theme.css', import.meta.url), 'utf8')
+  const lightyearPanel = await readFile(new URL('../src/components/lightyear/LightyearPanel.vue', import.meta.url), 'utf8')
+  const geometryProperties = new Set([
+    'align-content',
+    'align-items',
+    'align-self',
+    'bottom',
+    'column-gap',
+    'content',
+    'display',
+    'flex',
+    'flex-basis',
+    'flex-direction',
+    'flex-flow',
+    'flex-grow',
+    'flex-shrink',
+    'flex-wrap',
+    'font-size',
+    'gap',
+    'grid',
+    'grid-area',
+    'grid-column',
+    'grid-row',
+    'grid-template',
+    'grid-template-columns',
+    'grid-template-rows',
+    'height',
+    'inset',
+    'justify-content',
+    'justify-items',
+    'justify-self',
+    'left',
+    'line-height',
+    'margin',
+    'margin-block',
+    'margin-block-end',
+    'margin-block-start',
+    'margin-bottom',
+    'margin-inline',
+    'margin-inline-end',
+    'margin-inline-start',
+    'margin-left',
+    'margin-right',
+    'margin-top',
+    'max-height',
+    'max-width',
+    'min-height',
+    'min-width',
+    'overflow',
+    'overflow-x',
+    'overflow-y',
+    'padding',
+    'padding-block',
+    'padding-block-end',
+    'padding-block-start',
+    'padding-bottom',
+    'padding-inline',
+    'padding-inline-end',
+    'padding-inline-start',
+    'padding-left',
+    'padding-right',
+    'padding-top',
+    'place-content',
+    'place-items',
+    'position',
+    'right',
+    'row-gap',
+    'scroll-behavior',
+    'top',
+    'transform',
+    'white-space',
+    'width'
+  ])
+  const overriddenGeometry = themeCss
+    .split('\n')
+    .map((line, index) => ({ index: index + 1, match: line.match(/^\s*([a-z-]+)\s*:/) }))
+    .filter(({ match }) => match && geometryProperties.has(match[1]))
+    .map(({ index, match }) => `${match[1]} at line ${index}`)
+
+  assert.deepEqual(
+    overriddenGeometry,
+    [],
+    `Nothing theme must inherit component geometry: ${overriddenGeometry.join(', ')}`
+  )
+  assert.doesNotMatch(themeCss, /@media\b/, 'Nothing theme must reuse the shared responsive layout')
+  assert.match(lightyearPanel, /\.lightyear-shell\s*\{[\s\S]*?min-width:\s*260px;/, 'Shared shell must own the 260px minimum width')
+}
+
 async function main() {
   const outDir = join(tmpdir(), 'lightyear-banana-regression-smoke')
   compileRegressionSources(outDir)
@@ -536,6 +625,7 @@ async function main() {
     testApimartAliasCapabilities(providerCapabilities)
     await testSelectionVisibleComposite(canvasPrimitives)
     await testRemoteImageDimensionsAndPreviewStyle(requireFromBuild, outDir)
+    await testNothingThemePreservesGeometry()
     console.log('Selection and source-ratio regressions passed.')
   } finally {
     rmSync(outDir, { force: true, recursive: true })

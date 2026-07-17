@@ -16,6 +16,7 @@
 - 主题偏好写入 `localStorage` key `lightyear-banana.theme.v1`。
 - Nothing 使用本地打包的 Doto、Space Grotesk 和 Space Mono 字体，不依赖远程字体服务。
 - 经典主题保留原有字体和主体样式。
+- Nothing 与经典主题共用组件尺寸、间距、布局和响应式规则，切换主题不会改变界面几何结构。
 
 ### 视觉规则
 

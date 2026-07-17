@@ -630,6 +630,33 @@ h1 {
   }
 }
 
+@media (max-width: 279px) {
+  .panel-header {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .title-block,
+  .header-actions {
+    gap: 4px;
+  }
+
+  .panel-header.is-darwin .window-controls,
+  .window-brand {
+    left: 8px;
+  }
+
+  .has-titlebar-inset.is-darwin .connection-status {
+    right: 8px;
+    max-width: 88px;
+  }
+
+  .theme-menu {
+    right: -4px;
+    max-width: calc(100vw - 16px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .theme-symbol-enter-active,
   .theme-symbol-leave-active,
