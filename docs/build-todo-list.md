@@ -39,4 +39,5 @@
 - CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.14.ccx`，SHA256：`0adbe19a084aee3543b265e5e7fabc24cd3582d174134c865f051b72ef958f7f`。
 - Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.14-mac-cross-win.zip` 带交叉构建标识，SHA256：`2441c563a06dba53db81f38f300cc58c625817ee5d70441b36684f3442d6ec10`；该包不进入正式发行目录。
 - `dist/release-0.3.14/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`。
-- 官网源码已同步 0.3.14 的文件名、大小、SHA256 与下载地址，等待完整发布门禁与线上资源验收。
+- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，GitHub Release `v0.3.14` 已发布并核对四个资产。
+- 官网源码已同步 0.3.14；当前 Windows 环境没有 `codex-47-97-root` SSH 配置和 `rsync`，线上 `latest.json` 仍为 0.3.13。取得部署凭据后按 `docs/ops-manual.md` 上传三个资源并完成公网校验，最后更新线上 `latest.json`。
