@@ -187,6 +187,32 @@ test('serializes concurrent append, prune, and export requests', async () => {
   }
 })
 
+test('exports a filtered connection log with dedicated metadata', async () => {
+  const fixture = await createFixture()
+  const exportPath = join(fixture.directory, 'crx-export.jsonl')
+
+  try {
+    await fixture.logger.log({ category: 'app', operation: 'app.start', phase: 'success' })
+    await fixture.logger.log({ category: 'crx', operation: 'crx.interaction', phase: 'success' })
+    await fixture.logger.log({ category: 'bridge', operation: 'bridge.uxp.command', phase: 'success' })
+    await fixture.logger.log({ category: 'photoshop', operation: 'uxp.command', phase: 'success' })
+
+    const result = await fixture.logger.exportTo(exportPath, {
+      category: 'crx',
+      operation: 'crx.logs.export.snapshot',
+      filter: (record) => ['crx', 'bridge', 'photoshop'].includes(record.category)
+    })
+    const lines = (await readFile(exportPath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
+
+    assert.equal(result.recordCount, 3)
+    assert.equal(lines[0].category, 'crx')
+    assert.equal(lines[0].operation, 'crx.logs.export.snapshot')
+    assert.deepEqual(lines.slice(1).map((record) => record.category), ['crx', 'bridge', 'photoshop'])
+  } finally {
+    await fixture.cleanup()
+  }
+})
+
 test('removes expired records while the app remains idle', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'lightyear-diagnostics-idle-'))
   const logger = createDiagnosticLogger({

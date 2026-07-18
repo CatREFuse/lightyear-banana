@@ -40,10 +40,12 @@ const {
   deleteConfig,
   deployWindows,
   diagnosticExportState,
+  crxLogExportState,
   duplicateConfig,
   editConfig,
   editGenerationRequest,
   exportDiagnostics,
+  exportCrxLogs,
   editingCapability,
   editingConfigId,
   enabledConfigs,
@@ -233,6 +235,7 @@ function handleManageModels() {
         :app-update-check-available="props.runtime === 'electron'"
         :diagnostic-export-available="props.runtime === 'electron'"
         :diagnostic-export-state="diagnosticExportState"
+        :crx-log-export-state="crxLogExportState"
         :provider-capabilities="providerCapabilities"
         :app-update-state="appUpdateState"
         :settings-draft-is-new="settingsDraftIsNew"
@@ -245,6 +248,7 @@ function handleManageModels() {
         @delete="deleteConfig"
         @duplicate="duplicateConfig"
         @download-diagnostics="exportDiagnostics"
+        @download-crx-logs="exportCrxLogs"
         @edit="editConfig"
         @open-mac-permission-settings="openMacPermissionSettings"
         @check-for-updates="checkForUpdates"

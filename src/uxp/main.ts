@@ -16,6 +16,15 @@ type BridgeMessage<T = unknown> = {
   payload?: T
 }
 
+type FailedBridgeInteraction = {
+  timestamp: string
+  eventId: string
+  method: string
+  path: string
+  durationMs: number
+  error: Record<string, unknown>
+}
+
 type SerializedCanvasImage = Omit<CapturedCanvasImage, 'rgba'> & {
   rgba: string | number[] | Record<string, number>
 }
@@ -31,6 +40,8 @@ const uxpGlobal = globalThis as typeof globalThis & {
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined
 let polling = false
 let pollLoopId = 0
+let bridgeFailureSequence = 0
+const failedBridgeInteractions: FailedBridgeInteraction[] = []
 let currentTone: 'ready' | 'waiting' | 'error' = 'waiting'
 let currentStatus = '正在启动'
 let panelMountNode: HTMLElement | null = null
@@ -374,21 +385,68 @@ function writePanel(status: string, tone: 'ready' | 'waiting' | 'error' = 'waiti
   renderPanel()
 }
 
-async function requestBridge(path: string, init: RequestInit = {}) {
-  const separator = path.includes('?') ? '&' : '?'
-  const response = await fetch(`${BRIDGE_ORIGIN}${path}${separator}token=${encodeURIComponent(BRIDGE_TOKEN)}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers ?? {})
-    }
+function rememberBridgeFailure(path: string, method: string, startedAt: number, error: unknown) {
+  bridgeFailureSequence += 1
+  failedBridgeInteractions.push({
+    timestamp: new Date().toISOString(),
+    eventId: `uxp-bridge-${Date.now()}-${bridgeFailureSequence}`,
+    method,
+    path: path.split('?')[0],
+    durationMs: Date.now() - startedAt,
+    error: normalizeUxpDiagnosticError(error)
   })
+  if (failedBridgeInteractions.length > 200) {
+    failedBridgeInteractions.splice(0, failedBridgeInteractions.length - 200)
+  }
+}
 
-  if (!response.ok) {
-    throw new Error(`Bridge HTTP ${response.status}`)
+async function requestBridge(
+  path: string,
+  init: RequestInit = {},
+  options: { recordFailure?: boolean } = {}
+) {
+  const startedAt = Date.now()
+  const method = init.method || 'GET'
+  const separator = path.includes('?') ? '&' : '?'
+  try {
+    const response = await fetch(`${BRIDGE_ORIGIN}${path}${separator}token=${encodeURIComponent(BRIDGE_TOKEN)}`, {
+      ...init,
+      headers: {
+        'content-type': 'application/json',
+        ...(init.headers ?? {})
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Bridge HTTP ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (options.recordFailure !== false) {
+      rememberBridgeFailure(path, method, startedAt, error)
+    }
+    throw error
+  }
+}
+
+async function flushBridgeFailures() {
+  if (!failedBridgeInteractions.length) {
+    return
   }
 
-  return response.json()
+  const records = failedBridgeInteractions.splice(0, failedBridgeInteractions.length)
+  try {
+    await requestBridge('/uxp/logs', {
+      method: 'POST',
+      body: JSON.stringify({ records })
+    }, { recordFailure: false })
+  } catch {
+    failedBridgeInteractions.unshift(...records)
+    if (failedBridgeInteractions.length > 200) {
+      failedBridgeInteractions.splice(200)
+    }
+  }
 }
 
 function readRgba(value: SerializedCanvasImage['rgba']) {
@@ -607,6 +665,7 @@ async function runPollLoop(loopId: number) {
         createdAt: Date.now()
       })
     })
+    await flushBridgeFailures()
     console.log(`${LOG_PREFIX} bridge connected`)
     writePanel('连接正常。请在桌面 App 中操作生图和 Photoshop 写入。', 'ready')
 

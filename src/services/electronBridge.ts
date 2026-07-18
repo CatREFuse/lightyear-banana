@@ -127,6 +127,10 @@ export async function exportElectronDiagnostics() {
   return invokeElectronBridge<DiagnosticExportResult>('diagnostics.export')
 }
 
+export async function exportElectronCrxLogs() {
+  return invokeElectronBridge<DiagnosticExportResult>('crx.logs.export')
+}
+
 export function onElectronBridgeEvent(callback: (event: unknown) => void) {
   if (!window.lightyearBridge) {
     return undefined

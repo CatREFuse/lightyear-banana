@@ -31,6 +31,7 @@ const props = defineProps<{
   appUpdateState: AppUpdateCheckState
   diagnosticExportAvailable: boolean
   diagnosticExportState: DiagnosticExportState
+  crxLogExportState: DiagnosticExportState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   settingsDraftIsNew: boolean
   settingsDraft: ModelConfig
@@ -47,6 +48,7 @@ const emit = defineEmits<{
   edit: [id: string]
   checkForUpdates: []
   downloadDiagnostics: []
+  downloadCrxLogs: []
   openMacPermissionSettings: [pane: MacPermissionPane]
   save: []
   test: []
@@ -189,6 +191,14 @@ onUnmounted(() => {
           v-if="diagnosticExportAvailable"
           :state="diagnosticExportState"
           @download="emit('downloadDiagnostics')"
+        />
+
+        <DiagnosticLogCard
+          v-if="diagnosticExportAvailable"
+          label="CRX 日志"
+          description="最近 24 小时插件连接记录"
+          :state="crxLogExportState"
+          @download="emit('downloadCrxLogs')"
         />
 
         <div class="config-list">

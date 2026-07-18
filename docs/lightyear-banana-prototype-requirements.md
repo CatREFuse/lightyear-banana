@@ -519,6 +519,26 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - `vite.uxp.config.ts`
 - `scripts/verify-uxp-build.mjs`
 
+### FR-023 Photoshop 插件连接日志
+
+用户可以保留桌面 App 与 Photoshop 插件最近 24 小时的连接记录，并从设置页导出日志。
+
+验收标准：
+
+- 每次 `/uxp/*` 请求都记录请求方法、路径、结果、状态码和耗时。
+- 记录插件注册、长轮询、命令下发、命令响应、诊断上报、鉴权失败和连接中断。
+- 插件暂时无法连接桌面 App 时，保留失败记录，并在恢复连接后补传。
+- 日志不记录 Bridge token、API Key、图片内容、提示词或其他敏感载荷。
+- 日志只保留最近 24 小时。
+- Electron 设置页提供 `CRX 日志` 导出入口，导出 JSONL 文件。
+
+来源：
+
+- `electron/main.js`
+- `electron/diagnosticLogger.js`
+- `src/uxp/main.ts`
+- `SettingsPanel.vue`
+
 ## 非功能需求
 
 ### UXP 兼容性

@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.tanshow.lightyearbanana",
   "name": "Lightyear Banana",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "main": "uxp-panel.html",
   "host": {
     "app": "PS",
@@ -51,15 +51,28 @@
           "width": 23,
           "height": 23,
           "path": "icons/dark.png",
-          "scale": [1, 2],
-          "theme": ["darkest", "dark", "medium"]
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "darkest",
+            "dark",
+            "medium"
+          ]
         },
         {
           "width": 23,
           "height": 23,
           "path": "icons/light.png",
-          "scale": [1, 2],
-          "theme": ["lightest", "light"]
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "lightest",
+            "light"
+          ]
         }
       ]
     }
@@ -69,17 +82,33 @@
       "width": 23,
       "height": 23,
       "path": "icons/icon_D.png",
-      "scale": [1, 2],
-      "theme": ["dark", "darkest"],
-      "species": ["generic"]
+      "scale": [
+        1,
+        2
+      ],
+      "theme": [
+        "dark",
+        "darkest"
+      ],
+      "species": [
+        "generic"
+      ]
     },
     {
       "width": 23,
       "height": 23,
       "path": "icons/icon_N.png",
-      "scale": [1, 2],
-      "theme": ["lightest", "light"],
-      "species": ["generic"]
+      "scale": [
+        1,
+        2
+      ],
+      "theme": [
+        "lightest",
+        "light"
+      ],
+      "species": [
+        "generic"
+      ]
     }
   ]
 }

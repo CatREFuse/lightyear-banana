@@ -342,32 +342,35 @@ export function createDiagnosticLogger(options) {
     return enqueue(() => readRecentInternal(snapshotTime))
   }
 
-  function exportTo(filePath) {
+  function exportTo(filePath, options = {}) {
     return enqueue(async () => {
       const snapshotTime = now()
       const snapshot = await pruneInternal(snapshotTime)
+      const records = typeof options.filter === 'function'
+        ? snapshot.records.filter((record) => options.filter(record))
+        : snapshot.records
       const metadata = sanitizeDiagnosticValue({
         timestamp: new Date(snapshotTime).toISOString(),
         level: 'info',
         sessionId,
-        category: 'diagnostics',
-        operation: 'diagnostics.export.snapshot',
+        category: options.category || 'diagnostics',
+        operation: options.operation || 'diagnostics.export.snapshot',
         phase: 'success',
         runtime: runtime(),
         details: {
           cutoff: new Date(snapshot.cutoff).toISOString(),
           snapshotTime: new Date(snapshotTime).toISOString(),
-          recordCount: snapshot.records.length,
+          recordCount: records.length,
           corruptRecordCount: snapshot.corrupt.length,
           corruptRecords: snapshot.corrupt
         }
       })
-      const content = `${[metadata, ...snapshot.records].map((record) => JSON.stringify(record)).join('\n')}\n`
+      const content = `${[metadata, ...records].map((record) => JSON.stringify(record)).join('\n')}\n`
       await writeAtomic(filePath, content)
       return {
         fileName: basename(filePath),
         filePath,
-        recordCount: snapshot.records.length,
+        recordCount: records.length,
         cutoff: new Date(snapshot.cutoff).toISOString(),
         snapshotTime: new Date(snapshotTime).toISOString()
       }

@@ -54,6 +54,7 @@ import {
 import {
   deserializeCanvasImage,
   exportElectronDiagnostics,
+  exportElectronCrxLogs,
   getElectronBridgeStatus,
   hasElectronBridge,
   invokeElectronBridge,
@@ -652,6 +653,10 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const diagnosticExportState = shallowRef<DiagnosticExportState>({
     status: 'idle',
     message: '最近 24 小时'
+  })
+  const crxLogExportState = shallowRef<DiagnosticExportState>({
+    status: 'idle',
+    message: '最近 24 小时插件连接记录'
   })
   const toastMessage = shallowRef('')
   const generationLoading = shallowRef<GenerationLoadingState[]>([])
@@ -2206,6 +2211,39 @@ function readHighestQuality(options: string[]): string {
     }
   }
 
+  async function exportCrxLogs() {
+    if (!isElectronRuntime || !canUseElectronBridge.value) {
+      const message = '请在 Lightyear App 中使用'
+      crxLogExportState.value = { status: 'error', message }
+      status.value = message
+      showToast(message)
+      return
+    }
+
+    crxLogExportState.value = {
+      status: 'exporting',
+      message: '正在整理最近 24 小时的连接记录'
+    }
+
+    try {
+      const result = await withTimeout(exportElectronCrxLogs(), 30000, '日志整理超时')
+      if (!result.saved) {
+        crxLogExportState.value = { status: 'idle', message: '最近 24 小时插件连接记录' }
+        return
+      }
+
+      const message = result.recordCount === undefined ? '日志已保存' : `已保存 ${result.recordCount} 条记录`
+      crxLogExportState.value = { status: 'success', message }
+      status.value = message
+      showToast(message)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '日志下载失败'
+      crxLogExportState.value = { status: 'error', message }
+      status.value = message
+      showToast(message)
+    }
+  }
+
   function updateSettingsDraft(patch: Partial<ModelConfig>) {
     if (patch.provider && patch.provider !== settingsDraft.provider) {
       const capability = providerCapabilities[patch.provider]
@@ -2300,6 +2338,8 @@ function readHighestQuality(options: string[]): string {
     checkForUpdates,
     diagnosticExportState,
     exportDiagnostics,
+    crxLogExportState,
+    exportCrxLogs,
     openMacPermissionSettings,
     openSettings,
     placeImage,

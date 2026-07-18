@@ -3,9 +3,14 @@ import { computed } from 'vue'
 import type { DiagnosticExportState } from '../../types/lightyear'
 import BoxIcon from './BoxIcon.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
+  label?: string
+  description?: string
   state: DiagnosticExportState
-}>()
+}>(), {
+  label: '诊断日志',
+  description: ''
+})
 
 const emit = defineEmits<{
   download: []
@@ -16,13 +21,15 @@ const isExporting = computed(() => props.state.status === 'exporting')
 </script>
 
 <template>
-  <section class="diagnostic-card" aria-label="诊断日志">
+  <section class="diagnostic-card" :aria-label="props.label">
     <div class="diagnostic-copy">
       <strong>
         <BoxIcon name="download" size="14" />
-        诊断日志
+        {{ props.label }}
       </strong>
-      <small :class="`is-${props.state.status}`" aria-live="polite">{{ props.state.message }}</small>
+      <small :class="`is-${props.state.status}`" aria-live="polite">
+        {{ props.state.message || props.description }}
+      </small>
     </div>
     <button type="button" :disabled="isExporting" @click="emit('download')">
       {{ buttonLabel }}

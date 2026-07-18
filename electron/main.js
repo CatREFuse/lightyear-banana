@@ -24,7 +24,7 @@ let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.13.ccx'
+const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.14.ccx'
 const SETTINGS_FILE = 'lightyear-settings.json'
 const DIAGNOSTICS_DIRECTORY = 'diagnostics'
 const APP_UPDATE_MANIFEST_URL = 'https://cake.catrefuse.com/releases/latest.json'
@@ -66,6 +66,7 @@ const state = {
   previewImages: new Map(),
   expiredRequests: new Map(),
   diagnosticEventIds: new Map(),
+  crxClientEventIds: new Set(),
   lastDocumentLabel: '',
   startedAt: Date.now()
 }
@@ -121,6 +122,100 @@ function writeDiagnostic(event) {
   }
 
   return diagnosticLogger.log(event)
+}
+
+function createCrxInteractionTracker(request, response, url) {
+  const interactionId = randomUUID()
+  const startedAt = Date.now()
+  const details = {
+    interactionId,
+    method: request.method || 'GET',
+    path: url.pathname
+  }
+  let failure
+  let settled = false
+
+  function finish(phase, error) {
+    if (settled) {
+      return
+    }
+    settled = true
+    const statusCode = response.statusCode || 0
+    const finalPhase = failure || error
+      ? 'error'
+      : phase || (statusCode >= 400 ? 'error' : 'success')
+    void writeDiagnostic({
+      level: finalPhase === 'error' ? 'error' : finalPhase === 'cancel' ? 'warn' : 'info',
+      requestId: details.requestId,
+      category: 'crx',
+      operation: 'crx.interaction',
+      phase: finalPhase,
+      durationMs: Date.now() - startedAt,
+      details: {
+        ...details,
+        authenticated: details.authenticated !== false,
+        statusCode,
+        queueLength: state.uxpQueue.length,
+        pendingCount: state.pending.size
+      },
+      error: failure || error ? normalizeDiagnosticError(failure || error) : undefined
+    })
+  }
+
+  response.once('finish', () => finish())
+  response.once('close', () => {
+    if (!response.writableFinished) {
+      finish('cancel', new Error('插件连接在响应完成前中断'))
+    }
+  })
+  response.once('error', (error) => finish('error', error))
+
+  return {
+    annotate(patch) {
+      if (patch && typeof patch === 'object') {
+        Object.assign(details, patch)
+      }
+    },
+    fail(error) {
+      failure = error
+    }
+  }
+}
+
+function ingestCrxClientInteractions(records) {
+  if (!Array.isArray(records)) {
+    return 0
+  }
+
+  let accepted = 0
+  for (const record of records.slice(0, 200)) {
+    if (!record || typeof record !== 'object' || !record.eventId || state.crxClientEventIds.has(record.eventId)) {
+      continue
+    }
+
+    state.crxClientEventIds.add(record.eventId)
+    if (state.crxClientEventIds.size > 500) {
+      state.crxClientEventIds.delete(state.crxClientEventIds.values().next().value)
+    }
+    accepted += 1
+    void writeDiagnostic({
+      timestamp: record.timestamp,
+      level: 'error',
+      eventId: record.eventId,
+      category: 'crx',
+      operation: 'crx.client.interaction',
+      phase: 'error',
+      durationMs: record.durationMs,
+      details: {
+        source: 'uxp-replay',
+        method: record.method,
+        path: record.path
+      },
+      error: record.error
+    })
+  }
+
+  return accepted
 }
 
 function readCommandPayloadSummary(command, payload) {
@@ -1190,6 +1285,11 @@ function readDiagnosticExportFileName() {
   return `lightyear-banana-diagnostics-${timestamp}.jsonl`
 }
 
+function readCrxLogExportFileName() {
+  const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13)
+  return `lightyear-banana-crx-logs-${timestamp}.jsonl`
+}
+
 async function exportDiagnosticLog() {
   if (!diagnosticLogger) {
     throw new Error('诊断日志尚未准备完成')
@@ -1417,18 +1517,75 @@ function flushPollWaiters() {
   while (state.pollWaiters.length && state.uxpQueue.length) {
     const waiter = state.pollWaiters.shift()
     clearTimeout(waiter.timer)
-    sendJson(waiter.response, 200, shiftUxpMessage())
+    const message = shiftUxpMessage()
+    waiter.tracker?.annotate({ command: message?.type, requestId: message?.id, result: 'command' })
+    sendJson(waiter.response, 200, message)
   }
 }
 
-async function handleHttpUxpRequest(request, response, url) {
+async function exportCrxLog() {
+  if (!diagnosticLogger) {
+    throw new Error('连接日志尚未准备完成')
+  }
+
+  const startedAt = Date.now()
+  void writeDiagnostic({ category: 'crx', operation: 'crx.logs.export', phase: 'start' })
+  const result = await dialog.showSaveDialog(mainWindow ?? undefined, {
+    title: '导出 Photoshop 连接日志',
+    defaultPath: readCrxLogExportFileName(),
+    filters: [{ name: 'CRX 日志', extensions: ['jsonl'] }]
+  })
+
+  if (result.canceled || !result.filePath) {
+    void writeDiagnostic({
+      category: 'crx',
+      operation: 'crx.logs.export',
+      phase: 'cancel',
+      durationMs: Date.now() - startedAt
+    })
+    return { saved: false }
+  }
+
+  try {
+    const exported = await diagnosticLogger.exportTo(result.filePath, {
+      category: 'crx',
+      operation: 'crx.logs.export.snapshot',
+      filter: (record) => ['crx', 'bridge', 'photoshop'].includes(record.category)
+    })
+    void writeDiagnostic({
+      category: 'crx',
+      operation: 'crx.logs.export',
+      phase: 'success',
+      durationMs: Date.now() - startedAt,
+      details: exported
+    })
+    return { saved: true, ...exported }
+  } catch (error) {
+    void writeDiagnostic({
+      level: 'error',
+      category: 'crx',
+      operation: 'crx.logs.export',
+      phase: 'error',
+      durationMs: Date.now() - startedAt,
+      details: { filePath: result.filePath },
+      error: normalizeDiagnosticError(error)
+    })
+    throw error
+  }
+}
+
+async function handleHttpUxpRequest(request, response, url, tracker) {
   if (url.searchParams.get('token') !== BRIDGE_TOKEN) {
+    tracker?.annotate({ authenticated: false, result: 'forbidden' })
     sendJson(response, 403, { ok: false, error: 'Invalid token' })
     return true
   }
 
+  tracker?.annotate({ authenticated: true })
+
   if (request.method === 'POST' && url.pathname === '/uxp/hello') {
     const body = await readJsonBody(request)
+    tracker?.annotate({ requestId: body.id, command: body.type, result: 'hello' })
     markUxpConnected(body.payload)
     void writeDiagnostic({
       category: 'bridge',
@@ -1450,8 +1607,18 @@ async function handleHttpUxpRequest(request, response, url) {
 
   if (request.method === 'POST' && url.pathname === '/uxp/diagnostics') {
     const body = await readJsonBody(request)
+    tracker?.annotate({ requestId: body.requestId, result: 'diagnostic' })
     markUxpConnected(body.payload)
     const accepted = ingestUxpDiagnostic(body.requestId, body.event, 'live')
+    sendJson(response, 200, { ok: true, accepted })
+    return true
+  }
+
+  if (request.method === 'POST' && url.pathname === '/uxp/logs') {
+    const body = await readJsonBody(request)
+    const accepted = ingestCrxClientInteractions(body.records)
+    tracker?.annotate({ result: 'replayed-client-logs', acceptedCount: accepted })
+    markUxpConnected()
     sendJson(response, 200, { ok: true, accepted })
     return true
   }
@@ -1459,7 +1626,9 @@ async function handleHttpUxpRequest(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/uxp/poll') {
     markUxpConnected()
     if (state.uxpQueue.length) {
-      sendJson(response, 200, shiftUxpMessage())
+      const message = shiftUxpMessage()
+      tracker?.annotate({ command: message?.type, requestId: message?.id, result: 'command' })
+      sendJson(response, 200, message)
       return true
     }
 
@@ -1467,6 +1636,7 @@ async function handleHttpUxpRequest(request, response, url) {
       response,
       timer: setTimeout(() => {
         state.pollWaiters = state.pollWaiters.filter((entry) => entry !== waiter)
+        tracker?.annotate({ result: 'noop' })
         sendJson(response, 200, {
           id: `noop-${Date.now()}`,
           type: 'bridge.noop',
@@ -1474,7 +1644,8 @@ async function handleHttpUxpRequest(request, response, url) {
           payload: {},
           createdAt: Date.now()
         })
-      }, 25000)
+      }, 25000),
+      tracker
     }
     request.on('close', () => {
       state.pollWaiters = state.pollWaiters.filter((entry) => entry !== waiter)
@@ -1486,6 +1657,7 @@ async function handleHttpUxpRequest(request, response, url) {
 
   if (request.method === 'POST' && url.pathname === '/uxp/respond') {
     const body = await readJsonBody(request)
+    tracker?.annotate({ requestId: body.id, result: body.ok ? 'command-success' : 'command-error' })
     markUxpConnected(body.payload)
     if (body.id) {
       ingestUxpTrace(body.id, body.diagnostics, 'final-response')
@@ -1781,38 +1953,51 @@ async function sendPreviewPage(request, response, url) {
 function startBridgeServer() {
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url || '/', readBridgeOrigin())
+    const crxTracker = url.pathname.startsWith('/uxp/')
+      ? createCrxInteractionTracker(request, response, url)
+      : null
 
-    if (request.method === 'OPTIONS') {
-      sendJson(response, 204, {})
-      return
-    }
-
-    if (url.pathname === '/health') {
-      sendJson(response, 200, { ok: true, ...readBridgeStatus() })
-      return
-    }
-
-    if (url.pathname === '/debug/state') {
-      sendJson(response, 200, { ...readBridgeStatus(), startedAt: state.startedAt, queuedMessages: state.uxpQueue.length })
-      return
-    }
-
-    if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/downloads/')) {
-      await sendDownloadFile(response, decodeURIComponent(url.pathname.replace('/downloads/', '')), request.method === 'HEAD')
-      return
-    }
-
-    if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/preview/')) {
-      if (await sendPreviewPage(request, response, url)) {
+    try {
+      if (request.method === 'OPTIONS') {
+        crxTracker?.annotate({ result: 'preflight' })
+        sendJson(response, 204, {})
         return
       }
-    }
 
-    if (url.pathname.startsWith('/uxp/') && (await handleHttpUxpRequest(request, response, url))) {
-      return
-    }
+      if (url.pathname === '/health') {
+        sendJson(response, 200, { ok: true, ...readBridgeStatus() })
+        return
+      }
 
-    sendStaticFile(request, response)
+      if (url.pathname === '/debug/state') {
+        sendJson(response, 200, { ...readBridgeStatus(), startedAt: state.startedAt, queuedMessages: state.uxpQueue.length })
+        return
+      }
+
+      if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/downloads/')) {
+        await sendDownloadFile(response, decodeURIComponent(url.pathname.replace('/downloads/', '')), request.method === 'HEAD')
+        return
+      }
+
+      if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/preview/')) {
+        if (await sendPreviewPage(request, response, url)) {
+          return
+        }
+      }
+
+      if (url.pathname.startsWith('/uxp/') && (await handleHttpUxpRequest(request, response, url, crxTracker))) {
+        return
+      }
+
+      sendStaticFile(request, response)
+    } catch (error) {
+      crxTracker?.fail(error)
+      if (!response.headersSent) {
+        sendJson(response, error instanceof SyntaxError ? 400 : 500, { ok: false, error: 'Request failed' })
+      } else {
+        response.destroy(error)
+      }
+    }
   })
 
   return new Promise((resolve, reject) => {
@@ -1998,6 +2183,10 @@ async function runRendererCommand(command, payload) {
 
   if (command === 'diagnostics.export') {
     return exportDiagnosticLog()
+  }
+
+  if (command === 'crx.logs.export') {
+    return exportCrxLog()
   }
 
   if (command === 'reference.pickUpload') {
