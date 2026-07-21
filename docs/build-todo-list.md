@@ -32,12 +32,12 @@
 - `npm run build:site` 通过后才允许部署官网。
 - 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
 
-## 当前 0.3.14 状态
+## 当前 0.3.15 状态
 
-- macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.14-mac.zip`，SHA256：`480593dabfb5555c8ba537c66bade810bf12fa978d604cdec8ab890e7b592bec`，Actions run：`29653811407`。
-- Windows 包由当前 Windows 环境构建并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.14-win.zip`，SHA256：`c525281a70ea2e209365f47fd2407066dece503795955ab5c8208aaa56952815`。
-- CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.14.ccx`，SHA256：`0adbe19a084aee3543b265e5e7fabc24cd3582d174134c865f051b72ef958f7f`。
-- Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.14-mac-cross-win.zip` 带交叉构建标识，SHA256：`2441c563a06dba53db81f38f300cc58c625817ee5d70441b36684f3442d6ec10`；该包不进入正式发行目录。
-- `dist/release-0.3.14/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`。
-- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，GitHub Release `v0.3.14` 已发布并核对四个资产。
-- 官网源码已同步 0.3.14；当前 Windows 环境没有 `codex-47-97-root` SSH 配置和 `rsync`，线上 `latest.json` 仍为 0.3.13。取得部署凭据后按 `docs/ops-manual.md` 上传三个资源并完成公网校验，最后更新线上 `latest.json`。
+- macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.15-mac.zip`，SHA256：`55e5a8a57f3d56970bfd338338a4e6af7759167dd5cab6f0f17e050a487873ec`，Actions run：`29858677678`。
+- Windows 包由当前 Windows 环境构建并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.15-win.zip`，SHA256：`990a82d298e877992aa67f9f4e20334bf91653a3447997545b24d317edd31228`。
+- CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.15.ccx`，SHA256：`25bea376d5c6a47a04fc566b9cec0b1507638bb42853dd7f8fc54f26142c9016`。
+- Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.15-mac-cross-win.zip` 带交叉构建标识，SHA256：`7b3c16642cd7ee2d2b60497d320373f363a910d0f2f68a64d2f0fba37aa947e9`；该包不进入正式发行目录。
+- `dist/release-0.3.15/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`。
+- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，GitHub Release `v0.3.15` 已发布并核对四个资产。
+- 官网源码已同步 0.3.15；当前 Windows 环境没有 `codex-47-97-root` SSH 配置和 `rsync`，线上 `latest.json` 仍为 0.3.13。取得部署凭据后按 `docs/ops-manual.md` 上传三个资源并完成公网校验，最后更新线上 `latest.json`。
