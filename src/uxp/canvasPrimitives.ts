@@ -882,6 +882,78 @@ async function getLayerPixels(layer: PhotoshopLayer, bounds?: PixelBounds) {
   }
 }
 
+async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: UxpDiagnosticTrace) {
+  const photoshop = getPhotoshop()
+  const document = photoshop.app.activeDocument
+  const sourceBounds = bounds ?? getDocumentBounds(document)
+  const requestStartedAt = Date.now()
+  await emitTrace(trace, 'composite.getPixels', 'start', {
+    documentId: document.id,
+    requestedBounds: sourceBounds,
+    colorSpace: 'RGB',
+    componentSize: 8
+  })
+
+  let result: PhotoshopImageResult
+  try {
+    result = await photoshop.imaging.getPixels({
+      documentID: document.id,
+      sourceBounds,
+      colorSpace: 'RGB',
+      componentSize: 8
+    })
+    await emitTrace(trace, 'composite.getPixels', 'success', {
+      durationMs: Date.now() - requestStartedAt,
+      width: result.imageData.width,
+      height: result.imageData.height,
+      components: result.imageData.components,
+      returnedBounds: imageResultBounds(result, sourceBounds)
+    })
+  } catch (error) {
+    await emitTrace(trace, 'composite.getPixels', 'error', { durationMs: Date.now() - requestStartedAt }, error)
+    throw error
+  }
+
+  try {
+    const dataStartedAt = Date.now()
+    await emitTrace(trace, 'composite.getData', 'start', {
+      width: result.imageData.width,
+      height: result.imageData.height,
+      components: result.imageData.components
+    })
+    let rawData: Uint8Array | Uint16Array | Float32Array
+    try {
+      rawData = await result.imageData.getData()
+      await emitTrace(trace, 'composite.getData', 'success', {
+        durationMs: Date.now() - dataStartedAt,
+        ...readTypedArrayDetails(rawData),
+        expectedElementLength: result.imageData.width * result.imageData.height * result.imageData.components
+      })
+    } catch (error) {
+      await emitTrace(trace, 'composite.getData', 'error', { durationMs: Date.now() - dataStartedAt }, error)
+      throw error
+    }
+
+    await emitTrace(trace, 'composite.buffer.validate', 'start', readTypedArrayDetails(rawData))
+    const data = requireUint8(rawData)
+    await emitTrace(trace, 'composite.buffer.validate', 'success', {
+      ...readTypedArrayDetails(data),
+      expectedByteLength: result.imageData.width * result.imageData.height * result.imageData.components
+    })
+
+    return {
+      rgba: toRgba(data, result.imageData.width, result.imageData.height, result.imageData.components),
+      width: result.imageData.width,
+      height: result.imageData.height,
+      sourceBounds: imageResultBounds(result, sourceBounds)
+    }
+  } finally {
+    await emitTrace(trace, 'composite.imageData.dispose', 'start')
+    result.imageData.dispose()
+    await emitTrace(trace, 'composite.imageData.dispose', 'success')
+  }
+}
+
 async function closeTemporaryDocument(photoshop: PhotoshopRuntime, document: PhotoshopDocument) {
   if (document.closeWithoutSaving) {
     await document.closeWithoutSaving()
@@ -985,7 +1057,7 @@ async function getMergedVisibleCompositePixels(bounds?: PixelBounds, trace?: Uxp
 export async function captureVisibleComposite(): Promise<CapturedCanvasImage> {
   return executePhotoshopModal('抓取可见图像', async () => {
     const photoshop = getPhotoshop()
-    const captured = await getMergedVisibleCompositePixels()
+    const captured = await getVisibleCompositePixels()
     const previewUrl = await encodeRgbaPreview(photoshop, captured.rgba, captured.width, captured.height)
 
     return {

@@ -89,6 +89,7 @@ await canvasPrimitiveService.insertImage(image, {
 
 - `getPixels()` 用于读取可见合成图或指定图层。
 - `getSelection()` 用于读取选区 mask。
+- 可见图像直接对当前文档调用 `imaging.getPixels({ documentID })`，不传 `layerID`，避免复制含临时来源智能对象的文档。
 - 选区图像从临时文档副本的合并可见图层读取，避免宿主把当前选中图层误当作文档合成结果。
 - `putPixels()` 用于写入像素。
 - `encodeImageData()` 用于生成面板预览。

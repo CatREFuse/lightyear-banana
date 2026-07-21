@@ -302,6 +302,123 @@ function createImageResult({ width, height, components, data, bounds }) {
   }
 }
 
+async function testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives) {
+  const calls = []
+  const batchPlayCalls = []
+  let temporaryFileDeleted = false
+  let duplicateCalls = 0
+  const bounds = { left: 0, top: 0, right: 2, bottom: 1 }
+  const backgroundLayer = { id: 7, name: '背景', bounds, boundsNoEffects: bounds }
+  const placedLayer = {
+    id: 10,
+    name: '生成图 1',
+    bounds,
+    boundsNoEffects: bounds,
+    async scale() {},
+    async translate() {}
+  }
+  const sourceDocument = {
+    id: 1,
+    width: 2,
+    height: 1,
+    activeLayers: [backgroundLayer],
+    layers: [backgroundLayer],
+    async duplicate() {
+      duplicateCalls += 1
+      throw new Error('Photoshop Error. Code: -32005. Message: 无法更新智能对象文件')
+    }
+  }
+  const photoshop = {
+    action: {
+      async batchPlay(commands) {
+        batchPlayCalls.push(...commands)
+        if (commands.some((command) => command._obj === 'placeEvent')) {
+          sourceDocument.activeLayers = [placedLayer]
+          sourceDocument.layers = [placedLayer, backgroundLayer]
+        }
+        return []
+      }
+    },
+    app: { activeDocument: sourceDocument },
+    core: { async executeAsModal(target) { return target() } },
+    imaging: {
+      async getPixels(options) {
+        calls.push({ ...options })
+        return createImageResult({
+          width: 2,
+          height: 1,
+          components: 4,
+          data: [255, 0, 0, 255, 0, 0, 255, 255],
+          bounds
+        })
+      },
+      async createImageDataFromBuffer(data, options) {
+        return {
+          width: options.width,
+          height: options.height,
+          components: options.components,
+          async getData() { return data },
+          dispose() {}
+        }
+      },
+      async encodeImageData() { return 'preview' },
+      async putPixels() {}
+    }
+  }
+  const uxp = {
+    storage: {
+      formats: { binary: 'binary' },
+      localFileSystem: {
+        async getTemporaryFolder() {
+          return {
+            async createFile() {
+              return {
+                async write() {},
+                async delete() { temporaryFileDeleted = true }
+              }
+            }
+          }
+        },
+        createSessionToken() { return 'temporary-preview-token' }
+      }
+    }
+  }
+
+  const originalHostRequire = globalThis.require
+  globalThis.require = (name) => {
+    if (name === 'photoshop') return photoshop
+    if (name === 'uxp') return uxp
+    throw new Error(`Unexpected host module: ${name}`)
+  }
+
+  try {
+    await canvasPrimitives.insertPreviewImage({
+      id: 'generated-1',
+      label: '生成图 1',
+      width: 1,
+      height: 1,
+      sourceBounds: { left: 0, top: 0, right: 1, bottom: 1 },
+      previewUrl: `data:image/png;base64,${tinyPng}`,
+      rgba: new Uint8Array([255, 0, 0, 255])
+    }, { left: 0, top: 0, width: 2, height: 1 })
+
+    assert.equal(batchPlayCalls.some((command) => command._obj === 'placeEvent'), true)
+    assert.equal(temporaryFileDeleted, true)
+    const captured = await canvasPrimitives.captureVisibleComposite()
+    assert.deepEqual(Array.from(captured.rgba), [255, 0, 0, 255, 0, 0, 255, 255])
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].documentID, sourceDocument.id)
+    assert.equal('layerID' in calls[0], false, 'Visible capture must read the document composite without a layerID')
+    assert.equal(duplicateCalls, 0, 'Visible capture must not duplicate a document containing a placed smart object')
+  } finally {
+    if (originalHostRequire === undefined) {
+      delete globalThis.require
+    } else {
+      globalThis.require = originalHostRequire
+    }
+  }
+}
+
 async function testSelectionVisibleComposite(canvasPrimitives) {
   const calls = []
   let duplicateClosed = false
@@ -485,9 +602,10 @@ async function main() {
     const canvasPrimitives = requireFromBuild(join(outDir, 'uxp', 'canvasPrimitives.js'))
     await testProviderRatios(imageApi)
     testApimartAliasCapabilities(providerCapabilities)
+    await testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives)
     await testSelectionVisibleComposite(canvasPrimitives)
     await testRemoteImageDimensionsAndPreviewStyle(requireFromBuild, outDir)
-    console.log('Selection and source-ratio regressions passed.')
+    console.log('Canvas capture and source-ratio regressions passed.')
   } finally {
     rmSync(outDir, { force: true, recursive: true })
   }
