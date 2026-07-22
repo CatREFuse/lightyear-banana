@@ -75,6 +75,12 @@ function readJsonRequest(requests, pattern) {
   return JSON.parse(request.init.body)
 }
 
+function readRequest(requests, pattern) {
+  const request = requests.find((item) => pattern.test(item.url))
+  assert.ok(request, `Missing request matching ${pattern}`)
+  return request
+}
+
 async function testProviderRatios(imageApi) {
   const nativeFetch = globalThis.fetch
   const nativeConsoleInfo = console.info
@@ -133,6 +139,16 @@ async function testProviderRatios(imageApi) {
       })
     }
 
+    if (url.includes('/api/v1/services/aigc/image-generation/generation')) {
+      return Response.json({
+        output: { choices: [{ message: { content: [{ image: 'https://example.test/generated.png' }] } }] }
+      })
+    }
+
+    if (url.includes('api.bfl.ai/v1/')) {
+      return Response.json({ sample: 'https://example.test/generated.jpg' })
+    }
+
     return Response.json({ data: [{ url: 'https://example.test/generated.png' }] })
   }
 
@@ -147,12 +163,46 @@ async function testProviderRatios(imageApi) {
   }
 
   try {
+    const openAiParams = {
+      ...baseParams,
+      references: [createReference(6336, 9504)],
+      config: createConfig('openai', 'gpt-image-2')
+    }
+    const exactOpenAiSize = imageApi.resolveImageRequestSize(openAiParams)
+    assert.equal(exactOpenAiSize, '2336x3504')
+    const [exactOpenAiWidth, exactOpenAiHeight] = exactOpenAiSize.split('x').map(Number)
+    assert.equal(exactOpenAiWidth / exactOpenAiHeight, 2 / 3, 'OpenAI GPT Image 2 must keep common source ratios exact')
+    await imageApi.generateImagesWithProvider({ ...openAiParams, size: exactOpenAiSize })
+    let request = readRequest(requests, /api\.openai\.com\/v1\/images\/edits$/)
+    assert.ok(request.init.body instanceof FormData)
+    assert.equal(request.init.body.getAll('image[]').length, 1)
+    assert.equal(request.init.body.getAll('image').length, 0)
+    assert.equal(request.init.body.get('size'), exactOpenAiSize)
+    assert.equal(request.init.body.get('quality'), 'auto')
+    assert.equal(request.init.body.get('output_format'), 'png')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [],
+      ratio: '1:1',
+      size: '1024x1024',
+      selectedSize: '1024x1024',
+      config: createConfig('openai', 'gpt-image-2')
+    })
+    let body = readJsonRequest(requests, /api\.openai\.com\/v1\/images\/generations$/)
+    assert.deepEqual(
+      { model: body.model, n: body.n, size: body.size, quality: body.quality, output_format: body.output_format },
+      { model: 'gpt-image-2', n: 1, size: '1024x1024', quality: 'auto', output_format: 'png' }
+    )
+
+    requests.length = 0
     await imageApi.generateImagesWithProvider({
       ...baseParams,
       references: [createReference(1200, 960)],
       config: createConfig('apimart', 'gemini-3.1-flash-image-preview')
     })
-    let body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
     assert.equal(body.size, 'auto', 'APIMart Gemini 3.1 original ratio must use auto even for a legal 5:4 input')
     assert.equal(body.resolution, '4K')
 
@@ -199,10 +249,57 @@ async function testProviderRatios(imageApi) {
     requests.length = 0
     await imageApi.generateImagesWithProvider({
       ...baseParams,
+      references: [createReference(6336, 9504)],
       config: createConfig('apimart', 'gpt-image-2')
     })
     body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
-    assert.equal('size' in body, false, 'APIMart GPT Image 2 must omit size when following an input image')
+    assert.equal(body.size, '2:3', 'APIMart GPT Image 2 must send the exact supported input ratio')
+    assert.equal(body.resolution, '4k')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      count: 3,
+      quality: 'high',
+      references: [createReference(6336, 9504)],
+      config: createConfig('apimart', 'gpt-image-2-official')
+    })
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    assert.equal(body.size, '2:3')
+    assert.equal(body.resolution, '4k')
+    assert.equal(body.quality, 'high')
+    assert.equal(body.n, 3)
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      count: 4,
+      references: [],
+      ratio: '16:9',
+      selectedSize: '3K',
+      size: '3K',
+      config: createConfig('apimart', 'doubao-seedream-5-0-lite')
+    })
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    assert.equal(body.n, 4)
+    assert.equal(body.size, '16:9')
+    assert.equal(body.resolution, '3K')
+    assert.equal(body.sequential_image_generation, 'auto')
+    assert.deepEqual(body.sequential_image_generation_options, { max_images: 4 })
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(1477, 1000)],
+      selectedSize: '2K',
+      size: '2K',
+      config: createConfig('apimart', 'gpt-image-2')
+    })
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    assert.match(body.size, /^\d+x\d+$/, 'APIMart GPT Image 2 must use pixel dimensions for a non-enum source ratio')
+    const [gptImage2Width, gptImage2Height] = body.size.split('x').map(Number)
+    assert.ok(Math.abs(gptImage2Width / gptImage2Height - 1477 / 1000) < 0.02)
+    assert.equal('resolution' in body, false, 'Direct GPT Image 2 pixel dimensions must not also send a conflicting resolution')
 
     requests.length = 0
     await imageApi.generateImagesWithProvider({
@@ -266,6 +363,91 @@ async function testProviderRatios(imageApi) {
     assert.match(body.parameters.size, /^\d+\*\d+$/)
     const [qwenWidth, qwenHeight] = body.parameters.size.split('*').map(Number)
     assert.ok(Math.abs(qwenWidth / qwenHeight - 16 / 9) < 0.02, 'Provider sizing must use intrinsic image dimensions before source bounds')
+    assert.equal(body.parameters.n, 1)
+    assert.equal(body.parameters.prompt_extend, true)
+    assert.equal(body.parameters.watermark, false)
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(1024, 1024)],
+      ratio: '1:1',
+      selectedSize: '2k',
+      size: '2k',
+      config: createConfig('kling', 'kling/kling-v3-image-generation')
+    })
+    body = readJsonRequest(requests, /image-generation\/generation$/)
+    assert.equal(body.parameters.resolution, '2k')
+    assert.equal(body.parameters.aspect_ratio, '1:1')
+    assert.equal(body.parameters.watermark, false)
+    assert.equal('result_type' in body.parameters, false)
+    request = readRequest(requests, /image-generation\/generation$/)
+    assert.equal(request.init.headers['X-DashScope-Async'], 'enable')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(1024, 1024), createReference(1024, 1024)],
+      ratio: '1:1',
+      selectedSize: '4k',
+      size: '4k',
+      config: createConfig('kling', 'kling/kling-v3-omni-image-generation')
+    })
+    body = readJsonRequest(requests, /image-generation\/generation$/)
+    assert.equal(body.parameters.resolution, '4k')
+    assert.equal(body.parameters.result_type, 'single')
+
+    requests.length = 0
+    const seedreamParams = {
+      ...baseParams,
+      count: 3,
+      references: [createReference(1600, 900)],
+      size: '2048x1152',
+      selectedSize: '2k',
+      config: createConfig('seedream', 'seedream-4-0-250828')
+    }
+    await imageApi.generateImagesWithProvider(seedreamParams)
+    body = readJsonRequest(requests, /api\/v3\/images\/generations$/)
+    assert.equal(body.model, 'seedream-4-0-250828')
+    assert.equal(body.size, '2048x1152')
+    assert.equal(body.response_format, 'url')
+    assert.equal(body.sequential_image_generation, 'auto')
+    assert.deepEqual(body.sequential_image_generation_options, { max_images: 3 })
+    assert.equal(body.watermark, false)
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(1600, 900)],
+      size: '2048x1152',
+      selectedSize: '2k',
+      config: createConfig('flux', 'flux-2-pro')
+    })
+    body = readJsonRequest(requests, /api\.bfl\.ai\/v1\/flux-2-pro$/)
+    assert.equal(body.width, 2048)
+    assert.equal(body.height, 1152)
+    assert.equal(body.output_format, 'jpeg')
+    assert.equal(body.safety_tolerance, 2)
+    assert.ok(body.input_image)
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      count: 2,
+      quality: 'high',
+      references: [createReference(1600, 900)],
+      ratio: '16:9',
+      size: '2K',
+      selectedSize: '2K',
+      config: createConfig('iMini', 'openai/gpt-image-2')
+    })
+    body = readJsonRequest(requests, /imini\/router\/v1\/images\/generate$/)
+    assert.equal(body.aspect_ratio, '16:9')
+    assert.equal(body.resolution, '2K')
+    assert.equal(body.quality, 'high')
+    assert.equal(body.num, 2)
+    assert.equal(body.images.length, 1)
+    assert.equal(body.images[0].reference_type, 'asset')
   } finally {
     globalThis.fetch = nativeFetch
     console.info = nativeConsoleInfo
@@ -285,6 +467,18 @@ function testApimartAliasCapabilities(providerCapabilities) {
   assert.ok(nano2.ratioOptions.includes('1:8'))
   assert.deepEqual(nanoPro.sizeOptions, ['1K', '2K', '4K'])
   assert.equal(nanoPro.ratioOptions.includes('1:8'), false)
+
+  const gptImage2Official = providerCapabilities.readProviderCapability(createConfig('apimart', 'gpt-image-2-official'))
+  assert.deepEqual(gptImage2Official.countOptions, [1, 2, 3, 4])
+  assert.deepEqual(gptImage2Official.qualityOptions, ['auto', 'high', 'medium', 'low'])
+
+  const klingBase = providerCapabilities.readProviderCapability(createConfig('kling', 'kling/kling-v3-image-generation'))
+  assert.equal(klingBase.referenceLimit, 1)
+  assert.deepEqual(klingBase.sizeOptions, ['1k', '2k'])
+
+  const klingOmni = providerCapabilities.readProviderCapability(createConfig('kling', 'kling/kling-v3-omni-image-generation'))
+  assert.equal(klingOmni.referenceLimit, 10)
+  assert.deepEqual(klingOmni.sizeOptions, ['1k', '2k', '4k'])
 }
 
 function createImageResult({ width, height, components, data, bounds }) {

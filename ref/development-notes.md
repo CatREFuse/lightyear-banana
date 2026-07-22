@@ -93,6 +93,30 @@ npm run package:uxp
 
 打包前会先执行 `verify:uxp`。产物写入 `dist/${npm_package_name}-${npm_package_version}.ccx`。
 
+## Windows Codex 插件索引修复
+
+如果 Codex 官方插件或官方 marketplace 突然不可见，先检查：
+
+```powershell
+Test-Path "$env:USERPROFILE\.codex\.tmp\bundled-marketplaces\openai-bundled\.agents\plugins\marketplace.json"
+```
+
+如果返回 `False`，运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rebuild-codex-windows.ps1 -Apply
+```
+
+脚本会从当前安装的 Codex Windows app 中恢复 `openai-bundled` marketplace，并把派生缓存移动到 `.codex\.repair-backups\`。完成后重启 Codex，让插件目录重新索引。
+
+如果安装过的插件 bundle 缓存也需要重建，再运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rebuild-codex-windows.ps1 -Apply -Full
+```
+
+`-Full` 会同时备份清空 `.codex\plugins\cache`，重启后由 Codex 重新生成。
+
 ## 文档维护
 
 新增或修改基础能力时同步更新：

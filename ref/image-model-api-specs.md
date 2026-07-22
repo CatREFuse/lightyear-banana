@@ -1,6 +1,6 @@
 # 主流生图模型 API 规格参考
 
-更新时间：2026-04-24
+更新时间：2026-07-23
 
 本文件记录主流图像生成/编辑模型的 API 形态、参考图上限、输出尺寸、调用方式和接入注意事项。优先采官方文档；官方公开文档不完整时，会标明来源边界。
 
@@ -117,11 +117,17 @@ curl -s -X POST "https://api.openai.com/v1/images/edits" \
 
 GPT Image 2 的 reference image 会产生输入图 token 成本。多参考图场景需要在产品层限制图片数量、尺寸和压缩策略。
 
+APIMart `gpt-image-2` 与 `gpt-image-2-official` 的 `size` 缺省值和 `auto` 都可能落到 `1:1`。图生图选择原图比例时，输入比例在 APIMart 枚举内就明确发送比例值，例如 `6336×9504` 发送 `2:3`；非常规比例按用户选择的 1K / 2K / 4K 档位换算为合法的近似等比例像素尺寸。直接发送像素尺寸时省略 `resolution`，防止两个尺寸约束冲突。官方渠道额外支持 `quality` 和单次 1-4 张输出，普通渠道固定单图。
+
+直接调用 OpenAI `gpt-image-2` 时，常见有理比例会优先换算成同时满足 16px 倍数、像素总量和最长边限制的精确像素尺寸。非常规比例无法在这些整数约束内精确表达时，会发送误差最小的合法像素尺寸。
+
 来源：
 
 - OpenAI GPT Image 2 model page: https://developers.openai.com/api/docs/models/gpt-image-2
 - OpenAI Image generation guide: https://developers.openai.com/api/docs/guides/image-generation
 - OpenAI Image API reference: https://platform.openai.com/docs/api-reference/images/create-edit
+- APIMart GPT Image 2 generation: https://docs.apimart.ai/en/api-reference/images/gpt-image-2/generation
+- APIMart GPT Image 2 official channel: https://docs.apimart.ai/en/api-reference/images/gpt-image-2/official
 
 ## Google Gemini / Nano Banana
 
@@ -410,7 +416,7 @@ kling/kling-v3-omni-image-generation
 | --- | --- |
 | prompt 长度 | 2500 字符以内 |
 | text 数量 | 仅支持一个 `text` |
-| 参考图 | `image` URL，支持多张 |
+| 参考图 | 基础 V3 只支持 1 张；V3 Omni 支持多张 |
 | 参考图 + 主体 | 参考图片数量和 `element_list` 数组长度之和不超过 10 |
 | 输入图格式 | JPEG、JPG、PNG；不支持透明通道 |
 | 输入图尺寸 | 宽高 `[300,8000]` 像素 |
@@ -424,7 +430,7 @@ kling/kling-v3-omni-image-generation
 
 ### 接入注意
 
-可灵官方公开 API 文档入口相对分散。当前最完整的结构化图像 API 说明来自阿里云百炼的可灵模型 API reference；快手公告也确认可灵图像 O1 可上传最多 10 张参考图。生产接入时要确认你走的是快手官方、阿里云百炼，还是第三方聚合平台，因为 endpoint、鉴权和返回结构会不同。
+可灵官方公开 API 文档入口相对分散。当前最完整的结构化图像 API 说明来自阿里云百炼的可灵模型 API reference；快手公告也确认可灵图像 O1 可上传最多 10 张参考图。基础 V3 请求不发送 Omni 专属的 `result_type`，分辨率选项只开放 `1k`、`2k`。生产接入时要确认你走的是快手官方、阿里云百炼，还是第三方聚合平台，因为 endpoint、鉴权和返回结构会不同。
 
 来源：
 
