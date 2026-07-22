@@ -40,4 +40,6 @@
 - Windows 成品已使用电脑控制实际启动并验证版本号、build number、APIMart `gpt-image-2-official` 模型和原图比例能力；未发送付费请求，也未保存测试配置。
 - macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.16-mac.zip`，SHA256：`b879e5b559728c5265bbca497eee7e565113cc7d9f163030fff915260393aa66`，Actions run：`29939337523`。
 - `dist/release-0.3.16/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`；强制交叉包未进入该目录。
-- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，官网元数据已按三个正式产物的实际字节数与 SHA256 更新；GitHub Release、tag 和官网部署待完成。
+- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，官网元数据已按三个正式产物的实际字节数与 SHA256 更新。
+- tag `v0.3.16` 与 GitHub Release 已发布；四个 GitHub 资产均返回 200，大小和服务端 SHA256 digest 与本地正式发行物一致。
+- 官网部署待办：当前 Windows 用户的 `~/.ssh` 缺少运维手册要求的 `codex-47-97-root` Host 配置和项目私钥，`root@47.97.121.121` 的无交互认证被拒绝。线上 `latest.json` 仍为 0.3.15，0.3.16 官网校验清单仍返回 404，尚未切换线上版本。
