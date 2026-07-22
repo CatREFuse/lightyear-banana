@@ -32,12 +32,11 @@
 - `npm run build:site` 通过后才允许部署官网。
 - 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
 
-## 当前 0.3.15 状态
+## 当前 0.3.16 状态
 
-- macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.15-mac.zip`，SHA256：`55e5a8a57f3d56970bfd338338a4e6af7759167dd5cab6f0f17e050a487873ec`，Actions run：`29858677678`。
-- Windows 包由当前 Windows 环境构建并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.15-win.zip`，SHA256：`990a82d298e877992aa67f9f4e20334bf91653a3447997545b24d317edd31228`。
-- CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.15.ccx`，SHA256：`25bea376d5c6a47a04fc566b9cec0b1507638bb42853dd7f8fc54f26142c9016`。
-- Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.15-mac-cross-win.zip` 带交叉构建标识，SHA256：`7b3c16642cd7ee2d2b60497d320373f363a910d0f2f68a64d2f0fba37aa947e9`；该包不进入正式发行目录。
-- `dist/release-0.3.15/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`。
-- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，GitHub Release `v0.3.15` 已发布并核对四个资产。
-- 官网源码和发行物已部署，线上 `latest.json` 为 0.3.15；首页、三个下载地址和 `SHA256SUMS.txt` 均返回 200，公网回下载后的文件大小与 SHA256 和本地正式发行物一致。
+- Windows 包由当前 Windows 环境构建并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.16-win.zip`，SHA256：`f9aaf2ceb07076474f8fa41d6ca8bc87ec486d73e3ac7c0e4b8761d6a00b142c`。
+- CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.16.ccx`，SHA256：`a6ca3f93c044b34efa5116b46ad55f5f8f09cab3881dfe53424b631ad63342ff`。
+- Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.16-mac-cross-win.zip` 带交叉构建标识，SHA256：`3a0b242b97d1e433636a6d25e3d8bc267b174c371f136b4723139b4c4b698ea9`；该包不进入正式发行目录。
+- Windows 成品已使用电脑控制实际启动并验证版本号、build number、APIMart `gpt-image-2-official` 模型和原图比例能力；未发送付费请求，也未保存测试配置。
+- 原生 macOS 包缺失，必须派发 GitHub Actions macOS runner，目标文件为 `lightyear-banana-0.3.16-mac.zip`，要求上传包和 SHA256 记录，并据此重新生成 `SHA256SUMS.txt`。
+- 原生 macOS 包完成前，不创建 `dist/release-0.3.16/`、不打 tag、不发布 GitHub Release，也不把官网 `latest.json` 从 0.3.15 切到 0.3.16。

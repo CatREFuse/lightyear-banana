@@ -66,6 +66,7 @@ export const providerCapabilities: Record<ImageProviderId, ProviderCapability> =
       'gemini-3-pro-image-preview',
       'gemini-3-pro-image-preview-official',
       'gpt-image-2',
+      'gpt-image-2-official',
       'gpt-image-1-official',
       'gpt-image-1.5-official',
       'doubao-seedream-5-0-lite'
@@ -210,7 +211,11 @@ function isApimartGptImage1Model(model: string) {
 }
 
 function isApimartGptImage2Model(model: string) {
-  return /^gpt-image-2$/i.test(model)
+  return /^gpt-image-2(?:-official)?$/i.test(model)
+}
+
+function isApimartGptImage2OfficialModel(model: string) {
+  return /^gpt-image-2-official$/i.test(model)
 }
 
 function isApimartSeedream5LiteModel(model: string) {
@@ -246,8 +251,8 @@ function readApimartCapability(config: Pick<ModelConfig, 'provider' | 'model' | 
       ...capability,
       referenceLimit: 16,
       sizeOptions: customSizeOptions,
-      qualityOptions: [],
-      countOptions: [1],
+      qualityOptions: isApimartGptImage2OfficialModel(config.model) ? gptImageQualityOptions : [],
+      countOptions: isApimartGptImage2OfficialModel(config.model) ? [1, 2, 3, 4] : [1],
       ratioOptions: apimartGptImage2RatioOptions
     }
   }
@@ -325,6 +330,22 @@ function readIMiniCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'c
   return capability
 }
 
+function readKlingCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>, capability: ProviderCapability): ProviderCapability {
+  if (/^kling\/kling-v3-omni-image-generation$/i.test(config.model)) {
+    return {
+      ...capability,
+      referenceLimit: 10,
+      sizeOptions: ['1k', '2k', '4k']
+    }
+  }
+
+  return {
+    ...capability,
+    referenceLimit: 1,
+    sizeOptions: ['1k', '2k']
+  }
+}
+
 export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>): ProviderCapability {
   const capability = providerCapabilities[config.provider]
   if (config.provider === 'custom-openai' && normalizeCustomModelFormat(config.customFormat) === 'gemini') {
@@ -345,6 +366,10 @@ export function readProviderCapability(config: Pick<ModelConfig, 'provider' | 'm
 
   if (config.provider === 'iMini') {
     return readIMiniCapability(config, capability)
+  }
+
+  if (config.provider === 'kling') {
+    return readKlingCapability(config, capability)
   }
 
   const qualityOptions = providerSupportsQuality(config) ? readOpenAiQualityOptions(config.model) : []

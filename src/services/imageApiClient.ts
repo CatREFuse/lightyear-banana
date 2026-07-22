@@ -517,6 +517,17 @@ function buildKlingRequest(params: ImageGenerationParams) {
     content.push({ image: reference.image.previewUrl })
   })
 
+  const parameters: Record<string, string | number | boolean> = {
+    n: params.count,
+    aspect_ratio: params.ratio,
+    resolution: params.size,
+    watermark: false
+  }
+
+  if (/^kling\/kling-v3-omni-image-generation$/i.test(params.config.model)) {
+    parameters.result_type = 'single'
+  }
+
   return {
     model: params.config.model,
     input: {
@@ -527,13 +538,7 @@ function buildKlingRequest(params: ImageGenerationParams) {
         }
       ]
     },
-    parameters: {
-      n: params.count,
-      result_type: 'single',
-      aspect_ratio: params.ratio,
-      resolution: params.size,
-      watermark: false
-    }
+    parameters
   }
 }
 
@@ -672,7 +677,11 @@ function isApimartGptImage1Model(model: string) {
 }
 
 function isApimartGptImage2Model(model: string) {
-  return /^gpt-image-2$/i.test(model)
+  return /^gpt-image-2(?:-official)?$/i.test(model)
+}
+
+function isApimartGptImage2OfficialModel(model: string) {
+  return /^gpt-image-2-official$/i.test(model)
 }
 
 function isApimartSeedream5LiteModel(model: string) {
@@ -818,6 +827,17 @@ function readApimartSourceDimensions(params: ImageGenerationParams) {
   return readFirstReferenceDimensions(params.references) ?? readDimensionsRatio(params.canvasSize)
 }
 
+function readApimartGptImage2SourceSize(params: ImageGenerationParams, dimensions: { width: number; height: number }) {
+  const sourceRatio = formatAspectRatio(dimensions)
+  if (new Set(readApimartAspectRatioOptions(params.config.model)).has(sourceRatio)) {
+    return sourceRatio
+  }
+
+  const selectedSize = (params.selectedSize ?? params.size).trim().toLowerCase()
+  const preset = codexSizePresets.get(selectedSize) ?? codexSizePresets.get('1k')!
+  return deriveCodexSizeForRatio(dimensions, preset.maxEdge, preset.maxPixels)
+}
+
 function readApimartAspectRatio(params: ImageGenerationParams) {
   const defaultRatio = readDefaultApimartAspectRatio(params.config.model, Boolean(params.references.length))
 
@@ -834,7 +854,8 @@ function readApimartAspectRatio(params: ImageGenerationParams) {
     }
 
     if (followsReferenceRatio(params) && isApimartGptImage2Model(params.config.model)) {
-      return undefined
+      const dimensions = readApimartSourceDimensions(params)
+      return dimensions ? readApimartGptImage2SourceSize(params, dimensions) : undefined
     }
 
     const dimensions = readApimartSourceDimensions(params)
@@ -875,7 +896,7 @@ function clampInteger(value: number, min: number, max: number) {
 
 function readApimartCount(params: ImageGenerationParams) {
   if (isApimartGptImage2Model(params.config.model)) {
-    return 1
+    return isApimartGptImage2OfficialModel(params.config.model) ? clampInteger(params.count, 1, 4) : 1
   }
 
   if (isApimartSeedream5LiteModel(params.config.model)) {
@@ -914,12 +935,17 @@ function buildApimartRequest(params: ImageGenerationParams, imageUrls: string[])
   }
 
   const resolution = readApimartResolution(params.config.model, params.selectedSize ?? params.size)
-  if (resolution) {
+  if (resolution && !(isApimartGptImage2Model(params.config.model) && parseDimensionText(String(aspectRatio ?? '')))) {
     payload.resolution = resolution
   }
 
-  if (isApimartGptImage1Model(params.config.model)) {
+  if (isApimartGptImage1Model(params.config.model) || isApimartGptImage2OfficialModel(params.config.model)) {
     payload.quality = readOpenAiQuality(params.quality)
+  }
+
+  if (isApimartSeedream5LiteModel(params.config.model) && readApimartCount(params) > 1) {
+    payload.sequential_image_generation = 'auto'
+    payload.sequential_image_generation_options = { max_images: readApimartCount(params) }
   }
 
   if (imageUrls.length) {
@@ -1558,6 +1584,10 @@ function readGreatestCommonDivisor(left: number, right: number): number {
   return a || 1
 }
 
+function readLeastCommonMultiple(left: number, right: number) {
+  return Math.abs(left * right) / readGreatestCommonDivisor(left, right)
+}
+
 function formatAspectRatio(dimensions: { width: number; height: number }) {
   const divisor = readGreatestCommonDivisor(dimensions.width, dimensions.height)
   return `${Math.round(dimensions.width / divisor)}:${Math.round(dimensions.height / divisor)}`
@@ -1630,6 +1660,32 @@ function shouldResolveOpenAiLikeSize(config: ModelConfig) {
 function deriveCodexSizeForRatio(aspect: { width: number; height: number }, maxEdge: number, maxPixels: number) {
   const sourceRatio = aspect.width / aspect.height
   const ratio = Math.max(1 / gptImage2MaxRatio, Math.min(gptImage2MaxRatio, sourceRatio))
+  const divisor = readGreatestCommonDivisor(aspect.width, aspect.height)
+  const ratioWidth = Math.round(aspect.width / divisor)
+  const ratioHeight = Math.round(aspect.height / divisor)
+  const exactScaleMultiple = readLeastCommonMultiple(
+    16 / readGreatestCommonDivisor(ratioWidth, 16),
+    16 / readGreatestCommonDivisor(ratioHeight, 16)
+  )
+  const exactMaxScale = Math.floor(Math.min(
+    maxEdge / ratioWidth,
+    maxEdge / ratioHeight,
+    Math.sqrt(maxPixels / (ratioWidth * ratioHeight))
+  ) / exactScaleMultiple) * exactScaleMultiple
+
+  if (exactMaxScale > 0) {
+    const exactWidth = ratioWidth * exactMaxScale
+    const exactHeight = ratioHeight * exactMaxScale
+    const exactPixels = exactWidth * exactHeight
+    if (
+      exactPixels >= gptImage2MinPixels &&
+      Math.max(exactWidth, exactHeight) <= maxEdge &&
+      Math.max(exactWidth, exactHeight) / Math.min(exactWidth, exactHeight) <= gptImage2MaxRatio
+    ) {
+      return `${exactWidth}x${exactHeight}`
+    }
+  }
+
   const heightLimitByEdge = ratio >= 1 ? maxEdge / ratio : maxEdge
   const heightLimitByPixels = Math.sqrt(maxPixels / ratio)
   const height = roundDownToMultiple(Math.min(heightLimitByEdge, heightLimitByPixels), 16)
@@ -1723,8 +1779,9 @@ async function requestOpenAiLike(params: ImageGenerationParams) {
   form.append('n', String(params.count))
   form.append('size', params.size)
   form.append('quality', readOpenAiQuality(params.quality))
+  form.append('output_format', 'png')
   params.references.forEach((reference, index) => {
-    form.append('image', dataUrlToBlob(reference.image.previewUrl), `reference-${index + 1}.png`)
+    form.append('image[]', dataUrlToBlob(reference.image.previewUrl), `reference-${index + 1}.png`)
   })
 
   return fetchJson(url, {
@@ -1755,7 +1812,7 @@ async function requestCustomOpenAiImagesCompatible(params: ImageGenerationParams
   form.append('n', String(params.count))
   form.append('size', params.size)
   params.references.forEach((reference, index) => {
-    form.append('image', dataUrlToBlob(reference.image.previewUrl), `reference-${index + 1}.png`)
+    form.append('image[]', dataUrlToBlob(reference.image.previewUrl), `reference-${index + 1}.png`)
   })
 
   return fetchJson(url, {
