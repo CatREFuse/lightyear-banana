@@ -38,5 +38,6 @@
 - CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.16.ccx`，SHA256：`a6ca3f93c044b34efa5116b46ad55f5f8f09cab3881dfe53424b631ad63342ff`。
 - Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.16-mac-cross-win.zip` 带交叉构建标识，SHA256：`3a0b242b97d1e433636a6d25e3d8bc267b174c371f136b4723139b4c4b698ea9`；该包不进入正式发行目录。
 - Windows 成品已使用电脑控制实际启动并验证版本号、build number、APIMart `gpt-image-2-official` 模型和原图比例能力；未发送付费请求，也未保存测试配置。
-- 原生 macOS 包缺失，必须派发 GitHub Actions macOS runner，目标文件为 `lightyear-banana-0.3.16-mac.zip`，要求上传包和 SHA256 记录，并据此重新生成 `SHA256SUMS.txt`。
-- 原生 macOS 包完成前，不创建 `dist/release-0.3.16/`、不打 tag、不发布 GitHub Release，也不把官网 `latest.json` 从 0.3.15 切到 0.3.16。
+- macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.16-mac.zip`，SHA256：`b879e5b559728c5265bbca497eee7e565113cc7d9f163030fff915260393aa66`，Actions run：`29939337523`。
+- `dist/release-0.3.16/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`；强制交叉包未进入该目录。
+- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，官网元数据已按三个正式产物的实际字节数与 SHA256 更新；GitHub Release、tag 和官网部署待完成。
