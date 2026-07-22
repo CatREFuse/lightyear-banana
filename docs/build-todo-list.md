@@ -40,4 +40,4 @@
 - Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.15-mac-cross-win.zip` 带交叉构建标识，SHA256：`7b3c16642cd7ee2d2b60497d320373f363a910d0f2f68a64d2f0fba37aa947e9`；该包不进入正式发行目录。
 - `dist/release-0.3.15/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`。
 - `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，GitHub Release `v0.3.15` 已发布并核对四个资产。
-- 官网源码已同步 0.3.15；当前 Windows 环境没有 `codex-47-97-root` SSH 配置和 `rsync`，线上 `latest.json` 仍为 0.3.13。取得部署凭据后按 `docs/ops-manual.md` 上传三个资源并完成公网校验，最后更新线上 `latest.json`。
+- 官网源码和发行物已部署，线上 `latest.json` 为 0.3.15；首页、三个下载地址和 `SHA256SUMS.txt` 均返回 200，公网回下载后的文件大小与 SHA256 和本地正式发行物一致。
