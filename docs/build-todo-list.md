@@ -42,4 +42,4 @@
 - `dist/release-0.3.16/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`；强制交叉包未进入该目录。
 - `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，官网元数据已按三个正式产物的实际字节数与 SHA256 更新。
 - tag `v0.3.16` 与 GitHub Release 已发布；四个 GitHub 资产均返回 200，大小和服务端 SHA256 digest 与本地正式发行物一致。
-- 官网部署待办：当前 Windows 用户的 `~/.ssh` 缺少运维手册要求的 `codex-47-97-root` Host 配置和项目私钥，`root@47.97.121.121` 的无交互认证被拒绝。线上 `latest.json` 仍为 0.3.15，0.3.16 官网校验清单仍返回 404，尚未切换线上版本。
+- 官网源码与正式发行物已部署，线上 `latest.json` 已原子切换为 0.3.16；切换前完成三个安装包的公网完整回下载，字节数与 SHA256 均和本地正式发行物一致。首页、三个下载地址、`SHA256SUMS.txt` 均返回 200，Nginx 配置检查与重载通过，TLS 证书覆盖 `cake.catrefuse.com` 且在有效期内。旧 0.3.15 清单保留为远端备份；本次沿用交互式密码认证，没有写入仓库、脚本或 SSH 配置。
