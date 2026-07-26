@@ -32,14 +32,15 @@
 - `npm run build:site` 通过后才允许部署官网。
 - 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
 
-## 当前 0.3.16 状态
+## 当前 0.3.17 状态
 
-- Windows 包由当前 Windows 环境构建并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.16-win.zip`，SHA256：`f9aaf2ceb07076474f8fa41d6ca8bc87ec486d73e3ac7c0e4b8761d6a00b142c`。
-- CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.16.ccx`，SHA256：`a6ca3f93c044b34efa5116b46ad55f5f8f09cab3881dfe53424b631ad63342ff`。
-- Windows 强制交叉打包已完成，临时产物 `lightyear-banana-0.3.16-mac-cross-win.zip` 带交叉构建标识，SHA256：`3a0b242b97d1e433636a6d25e3d8bc267b174c371f136b4723139b4c4b698ea9`；该包不进入正式发行目录。
-- Windows 成品已使用电脑控制实际启动并验证版本号、build number、APIMart `gpt-image-2-official` 模型和原图比例能力；未发送付费请求，也未保存测试配置。
-- macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.16-mac.zip`，SHA256：`b879e5b559728c5265bbca497eee7e565113cc7d9f163030fff915260393aa66`，Actions run：`29939337523`。
-- `dist/release-0.3.16/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`；强制交叉包未进入该目录。
-- `scripts/verify-release-bundle.mjs` 和 `scripts/build-site.mjs` 已通过，官网元数据已按三个正式产物的实际字节数与 SHA256 更新。
-- tag `v0.3.16` 与 GitHub Release 已发布；四个 GitHub 资产均返回 200，大小和服务端 SHA256 digest 与本地正式发行物一致。
-- 官网源码与正式发行物已部署，线上 `latest.json` 已原子切换为 0.3.16；切换前完成三个安装包的公网完整回下载，字节数与 SHA256 均和本地正式发行物一致。首页、三个下载地址、`SHA256SUMS.txt` 均返回 200，Nginx 配置检查与重载通过，TLS 证书覆盖 `cake.catrefuse.com` 且在有效期内。旧 0.3.15 清单保留为远端备份；本次沿用交互式密码认证，没有写入仓库、脚本或 SSH 配置。
+- 本次修复让可见合成图读取绑定 Photoshop 当前活动历史状态，避免直接打开的 Camera Raw／ARW 文档在图层操作后继续使用首次打开时的旧状态；诊断日志同步增加图层数量、历史状态 ID 和名称。
+- 诊断日志测试 8/8、ARW／智能对象历史状态回归、TypeScript 构建、UXP 构建和 `verify:uxp` 均已通过。
+- Windows 包由当前 Windows 环境构建，并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.17-win.zip`，SHA256：`8ef033193f2d6edd9fb34b675b0ba195affa5c7f7ba6c40c1ec1be43c04a0c5e`。
+- CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.17.ccx`，SHA256：`87aa18b5894554ac1d3f18243cce2d0a2ceeebcd2ca10b08a4443db955f87866`。
+- Windows 成品已使用电脑控制实际启动，并验证版本 `0.3.17` 与 build number `202607270001`。
+- macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.17-mac.zip`，SHA256：`bd01a491dae1bfe49559e23e62728461cf4207d132a89b992dc2047dd117960f`，Actions run：`30212510944`。
+- `dist/release-0.3.17/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`；`scripts/verify-release-bundle.mjs` 与 `scripts/build-site.mjs` 已通过。
+- PR `#3` 已合并，tag `v0.3.17` 与 GitHub Release 已发布；四个 GitHub 资产均返回 200，大小和服务端 SHA256 digest 与本地正式发行物一致。
+- Photoshop 最终 ARW 实机回归被当前 Adobe 账户的“请求访问 Photoshop”授权页拦截。电脑控制已重启 Creative Cloud 并复查，账户仍显示 Photoshop 需要管理员授权，因此没有提交访问申请，也没有绕过授权。
+- 官网源码和正式发行物已准备完毕；当前环境没有 ECS 私钥、运行中的 SSH agent 或仓库部署密钥，服务器的非交互 SSH 登录被拒绝。线上 `latest.json` 仍为 0.3.16，尚未把官网切到 0.3.17。
