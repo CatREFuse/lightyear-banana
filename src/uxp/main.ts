@@ -564,7 +564,7 @@ async function buildCommandResponse(message: BridgeMessage) {
     if (message.type === 'photoshop.status') {
       payload = readDocumentStatus()
     } else if (message.type === 'canvas.captureVisible') {
-      payload = serializeReferenceImage(await canvasPrimitiveService.captureVisibleReferenceImage())
+      payload = serializeReferenceImage(await canvasPrimitiveService.captureVisibleReferenceImage(trace))
     } else if (message.type === 'canvas.captureSelection') {
       const image = await canvasPrimitiveService.captureSelectionReferenceImage(trace)
       await trace.emit('uxp.payload.serialize', 'start', {

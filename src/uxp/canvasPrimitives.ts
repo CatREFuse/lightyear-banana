@@ -39,6 +39,10 @@ type PhotoshopDocument = {
   bitsPerChannel?: unknown
   activeLayers: PhotoshopLayer[]
   layers?: PhotoshopLayer[]
+  activeHistoryState?: {
+    id?: number
+    name?: string
+  }
   duplicate?: (name?: string, mergeLayersOnly?: boolean) => Promise<PhotoshopDocument>
   mergeVisibleLayers?: () => Promise<void>
   closeWithoutSaving?: () => Promise<void> | void
@@ -196,6 +200,9 @@ export function readCanvasDiagnosticContext() {
       height: readCoordinate(document.height),
       mode: String(document.mode ?? ''),
       bitsPerChannel: String(document.bitsPerChannel ?? ''),
+      layerCount: document.layers?.length ?? 0,
+      historyStateId: document.activeHistoryState?.id,
+      historyStateName: document.activeHistoryState?.name ?? '',
       activeLayers: document.activeLayers.map((layer) => ({ id: layer.id, name: layer.name ?? '' }))
     }
   }
@@ -886,9 +893,11 @@ async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: UxpDiagno
   const photoshop = getPhotoshop()
   const document = photoshop.app.activeDocument
   const sourceBounds = bounds ?? getDocumentBounds(document)
+  const historyStateId = document.activeHistoryState?.id
   const requestStartedAt = Date.now()
   await emitTrace(trace, 'composite.getPixels', 'start', {
     documentId: document.id,
+    historyStateId,
     requestedBounds: sourceBounds,
     colorSpace: 'RGB',
     componentSize: 8
@@ -898,6 +907,7 @@ async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: UxpDiagno
   try {
     result = await photoshop.imaging.getPixels({
       documentID: document.id,
+      ...(typeof historyStateId === 'number' ? { historyStateID: historyStateId } : {}),
       sourceBounds,
       colorSpace: 'RGB',
       componentSize: 8
@@ -1054,11 +1064,12 @@ async function getMergedVisibleCompositePixels(bounds?: PixelBounds, trace?: Uxp
   return getMergedVisiblePixels(requestedBounds, trace)
 }
 
-export async function captureVisibleComposite(): Promise<CapturedCanvasImage> {
+export async function captureVisibleComposite(trace?: UxpDiagnosticTrace): Promise<CapturedCanvasImage> {
   return executePhotoshopModal('抓取可见图像', async () => {
     const photoshop = getPhotoshop()
-    const captured = await getVisibleCompositePixels()
-    const previewUrl = await encodeRgbaPreview(photoshop, captured.rgba, captured.width, captured.height)
+    await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
+    const captured = await getVisibleCompositePixels(undefined, trace)
+    const previewUrl = await encodeRgbaPreview(photoshop, captured.rgba, captured.width, captured.height, trace)
 
     return {
       id: `visible-${Date.now()}`,
@@ -1069,7 +1080,7 @@ export async function captureVisibleComposite(): Promise<CapturedCanvasImage> {
       previewUrl,
       rgba: captured.rgba
     }
-  })
+  }, trace)
 }
 
 export async function captureSelectedLayer(): Promise<CapturedCanvasImage> {
