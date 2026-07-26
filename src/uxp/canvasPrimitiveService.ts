@@ -24,8 +24,8 @@ export type CanvasSize = {
 }
 
 export interface CanvasPrimitiveService {
-  captureVisibleImage: () => Promise<CapturedCanvasImage>
-  captureVisibleReferenceImage: () => Promise<CapturedCanvasImage>
+  captureVisibleImage: (trace?: UxpDiagnosticTrace) => Promise<CapturedCanvasImage>
+  captureVisibleReferenceImage: (trace?: UxpDiagnosticTrace) => Promise<CapturedCanvasImage>
   captureSelectionImage: (trace?: UxpDiagnosticTrace) => Promise<CapturedCanvasImage>
   captureSelectionReferenceImage: (trace?: UxpDiagnosticTrace) => Promise<CapturedCanvasImage>
   captureSelectedLayerImage: () => Promise<CapturedCanvasImage>
@@ -42,12 +42,12 @@ export interface CanvasPrimitiveService {
 }
 
 export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
-  async captureVisibleImage() {
-    return captureVisibleComposite()
+  async captureVisibleImage(trace?: UxpDiagnosticTrace) {
+    return captureVisibleComposite(trace)
   }
 
-  async captureVisibleReferenceImage() {
-    const image = await this.captureVisibleImage()
+  async captureVisibleReferenceImage(trace?: UxpDiagnosticTrace) {
+    const image = await this.captureVisibleImage(trace)
     return {
       ...image,
       rgba: new Uint8Array()

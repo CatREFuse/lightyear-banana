@@ -515,6 +515,7 @@ async function testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives) {
     id: 1,
     width: 2,
     height: 1,
+    activeHistoryState: { id: 30, name: 'Open' },
     activeLayers: [backgroundLayer],
     layers: [backgroundLayer],
     async duplicate() {
@@ -529,6 +530,7 @@ async function testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives) {
         if (commands.some((command) => command._obj === 'placeEvent')) {
           sourceDocument.activeLayers = [placedLayer]
           sourceDocument.layers = [placedLayer, backgroundLayer]
+          sourceDocument.activeHistoryState = { id: 31, name: 'Place Embedded' }
         }
         return []
       }
@@ -538,6 +540,9 @@ async function testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives) {
     imaging: {
       async getPixels(options) {
         calls.push({ ...options })
+        if (options.historyStateID !== sourceDocument.activeHistoryState.id) {
+          throw new Error('Photoshop Error. Code: -32005. Message: 无法更新智能对象文件')
+        }
         return createImageResult({
           width: 2,
           height: 1,
@@ -602,6 +607,7 @@ async function testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives) {
     assert.deepEqual(Array.from(captured.rgba), [255, 0, 0, 255, 0, 0, 255, 255])
     assert.equal(calls.length, 1)
     assert.equal(calls[0].documentID, sourceDocument.id)
+    assert.equal(calls[0].historyStateID, 31, 'Visible capture must bind to the current document history state')
     assert.equal('layerID' in calls[0], false, 'Visible capture must read the document composite without a layerID')
     assert.equal(duplicateCalls, 0, 'Visible capture must not duplicate a document containing a placed smart object')
   } finally {
