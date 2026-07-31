@@ -110,6 +110,7 @@ const apimartGeminiProAspectRatios = ['auto', '1:1', '2:3', '3:2', '3:4', '4:3',
 const apimartGptImage1AspectRatios = ['1:1', '3:2', '2:3']
 const apimartGptImage2AspectRatios = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21']
 const apimartSeedream5LiteAspectRatios = ['auto', '1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9']
+const geminiAspectRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
 const iMiniStandardAspectRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']
 const iMiniNanoBanana2AspectRatios = [...iMiniStandardAspectRatios, '1:4', '1:8', '4:1', '8:1']
 const iMiniGptImage2AspectRatios = [...iMiniStandardAspectRatios, '9:21']
@@ -121,6 +122,7 @@ const customDimensionMinPixels = 1024 * 1024
 const customDimensionMaxPixels = 4096 * 4096
 const customDimensionMaxEdge = 4096
 const customDimensionMaxRatio = 16
+const sourceAspectRatioTolerance = 0.02
 const codexSizePresets = new Map([
   ['1k', { maxEdge: 1024, maxPixels: 1024 * 1024 }],
   ['2k', { maxEdge: 2048, maxPixels: 2048 * 2048 }],
@@ -202,6 +204,7 @@ function createRequestLogId() {
 }
 
 function readTimingMetadata(params: ImageGenerationParams, phase: string, extra: Record<string, ImageRequestLogValue> = {}) {
+  const referenceDimensions = readFirstReferenceDimensions(params.references)
   return {
     phase,
     provider: params.config.provider,
@@ -214,6 +217,9 @@ function readTimingMetadata(params: ImageGenerationParams, phase: string, extra:
     ratio: params.ratio,
     quality: params.quality,
     referenceCount: params.references.length,
+    referenceWidth: referenceDimensions?.width,
+    referenceHeight: referenceDimensions?.height,
+    requestedAspectRatio: readRequestedAspectRatio(params),
     promptLength: params.prompt.length,
     hasCanvasSize: Boolean(params.canvasSize),
     ...extra
@@ -596,7 +602,9 @@ async function prepareGeminiReferences(params: ImageGenerationParams) {
 
 function buildGeminiRequest(params: ImageGenerationParams) {
   const imageConfig: Record<string, string> = {}
-  const aspectRatio = followsReferenceRatio(params) ? undefined : readRequestedAspectRatio(params)
+  const aspectRatio = followsReferenceRatio(params)
+    ? findMatchingAspectRatio(geminiAspectRatios, readFirstReferenceDimensions(params.references))
+    : readRequestedAspectRatio(params)
   if (aspectRatio) {
     imageConfig.aspectRatio = aspectRatio
   }
@@ -795,24 +803,7 @@ function normalizeApimartAspectRatio(model: string, value: string, fallback = 'a
 }
 
 function findNearestApimartAspectRatio(model: string, dimensions?: { width: number; height: number }) {
-  const sourceRatio = dimensions && dimensions.width > 0 && dimensions.height > 0 ? dimensions.width / dimensions.height : 1
-  let bestRatio = '1:1'
-  let bestDelta = Number.POSITIVE_INFINITY
-
-  for (const ratio of readApimartAspectRatioOptions(model).filter((option) => option !== 'auto')) {
-    const parsed = parseRatioText(ratio)
-    if (!parsed) {
-      continue
-    }
-
-    const delta = Math.abs(Math.log(sourceRatio / (parsed.width / parsed.height)))
-    if (delta < bestDelta) {
-      bestRatio = ratio
-      bestDelta = delta
-    }
-  }
-
-  return bestRatio
+  return findClosestAspectRatio(readApimartAspectRatioOptions(model), dimensions)?.ratio ?? '1:1'
 }
 
 function readApimartSourceDimensions(params: ImageGenerationParams) {
@@ -850,7 +841,10 @@ function readApimartAspectRatio(params: ImageGenerationParams) {
 
   if (params.ratio === legacyAutoRatioOption || params.ratio === originalRatioOption || params.ratio === '参考图比例') {
     if (followsReferenceRatio(params) && isApimartGeminiImageModel(params.config.model)) {
-      return 'auto'
+      return findMatchingAspectRatio(
+        readApimartAspectRatioOptions(params.config.model),
+        readApimartSourceDimensions(params)
+      ) ?? 'auto'
     }
 
     if (followsReferenceRatio(params) && isApimartGptImage2Model(params.config.model)) {
@@ -1473,6 +1467,41 @@ function parseRatioText(value: string) {
   return { width, height }
 }
 
+function findClosestAspectRatio(
+  options: string[],
+  dimensions?: { width: number; height: number }
+) {
+  const source = readDimensionsRatio(dimensions)
+  if (!source) {
+    return undefined
+  }
+
+  const sourceRatio = source.width / source.height
+  let bestMatch: { delta: number; ratio: string } | undefined
+
+  for (const ratio of options) {
+    const parsed = parseRatioText(ratio)
+    if (!parsed) {
+      continue
+    }
+
+    const delta = Math.abs(Math.log(sourceRatio / (parsed.width / parsed.height)))
+    if (!bestMatch || delta < bestMatch.delta) {
+      bestMatch = { delta, ratio }
+    }
+  }
+
+  return bestMatch
+}
+
+function findMatchingAspectRatio(
+  options: string[],
+  dimensions?: { width: number; height: number }
+) {
+  const closest = findClosestAspectRatio(options, dimensions)
+  return closest && closest.delta <= sourceAspectRatioTolerance ? closest.ratio : undefined
+}
+
 function parseDimensionText(value: string) {
   const match = /^(\d{2,5})[x*](\d{2,5})$/i.exec(String(value || '').trim())
   if (!match) {
@@ -1875,12 +1904,16 @@ function readApimartTaskError(payload: any) {
 async function requestApimart(params: ImageGenerationParams) {
   const baseUrl = resolveBaseUrl(params.config)
   const imageUrls = await uploadApimartReferenceImages(params, baseUrl)
+  const requestBody = buildApimartRequest(params, imageUrls)
   const payload = await fetchJson(joinUrl(baseUrl, providerPaths.apimart ?? ''), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
-    body: JSON.stringify(buildApimartRequest(params, imageUrls))
-  }, readTimingContext(params, 'submit'))
+    body: JSON.stringify(requestBody)
+  }, readTimingContext(params, 'submit', {
+    wireResolution: typeof requestBody.resolution === 'string' ? requestBody.resolution : undefined,
+    wireSize: typeof requestBody.size === 'string' ? requestBody.size : undefined
+  }))
 
   const taskId = readApimartTaskId(payload)
   if (!taskId) {
@@ -2034,13 +2067,17 @@ async function requestGemini(params: ImageGenerationParams) {
   const preparedParams = params.references.length
     ? { ...params, references: await prepareGeminiReferences(params) }
     : params
+  const requestBody = buildGeminiRequest(preparedParams)
 
   return fetchJson(resolveGeminiGenerateUrl(params.config), {
     method: 'POST',
     headers: createAuthHeaders(params.config),
     signal: params.signal,
-    body: JSON.stringify(buildGeminiRequest(preparedParams))
-  }, readTimingContext(params, 'generateContent'))
+    body: JSON.stringify(requestBody)
+  }, readTimingContext(params, 'generateContent', {
+    wireAspectRatio: requestBody.generationConfig.imageConfig.aspectRatio,
+    wireImageSize: requestBody.generationConfig.imageConfig.imageSize
+  }))
 }
 
 async function requestDashScope(params: ImageGenerationParams) {

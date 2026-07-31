@@ -191,9 +191,9 @@ Content-Type: application/json
 
 Gemini 的图像生成和编辑都是对话式 `generateContent`。多轮编辑建议走 chat/session，而不是每一步重新发完整上下文。
 
-图生图选择原图比例时，不设置 `imageConfig.aspectRatio`。Gemini 默认会按输入图匹配输出比例；没有输入图时默认生成方图。明确选择固定比例时，继续发送合法的 `aspectRatio` 枚举。
+图生图选择原图比例时，先从参考图 1 的宽高解析比例。比例可识别为 Gemini 支持的枚举时，明确设置 `imageConfig.aspectRatio`，避免模型偶发选择其他输出比例；非常规比例无法映射到支持枚举时，不设置 `imageConfig.aspectRatio`，由 Gemini 按输入图匹配。没有输入图时默认生成方图。明确选择固定比例时，继续发送合法的 `aspectRatio` 枚举。
 
-APIMart 的 Gemini 3.1 Flash Image 与 Gemini 3 Pro Image 图生图请求使用 `size: "auto"` 表示跟随输入图。兼容别名 `nano-banana-2-ext`、`nano-banana-2`、`nano-banana-pro-ext`、`nano-banana-pro` 使用相同规则。这个值只用于 APIMart Gemini 适配器，不能作为所有模型的通用原图比例参数。
+APIMart 的 Gemini 3.1 Flash Image 与 Gemini 3 Pro Image 图生图请求在参考图比例匹配支持枚举时明确发送该 `size`；非常规比例使用 `size: "auto"` 跟随输入图。兼容别名 `nano-banana-2-ext`、`nano-banana-2`、`nano-banana-pro-ext`、`nano-banana-pro` 使用相同规则。`auto` 只用于 APIMart Gemini 适配器，不能作为所有模型的通用原图比例参数。
 
 来源：
 

@@ -203,7 +203,7 @@ async function testProviderRatios(imageApi) {
       config: createConfig('apimart', 'gemini-3.1-flash-image-preview')
     })
     body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
-    assert.equal(body.size, 'auto', 'APIMart Gemini 3.1 original ratio must use auto even for a legal 5:4 input')
+    assert.equal(body.size, '5:4', 'APIMart Gemini 3.1 must explicitly send a supported source ratio')
     assert.equal(body.resolution, '4K')
 
     requests.length = 0
@@ -212,7 +212,7 @@ async function testProviderRatios(imageApi) {
       config: createConfig('apimart', 'gemini-3-pro-image-preview-official')
     })
     body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
-    assert.equal(body.size, 'auto', 'APIMart Gemini 3 Pro original ratio must use auto')
+    assert.equal(body.size, '5:4', 'APIMart Gemini 3 Pro must explicitly send a supported source ratio')
 
     requests.length = 0
     await imageApi.generateImagesWithProvider({
@@ -222,7 +222,7 @@ async function testProviderRatios(imageApi) {
       config: createConfig('apimart', 'nano-banana-2-ext')
     })
     body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
-    assert.equal(body.size, 'auto', 'APIMart Nano Banana 2 alias must use auto')
+    assert.equal(body.size, '5:4', 'APIMart Nano Banana 2 alias must explicitly send a supported source ratio')
     assert.equal(body.resolution, '0.5K')
 
     requests.length = 0
@@ -233,7 +233,7 @@ async function testProviderRatios(imageApi) {
       config: createConfig('apimart', 'nano-banana-pro')
     })
     body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
-    assert.equal(body.size, 'auto', 'APIMart Nano Banana Pro alias must use auto')
+    assert.equal(body.size, '5:4', 'APIMart Nano Banana Pro alias must explicitly send a supported source ratio')
     assert.equal(body.resolution, '1K', 'APIMart Nano Banana Pro alias must use Pro resolution tiers')
 
     for (const alias of ['nano-banana-2', 'nano-banana-pro-ext']) {
@@ -243,8 +243,44 @@ async function testProviderRatios(imageApi) {
         config: createConfig('apimart', alias)
       })
       body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
-      assert.equal(body.size, 'auto', `APIMart ${alias} must use auto`)
+      assert.equal(body.size, '5:4', `APIMart ${alias} must explicitly send a supported source ratio`)
     }
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(1414, 1000)],
+      config: createConfig('apimart', 'gemini-3-pro-image-preview')
+    })
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    assert.equal(body.size, 'auto', 'APIMart Gemini must keep auto fallback for a non-enum source ratio')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(9504, 6336)],
+      config: createConfig('apimart', 'gemini-3-pro-image-preview')
+    })
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    assert.equal(body.size, '3:2', 'APIMart Gemini must lock the reported 3:2 source ratio')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(4160, 6240)],
+      config: createConfig('apimart', 'gemini-3-pro-image-preview')
+    })
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    assert.equal(body.size, '2:3', 'APIMart Gemini must lock the reported 2:3 source ratio')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(5056, 3392)],
+      config: createConfig('apimart', 'gemini-3-pro-image-preview')
+    })
+    body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+    assert.equal(body.size, '3:2', 'APIMart Gemini must tolerate provider dimension quantization')
 
     requests.length = 0
     await imageApi.generateImagesWithProvider({
@@ -319,7 +355,7 @@ async function testProviderRatios(imageApi) {
       config: createConfig('gemini', 'gemini-3-pro-image-preview')
     })
     body = readJsonRequest(requests, /generateContent/)
-    assert.equal('aspectRatio' in body.generationConfig.imageConfig, false, 'Gemini original ratio must omit aspectRatio')
+    assert.equal(body.generationConfig.imageConfig.aspectRatio, '5:4', 'Gemini must explicitly send a supported source ratio')
     assert.equal(body.contents[0].parts[1].inlineData.mimeType, 'image/jpeg')
 
     requests.length = 0
@@ -347,7 +383,22 @@ async function testProviderRatios(imageApi) {
     body = readJsonRequest(requests, /generateContent/)
     assert.equal(body.contents[0].parts[1].inlineData.mimeType, 'image/jpeg')
     assert.ok(body.contents[0].parts[1].inlineData.data.length > 0)
-    assert.equal('aspectRatio' in body.generationConfig.imageConfig, false)
+    assert.equal(body.generationConfig.imageConfig.aspectRatio, '16:9')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      ...baseParams,
+      references: [createReference(1414, 1000, 'image/jpeg')],
+      size: '4k',
+      selectedSize: '4k',
+      config: createConfig('gemini', 'gemini-3-pro-image-preview')
+    })
+    body = readJsonRequest(requests, /generateContent/)
+    assert.equal(
+      'aspectRatio' in body.generationConfig.imageConfig,
+      false,
+      'Gemini must keep input-follow fallback for a non-enum source ratio'
+    )
 
     requests.length = 0
     const qwenParams = {

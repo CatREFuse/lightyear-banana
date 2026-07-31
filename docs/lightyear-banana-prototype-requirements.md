@@ -181,7 +181,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 切换模型配置时，同步更新尺寸、质量、数量、比例的可用选项。
 - 选项来自当前 provider 的能力声明。
 - 比例支持 `原图比例`、`1:1`、`4:3`、`3:4`、`16:9`、`9:16`。
-- 图生图使用 `原图比例` 时必须走模型支持的跟随输入语义；APIMart Gemini 使用 `size: "auto"`，Google Gemini 省略 `aspectRatio`，APIMart GPT Image 2 明确发送输入图支持的比例值或合法的近似等比例像素尺寸，OpenAI GPT Image 2 对常见比例优先发送满足约束的精确像素尺寸。
+- 图生图使用 `原图比例` 时，以参考图 1 的稳定宽高为比例来源。Gemini 输入比例可识别为模型支持的比例枚举时，APIMart Gemini 明确发送 `size`，Google Gemini 明确发送 `aspectRatio`；输入比例无法映射到支持枚举时，APIMart Gemini 使用 `size: "auto"`，Google Gemini 省略 `aspectRatio`。APIMart GPT Image 2 明确发送输入图支持的比例值或合法的近似等比例像素尺寸，OpenAI GPT Image 2 对常见比例优先发送满足约束的精确像素尺寸。
 - 数量受 provider 能力限制。
 - 尺寸和质量受 provider 能力限制。
 - APIMart `gpt-image-2-official` 支持 1-4 张输出和质量参数；普通 `gpt-image-2` 固定单图且不显示质量选项。
