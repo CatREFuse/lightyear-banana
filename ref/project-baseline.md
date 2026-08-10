@@ -2,43 +2,46 @@
 
 ## 项目定位
 
-Lightyear Banana 是 Photoshop UXP 插件实验项目。当前目标是建立一套可持续扩展的 Photoshop 画布交互基础层，并用 Vue 面板验证抓图和插图能力。
+Lightyear Banana 是 Photoshop UXP 生图插件。当前架构由 CCX Host、`inner-host/v1` 消息协议和线上 Inner WebUI 组成；Electron 0.3.x 进入维护状态。
 
 当前技术栈：
 
 - Vue 3
 - Vite
 - TypeScript
+- Tailwind CSS
+- Pinia
+- Vue Router
 - Photoshop UXP Manifest v5
-- Photoshop 2026 `27.3.0`
-- UXP Developer Tools `2.2.1`
+- CCX Host `1.0.0`
+- Inner WebUI `0.1.0`
 
 ## 当前已经验证
 
-- `npm run verify:uxp` 可以生成并校验 `dist/ps-uxp`。
-- UXP Developer Tools 可以加载 `dist/ps-uxp/manifest.json`。
-- Photoshop 菜单 `增效工具 > Lightyear Banana > 创建图层` 可以创建图层。
-- 面板 entrypoint 可以触发 `panel create` / `panel show`。
-- Vue 可以在 UXP panel 中完成挂载。
-- 面板可以验证可见图像、选区图像、选中图层的抓取。
-- 面板可以验证 sample 图片插入到全图、选区位置、指定坐标和尺寸。
+- `npm run verify:inner-webui:release` 已通过协议、WebUI 单元测试、生产构建和两种面板宽度的 Playwright E2E。
+- UXP Host 已通过资产生命周期、用户确认、历史、Provider、安全 URL、选区绑定和 SecureStorage 测试。
+- `npm run package:uxp` 已生成并校验 `dist/lightyear-banana-1.0.0.ccx`、SHA256 和 `dist/uxp-release.json`。
+- Inner WebUI `0.1.0` 已部署到 `https://webui.catrefuse.com/inner/v1/`，公网资源、发布元数据、安全响应头和 releases 索引通过正式门禁。
+- 真实 Photoshop 中的 Inner WebUI 完整业务回归仍是正式发布前门禁。
 
 ## 常用命令
 
 ```bash
 npm install
-npm run dev
-npm run build:uxp
+npm run dev:inner-webui
+npm run verify:inner-webui:release
+npm run verify:inner-webui:public
 npm run verify:uxp
 npm run package:uxp
 ```
 
 命令含义：
 
-- `npm run dev`：浏览器预览 Vue UI，只用于 UI 状态检查。
-- `npm run build:uxp`：构建 Photoshop UXP 产物。
+- `npm run dev:inner-webui`：使用 Mock Host 启动普通浏览器开发环境。
+- `npm run verify:inner-webui:release`：运行协议、WebUI、构建和 E2E 门禁。
+- `npm run verify:inner-webui:public`：逐字节校验已部署 WebUI，并校验 releases 索引与响应头。
 - `npm run verify:uxp`：构建并静态校验 UXP 产物。
-- `npm run package:uxp`：生成 `.ccx` 包。
+- `npm run package:uxp`：完成全部生产门禁并生成带来源元数据的 `.ccx` 包。
 
 加载到 Photoshop 时选择：
 
@@ -48,19 +51,20 @@ dist/ps-uxp/manifest.json
 
 ## 运行时边界
 
-浏览器预览没有 `globalThis.require("photoshop")`，所以只能验证 UI fallback。Photoshop API、文件 token、modal execution、imaging 相关能力必须在 UXP 运行时验证。
+普通浏览器使用 Mock Host，不具备 Photoshop 能力。真实 WebView 仅通过 `window.uxpHost` 和 CCX Host 通信；BYOK 密钥只进入 UXP SecureStorage。Photoshop API、文件 token、modal execution、imaging 与原生确认必须在 UXP 运行时验证。
 
 ## 核心源码入口
 
 | 模块 | 作用 |
 | --- | --- |
-| `src/uxp/main.ts` | 注册 UXP command 和 panel，挂载 Vue |
-| `src/uxp/photoshopHost.ts` | 封装 UXP runtime 检测、Photoshop require、创建基础图层 |
+| `apps/inner-webui/src` | Vue 3 Inner WebUI、路由、工作台、设置和 Mock Host |
+| `packages/inner-protocol/src` | `inner-host/v1` envelope、命令、事件、校验和 Provider 能力单一数据源 |
+| `src/uxp/main.ts` | 注册 UXP command、panel、会话和 WebView Host |
+| `src/uxp/inner` | 会话、命令、资产、历史、Provider、SecureStorage 和原生确认 |
 | `src/uxp/canvasPrimitiveService.ts` | 面向业务的画布交互服务层 |
 | `src/uxp/canvasPrimitives.ts` | Photoshop imaging、选区、图层、写入像素等底层原语 |
-| `src/composables/useCanvasProbe.ts` | 面板状态和异步流程 |
-| `src/components/CanvasProbePanel.vue` | 抓图/插图验证 UI |
 | `vite.uxp.config.ts` | UXP 专用 Vite 构建适配 |
+| `scripts/deploy-inner-webui.mjs` | WebUI 原子部署、回滚和公网门禁 |
 | `scripts/verify-uxp-build.mjs` | UXP 产物静态校验 |
 
 ## 文档入口
@@ -69,4 +73,5 @@ dist/ps-uxp/manifest.json
 - `ref/atomic-capabilities.md`：可复用原子能力。
 - `ref/framework-build.md`：框架和构建。
 - `ref/development-notes.md`：开发注意事项。
+- `docs/inner-webui-prd.md`：Inner WebUI 产品规格、协议、迁移和上线门禁。
 
