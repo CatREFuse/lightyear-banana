@@ -22,9 +22,13 @@
     "repair:codex:win:apply": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rebuild-codex-windows.ps1 -Apply",
     "start:electron": "electron electron/main.js",
     "test:diagnostics": "node --test electron/diagnosticLogger.test.js",
-    "test:regressions": "node scripts/regression-smoke.mjs"
+    "test:regressions": "node scripts/regression-smoke.mjs",
+    "test:prompt-presets": "node scripts/prompt-presets-smoke.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/doto": "^5.2.10",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
+    "@fontsource/space-mono": "^5.2.9",
     "vue": "^3.5.32"
   },
   "devDependencies": {

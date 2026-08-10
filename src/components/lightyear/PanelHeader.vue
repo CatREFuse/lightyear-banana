@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
-import type { DesktopPlatform, WindowDeploySide, WindowDeployState } from '../../types/lightyear'
+import type {
+  ColorMode,
+  DesktopPlatform,
+  ResolvedColorMode,
+  VisualTheme,
+  WindowDeploySide,
+  WindowDeployState
+} from '../../types/lightyear'
 import BoxIcon from './BoxIcon.vue'
 
 const props = defineProps<{
@@ -8,7 +15,9 @@ const props = defineProps<{
   inSettings: boolean
   installPluginUrl: string
   status: string
-  themeMode: 'dark' | 'light'
+  colorMode: ColorMode
+  resolvedColorMode: ResolvedColorMode
+  visualTheme: VisualTheme
   title: string
   desktopPlatform: DesktopPlatform
   windowDeployState: WindowDeployState
@@ -17,19 +26,24 @@ const props = defineProps<{
 }>()
 
 const deployMenuOpen = shallowRef(false)
+const themeMenuOpen = shallowRef(false)
 const deployMenuWrap = useTemplateRef<HTMLElement>('deployMenuWrap')
+const themeMenuWrap = useTemplateRef<HTMLElement>('themeMenuWrap')
 const connectionTone = computed(() => (props.status.includes('已连接') ? 'connected' : 'waiting'))
 const deployDisabled = computed(() => props.windowDeployState.status === 'deploying')
 const showInstallPlugin = computed(() => Boolean(props.installPluginUrl) && props.status.includes('未连接'))
 const showContentTitle = computed(() => props.desktopPlatform !== 'win32' || props.inSettings || !props.showWindowControls)
 const showTitlebarBack = computed(() => props.desktopPlatform === 'win32' && props.inSettings && props.showWindowControls)
+const visualThemeOptions: VisualTheme[] = ['nothing', 'classic']
+const colorModeOptions: ColorMode[] = ['system', 'dark', 'light']
 
 const emit = defineEmits<{
   back: []
   deployWindow: [side: WindowDeploySide]
   menuOpen: [owner: string]
   openSettings: []
-  toggleTheme: []
+  setColorMode: [mode: ColorMode]
+  setVisualTheme: [theme: VisualTheme]
 }>()
 
 function toggleDeployMenu() {
@@ -47,17 +61,34 @@ function selectDeploySide(side: WindowDeploySide) {
   emit('deployWindow', side)
 }
 
+function toggleThemeMenu() {
+  themeMenuOpen.value = !themeMenuOpen.value
+  emit('menuOpen', themeMenuOpen.value ? 'header:theme' : '')
+}
+
+function selectColorMode(mode: ColorMode) {
+  emit('setColorMode', mode)
+}
+
+function selectVisualTheme(theme: VisualTheme) {
+  emit('setVisualTheme', theme)
+}
+
 function handleDocumentPointerDown(event: PointerEvent) {
-  if (!deployMenuOpen.value) {
+  if (!deployMenuOpen.value && !themeMenuOpen.value) {
     return
   }
 
   const target = event.target
-  if (target instanceof Node && deployMenuWrap.value?.contains(target)) {
+  if (
+    target instanceof Node &&
+    (deployMenuWrap.value?.contains(target) || themeMenuWrap.value?.contains(target))
+  ) {
     return
   }
 
   deployMenuOpen.value = false
+  themeMenuOpen.value = false
   emit('menuOpen', '')
 }
 
@@ -73,10 +104,17 @@ watch(
   () => props.activeMenuOwner,
   (owner) => {
     if (owner === 'header:deploy') {
+      themeMenuOpen.value = false
+      return
+    }
+
+    if (owner === 'header:theme') {
+      deployMenuOpen.value = false
       return
     }
 
     deployMenuOpen.value = false
+    themeMenuOpen.value = false
   }
 )
 </script>
@@ -165,17 +203,42 @@ watch(
       <button v-if="!inSettings" class="icon-button icon-only" type="button" title="设置" aria-label="设置" @click="emit('openSettings')">
         <BoxIcon name="cog" size="16" />
       </button>
-      <button
-        class="icon-button icon-only"
-        type="button"
-        :title="themeMode === 'dark' ? '浅色' : '深色'"
-        :aria-label="themeMode === 'dark' ? '浅色' : '深色'"
-        @click="emit('toggleTheme')"
-      >
-        <Transition name="theme-symbol" mode="out-in">
-          <BoxIcon :key="themeMode" :name="themeMode === 'dark' ? 'sun' : 'moon'" size="16" />
-        </Transition>
-      </button>
+      <div ref="themeMenuWrap" class="theme-menu-wrap">
+        <button
+          class="icon-button icon-only"
+          type="button"
+          title="主题"
+          aria-label="主题"
+          :aria-expanded="themeMenuOpen"
+          @click="toggleThemeMenu"
+        >
+          <BoxIcon :name="resolvedColorMode === 'dark' ? 'sun' : 'moon'" size="16" />
+        </button>
+        <div v-if="themeMenuOpen" class="theme-menu" aria-label="主题设置" @click.stop>
+          <span class="theme-menu-label">界面</span>
+          <button
+            v-for="theme in visualThemeOptions"
+            :key="theme"
+            type="button"
+            :class="{ selected: visualTheme === theme }"
+            @click="selectVisualTheme(theme)"
+          >
+            <span>{{ theme === 'nothing' ? 'Nothing' : '经典' }}</span>
+            <small>{{ visualTheme === theme ? '[ON]' : '' }}</small>
+          </button>
+          <span class="theme-menu-label">模式</span>
+          <button
+            v-for="mode in colorModeOptions"
+            :key="mode"
+            type="button"
+            :class="{ selected: colorMode === mode }"
+            @click="selectColorMode(mode)"
+          >
+            <span>{{ mode === 'system' ? '跟随系统' : mode === 'dark' ? '深色' : '浅色' }}</span>
+            <small>{{ colorMode === mode ? '[ON]' : '' }}</small>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 </template>
@@ -429,7 +492,8 @@ h1 {
   opacity: 0.62;
 }
 
-.deploy-menu-wrap {
+.deploy-menu-wrap,
+.theme-menu-wrap {
   position: relative;
   flex: 0 0 auto;
 }
@@ -471,6 +535,54 @@ h1 {
 
 .deploy-menu button:hover {
   background: var(--lb-hover);
+}
+
+.theme-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 32;
+  display: grid;
+  width: 176px;
+  padding: 6px;
+  border: 1px solid var(--lb-border);
+  border-radius: 8px;
+  background: var(--lb-overlay);
+  box-shadow: 0 14px 34px var(--lb-shadow);
+}
+
+.theme-menu-label {
+  padding: 8px 8px 5px;
+  color: var(--lb-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.theme-menu button {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--lb-secondary);
+  font-size: 12px;
+  text-align: left;
+}
+
+.theme-menu button:hover,
+.theme-menu button.selected {
+  background: var(--lb-hover);
+  color: var(--lb-text);
+}
+
+.theme-menu small {
+  color: var(--lb-accent);
+  font-size: 9px;
 }
 
 .deploy-menu-enter-active,
@@ -515,6 +627,33 @@ h1 {
     box-shadow:
       0 0 0 4px rgba(67, 209, 122, 0.2),
       0 0 18px rgba(67, 209, 122, 0.88);
+  }
+}
+
+@media (max-width: 279px) {
+  .panel-header {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .title-block,
+  .header-actions {
+    gap: 4px;
+  }
+
+  .panel-header.is-darwin .window-controls,
+  .window-brand {
+    left: 8px;
+  }
+
+  .has-titlebar-inset.is-darwin .connection-status {
+    right: 8px;
+    max-width: 88px;
+  }
+
+  .theme-menu {
+    right: -4px;
+    max-width: calc(100vw - 16px);
   }
 }
 

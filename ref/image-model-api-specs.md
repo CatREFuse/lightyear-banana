@@ -518,6 +518,33 @@ Midjourney 目前没有官方 public API。市面上的 Midjourney API 多为非
 
 ## 设计一个 Provider Adapter 时的校验规则
 
+### 项目内 Provider 分层
+
+Provider 代码集中在 `src/providers/`，依赖方向固定为：
+
+```text
+contracts.ts <- definitions.ts
+     ^               ^
+     |               |
+legacyRuntime.ts ----+
+     ^
+     |
+registry.ts <- services/imageApiClient.ts
+```
+
+各层职责：
+
+| 文件 | 职责 |
+| --- | --- |
+| `contracts.ts` | generation 参数、标准化结果、definition、validation 与 adapter 契约 |
+| `definitions.ts` | provider 能力、模型差异、API Key 要求与无副作用配置校验 |
+| `registry.ts` | 静态注册全部 provider adapter，校验配置并作为 generate/test 唯一运行入口 |
+| `legacyRuntime.ts` | 保留各供应商现有请求体、鉴权、轮询与响应解析，实现 wire 兼容 |
+| `data/providerCapabilities.ts` | 旧能力查询路径的兼容 facade |
+| `services/imageApiClient.ts` | 旧调用路径的兼容 facade，运行请求转发到 registry |
+
+新增 provider 时必须同时加入 `ImageProviderId`、capability definition 和 adapter registry。registry 使用完整的 `Record<ImageProviderId, ProviderAdapter>` 约束，漏注册会在 TypeScript 构建阶段失败。配置进入网络层前必须先通过 registry 校验；配置对象本身不迁移、不改名，继续保持现有 storage schema。
+
 ### 参考图数量
 
 ```ts

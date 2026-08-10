@@ -544,6 +544,79 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - `src/uxp/main.ts`
 - `SettingsPanel.vue`
 
+### FR-024 Nothing 主题
+
+用户可以在保留工作台主流程的前提下使用 Nothing 视觉主题，并在浅色和深色环境中获得一致的操作体验。
+
+验收标准：
+
+- Nothing 为首次使用的默认主题，经典主题可随时恢复。
+- Doto、Space Grotesk、Space Mono 以本地资源进入构建产物。
+- 深色使用 OLED 黑，浅色使用暖白。
+- 不使用渐变、阴影、发光、动画和过渡。
+- 使用开放分组、细分隔线、技术标签和 1.5px 线性图标。
+- 主题只覆盖视觉 token 与控件外观，不覆盖组件尺寸、间距、布局和响应式断点。
+- 主题菜单点击外部区域后收起。
+- 260px 宽度下不产生水平溢出或内容裁切。
+- 主题偏好保存在 `lightyear-banana.theme.v1`。
+- UXP 中转面板使用相同视觉语言，并保留 Spectrum 控件与桥接行为。
+
+来源：
+
+- `src/styles/nothing-theme.css`
+- `src/styles/fonts.css`
+- `src/composables/useThemePreferences.ts`
+- `src/components/lightyear/PanelHeader.vue`
+- `src/components/lightyear/BoxIcon.vue`
+- `src/uxp/main.ts`
+
+### FR-025 预设提示词
+
+用户可以在设置页管理常用提示词，并在输入框中使用 `/名称` 调用。
+
+验收标准：
+
+- 支持新增、编辑和删除，最多 100 条。
+- 名称长度为 1–24 个字符，只支持中文、英文字母、数字、`_` 和 `-`。
+- 名称按 NFKC 和 ASCII 小写规则判重。
+- 输入 `/` 或 `/片段` 显示最多 6 条匹配结果。
+- 支持方向键、Enter、Escape、鼠标选择和点击外部关闭。
+- 菜单键盘事件只处理提示词输入框。
+- 精确 `/名称` 在发送时也能解析；未知命令显示错误并保留输入。
+- `//正文` 发送字面量 `/正文`。
+- 预设正文只展开一次。
+- 预设随设置持久化并在重载后恢复。
+
+来源：
+
+- `src/utils/promptPresets.ts`
+- `src/components/lightyear/PromptPresetMenu.vue`
+- `src/components/lightyear/PromptPresetSettings.vue`
+- `src/composables/useLightyearBanana.ts`
+- `scripts/prompt-presets-smoke.mjs`
+
+### FR-026 Provider 注册架构
+
+开发者可以在明确的合同、定义、注册、wire 边界内维护 Provider，同时保持现有公开 import 和配置数据兼容。
+
+验收标准：
+
+- 11 个 Provider ID 静态注册，能力定义和注册表一一对应。
+- 旧 `providerCapabilities.ts` 和 `imageApiClient.ts` 只承担兼容导出。
+- 注册层拒绝未知 Provider 和适配器不匹配。
+- iMini、ComfyUI、Codex Image Server 保留默认 Base URL fallback。
+- 自定义 OpenAI 配置要求 Base URL。
+- Provider 模块不存在循环依赖。
+
+来源：
+
+- `src/providers/contracts.ts`
+- `src/providers/definitions.ts`
+- `src/providers/registry.ts`
+- `src/providers/legacyRuntime.ts`
+- `scripts/regression-smoke.mjs`
+
+
 ## 非功能需求
 
 ### UXP 兼容性

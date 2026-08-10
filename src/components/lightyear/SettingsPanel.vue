@@ -7,14 +7,16 @@ import type {
   ImageProviderId,
   MacPermissionPane,
   ModelConfig,
+  PromptPreset,
   ProviderCapability,
   SettingsTestState,
   SettingsView
 } from '../../types/lightyear'
-import { providerRequiresApiKey } from '../../data/providerCapabilities'
+import { validateProviderConfig } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
 import DiagnosticLogCard from './DiagnosticLogCard.vue'
+import PromptPresetSettings from './PromptPresetSettings.vue'
 
 type ConfigStatus = {
   icon: 'check-circle' | 'x'
@@ -33,6 +35,7 @@ const props = defineProps<{
   diagnosticExportState: DiagnosticExportState
   crxLogExportState: DiagnosticExportState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
+  promptPresets: PromptPreset[]
   settingsDraftIsNew: boolean
   settingsDraft: ModelConfig
   settingsTestState: SettingsTestState
@@ -50,10 +53,12 @@ const emit = defineEmits<{
   downloadDiagnostics: []
   downloadCrxLogs: []
   openMacPermissionSettings: [pane: MacPermissionPane]
+  openPromptPresets: []
   save: []
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
+  updatePromptPresets: [presets: PromptPreset[]]
 }>()
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
@@ -108,13 +113,7 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
     }
   }
 
-  const capability = props.providerCapabilities[config.provider]
-  const apiLooksUnavailable =
-    (providerRequiresApiKey(config.provider) && !config.apiKey.trim()) ||
-    (capability.supportsBaseUrl && !config.baseUrl.trim()) ||
-    /fail|error/i.test(`${config.apiKey} ${config.baseUrl}`)
-
-  if (apiLooksUnavailable) {
+  if (!validateProviderConfig(config).valid) {
     return {
       icon: 'x',
       label: 'API 不可用',
@@ -201,6 +200,14 @@ onUnmounted(() => {
           @download="emit('downloadCrxLogs')"
         />
 
+        <section class="data-card preset-entry" aria-label="预设提示词">
+          <div>
+            <strong>预设提示词</strong>
+            <small>{{ promptPresets.length }} 条 · 输入 /名称 调用</small>
+          </div>
+          <button type="button" @click="emit('openPromptPresets')">管理</button>
+        </section>
+
         <div class="config-list">
           <div class="section-header">
             <h2>配置列表</h2>
@@ -248,6 +255,13 @@ onUnmounted(() => {
             </button>
           </template>
         </footer>
+      </section>
+
+      <section v-else-if="settingsView === 'presets'" key="presets" class="settings-page">
+        <PromptPresetSettings
+          :presets="promptPresets"
+          @update:presets="emit('updatePromptPresets', $event)"
+        />
       </section>
 
       <section v-else key="detail" class="settings-page">

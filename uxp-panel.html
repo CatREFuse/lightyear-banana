@@ -4,11 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lightyear Banana</title>
+    <style>
+      html,
+      body,
+      #app {
+        min-height: 100%;
+        margin: 0;
+        background-color: var(--uxp-host-background-color, #000000);
+        color: var(--uxp-host-text-color, #e8e8e8);
+        font-family: "Space Grotesk Variable", "Space Grotesk", sans-serif;
+      }
+
+      @media (prefers-color-scheme: light) {
+        html,
+        body,
+        #app {
+          background-color: var(--uxp-host-background-color, #f5f5f5);
+          color: var(--uxp-host-text-color, #1a1a1a);
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="app" style="min-height: 100vh; background: #15181f; color: #f5f7fb">
-      正在启动
-    </div>
+    <div id="app">[WAITING]</div>
     <script type="module" src="/src/uxp/main.ts"></script>
   </body>
 </html>

@@ -1,5 +1,7 @@
 import { createApp } from 'vue'
+import './styles/fonts.css'
 import './style.css'
+import './styles/nothing-theme.css'
 import App from './App.vue'
 import type { DesktopPlatform, RuntimeName } from './types/lightyear'
 
