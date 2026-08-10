@@ -30,7 +30,7 @@
     "test:inner-webui": "npm --workspace @lightyear-banana/inner-webui run test",
     "test:inner-host": "vitest run src/uxp/inner/assetStore.test.ts src/uxp/inner/hostConfirmation.test.ts src/uxp/inner/hostData.test.ts src/uxp/inner/providerRuntime.test.ts src/uxp/inner/referenceSelectionPlacement.test.ts src/uxp/inner/storage.test.ts",
     "test:capabilities": "vitest run src/data/providerCapabilities.test.ts",
-    "test:release-policy": "node --test scripts/production-origin-policy.test.mjs scripts/release-provenance.test.mjs scripts/release-file-set.test.mjs scripts/release-version-chain.test.mjs scripts/uxp-release-metadata.test.mjs",
+    "test:release-policy": "node --test scripts/production-origin-policy.test.mjs scripts/deploy-inner-webui-release-policy.test.mjs scripts/release-provenance.test.mjs scripts/release-file-set.test.mjs scripts/release-version-chain.test.mjs scripts/uxp-release-metadata.test.mjs",
     "test:e2e:inner-webui": "npm --workspace @lightyear-banana/inner-webui run e2e",
     "test:protocol": "npm --workspace @lightyear-banana/inner-protocol run test",
     "verify:inner-webui": "npm run test:protocol && npm run test:inner-webui && npm run build:inner-webui",

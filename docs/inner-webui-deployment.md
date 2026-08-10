@@ -9,6 +9,7 @@ Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.1.0`，CCX 使用 `1.0.0`，�
 必须提供以下参数：
 
 - `INNER_WEBUI_URL`：WebUI 的正式 HTTPS 地址，必须以 `/` 结尾。该值会写入 CCX。
+- `INNER_RELEASE_URL`：发行目录的正式 HTTPS 地址，必须以 `/` 结尾。该值会写入 CCX，并由发布门禁检查 `latest.json`。
 - `DEPLOY_SSH_HOST`：部署服务器的主机名或 IP。
 - `DEPLOY_WEB_ROOT`：服务器上的 WebUI 发布根目录。
 
@@ -17,6 +18,7 @@ Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.1.0`，CCX 使用 `1.0.0`，�
 - `DEPLOY_SSH_USER`：SSH 用户。
 - `DEPLOY_SSH_PORT`：SSH 端口，默认 `22`。
 - `DEPLOY_SSH_IDENTITY_FILE`：本机私钥文件。未设置时使用系统 SSH 配置或 agent。
+- `DEPLOY_RELEASES_ROOT`：服务器上已有发行文件的目录，仅用于首次渲染 Nginx 模板，部署脚本不会修改发行文件。
 
 `INNER_WEBUI_URL` 不得包含用户名、密码、查询参数或片段。正式构建会拒绝旧域名、HTTP 和 `.invalid` 占位域名。
 
@@ -28,8 +30,9 @@ Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.1.0`，CCX 使用 `1.0.0`，�
 - `__TLS_CERTIFICATE__`
 - `__TLS_CERTIFICATE_KEY__`
 - `__INNER_WEBUI_ROOT__`
+- `__RELEASES_ROOT__`
 
-`__INNER_WEBUI_ROOT__` 必须与 `DEPLOY_WEB_ROOT` 相同。Nginx 的全局 `http` 配置必须加载标准 `mime.types`，确保 JavaScript 返回 JavaScript MIME、CSS 返回 `text/css`。启用配置后先执行 `nginx -t`，通过后再 reload，并通过 `nginx -T` 确认最终配置包含模板中的 CSP、HSTS 和 `nosniff` 响应头。WebUI 使用 Hash Router，浏览器路径固定在 `/inner/v1/`。
+`__INNER_WEBUI_ROOT__` 必须与 `DEPLOY_WEB_ROOT` 相同，`__RELEASES_ROOT__` 必须与 `DEPLOY_RELEASES_ROOT` 相同。Nginx 的全局 `http` 配置必须加载标准 `mime.types`，确保 JavaScript 返回 JavaScript MIME、CSS 返回 `text/css`。`/releases/latest.json` 禁止缓存，版本化发行文件使用不可变缓存，点号开头的备份文件不会公开。启用配置后先执行 `nginx -t`，通过后再 reload，并通过 `nginx -T` 确认最终配置包含模板中的 CSP、HSTS 和 `nosniff` 响应头。WebUI 使用 Hash Router，浏览器路径固定在 `/inner/v1/`。
 
 部署账号只需要目标目录的写权限，不使用日常管理员账号。服务器需要提供 POSIX `sh`、`tar`、`grep`、`flock`、`sha256sum`、`readlink`、`ln` 和 GNU `cp`、`mv`。模板启用 HSTS；同一域名仍承载 HTTP 资源时，先完成全站 HTTPS 迁移再启用该配置。
 

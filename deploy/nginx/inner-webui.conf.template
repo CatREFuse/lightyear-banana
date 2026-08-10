@@ -12,6 +12,34 @@ server {
   ssl_certificate_key __TLS_CERTIFICATE_KEY__;
   server_tokens off;
 
+  location = /releases {
+    return 308 /releases/;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+  }
+
+  location ~ ^/releases/(?:.*/)?\. {
+    return 404;
+  }
+
+  location = /releases/latest.json {
+    alias __RELEASES_ROOT__/latest.json;
+    default_type application/json;
+    add_header Cache-Control "no-store" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+  }
+
+  location /releases/ {
+    alias __RELEASES_ROOT__/;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+  }
+
   location = /inner/v1 {
     return 308 /inner/v1/;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;

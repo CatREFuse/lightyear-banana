@@ -14,7 +14,7 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { isDisallowedProductionHostname } from './production-origin-policy.mjs'
+import { isDisallowedProductionHostname, resolveReleaseUrl } from './production-origin-policy.mjs'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const defaultEnvPath = path.join(projectRoot, 'key.env')
@@ -303,6 +303,104 @@ function assertCacheControl(response, fileName, expected) {
   }
 }
 
+function assertReleaseIndexCacheControl(response, fileName) {
+  const directives = (response.headers.get('cache-control') || '')
+    .toLowerCase()
+    .split(',')
+    .map((directive) => directive.trim())
+    .filter(Boolean)
+  if (!directives.includes('no-store')) {
+    throw new Error(`${fileName} must be served with Cache-Control: no-store.`)
+  }
+  if (
+    directives.includes('public') ||
+    directives.includes('immutable') ||
+    directives.some((directive) => {
+      const match = directive.match(/^max-age\s*=\s*"?(\d+)"?$/)
+      return match && Number(match[1]) > 0
+    })
+  ) {
+    throw new Error(`${fileName} must not be served with a public or immutable cache policy.`)
+  }
+}
+
+function assertReleaseUrlOrigin(value, label, releaseRootUrl) {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${label} must be an absolute URL.`)
+  let url
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error(`${label} must be an absolute URL.`)
+  }
+  if (
+    url.protocol !== 'https:' ||
+    url.username ||
+    url.password ||
+    isDisallowedProductionHostname(url.hostname) ||
+    url.origin !== releaseRootUrl.origin
+  ) {
+    throw new Error(`${label} must use the configured INNER_RELEASE_URL origin.`)
+  }
+}
+
+function assertDownloadUrls(value, label, releaseRootUrl) {
+  if (!value || typeof value !== 'object') throw new Error(`${label} must be an object or array.`)
+  for (const [key, entry] of Object.entries(value)) {
+    const entryLabel = Array.isArray(value) ? `${label}[${key}]` : `${label}.${key}`
+    if (key === 'url') {
+      assertReleaseUrlOrigin(entry, entryLabel, releaseRootUrl)
+    } else if (entry && typeof entry === 'object') {
+      assertDownloadUrls(entry, entryLabel, releaseRootUrl)
+    }
+  }
+}
+
+export function validatePublicLatestJson(value, releaseRootUrl) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('latest.json must contain a JSON object.')
+  }
+  if ('version' in value && (typeof value.version !== 'string' || !value.version.trim())) {
+    throw new Error('latest.json version must be a non-empty string.')
+  }
+  for (const key of ['releaseUrl', 'updateCheckUrl']) {
+    if (key in value) assertReleaseUrlOrigin(value[key], `latest.json ${key}`, releaseRootUrl)
+  }
+  if ('downloads' in value) assertDownloadUrls(value.downloads, 'latest.json downloads', releaseRootUrl)
+  return value
+}
+
+export function resolveInnerReleaseUrl(environment, webviewOrigin) {
+  return resolveReleaseUrl({
+    processEnvironment: { INNER_RELEASE_URL: required(environment, 'INNER_RELEASE_URL') },
+    webviewOrigin,
+    production: true
+  })
+}
+
+export async function verifyPublicReleaseIndex(url) {
+  const fileName = 'latest.json'
+  const response = await fetchPublic(url, fileName)
+  if (response.status !== 200) throw new Error(`${fileName} returned HTTP ${response.status}.`)
+  assertCommonPublicHeaders(response, fileName)
+  assertReleaseIndexCacheControl(response, fileName)
+  if (!response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
+    throw new Error(`${fileName} has an invalid Content-Type.`)
+  }
+  const declaredLength = Number(response.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > 64 * 1024) throw new Error(`${fileName} is too large.`)
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  if (!bytes.length || bytes.byteLength > 64 * 1024) throw new Error(`${fileName} is empty or too large.`)
+  let value
+  try {
+    value = JSON.parse(new TextDecoder().decode(bytes))
+  } catch {
+    throw new Error(`${fileName} is not valid JSON.`)
+  }
+  validatePublicLatestJson(value, url)
+  console.log(`Public release index verified at ${new URL(fileName, url).href}`)
+  return value
+}
+
 async function readPublicJson(url, fileName, expectedDirectory) {
   const response = await fetchPublic(url, fileName)
   assertCommonPublicHeaders(response, fileName)
@@ -401,11 +499,12 @@ async function verifyPublicAssets(url, expectedDirectory) {
   }
 }
 
-async function verifyPublicDeployment(url, expectedRelease, expectedDirectory) {
+async function verifyPublicDeployment(url, releaseUrl, expectedRelease, expectedDirectory) {
   const [compatibility, publicReleaseValue] = await Promise.all([
     readPublicJson(url, 'compatibility.json', expectedDirectory),
     readPublicJson(url, 'release.json', expectedDirectory),
-    verifyPublicAssets(url, expectedDirectory)
+    verifyPublicAssets(url, expectedDirectory),
+    verifyPublicReleaseIndex(releaseUrl)
   ])
   const publicRelease = validateReleaseMetadata(publicReleaseValue, 'Public release.json')
   if (
@@ -429,6 +528,7 @@ async function verifyPublicDeployment(url, expectedRelease, expectedDirectory) {
   return publicRelease
 }
 
+async function main() {
 const envOption = readOption('--env')
 const envPath = path.resolve(projectRoot, envOption || defaultEnvPath)
 if (!existsSync(envPath) && (envOption || !process.env.INNER_WEBUI_URL?.trim())) {
@@ -454,11 +554,12 @@ if (!innerWebUiUrl.pathname.endsWith('/')) {
 if (innerWebUiUrl.pathname !== '/inner/v1/') {
   throw new Error('INNER_WEBUI_URL path must be /inner/v1/.')
 }
+const innerReleaseUrl = resolveInnerReleaseUrl(environment, innerWebUiUrl.origin)
 const verifyOnly = process.argv.includes('--verify-only')
 if (verifyOnly) {
   const { localRelease } = readLocalBuild()
-  await verifyPublicDeployment(innerWebUiUrl, localRelease, webUiDist)
-  process.exit(0)
+  await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, localRelease, webUiDist)
+  return
 }
 const host = required(environment, 'DEPLOY_SSH_HOST')
 const user = environment.DEPLOY_SSH_USER?.trim()
@@ -496,18 +597,18 @@ if (rollback) {
       'Rollback'
     )
     try {
-      await verifyPublicDeployment(innerWebUiUrl, rolledBack.release)
+      await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, rolledBack.release)
     } catch (error) {
       console.error('Rollback verification failed; restoring the release that was active before rollback.')
       const restored = parseRollbackOutput(
         captureSsh(configuration, createRollbackCommand(remoteRoot, `${token}-restore`, rolledBack.target)),
         'Rollback restoration'
       )
-      await verifyPublicDeployment(innerWebUiUrl, restored.release)
+      await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, restored.release)
       throw error
     }
   }
-  process.exit(0)
+  return
 }
 
 const { localRelease } = readLocalBuild()
@@ -520,7 +621,7 @@ const previousLink = `${remoteRoot}/.previous-${token}`
 
 console.log(`WebUI ${webUiPackage.version} deployment target: ${configuration.target}:${remoteRelease}`)
 console.log(`Public URL: ${innerWebUiUrl.href}`)
-if (dryRun) process.exit(0)
+if (dryRun) return
 
 const temporaryDirectory = mkdtempSync(path.join(tmpdir(), 'lightyear-inner-webui-'))
 const snapshotRoot = path.join(temporaryDirectory, 'snapshot')
@@ -573,7 +674,7 @@ try {
   const previousTarget = captureSsh(configuration, withRemoteLock(remoteRoot, activateCommand), archivePath)
   if (!skipPublicVerify) {
     try {
-      await verifyPublicDeployment(innerWebUiUrl, localRelease, snapshotRoot)
+      await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, localRelease, snapshotRoot)
     } catch (error) {
       console.error('Public verification failed; restoring the previous WebUI release.')
       try {
@@ -582,7 +683,7 @@ try {
             captureSsh(configuration, createRollbackCommand(remoteRoot, `${token}-verify`, remoteRelease)),
             'Automatic rollback'
           )
-          await verifyPublicDeployment(innerWebUiUrl, rolledBack.release)
+          await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, rolledBack.release)
         } else {
           runSsh(configuration, createRemoveCurrentCommand(remoteRoot, remoteRelease))
           console.error('The failed first deployment was deactivated; no previous release existed.')
@@ -596,4 +697,9 @@ try {
   }
 } finally {
   rmSync(temporaryDirectory, { force: true, recursive: true })
+}
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main()
 }
