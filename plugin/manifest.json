@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.tanshow.lightyearbanana",
   "name": "Lightyear Banana",
-  "version": "0.3.19",
+  "version": "1.0.0",
   "main": "uxp-panel.html",
   "host": {
     "app": "PS",
@@ -14,6 +14,16 @@
   "requiredPermissions": {
     "network": {
       "domains": "all"
+    },
+    "clipboard": "read",
+    "localFileSystem": "request",
+    "launchProcess": {
+      "schemes": ["https"]
+    },
+    "webview": {
+      "allow": "yes",
+      "domains": ["https://inner-webui.invalid"],
+      "enableMessageBridge": "localAndRemote"
     }
   },
   "entrypoints": [

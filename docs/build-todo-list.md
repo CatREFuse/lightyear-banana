@@ -1,15 +1,17 @@
 # Build TODO List
 
-本清单用于每次修改 `package.json` 版本号、准备 GitHub Release 或准备官网发布前的构建检查。
+本清单用于每次修改版本号、准备 GitHub Release 或准备官网发布前的构建检查。Electron 桌面端、CCX Host 和 Inner WebUI 从 1.0 架构开始独立版本化。
 
 ## 版本提交前必做
 
-- 确认 `package.json`、`package-lock.json`、`plugin/manifest.json`、`standalone-uxp-plugin/manifest.json`、`electron/main.js`、`README.md`、`site/releases/latest.json`、`site/index.html` 的版本和下载链接指向同一个目标版本。
-- 提交版本号前，必须先打包当前运行平台的桌面端产物。
-- 在 Windows 上提交版本时，必须产出并验证 `dist/lightyear-banana-$VERSION-win.zip`。
-- 在 macOS 上提交版本时，必须产出并验证 `dist/lightyear-banana-$VERSION-mac.zip`。
+- 修改根 `package.json` 的 Electron 版本时，确认 `package.json`、`package-lock.json`、`electron/main.js`、`README.md`、`site/releases/latest.json`、`site/index.html` 的桌面端版本一致。
+- 修改 CCX 版本时，确认 `plugin/manifest.json`、`standalone-uxp-plugin/manifest.json` 与构建后的 `dist/ps-uxp/manifest.json` 一致；CCX 产物名从构建后的 Manifest 读取版本。
+- 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、`compatibility.json` 和构建元数据一致。
+- 提交根 `package.json` 的 Electron 版本号前，必须先打包当前运行平台的桌面端产物；只修改独立 CCX 或 Inner WebUI 版本时，执行下方对应门禁。
+- 在 Windows 上提交 Electron 版本时，必须产出并验证 `dist/lightyear-banana-$VERSION-win.zip`。
+- 在 macOS 上提交 Electron 版本时，必须产出并验证 `dist/lightyear-banana-$VERSION-mac.zip`。
 - 不允许用 Windows 交叉生成的 macOS 包或 macOS 交叉生成的 Windows 包作为正式官网发行物。
-- 当前平台产物缺失或版本不一致时，不得提交版本号、不得打 tag、不得更新官网。
+- Electron 当前平台产物缺失或版本不一致时，不得提交 Electron 版本号、不得打 tag、不得更新桌面端官网发行信息。
 
 ## 跨平台派发判断
 
@@ -24,13 +26,29 @@
 - 官网发布必须等 `dist/release-$VERSION/` 同时包含：
   - `lightyear-banana-$VERSION-mac.zip`
   - `lightyear-banana-$VERSION-win.zip`
-  - `lightyear-banana-$VERSION.ccx`
+  - `lightyear-banana-$CCX_VERSION.ccx`
   - `SHA256SUMS.txt`
 - `SHA256SUMS.txt` 必须覆盖上述三个安装包。
-- `site/releases/latest.json` 的下载地址必须全部指向 `https://cake.catrefuse.com/releases/$VERSION/`。
+- `site/releases/latest.json` 的下载地址必须全部指向 `key.env` 配置的新正式 Origin；仓库和正式产物不得包含已废弃域名。
 - `site/index.html` 的静态兜底链接必须和 `latest.json` 同步。
 - `npm run build:site` 通过后才允许部署官网。
 - 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
+
+## Inner WebUI 0.1 / CCX 1.0 发布门禁
+
+- `apps/inner-webui/package.json` 必须为 `0.1.0`，两个 UXP Manifest 必须为 `1.0.0`，根 Electron 版本保持独立。
+- `npm run verify:inner-webui:release`、`npm run verify:uxp` 和 `npm run package:uxp` 必须全部通过。
+- 正式构建前必须在忽略提交的 `key.env` 中提供 `INNER_WEBUI_URL`；该地址必须是新域名上的 HTTPS URL，并以 `/` 结尾。
+- 先部署 WebUI 并从公网校验 `compatibility.json` 的 `webVersion`，再打包嵌入同一 Origin 的 CCX。
+- CCX 包名必须为 `dist/lightyear-banana-1.0.0.ccx`，包内 Manifest、Host 协议和 WebView Origin 必须通过静态检查。
+- 发布前必须在真实 Photoshop 中完成握手、画布抓取、参考图、BYOK、生成、取消、落图、保存、历史和诊断导出的回归。
+- 真实 Photoshop 回归通过前，Electron 只进入维护状态，不删除旧实现和既有安装包。
+
+## 当前 Inner WebUI 0.1 / CCX 1.0 状态
+
+- Vue 3、TypeScript、Tailwind CSS WebUI 与 UXP Host 已按 `inner-host/v1` 接入，BYOK 明文仅保存在 UXP SecureStorage。
+- 构建、自动化测试、CCX 打包、公网部署和真实 Photoshop 回归必须以本次实际执行结果更新，未执行的门禁不得标记完成。
+- 当前工作区缺少 `key.env`，正式 Origin、SSH 目标、服务器发布和生产 CCX 仍处于阻断状态。
 
 ## 当前 0.3.19 状态
 

@@ -86,6 +86,14 @@ function stageText(stagedFiles, relativePath, update) {
 
 function stageReleaseVersion() {
   const stagedFiles = new Map()
+  const pluginManifest = JSON.parse(readText(targetFiles.pluginManifest))
+  const standaloneManifest = JSON.parse(readText(targetFiles.standaloneManifest))
+
+  if (typeof pluginManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(pluginManifest.version)) {
+    throw new Error('plugin manifest version must use x.y.z format')
+  }
+  assertEqual(standaloneManifest.version, pluginManifest.version, 'standalone manifest version')
+  const ccxVersion = pluginManifest.version
 
   stageJson(stagedFiles, targetFiles.packageJson, (packageJson) => {
     packageJson.version = version
@@ -99,21 +107,6 @@ function stageReleaseVersion() {
     packageLock.version = version
     packageLock.packages[''].version = version
   })
-
-  for (const manifestPath of [targetFiles.pluginManifest, targetFiles.standaloneManifest]) {
-    stageJson(stagedFiles, manifestPath, (manifest) => {
-      manifest.version = version
-    })
-  }
-
-  stageText(stagedFiles, targetFiles.electronMain, (source) =>
-    replaceExactlyOnce(
-      source,
-      /const UXP_PACKAGE_FILE = 'lightyear-banana-[^'\r\n]+\.ccx'/,
-      `const UXP_PACKAGE_FILE = 'lightyear-banana-${version}.ccx'`,
-      'electron UXP package filename'
-    )
-  )
 
   stageText(stagedFiles, targetFiles.buildInfo, (source) => {
     let updated = replaceExactlyOnce(
@@ -173,7 +166,7 @@ function stageReleaseVersion() {
     updated = replaceAllMatches(
       updated,
       /lightyear-banana-\d+\.\d+\.\d+\.ccx/,
-      `lightyear-banana-${version}.ccx`,
+      `lightyear-banana-${ccxVersion}.ccx`,
       'README CCX versions'
     )
     return replaceAllMatches(
@@ -203,18 +196,17 @@ function verifyReleaseVersion(read = readText) {
   assertEqual(packageJson.version, version, 'package.json version')
   assertEqual(packageLock.version, version, 'package-lock.json version')
   assertEqual(packageLock.packages?.['']?.version, version, 'package-lock root package version')
-  assertEqual(pluginManifest.version, version, 'plugin manifest version')
-  assertEqual(standaloneManifest.version, version, 'standalone manifest version')
+  if (typeof pluginManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(pluginManifest.version)) {
+    throw new Error('plugin manifest version must use x.y.z format')
+  }
+  assertEqual(standaloneManifest.version, pluginManifest.version, 'standalone manifest version')
+  const ccxVersion = pluginManifest.version
   const assertTargetContains = (relativePath, expected, label) => {
     if (!read(relativePath).includes(expected)) {
       throw new Error(`${label} is missing ${JSON.stringify(expected)}`)
     }
   }
-  assertTargetContains(
-    targetFiles.electronMain,
-    `const UXP_PACKAGE_FILE = 'lightyear-banana-${version}.ccx'`,
-    'electron UXP package filename'
-  )
+  assertTargetContains(targetFiles.electronMain, 'uxp-release.json', 'electron UXP release metadata lookup')
   assertTargetContains(targetFiles.buildInfo, `version: '${version}'`, 'buildInfo version')
   assertTargetContains(targetFiles.buildInfo, `buildNumber: '${buildNumber}'`, 'buildInfo build number')
   assertTargetContains(
@@ -235,7 +227,7 @@ function verifyReleaseVersion(read = readText) {
   )
   assertTargetContains(targetFiles.readme, `lightyear-banana-${version}-mac.zip`, 'README macOS archive version')
   assertTargetContains(targetFiles.readme, `lightyear-banana-${version}-win.zip`, 'README Windows archive version')
-  assertTargetContains(targetFiles.readme, `lightyear-banana-${version}.ccx`, 'README CCX version')
+  assertTargetContains(targetFiles.readme, `lightyear-banana-${ccxVersion}.ccx`, 'README CCX version')
   assertTargetContains(targetFiles.readme, `dist/release-${version}/`, 'README release directory version')
 }
 

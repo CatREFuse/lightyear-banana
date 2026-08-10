@@ -15,6 +15,9 @@ jobs:
   package-windows:
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      INNER_WEBUI_URL: ${{ secrets.INNER_WEBUI_URL }}
+      INNER_RELEASE_URL: ${{ secrets.INNER_RELEASE_URL }}
 
     steps:
       - name: Check out source
@@ -23,8 +26,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.12.0
           cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@11.6.2
 
       - name: Install dependencies
         run: npm ci
@@ -40,8 +46,11 @@ jobs:
       - name: Run diagnostics tests
         run: npm run test:diagnostics
 
+      - name: Package verified CCX
+        run: npm run package:uxp
+
       - name: Package Windows app
-        run: npm run package:electron:win
+        run: npm run package:electron:win:prepared
 
       - name: Verify Windows archive
         shell: pwsh
@@ -62,6 +71,20 @@ jobs:
           $packagedVersion = (Get-Content $packageJson.FullName -Raw | ConvertFrom-Json).version
           if ($packagedVersion -ne $version) {
             throw "Packaged version is $packagedVersion, expected $version"
+          }
+          $appResources = Split-Path -Parent $packageJson.FullName
+          $uxpMetadataPath = Join-Path $appResources 'dist/uxp-release.json'
+          if (-not (Test-Path $uxpMetadataPath -PathType Leaf)) {
+            throw 'Packaged UXP release metadata was not found'
+          }
+          $uxpMetadata = Get-Content $uxpMetadataPath -Raw | ConvertFrom-Json
+          $packagedCcx = Join-Path $appResources "dist/$($uxpMetadata.filename)"
+          if (-not (Test-Path $packagedCcx -PathType Leaf)) {
+            throw "Missing packaged CCX: $packagedCcx"
+          }
+          $ccxHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $packagedCcx).Hash.ToLowerInvariant()
+          if ($ccxHash -ne $uxpMetadata.sha256) {
+            throw 'Packaged CCX does not match uxp-release.json'
           }
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
           "$hash  lightyear-banana-$version-win.zip" | Set-Content "$archive.sha256" -Encoding ascii

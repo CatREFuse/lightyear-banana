@@ -2,13 +2,15 @@
 
 ## 发行流程
 
+本手册中的 `RELEASE_ORIGIN` 和 `RELEASE_HOST` 取自正式 `key.env` 的 `INNER_RELEASE_URL`。Inner WebUI 与 CCX 的独立发布流程以 `docs/inner-webui-deployment.md` 为准。
+
 每次发布时，GitHub Release、官网首页下载入口和官网版本检测 JSON 需要同步更新。Electron 启动检测和设置页手动检测都会读取：
 
 ```text
-https://cake.catrefuse.com/releases/latest.json
+${RELEASE_ORIGIN}/releases/latest.json
 ```
 
-正式发行物包含 macOS、Windows 和 CCX。两个桌面包必须在对应系统原生构建。官网下载地址统一托管在 `https://cake.catrefuse.com/releases/$VERSION/`，GitHub Release 用于保留发布记录和备份资产。
+正式发行物包含 macOS、Windows 和 CCX。两个桌面包必须在对应系统原生构建。官网下载地址统一托管在 `${RELEASE_ORIGIN}/releases/$VERSION/`，GitHub Release 用于保留发布记录和备份资产。
 
 ### 1. 准备版本
 
@@ -163,7 +165,7 @@ cp "dist/lightyear-banana-$VERSION.ccx" "$RELEASE_DIR/"
 
 ### 5. 更新并检查官网数据
 
-三个包齐备后，使用实际文件信息更新 `site/releases/latest.json`：
+三个包齐备后，使用实际文件信息更新 `site/releases/latest.json`。`VERSION` 取 Electron 版本，`CCX_VERSION` 取 `plugin/manifest.json`：
 
 - `version` 和 `tag`
 - `publishedAt` 和 `releaseUrl`
@@ -175,10 +177,10 @@ cp "dist/lightyear-banana-$VERSION.ccx" "$RELEASE_DIR/"
 下载地址固定为：
 
 ```text
-https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-mac.zip
-https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-win.zip
-https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION.ccx
-https://cake.catrefuse.com/releases/$VERSION/SHA256SUMS.txt
+${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-mac.zip
+${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-win.zip
+${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$CCX_VERSION.ccx
+${RELEASE_ORIGIN}/releases/$VERSION/SHA256SUMS.txt
 ```
 
 同步更新 `site/index.html` 的三个静态下载链接、文件名、文件大小和 `SHA256SUMS.txt` 链接。`site/llms.txt` 与 `site/LLM.TXT` 内容必须完全相同，其中版本、下载 URL、SHA256 和字节数都要来自本次发行物。
@@ -241,10 +243,10 @@ PowerShell 中使用 `curl.exe`，避免调用 `Invoke-WebRequest` 的 `curl` �
 /etc/nginx/static/lightyear-banana-site
 ```
 
-Nginx 配置模板：
+Inner WebUI 的 Nginx 配置模板：
 
 ```text
-deploy/nginx/cake.catrefuse.com.conf
+deploy/nginx/inner-webui.conf.template
 ```
 
 先上传带版本的发行物，再从公网下载一遍并核对 SHA256 和文件大小。远端资源全部通过后才允许上传新的 `latest.json`：
@@ -252,8 +254,10 @@ deploy/nginx/cake.catrefuse.com.conf
 ```bash
 set -euo pipefail
 VERSION=$(node -p "require('./package.json').version")
+CCX_VERSION=$(node -p "require('./plugin/manifest.json').version")
+RELEASE_ORIGIN=$(node -p "new URL(require('./dist/uxp-release.json').releaseUrl).origin")
 RELEASE_DIR="dist/release-$VERSION"
-REMOTE_BASE="https://cake.catrefuse.com/releases/$VERSION"
+REMOTE_BASE=$(node -p "new URL(process.argv[1] + '/', require('./dist/uxp-release.json').releaseUrl).href.replace(/\/$/, '')" "$VERSION")
 VERIFY_DIR=$(mktemp -d)
 trap 'rm -rf "$VERIFY_DIR"' EXIT
 
@@ -264,7 +268,7 @@ ssh codex-47-97-root 'nginx -t && systemctl reload nginx'
 for FILE in \
   "lightyear-banana-$VERSION-mac.zip" \
   "lightyear-banana-$VERSION-win.zip" \
-  "lightyear-banana-$VERSION.ccx"
+  "lightyear-banana-$CCX_VERSION.ccx"
 do
   curl --noproxy '*' -fsSL "$REMOTE_BASE/$FILE" -o "$VERIFY_DIR/$FILE"
   EXPECTED_SHA=$(awk -v file="$FILE" '$2 == file { print tolower($1) }' "$RELEASE_DIR/SHA256SUMS.txt")
@@ -285,17 +289,19 @@ PowerShell 可在相同门禁下校验远端资源：
 
 ```powershell
 $Version = node -p "require('./package.json').version"
+$CcxVersion = node -p "require('./plugin/manifest.json').version"
+$ReleaseOrigin = node -p "new URL(require('./dist/uxp-release.json').releaseUrl).origin"
 $ReleaseDir = (Resolve-Path "dist/release-$Version").Path
 $VerifyDir = Join-Path ([IO.Path]::GetTempPath()) "lightyear-banana-$Version-remote-check"
 New-Item -ItemType Directory -Path $VerifyDir -Force | Out-Null
 $Files = @(
   "lightyear-banana-$Version-mac.zip",
   "lightyear-banana-$Version-win.zip",
-  "lightyear-banana-$Version.ccx"
+  "lightyear-banana-$CcxVersion.ccx"
 )
 foreach ($File in $Files) {
   $RemoteFile = Join-Path $VerifyDir $File
-  Invoke-WebRequest "https://cake.catrefuse.com/releases/$Version/$File" -OutFile $RemoteFile
+  Invoke-WebRequest "$ReleaseOrigin/releases/$Version/$File" -OutFile $RemoteFile
   $Local = Get-Item (Join-Path $ReleaseDir $File)
   $Remote = Get-Item $RemoteFile
   if ($Remote.Length -ne $Local.Length) { throw "Remote size mismatch: $File" }
@@ -310,27 +316,30 @@ foreach ($File in $Files) {
 ### 8. 线上验收
 
 ```bash
-curl --noproxy '*' -fsSI https://cake.catrefuse.com/
-curl --noproxy '*' -fsSL https://cake.catrefuse.com/releases/latest.json | node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(0,"utf8")); console.log(JSON.stringify({version:m.version, mac:m.downloads.mac.filename, windows:m.downloads.windows.filename, ccx:m.downloads.ccx.filename, updateCheckUrl:m.updateCheckUrl}, null, 2));'
+RELEASE_ORIGIN=$(node -p "new URL(require('./dist/uxp-release.json').releaseUrl).origin")
+RELEASE_HOST=$(node -p "new URL(require('./dist/uxp-release.json').releaseUrl).hostname")
+curl --noproxy '*' -fsSI ${RELEASE_ORIGIN}/
+curl --noproxy '*' -fsSL ${RELEASE_ORIGIN}/releases/latest.json | node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(0,"utf8")); console.log(JSON.stringify({version:m.version, mac:m.downloads.mac.filename, windows:m.downloads.windows.filename, ccx:m.downloads.ccx.filename, updateCheckUrl:m.updateCheckUrl}, null, 2));'
 VERSION=$(node -p "require('./package.json').version")
-curl --noproxy '*' -fsSI -L "https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-mac.zip"
-curl --noproxy '*' -fsSI -L "https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION-win.zip"
-curl --noproxy '*' -fsSI -L "https://cake.catrefuse.com/releases/$VERSION/lightyear-banana-$VERSION.ccx"
-curl --noproxy '*' -fsSL "https://cake.catrefuse.com/releases/$VERSION/SHA256SUMS.txt"
+CCX_VERSION=$(node -p "require('./plugin/manifest.json').version")
+curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-mac.zip"
+curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-win.zip"
+curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$CCX_VERSION.ccx"
+curl --noproxy '*' -fsSL "${RELEASE_ORIGIN}/releases/$VERSION/SHA256SUMS.txt"
 ```
 
 证书检查：
 
 ```bash
-echo | openssl s_client -connect cake.catrefuse.com:443 -servername cake.catrefuse.com 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+echo | openssl s_client -connect ${RELEASE_HOST}:443 -servername ${RELEASE_HOST} 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
 ```
 
 验收标准：
 
 - 官网返回 `200`
 - 线上 `latest.json` 版本等于 `package.json`
-- 三个下载 URL 都位于 `cake.catrefuse.com/releases/$VERSION/`
+- 三个下载 URL 都位于 `${RELEASE_HOST}/releases/$VERSION/`
 - 三个线上文件的 SHA256 和字节数与本地发行物一致
 - 线上 `SHA256SUMS.txt` 与本地文件一致，清单中没有目录路径
 - Electron 启动检测和设置页手动检测读取同一个 `latest.json`
-- `cake.catrefuse.com` 证书域名匹配且在有效期内
+- `${RELEASE_HOST}` 证书域名匹配且在有效期内

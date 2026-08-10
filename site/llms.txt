@@ -9,27 +9,27 @@ Minimum supported version: 0.3.0
 Published at: 2026-07-31T13:46:02.196Z
 
 Version check:
-GET https://cake.catrefuse.com/releases/latest.json
+GET __LIGHTYEAR_RELEASE_ORIGIN__/releases/latest.json
 
 Manifest:
-https://cake.catrefuse.com/releases/latest.json
+__LIGHTYEAR_RELEASE_ORIGIN__/releases/latest.json
 
 Release checksums:
-https://cake.catrefuse.com/releases/0.3.18/SHA256SUMS.txt
+__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/SHA256SUMS.txt
 
 Downloads:
 macOS desktop:
-https://cake.catrefuse.com/releases/0.3.18/lightyear-banana-0.3.18-mac.zip
+__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/lightyear-banana-0.3.18-mac.zip
 sha256: 8fc8a3428e814246c23fad15a30accc34236781ee324634d5e717a5613002d02
 size: 114909183 bytes
 
 Windows desktop:
-https://cake.catrefuse.com/releases/0.3.18/lightyear-banana-0.3.18-win.zip
+__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/lightyear-banana-0.3.18-win.zip
 sha256: dd28168b23ab4869a959932da81e47582035d36c136917daa58f5b9e09dca0fe
 size: 141184271 bytes
 
 Adobe Photoshop plugin:
-https://cake.catrefuse.com/releases/0.3.18/lightyear-banana-0.3.18.ccx
+__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/lightyear-banana-0.3.18.ccx
 sha256: f5048c975870b51dc9a1e1ae945589f684ed0bd72f47da130376275f36c37a25
 size: 22204 bytes
 

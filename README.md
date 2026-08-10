@@ -10,8 +10,8 @@ Lightyear Banana 由桌面本体和 Photoshop CCX 插件一起工作。桌面本
 
 同一版本需要下载 2 个文件：
 
-- macOS 用户：`lightyear-banana-0.3.19-mac.zip` 和 `lightyear-banana-0.3.19.ccx`
-- Windows 用户：`lightyear-banana-0.3.19-win.zip` 和 `lightyear-banana-0.3.19.ccx`
+- macOS 用户：`lightyear-banana-0.3.19-mac.zip` 和 `lightyear-banana-1.0.0.ccx`
+- Windows 用户：`lightyear-banana-0.3.19-win.zip` 和 `lightyear-banana-1.0.0.ccx`
 
 ### 1. 安装桌面本体
 
@@ -34,7 +34,7 @@ Windows：
 推荐使用 Adobe Creative Cloud 桌面端安装：
 
 1. 打开 Adobe Creative Cloud 桌面端。
-2. 把 `lightyear-banana-0.3.19.ccx` 拖进 Creative Cloud 窗口。
+2. 把 `lightyear-banana-1.0.0.ccx` 拖进 Creative Cloud 窗口。
 3. 按照弹窗完成安装。
 4. 重启 Photoshop，或在 Photoshop 中重新打开插件菜单。
 
@@ -144,7 +144,7 @@ npm run package:electron:win
 
 常用产物：
 
-- `dist/lightyear-banana-0.3.19.ccx`
+- `dist/lightyear-banana-1.0.0.ccx`
 - `dist/lightyear-banana-0.3.19-mac.zip`
 - `dist/lightyear-banana-0.3.19-win.zip`
 - `dist/release-0.3.19/`

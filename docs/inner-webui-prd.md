@@ -566,6 +566,7 @@ type BridgeEnvelope<T = unknown> = {
 | `generation.testConfig` | WebUI → Host | 测试 Provider 配置 |
 | `canvas.placeAsset` | WebUI → Host | 把结果写入 Photoshop |
 | `asset.save` | WebUI → Host | 保存图片到本地文件 |
+| `asset.retain` | WebUI → Host | 为当前编辑区持有会话资产引用 |
 | `asset.release` | WebUI → Host | 释放不再使用的资产 |
 | `diagnostics.export` | WebUI → Host | 导出脱敏日志 |
 
@@ -631,6 +632,8 @@ type PublicModelConfig = {
 - 会话参考图进入临时层，使用引用计数和空闲超时清理。
 - 写入对话历史的生成图进入持久层，保存在 plugin data，并受容量、数量和用户清理策略约束。
 - 活跃任务、当前参考图和已持久化历史引用的资产不得被提前清理。
+- 当前编辑区、活跃任务和历史轮次使用独立 owner；历史轮次对会话参考图是软引用，达到空闲超时或容量上限后可失效。
+- Host 在发送完成、失败或取消终态前先写入历史；WebUI 只更新界面，不重复提交已接受任务的终态记录。
 
 ### 9.7 Manifest 权限基线
 

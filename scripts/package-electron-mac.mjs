@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -14,6 +15,25 @@ const resourcesDir = path.join(appPath, 'Contents', 'Resources')
 const appResourcesDir = path.join(resourcesDir, 'app')
 const appIconName = 'lightyear-banana.icns'
 const appIconPath = path.join(resourcesDir, appIconName)
+
+function readUxpRelease() {
+  const metadataPath = path.join(projectRoot, 'dist', 'uxp-release.json')
+  if (!existsSync(metadataPath)) throw new Error('dist/uxp-release.json is required before Electron packaging.')
+  const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'))
+  if (
+    metadata?.schemaVersion !== 1 ||
+    typeof metadata.ccxVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(metadata.ccxVersion) ||
+    typeof metadata.filename !== 'string' || path.basename(metadata.filename) !== metadata.filename ||
+    metadata.filename !== `${packageJson.name}-${metadata.ccxVersion}.ccx` ||
+    typeof metadata.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(metadata.sha256)
+  ) throw new Error('dist/uxp-release.json is invalid.')
+  const archivePath = path.join(projectRoot, 'dist', metadata.filename)
+  const checksumPath = `${archivePath}.sha256`
+  if (!existsSync(archivePath) || !existsSync(checksumPath)) throw new Error('The verified CCX release file set is incomplete.')
+  const actualSha256 = createHash('sha256').update(readFileSync(archivePath)).digest('hex')
+  if (actualSha256 !== metadata.sha256.toLowerCase()) throw new Error('CCX archive does not match dist/uxp-release.json.')
+  return { archivePath, checksumPath, metadata, metadataPath }
+}
 
 async function readText(filePath) {
   const { readFile } = await import('node:fs/promises')
@@ -106,6 +126,8 @@ if (!existsSync(electronApp)) {
   throw new Error('Electron.app not found. Run npm install first.')
 }
 
+const uxpRelease = readUxpRelease()
+
 rmSync(outDir, { force: true, recursive: true })
 rmSync(archivePath, { force: true })
 mkdirSync(outDir, { recursive: true })
@@ -120,12 +142,20 @@ const sourceDist = path.join(projectRoot, 'dist')
 const packagedDist = path.join(appResourcesDir, 'dist')
 mkdirSync(packagedDist, { recursive: true })
 for (const entry of readdirSync(sourceDist)) {
-  if (entry === 'mac') {
+  if (
+    entry === 'mac' ||
+    entry.endsWith('.ccx') ||
+    entry.endsWith('.ccx.sha256') ||
+    entry === 'uxp-release.json'
+  ) {
     continue
   }
 
   cpSync(path.join(sourceDist, entry), path.join(packagedDist, entry), { recursive: true })
 }
+cpSync(uxpRelease.archivePath, path.join(packagedDist, uxpRelease.metadata.filename))
+cpSync(uxpRelease.checksumPath, path.join(packagedDist, `${uxpRelease.metadata.filename}.sha256`))
+cpSync(uxpRelease.metadataPath, path.join(packagedDist, 'uxp-release.json'))
 
 writeFileSync(
   path.join(appResourcesDir, 'package.json'),

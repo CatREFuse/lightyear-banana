@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 
 const require = createRequire(import.meta.url)
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -21,6 +22,25 @@ const packagedDir = path.join(outDir, `${appName}-win32-x64`)
 const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${packageJson.version}-win.zip`)
 const resourcesDir = path.join(packagedDir, 'resources')
 const appResourcesDir = path.join(resourcesDir, 'app')
+
+function readUxpRelease() {
+  const metadataPath = path.join(projectRoot, 'dist', 'uxp-release.json')
+  if (!existsSync(metadataPath)) throw new Error('dist/uxp-release.json is required before Electron packaging.')
+  const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'))
+  if (
+    metadata?.schemaVersion !== 1 ||
+    typeof metadata.ccxVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(metadata.ccxVersion) ||
+    typeof metadata.filename !== 'string' || path.basename(metadata.filename) !== metadata.filename ||
+    metadata.filename !== `${packageJson.name}-${metadata.ccxVersion}.ccx` ||
+    typeof metadata.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(metadata.sha256)
+  ) throw new Error('dist/uxp-release.json is invalid.')
+  const archivePath = path.join(projectRoot, 'dist', metadata.filename)
+  const checksumPath = `${archivePath}.sha256`
+  if (!existsSync(archivePath) || !existsSync(checksumPath)) throw new Error('The verified CCX release file set is incomplete.')
+  const actualSha256 = createHash('sha256').update(readFileSync(archivePath)).digest('hex')
+  if (actualSha256 !== metadata.sha256.toLowerCase()) throw new Error('CCX archive does not match dist/uxp-release.json.')
+  return { archivePath, checksumPath, metadata, metadataPath }
+}
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { cwd: options.cwd ?? projectRoot, stdio: 'inherit' })
@@ -63,19 +83,29 @@ function copyPath(source, destination) {
   copyFileSync(source, destination)
 }
 
-function copyDist() {
+function copyDist(uxpRelease) {
   const sourceDist = path.join(projectRoot, 'dist')
   const packagedDist = path.join(appResourcesDir, 'dist')
   const skippedEntries = new Set(['mac', 'win', 'ps-uxp', 'electron-icon', 'electron-dl'])
 
   mkdirSync(packagedDist, { recursive: true })
   for (const entry of readdirSync(sourceDist)) {
-    if (skippedEntries.has(entry) || entry.endsWith('.zip') || entry.startsWith('release-')) {
+    if (
+      skippedEntries.has(entry) ||
+      entry.endsWith('.zip') ||
+      entry.endsWith('.ccx') ||
+      entry.endsWith('.ccx.sha256') ||
+      entry === 'uxp-release.json' ||
+      entry.startsWith('release-')
+    ) {
       continue
     }
 
     copyPath(path.join(sourceDist, entry), path.join(packagedDist, entry))
   }
+  copyPath(uxpRelease.archivePath, path.join(packagedDist, uxpRelease.metadata.filename))
+  copyPath(uxpRelease.checksumPath, path.join(packagedDist, `${uxpRelease.metadata.filename}.sha256`))
+  copyPath(uxpRelease.metadataPath, path.join(packagedDist, 'uxp-release.json'))
 }
 
 if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
@@ -86,6 +116,8 @@ if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
 if (!existsSync(path.join(electronRuntimeDir, 'electron.exe'))) {
   throw new Error('Electron runtime not found. Run npm install first.')
 }
+
+const uxpRelease = readUxpRelease()
 
 rmSync(outDir, { force: true, recursive: true })
 rmSync(archivePath, { force: true })
@@ -100,7 +132,7 @@ rmSync(path.join(resourcesDir, 'default_app'), { force: true, recursive: true })
 
 mkdirSync(appResourcesDir, { recursive: true })
 copyDirectoryContents(path.join(projectRoot, 'electron'), path.join(appResourcesDir, 'electron'))
-copyDist()
+copyDist(uxpRelease)
 if (existsSync(path.join(projectRoot, 'favicon.svg'))) {
   copyFileSync(path.join(projectRoot, 'favicon.svg'), path.join(appResourcesDir, 'favicon.svg'))
 }

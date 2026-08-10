@@ -3,10 +3,14 @@ import { createReadStream } from "node:fs"
 import { readFile, stat } from "node:fs/promises"
 import { basename, dirname, join, resolve, win32 } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { assertProductionOrigin, resolveReleaseUrl } from "./production-origin-policy.mjs"
 
-const DOWNLOAD_ORIGIN = "https://cake.catrefuse.com"
-const UPDATE_CHECK_URL = `${DOWNLOAD_ORIGIN}/releases/latest.json`
 const rootFromScript = dirname(fileURLToPath(new URL("../package.json", import.meta.url)))
+const RELEASE_ORIGIN_PLACEHOLDER = "__LIGHTYEAR_RELEASE_ORIGIN__"
+
+function materializeReleaseOrigin(value, releaseOrigin) {
+  return value.replaceAll(RELEASE_ORIGIN_PLACEHOLDER, releaseOrigin)
+}
 
 function fail(message) {
   throw new Error(`release gate: ${message}`)
@@ -85,21 +89,59 @@ function parseChecksums(contents, expectedFilenames) {
   return checksums
 }
 
-function expectedArtifactFilenames(version) {
+function requireSemver(value, label) {
+  if (typeof value !== "string" || !/^\d+\.\d+\.\d+$/.test(value)) {
+    fail(`${label} must use x.y.z format`)
+  }
+  return value
+}
+
+function expectedArtifactFilenames(electronVersion, ccxVersion) {
   return {
-    mac: `lightyear-banana-${version}-mac.zip`,
-    windows: `lightyear-banana-${version}-win.zip`,
-    ccx: `lightyear-banana-${version}.ccx`
+    mac: `lightyear-banana-${electronVersion}-mac.zip`,
+    windows: `lightyear-banana-${electronVersion}-win.zip`,
+    ccx: `lightyear-banana-${ccxVersion}.ccx`
   }
 }
 
 export async function verifyReleaseBundle({ root = rootFromScript, version } = {}) {
   const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"))
-  const releaseVersion = version ?? packageJson.version
-  requireEqual(packageJson.version, releaseVersion, "package.json version")
+  const electronVersion = requireSemver(version ?? packageJson.version, "Electron release version")
+  requireEqual(packageJson.version, electronVersion, "package.json version")
 
-  const releaseDir = join(root, "dist", `release-${releaseVersion}`)
-  const filenames = expectedArtifactFilenames(releaseVersion)
+  const pluginManifest = JSON.parse(await readFile(join(root, "plugin", "manifest.json"), "utf8"))
+  const standaloneManifest = JSON.parse(await readFile(join(root, "standalone-uxp-plugin", "manifest.json"), "utf8"))
+  const ccxVersion = requireSemver(pluginManifest.version, "plugin manifest version")
+  requireEqual(standaloneManifest.version, ccxVersion, "standalone manifest version")
+
+  const uxpMetadataPath = join(root, "dist", "uxp-release.json")
+  let uxpMetadata
+  try {
+    uxpMetadata = JSON.parse(await readFile(uxpMetadataPath, "utf8"))
+  } catch (error) {
+    fail(`cannot read ${uxpMetadataPath}: ${error.message}`)
+  }
+  requireObject(uxpMetadata, "dist/uxp-release.json")
+  requireEqual(uxpMetadata.schemaVersion, 1, "uxp-release.json schemaVersion")
+  requireEqual(uxpMetadata.ccxVersion, ccxVersion, "uxp-release.json ccxVersion")
+  if (typeof uxpMetadata.filename !== "string") {
+    fail("uxp-release.json filename must be a string")
+  }
+  requireEqual(uxpMetadata.filename, basename(uxpMetadata.filename), "uxp-release.json filename basename")
+  requireEqual(uxpMetadata.filename, `lightyear-banana-${ccxVersion}.ccx`, "uxp-release.json filename")
+  if (typeof uxpMetadata.sha256 !== "string" || !/^[a-fA-F0-9]{64}$/.test(uxpMetadata.sha256)) {
+    fail("uxp-release.json sha256 must contain 64 hexadecimal characters")
+  }
+  const webviewOrigin = assertProductionOrigin(uxpMetadata.webviewOrigin, "uxp-release.json webviewOrigin")
+  const releaseUrl = resolveReleaseUrl({
+    processEnvironment: { INNER_RELEASE_URL: uxpMetadata.releaseUrl },
+    webviewOrigin,
+    production: true
+  }).href
+  requireEqual(uxpMetadata.releaseUrl, releaseUrl, "uxp-release.json releaseUrl")
+
+  const releaseDir = join(root, "dist", `release-${electronVersion}`)
+  const filenames = expectedArtifactFilenames(electronVersion, ccxVersion)
   const expectedFilenames = Object.values(filenames)
   const checksumPath = join(releaseDir, "SHA256SUMS.txt")
 
@@ -126,13 +168,20 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
 
     const sha256 = await sha256File(path)
     requireEqual(listedChecksums.get(filename), sha256, `SHA256 for ${filename}`)
+    if (key === "ccx") {
+      requireEqual(uxpMetadata.sha256.toLowerCase(), sha256, "uxp-release.json CCX SHA256")
+    }
     artifacts[key] = { filename, path, sha256, size: fileStats.size }
   }
 
   return {
-    version: releaseVersion,
+    version: electronVersion,
+    electronVersion,
+    ccxVersion,
     releaseDir,
     checksumPath,
+    uxpMetadataPath,
+    uxpMetadata,
     artifacts
   }
 }
@@ -215,17 +264,20 @@ export async function verifySiteMetadata({
   bundle
 } = {}) {
   const verifiedBundle = bundle ?? await verifyReleaseBundle({ root })
-  const { version, artifacts } = verifiedBundle
+  const { version, artifacts, uxpMetadata } = verifiedBundle
   const latestPath = join(siteDir, "releases", "latest.json")
-  const latest = JSON.parse(await readFile(latestPath, "utf8"))
-  const releaseBaseUrl = `${DOWNLOAD_ORIGIN}/releases/${version}`
+  const releaseRootUrl = uxpMetadata.releaseUrl
+  const releaseOrigin = new URL(releaseRootUrl).origin
+  const latest = JSON.parse(materializeReleaseOrigin(await readFile(latestPath, "utf8"), releaseOrigin))
+  const updateCheckUrl = new URL("latest.json", releaseRootUrl).href
+  const releaseBaseUrl = new URL(`${version}/`, releaseRootUrl).href.replace(/\/$/, "")
   const expectedReleaseUrl = `${releaseBaseUrl}/SHA256SUMS.txt`
 
   requireObject(latest, "site/releases/latest.json")
   requireEqual(latest.version, version, "latest.json version")
   requireEqual(latest.tag, `v${version}`, "latest.json tag")
   requireEqual(latest.releaseUrl, expectedReleaseUrl, "latest.json releaseUrl")
-  requireEqual(latest.updateCheckUrl, UPDATE_CHECK_URL, "latest.json updateCheckUrl")
+  requireEqual(latest.updateCheckUrl, updateCheckUrl, "latest.json updateCheckUrl")
   requireObject(latest.downloads, "latest.json downloads")
 
   for (const key of ["mac", "windows", "ccx"]) {
@@ -238,7 +290,7 @@ export async function verifySiteMetadata({
     requireEqual(download.size, artifact.size, `latest.json downloads.${key}.size`)
   }
 
-  const html = await readFile(join(siteDir, "index.html"), "utf8")
+  const html = materializeReleaseOrigin(await readFile(join(siteDir, "index.html"), "utf8"), releaseOrigin)
   for (const [key, dataDownload] of [["mac", "mac"], ["windows", "win"], ["ccx", "ccx"]]) {
     const artifact = artifacts[key]
     const expectedUrl = `${releaseBaseUrl}/${artifact.filename}`
@@ -250,16 +302,16 @@ export async function verifySiteMetadata({
   const releaseAnchor = findAnchor(html, "data-release-url")
   requireEqual(readHref(releaseAnchor, "site/index.html release link"), expectedReleaseUrl, "site/index.html release href")
 
-  const llmsLowerRaw = await readFile(join(siteDir, "llms.txt"), "utf8")
-  const llmsUpperRaw = await readFile(join(siteDir, "LLM.TXT"), "utf8")
+  const llmsLowerRaw = materializeReleaseOrigin(await readFile(join(siteDir, "llms.txt"), "utf8"), releaseOrigin)
+  const llmsUpperRaw = materializeReleaseOrigin(await readFile(join(siteDir, "LLM.TXT"), "utf8"), releaseOrigin)
   requireEqual(llmsUpperRaw, llmsLowerRaw, "site/LLM.TXT content")
   const llms = normalizeNewlines(llmsLowerRaw)
 
   requireEqual(readLabeledValue(llms, "Current version:"), version, "llms.txt current version")
   requireEqual(readLabeledValue(llms, "Minimum supported version:"), latest.minimumSupportedVersion, "llms.txt minimum supported version")
   requireEqual(readLabeledValue(llms, "Published at:"), latest.publishedAt, "llms.txt published at")
-  requireEqual(readFollowingLine(llms, "Version check:"), `GET ${UPDATE_CHECK_URL}`, "llms.txt version check URL")
-  requireEqual(readFollowingLine(llms, "Manifest:"), UPDATE_CHECK_URL, "llms.txt manifest URL")
+  requireEqual(readFollowingLine(llms, "Version check:"), `GET ${updateCheckUrl}`, "llms.txt version check URL")
+  requireEqual(readFollowingLine(llms, "Manifest:"), updateCheckUrl, "llms.txt manifest URL")
   requireEqual(readFollowingLine(llms, "Release checksums:"), expectedReleaseUrl, "llms.txt release checksums URL")
 
   for (const [key, heading] of [["mac", "macOS desktop:"], ["windows", "Windows desktop:"], ["ccx", "Adobe Photoshop plugin:"]]) {

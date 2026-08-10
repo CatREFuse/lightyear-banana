@@ -1,0 +1,38 @@
+server {
+  listen 80;
+  server_name __SERVER_NAME__;
+  return 308 https://__SERVER_NAME__$request_uri;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name __SERVER_NAME__;
+
+  ssl_certificate __TLS_CERTIFICATE__;
+  ssl_certificate_key __TLS_CERTIFICATE_KEY__;
+  server_tokens off;
+
+  location = /inner/v1 {
+    return 308 /inner/v1/;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+  }
+
+  location ^~ /inner/v1/assets/ {
+    alias __INNER_WEBUI_ROOT__/assets/;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+  }
+
+  location ^~ /inner/v1/ {
+    alias __INNER_WEBUI_ROOT__/current/;
+    index index.html;
+    add_header Cache-Control "no-cache" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; worker-src 'none'; media-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+  }
+}

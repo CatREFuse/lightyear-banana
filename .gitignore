@@ -8,9 +8,13 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.pnpm-store
+playwright-report
+test-results
 dist
 dist-ssr
 *.local
+key.env
 
 # Local deployment credentials and generated workspace artifacts
 key.env

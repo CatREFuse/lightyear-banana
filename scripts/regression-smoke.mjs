@@ -28,13 +28,16 @@ function compileRegressionSources(outDir) {
     '--outDir',
     outDir,
     '--rootDir',
-    'src',
+    '.',
     '--skipLibCheck',
     'src/services/imageApiClient.ts',
     'src/data/providerCapabilities.ts',
+    'packages/inner-protocol/src/providerCapabilityData.ts',
     'src/utils/imagePixels.ts',
     'src/uxp/canvasPrimitives.ts'
   ], { stdio: 'pipe' })
+
+  return join(outDir, 'src')
 }
 
 function createReference(width = 2955, height = 2362, mimeType = 'image/png', sourceBounds) {
@@ -1034,21 +1037,21 @@ async function testNothingThemePreservesGeometry() {
 
 async function main() {
   const outDir = join(tmpdir(), 'lightyear-banana-regression-smoke')
-  compileRegressionSources(outDir)
+  const sourceOutDir = compileRegressionSources(outDir)
   const requireFromBuild = createRequire(import.meta.url)
 
   try {
-    const imageApi = requireFromBuild(join(outDir, 'services', 'imageApiClient.js'))
-    const providerCapabilities = requireFromBuild(join(outDir, 'data', 'providerCapabilities.js'))
-    const providerRegistry = requireFromBuild(join(outDir, 'providers', 'registry.js'))
-    const canvasPrimitives = requireFromBuild(join(outDir, 'uxp', 'canvasPrimitives.js'))
+    const imageApi = requireFromBuild(join(sourceOutDir, 'services', 'imageApiClient.js'))
+    const providerCapabilities = requireFromBuild(join(sourceOutDir, 'data', 'providerCapabilities.js'))
+    const providerRegistry = requireFromBuild(join(sourceOutDir, 'providers', 'registry.js'))
+    const canvasPrimitives = requireFromBuild(join(sourceOutDir, 'uxp', 'canvasPrimitives.js'))
     await testProviderRegistry(imageApi, providerCapabilities, providerRegistry)
     await testProviderRatios(imageApi)
     await testImageRequestRetryPolicy(imageApi)
     testApimartAliasCapabilities(providerCapabilities)
     await testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives)
     await testSelectionVisibleComposite(canvasPrimitives)
-    await testRemoteImageDimensionsAndPreviewStyle(requireFromBuild, outDir)
+    await testRemoteImageDimensionsAndPreviewStyle(requireFromBuild, sourceOutDir)
     await testNothingThemePreservesGeometry()
     console.log('Canvas capture, source-ratio, retry, and Nothing theme regressions passed.')
   } finally {

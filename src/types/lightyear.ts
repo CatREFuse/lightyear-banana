@@ -177,6 +177,8 @@ export type ProviderCapability = {
   qualityOptions: string[]
   countOptions: number[]
   ratioOptions: string[]
+  supportsCustomSize: boolean
+  customSize?: import('../../packages/inner-protocol/src/providerCapabilityData').SerializableCustomSizeConstraint
   supportsBaseUrl: boolean
   officialBaseUrl?: string
 }

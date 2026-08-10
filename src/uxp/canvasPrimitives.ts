@@ -56,6 +56,7 @@ type PhotoshopRuntime = {
   app: {
     version?: string
     activeDocument: PhotoshopDocument
+    open?: (file: UxpFile) => Promise<PhotoshopDocument>
   }
   core: {
     executeAsModal: <T>(
@@ -760,6 +761,68 @@ async function encodeRgbaPreview(
   }
 }
 
+export async function createBridgeThumbnail(image: CapturedCanvasImage, maxBytes = 512 * 1024) {
+  const photoshop = getPhotoshop()
+  let maxEdge = 800
+  let lastPreview = image.previewUrl
+
+  while (maxEdge >= 320) {
+    const scale = Math.min(1, maxEdge / Math.max(image.width, image.height))
+    const width = Math.max(1, Math.round(image.width * scale))
+    const height = Math.max(1, Math.round(image.height * scale))
+    const rgba = scale < 1 ? resizeRgba(image.rgba, image.width, image.height, width, height) : image.rgba
+    lastPreview = await encodeRgbaPreview(photoshop, rgba, width, height)
+    if (new TextEncoder().encode(lastPreview).byteLength <= maxBytes) return lastPreview
+    maxEdge = Math.round(maxEdge * 0.72)
+  }
+
+  return lastPreview
+}
+
+export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImage, maxBytes = 512 * 1024) {
+  const photoshop = getPhotoshop()
+  if (!photoshop.app.open) throw new Error('当前 Photoshop 版本无法读取图片缩略图')
+  const temporaryFile = await createTemporaryPreviewFile(image)
+  try {
+    return await photoshop.core.executeAsModal(async () => {
+      const document = await photoshop.app.open!(temporaryFile.file)
+      try {
+        const bounds = getDocumentBounds(document)
+        const sourceWidth = bounds.right - bounds.left
+        const sourceHeight = bounds.bottom - bounds.top
+        let maxEdge = 800
+        let lastPreview = ''
+        while (maxEdge >= 320) {
+          const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight))
+          const result = await photoshop.imaging.getPixels({
+            documentID: document.id,
+            sourceBounds: bounds,
+            targetSize: {
+              width: Math.max(1, Math.round(sourceWidth * scale)),
+              height: Math.max(1, Math.round(sourceHeight * scale))
+            },
+            colorSpace: 'RGB',
+            componentSize: 8
+          })
+          try {
+            const base64 = await photoshop.imaging.encodeImageData({ imageData: result.imageData, base64: true })
+            lastPreview = `data:image/jpeg;base64,${base64}`
+          } finally {
+            result.imageData.dispose()
+          }
+          if (new TextEncoder().encode(lastPreview).byteLength <= maxBytes) return lastPreview
+          maxEdge = Math.round(maxEdge * 0.72)
+        }
+        return lastPreview
+      } finally {
+        await closeTemporaryDocument(photoshop, document)
+      }
+    }, { commandName: '读取 Lightyear Banana 图片缩略图', timeOut: 120 })
+  } finally {
+    await deleteTemporaryFile(temporaryFile.file)
+  }
+}
+
 async function getSelectionPixels(trace?: UxpDiagnosticTrace) {
   const photoshop = getPhotoshop()
   const doc = photoshop.app.activeDocument
@@ -1231,13 +1294,15 @@ async function fitPlacedLayerToTarget(photoshop: PhotoshopRuntime, layer: Photos
 async function placeTemporaryImageFile(
   image: CapturedCanvasImage,
   temporaryFile: { file: UxpFile; token: string },
-  target: NormalizedInsertTarget
+  target: NormalizedInsertTarget,
+  expectedDocumentId?: string
 ) {
   const photoshop = getPhotoshop()
   const bounds = insertTargetToBounds(target)
 
   await photoshop.core.executeAsModal(
     async () => {
+      assertActiveDocument(photoshop, expectedDocumentId)
       await photoshop.action.batchPlay(
         [
           {
@@ -1286,7 +1351,21 @@ async function placeTemporaryImageFile(
   )
 }
 
-async function putCapturedImagePixels(image: CapturedCanvasImage, target: NormalizedInsertTarget) {
+function assertActiveDocument(photoshop: PhotoshopRuntime, expectedDocumentId?: string) {
+  if (!expectedDocumentId) return
+
+  let currentDocumentId: string
+  try {
+    currentDocumentId = String(photoshop.app.activeDocument.id)
+  } catch {
+    throw new Error('请先打开原 Photoshop 文档，再置入图片')
+  }
+  if (currentDocumentId !== expectedDocumentId) {
+    throw new Error('当前 Photoshop 文档与参考图来源不一致，请切回原文档后重试')
+  }
+}
+
+async function putCapturedImagePixels(image: CapturedCanvasImage, target: NormalizedInsertTarget, expectedDocumentId?: string) {
   const photoshop = getPhotoshop()
   const { left, top, width, height } = target
 
@@ -1297,6 +1376,7 @@ async function putCapturedImagePixels(image: CapturedCanvasImage, target: Normal
 
   await photoshop.core.executeAsModal(
     async () => {
+      assertActiveDocument(photoshop, expectedDocumentId)
       const layer = await createPixelLayer(`UXP 插入 ${image.label}`)
       const imageData = await photoshop.imaging.createImageDataFromBuffer(pixels, {
         width,
@@ -1337,7 +1417,8 @@ export async function insertCapturedImage(
 
 export async function insertPreviewImage(
   image: CapturedCanvasImage,
-  target: { left: number; top: number; width: number; height: number }
+  target: { left: number; top: number; width: number; height: number },
+  expectedDocumentId?: string
 ) {
   const normalizedTarget = normalizeInsertTarget(target)
   let temporaryFile: { file: UxpFile; token: string } | null = null
@@ -1345,11 +1426,11 @@ export async function insertPreviewImage(
   try {
     temporaryFile = await createTemporaryPreviewFile(image)
   } catch {
-    return putCapturedImagePixels(image, normalizedTarget)
+    return putCapturedImagePixels(image, normalizedTarget, expectedDocumentId)
   }
 
   try {
-    await placeTemporaryImageFile(image, temporaryFile, normalizedTarget)
+    await placeTemporaryImageFile(image, temporaryFile, normalizedTarget, expectedDocumentId)
   } finally {
     await deleteTemporaryFile(temporaryFile.file)
   }

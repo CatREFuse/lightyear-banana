@@ -1,0 +1,28 @@
+{
+  "name": "@lightyear-banana/inner-webui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "test": "vitest run --config vitest.config.ts",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@lightyear-banana/inner-protocol": "1.0.0",
+    "pinia": "^3.0.0",
+    "vue": "^3.5.32",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@tailwindcss/vite": "^4.1.0",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "tailwindcss": "^4.1.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.16",
+    "vitest": "^4.0.0",
+    "vue-tsc": "^3.2.7"
+  }
+}

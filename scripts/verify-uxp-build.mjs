@@ -1,14 +1,19 @@
 import { readFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertProductionOrigin } from './production-origin-policy.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 const pluginDir = path.join(projectRoot, 'dist', 'ps-uxp')
 const manifestPath = path.join(pluginDir, 'manifest.json')
 const panelPath = path.join(pluginDir, 'uxp-panel.html')
+const browserPreviewPath = path.join(pluginDir, 'browser-preview.html')
 const assetsDir = path.join(pluginDir, 'assets')
 const iconsDir = path.join(pluginDir, 'icons')
+const sourceManifestPath = path.join(projectRoot, 'plugin', 'manifest.json')
+const standaloneManifestPath = path.join(projectRoot, 'standalone-uxp-plugin', 'manifest.json')
+const forbiddenProductionText = ['cake.catrefuse.com', 'inner-webui.invalid']
 
 async function assertFile(filePath, label) {
   const info = await stat(filePath)
@@ -18,6 +23,8 @@ async function assertFile(filePath, label) {
 }
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+const sourceManifest = JSON.parse(await readFile(sourceManifestPath, 'utf8'))
+const standaloneManifest = JSON.parse(await readFile(standaloneManifestPath, 'utf8'))
 await assertFile(panelPath, 'uxp-panel.html')
 await assertFile(path.join(iconsDir, 'dark@1x.png'), 'panel dark 1x icon')
 await assertFile(path.join(iconsDir, 'dark@2x.png'), 'panel dark 2x icon')
@@ -28,8 +35,49 @@ await assertFile(path.join(iconsDir, 'icon_D@2x.png'), 'dark 2x icon')
 await assertFile(path.join(iconsDir, 'icon_N@1x.png'), 'light 1x icon')
 await assertFile(path.join(iconsDir, 'icon_N@2x.png'), 'light 2x icon')
 
+try {
+  await stat(browserPreviewPath)
+  throw new Error('Production UXP builds must not contain browser-preview.html.')
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error
+}
+
 if (manifest.manifestVersion !== 5) {
   throw new Error('manifestVersion must be 5.')
+}
+
+if (manifest.version !== '1.0.0') {
+  throw new Error(`CCX manifest version must be 1.0.0, received ${JSON.stringify(manifest.version)}.`)
+}
+
+if (sourceManifest.version !== manifest.version || standaloneManifest.version !== manifest.version) {
+  throw new Error('Source, standalone, and built UXP manifests must use the same CCX version.')
+}
+
+if (
+  manifest.requiredPermissions?.network?.domains !== 'all' ||
+  manifest.requiredPermissions?.clipboard !== 'read' ||
+  manifest.requiredPermissions?.localFileSystem !== 'request' ||
+  JSON.stringify(manifest.requiredPermissions?.launchProcess?.schemes) !== JSON.stringify(['https'])
+) {
+  throw new Error('UXP permissions must match the reviewed Provider, clipboard, file, and HTTPS launch policy.')
+}
+
+const webview = manifest.requiredPermissions?.webview
+if (
+  webview?.allow !== 'yes' ||
+  webview.enableMessageBridge !== 'localAndRemote' ||
+  !Array.isArray(webview.domains) ||
+  webview.domains.length !== 1
+) {
+  throw new Error('manifest.requiredPermissions.webview must allow one exact bridge origin.')
+}
+
+let webviewOrigin
+try {
+  webviewOrigin = assertProductionOrigin(webview.domains[0], 'The production WebView domain')
+} catch {
+  throw new Error('The production WebView domain must be one exact HTTPS origin.')
 }
 
 if (manifest.host?.app !== 'PS') {
@@ -72,9 +120,19 @@ const scriptFiles = assets.filter((file) => file.endsWith('.js'))
 if (!scriptFiles.length) {
   throw new Error('Expected at least one bundled JavaScript file.')
 }
+if (assets.some((file) => file.endsWith('.map'))) {
+  throw new Error('Production UXP assets must not contain source maps.')
+}
+
+let hasEmbeddedWebviewOrigin = false
+let hasEmbeddedWebviewUrl = false
+let hasInnerHostProtocol = false
 
 for (const scriptFile of scriptFiles) {
   const source = await readFile(path.join(assetsDir, scriptFile), 'utf8')
+  hasEmbeddedWebviewOrigin ||= source.includes(webviewOrigin)
+  hasEmbeddedWebviewUrl ||= source.includes(`${webviewOrigin}/inner/v1/`)
+  hasInnerHostProtocol ||= source.includes('inner-host/v1')
   if (source.includes('new MutationObserver')) {
     throw new Error(`${scriptFile} contains Vite modulepreload polyfill.`)
   }
@@ -84,6 +142,30 @@ for (const scriptFile of scriptFiles) {
   if (/\bimport\s*\(/.test(source) || /\bimport\.meta\b/.test(source)) {
     throw new Error(`${scriptFile} still contains dynamic ESM markers.`)
   }
+  for (const forbidden of forbiddenProductionText) {
+    if (source.includes(forbidden)) {
+      throw new Error(`${scriptFile} contains forbidden production text: ${forbidden}`)
+    }
+  }
 }
 
-console.log(`UXP build verified: ${path.relative(projectRoot, pluginDir)}`)
+if (!hasEmbeddedWebviewOrigin) {
+  throw new Error('The bundled Host does not contain the Manifest WebView origin.')
+}
+if (!hasEmbeddedWebviewUrl) {
+  throw new Error('The bundled Host must use the versioned /inner/v1/ WebView URL.')
+}
+if (!hasInnerHostProtocol) {
+  throw new Error('The bundled Host does not contain the inner-host/v1 protocol marker.')
+}
+
+for (const filePath of [manifestPath, panelPath]) {
+  const source = await readFile(filePath, 'utf8')
+  for (const forbidden of forbiddenProductionText) {
+    if (source.includes(forbidden)) {
+      throw new Error(`${path.basename(filePath)} contains forbidden production text: ${forbidden}`)
+    }
+  }
+}
+
+console.log(`UXP ${manifest.version} build verified for ${webviewOrigin}: ${path.relative(projectRoot, pluginDir)}`)

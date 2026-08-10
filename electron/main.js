@@ -1,6 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, powerMonitor, screen, shell } from 'electron'
 import { execFile } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
@@ -24,10 +24,10 @@ let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.19.ccx'
+const UXP_RELEASE_METADATA_FILE = 'uxp-release.json'
+const DEFAULT_UXP_PACKAGE_FILE = 'lightyear-banana-1.0.0.ccx'
 const SETTINGS_FILE = 'lightyear-settings.json'
 const DIAGNOSTICS_DIRECTORY = 'diagnostics'
-const APP_UPDATE_MANIFEST_URL = 'https://cake.catrefuse.com/releases/latest.json'
 const APP_UPDATE_TIMEOUT_MS = 10000
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -47,6 +47,76 @@ const REFERENCE_IMAGE_MIME_TYPES = {
 }
 const REFERENCE_JPEG_MAX_EDGE = 4096
 const REFERENCE_JPEG_MAX_BYTES = 9 * 1024 * 1024
+
+function isNonEmptyFile(filePath) {
+  try {
+    const fileStats = statSync(filePath)
+    return fileStats.isFile() && fileStats.size > 0
+  } catch {
+    return false
+  }
+}
+
+let selectedUxpReleaseMetadata
+
+function readUxpPackageFile() {
+  const metadataPath = join(DIST_DIR, UXP_RELEASE_METADATA_FILE)
+
+  try {
+    const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'))
+    if (metadata?.schemaVersion !== 1) {
+      throw new Error('schemaVersion must be 1')
+    }
+    if (typeof metadata.ccxVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(metadata.ccxVersion)) {
+      throw new Error('ccxVersion must be a semantic version')
+    }
+    if (
+      typeof metadata.filename !== 'string' ||
+      basename(metadata.filename) !== metadata.filename ||
+      metadata.filename !== `lightyear-banana-${metadata.ccxVersion}.ccx`
+    ) {
+      throw new Error('filename must match ccxVersion and use a basename')
+    }
+    if (typeof metadata.sha256 !== 'string' || !/^[a-fA-F0-9]{64}$/.test(metadata.sha256)) {
+      throw new Error('sha256 must contain 64 hexadecimal characters')
+    }
+    const releaseUrl = new URL(metadata.releaseUrl)
+    if (
+      releaseUrl.protocol !== 'https:' ||
+      releaseUrl.username ||
+      releaseUrl.password ||
+      releaseUrl.search ||
+      releaseUrl.hash ||
+      !releaseUrl.pathname.endsWith('/') ||
+      releaseUrl.href !== metadata.releaseUrl
+    ) {
+      throw new Error('releaseUrl must be a normalized credential-free HTTPS directory URL')
+    }
+    const archivePath = join(DIST_DIR, metadata.filename)
+    if (!isNonEmptyFile(archivePath)) {
+      throw new Error('referenced CCX archive is missing or empty')
+    }
+    const actualSha256 = createHash('sha256').update(readFileSync(archivePath)).digest('hex')
+    if (actualSha256 !== metadata.sha256.toLowerCase()) {
+      throw new Error('referenced CCX archive does not match its SHA256 metadata')
+    }
+
+    selectedUxpReleaseMetadata = metadata
+    return metadata.filename
+  } catch (error) {
+    console.warn(`Cannot use ${UXP_RELEASE_METADATA_FILE}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  if (!isNonEmptyFile(join(DIST_DIR, DEFAULT_UXP_PACKAGE_FILE))) {
+    console.warn(`Fallback CCX archive is missing: ${DEFAULT_UXP_PACKAGE_FILE}`)
+  }
+  return DEFAULT_UXP_PACKAGE_FILE
+}
+
+const UXP_PACKAGE_FILE = readUxpPackageFile()
+const APP_UPDATE_MANIFEST_URL = selectedUxpReleaseMetadata
+  ? new URL('latest.json', selectedUxpReleaseMetadata.releaseUrl).href
+  : ''
 
 const execFileAsync = promisify(execFile)
 const WINDOW_DEPLOY_TIMEOUT_MS = 8000
@@ -78,7 +148,7 @@ const previewWindows = new Set()
 
 function readApplicationVersion() {
   if (!app.isPackaged) {
-    return process.env.npm_package_version || UXP_PACKAGE_FILE.match(/lightyear-banana-(.+)\.ccx$/)?.[1] || app.getVersion()
+    return process.env.npm_package_version || app.getVersion()
   }
 
   return app.getVersion()
@@ -607,6 +677,9 @@ function normalizeUpdateManifest(value) {
 }
 
 async function fetchUpdateManifest() {
+  if (!APP_UPDATE_MANIFEST_URL) {
+    throw new Error('更新地址未配置')
+  }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), APP_UPDATE_TIMEOUT_MS)
   const startedAt = Date.now()

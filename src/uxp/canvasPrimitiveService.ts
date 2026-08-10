@@ -32,7 +32,7 @@ export interface CanvasPrimitiveService {
   captureSelectedLayerReferenceImage: () => Promise<CapturedCanvasImage>
   createSampleImage: () => CapturedCanvasImage
   insertImage: (image: CapturedCanvasImage, target: CanvasInsertTarget) => Promise<CanvasInsertTarget>
-  insertImageFromPreview: (image: CapturedCanvasImage, target: CanvasInsertTarget) => Promise<CanvasInsertTarget>
+  insertImageFromPreview: (image: CapturedCanvasImage, target: CanvasInsertTarget, expectedDocumentId?: string) => Promise<CanvasInsertTarget>
   insertImageFromPreviewToFullCanvas: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
   insertImageFromPreviewToSelection: (image: CapturedCanvasImage, trace?: UxpDiagnosticTrace) => Promise<CanvasInsertTarget>
   insertImageToFullCanvas: (image: CapturedCanvasImage) => Promise<CanvasInsertTarget>
@@ -86,8 +86,8 @@ export class PhotoshopCanvasPrimitiveService implements CanvasPrimitiveService {
     return insertCapturedImage(image, target)
   }
 
-  async insertImageFromPreview(image: CapturedCanvasImage, target: CanvasInsertTarget) {
-    return insertPreviewImage(image, target)
+  async insertImageFromPreview(image: CapturedCanvasImage, target: CanvasInsertTarget, expectedDocumentId?: string) {
+    return insertPreviewImage(image, target, expectedDocumentId)
   }
 
   async insertImageFromPreviewToFullCanvas(image: CapturedCanvasImage) {
