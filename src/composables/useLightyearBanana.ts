@@ -10,6 +10,8 @@ import {
 } from '../data/providerCapabilities'
 import {
   generateImagesWithProvider,
+  isRetryableImageRequestError,
+  maxImageRequestRetryCount,
   resolveImageRequestSize,
   testImageConfig,
   type ImageGenerationParams,
@@ -59,6 +61,7 @@ import {
   hasElectronBridge,
   invokeElectronBridge,
   onElectronBridgeEvent,
+  recordElectronGenerationRequest,
   readElectronStoredSettings,
   serializeCanvasImage,
   serializePlacementTarget,
@@ -82,7 +85,6 @@ type StoredSettings = {
 
 const settingsStorageKey = 'lightyear-banana.settings.v1'
 const maxStoredTurns = 50
-const maxApiRetryCount = 99
 const apiRetryDelayMs = 800
 const retiredBundledConfigIds = new Set([
   'nano-banana-pro',
@@ -891,6 +893,9 @@ function readHighestQuality(options: string[]): string {
   function recordGenerationRequestLog(taskId: string, requestLogs: ImageRequestLogEntry[], entry: ImageRequestLogEntry) {
     requestLogs.push(entry)
     appendGenerationRequestLog(taskId, entry)
+    if (isElectronRuntime) {
+      recordElectronGenerationRequest(entry)
+    }
   }
 
   function stopGenerationLoading(id: string) {
@@ -1160,7 +1165,7 @@ function readHighestQuality(options: string[]): string {
 
   async function buildGeneratedImagesWithRetries(params: ImageGenerationParams, modelConfigId: string) {
     let lastError: unknown
-    const retryLimit = maxApiRetryCount
+    const retryLimit = maxImageRequestRetryCount
 
     for (let retryIndex = 0; retryIndex <= retryLimit; retryIndex += 1) {
       const attempt = retryIndex + 1
@@ -1187,7 +1192,7 @@ function readHighestQuality(options: string[]): string {
         return buildGeneratedImagesFromApi(apiImages, modelConfigId, params.config.model)
       } catch (error) {
         lastError = error
-        if (params.signal?.aborted || retryIndex >= retryLimit) {
+        if (params.signal?.aborted || retryIndex >= retryLimit || !isRetryableImageRequestError(error)) {
           throw error
         }
 

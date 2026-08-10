@@ -1,5 +1,5 @@
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
-import type { DiagnosticExportResult, PlacementTarget } from '../types/lightyear'
+import type { DiagnosticExportResult, ImageRequestLogEntry, PlacementTarget } from '../types/lightyear'
 
 type BridgeStatus = {
   bridge: {
@@ -21,6 +21,7 @@ type ElectronBridgeApi = {
   getBridgeStatus: () => Promise<BridgeStatus>
   loadSettings: () => unknown
   openPreview: (image: Pick<CapturedCanvasImage, 'height' | 'label' | 'previewUrl' | 'width'>) => Promise<{ ok: boolean }>
+  recordGenerationRequest?: (entry: ImageRequestLogEntry) => void
   saveSettings: (settings: unknown) => Promise<{ ok: boolean }>
   invoke: <T = unknown>(command: string, payload?: unknown) => Promise<T>
   onEvent: (callback: (event: unknown) => void) => () => void
@@ -129,6 +130,10 @@ export async function exportElectronDiagnostics() {
 
 export async function exportElectronCrxLogs() {
   return invokeElectronBridge<DiagnosticExportResult>('crx.logs.export')
+}
+
+export function recordElectronGenerationRequest(entry: ImageRequestLogEntry) {
+  window.lightyearBridge?.recordGenerationRequest?.(entry)
 }
 
 export function onElectronBridgeEvent(callback: (event: unknown) => void) {

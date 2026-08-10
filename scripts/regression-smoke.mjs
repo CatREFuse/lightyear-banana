@@ -81,6 +81,60 @@ function readRequest(requests, pattern) {
   return request
 }
 
+async function testImageRequestRetryPolicy(imageApi) {
+  assert.equal(imageApi.maxImageRequestRetryCount, 2)
+  assert.equal(
+    imageApi.isRetryableImageRequestError(new imageApi.ImageApiError('temporary failure', 503, true)),
+    true
+  )
+  assert.equal(
+    imageApi.isRetryableImageRequestError(new imageApi.ImageApiError('invalid request', 400)),
+    false
+  )
+  assert.equal(
+    imageApi.isRetryableImageRequestError(new Error('unexpected failure')),
+    false
+  )
+
+  const nativeFetch = globalThis.fetch
+  const nativeConsoleInfo = console.info
+  const requestLogs = []
+  const params = {
+    config: createConfig('openai', 'gpt-image-2'),
+    count: 1,
+    prompt: 'retry policy test',
+    quality: 'auto',
+    ratio: '1:1',
+    references: [],
+    selectedSize: '1024x1024',
+    size: '1024x1024',
+    onTiming: (entry) => requestLogs.push(entry)
+  }
+
+  console.info = () => {}
+  try {
+    globalThis.fetch = async () => Response.json({ error: { message: 'invalid key' } }, { status: 401 })
+    await assert.rejects(
+      () => imageApi.generateImagesWithProvider(params),
+      (error) => error instanceof imageApi.ImageApiError && error.status === 401 && !error.retryable
+    )
+    assert.equal(requestLogs.at(-1).metadata.retryable, false)
+    assert.equal(requestLogs.at(-1).metadata.errorMessage, 'invalid key')
+
+    requestLogs.length = 0
+    globalThis.fetch = async () => Response.json({ error: { message: 'service unavailable' } }, { status: 503 })
+    await assert.rejects(
+      () => imageApi.generateImagesWithProvider(params),
+      (error) => error instanceof imageApi.ImageApiError && error.status === 503 && error.retryable
+    )
+    assert.equal(requestLogs.at(-1).metadata.retryable, true)
+    assert.equal(requestLogs.at(-1).metadata.errorMessage, 'service unavailable')
+  } finally {
+    globalThis.fetch = nativeFetch
+    console.info = nativeConsoleInfo
+  }
+}
+
 async function testProviderRatios(imageApi) {
   const nativeFetch = globalThis.fetch
   const nativeConsoleInfo = console.info
@@ -852,6 +906,7 @@ async function main() {
     const providerCapabilities = requireFromBuild(join(outDir, 'data', 'providerCapabilities.js'))
     const canvasPrimitives = requireFromBuild(join(outDir, 'uxp', 'canvasPrimitives.js'))
     await testProviderRatios(imageApi)
+    await testImageRequestRetryPolicy(imageApi)
     testApimartAliasCapabilities(providerCapabilities)
     await testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives)
     await testSelectionVisibleComposite(canvasPrimitives)

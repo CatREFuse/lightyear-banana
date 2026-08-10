@@ -103,6 +103,7 @@ const apimartPollIntervalMs = 5000
 const apimartPollAttempts = 99
 const iMiniPollIntervalMs = 2000
 const iMiniPollAttempts = 99
+export const maxImageRequestRetryCount = 2
 const originalRatioOption = '原图比例'
 const legacyAutoRatioOption = '自动'
 const apimartGemini31AspectRatios = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1']
@@ -145,12 +146,22 @@ function followsReferenceRatio(params: Pick<ImageGenerationParams, 'ratio' | 're
 
 export class ImageApiError extends Error {
   status: number
+  retryable: boolean
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, retryable = false) {
     super(message)
     this.name = 'ImageApiError'
     this.status = status
+    this.retryable = retryable
   }
+}
+
+function isRetryableImageApiStatus(status: number) {
+  return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500 && status <= 599
+}
+
+export function isRetryableImageRequestError(error: unknown) {
+  return error instanceof ImageApiError && error.retryable
 }
 
 function joinUrl(baseUrl: string, path: string) {
@@ -245,34 +256,42 @@ async function fetchJson(url: string, init: RequestInit, timing?: TimingContext)
   } catch (error) {
     const failedAt = nowMs()
     const aborted = init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError'
+    const status = aborted ? 499 : 0
+    const errorMessage = aborted ? '请求已取消' : '无法连接 API'
     emitFetchTimingEntry(url, init, timing, {
       contentLength: '',
+      errorMessage,
       headersAt: failedAt,
       ok: false,
       parsedAt: failedAt,
+      retryable: !aborted,
       startedAt,
-      status: aborted ? 499 : 0
+      status
     })
     if (aborted) {
       throw new ImageApiError('请求已取消', 499)
     }
-    throw new ImageApiError('无法连接 API', 0)
+    throw new ImageApiError('无法连接 API', 0, true)
   }
 
   const headersAt = nowMs()
   const payload = await readResponseJson(response)
   const parsedAt = nowMs()
+  const errorMessage = response.ok ? undefined : readApiErrorMessage(payload as ApiErrorPayload, 'API 请求失败')
+  const retryable = !response.ok && isRetryableImageApiStatus(response.status)
   emitFetchTimingEntry(url, init, timing, {
     contentLength: response.headers.get('content-length') ?? '',
+    errorMessage,
     headersAt,
     ok: response.ok,
     parsedAt,
+    retryable,
     startedAt,
     status: response.status
   })
 
   if (!response.ok) {
-    throw new ImageApiError(readApiErrorMessage(payload as ApiErrorPayload, 'API 请求失败'), response.status)
+    throw new ImageApiError(errorMessage ?? 'API 请求失败', response.status, retryable)
   }
 
   return payload
@@ -284,9 +303,11 @@ function emitFetchTimingEntry(
   timing: TimingContext | undefined,
   fields: {
     contentLength: string
+    errorMessage?: string
     headersAt: number
     ok: boolean
     parsedAt: number
+    retryable?: boolean
     startedAt: number
     status: number
   }
@@ -299,7 +320,15 @@ function emitFetchTimingEntry(
     status: fields.status,
     ok: fields.ok,
     contentLength: fields.contentLength,
-    metadata: timing?.metadata ?? {},
+    metadata: {
+      ...(timing?.metadata ?? {}),
+      ...(!fields.ok
+        ? {
+            errorMessage: fields.errorMessage ?? 'API 请求失败',
+            retryable: fields.retryable ?? false
+          }
+        : {})
+    },
     stages: {
       headersMs: Math.round(fields.headersAt - fields.startedAt),
       bodyParseMs: Math.round(fields.parsedAt - fields.headersAt),
@@ -1242,12 +1271,16 @@ async function fetchBlob(url: string, init: RequestInit) {
     if (init.signal?.aborted || error instanceof DOMException && error.name === 'AbortError') {
       throw new ImageApiError('请求已取消', 499)
     }
-    throw new ImageApiError('无法连接 API', 0)
+    throw new ImageApiError('无法连接 API', 0, true)
   }
 
   if (!response.ok) {
     const payload = await readResponseJson(response)
-    throw new ImageApiError(readApiErrorMessage(payload as ApiErrorPayload, 'API 请求失败'), response.status)
+    throw new ImageApiError(
+      readApiErrorMessage(payload as ApiErrorPayload, 'API 请求失败'),
+      response.status,
+      isRetryableImageApiStatus(response.status)
+    )
   }
 
   return response.blob()

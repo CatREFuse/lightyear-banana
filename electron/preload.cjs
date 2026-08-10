@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('lightyearBridge', {
   getBridgeStatus: () => ipcRenderer.invoke('lightyear:status'),
   loadSettings: () => ipcRenderer.sendSync('lightyear:settings:load'),
   openPreview: (image) => ipcRenderer.invoke('lightyear:preview:open', image),
+  recordGenerationRequest: (entry) => ipcRenderer.send('lightyear:generation:request', entry),
   saveSettings: (settings) => ipcRenderer.invoke('lightyear:settings:save', settings),
   invoke: (command, payload) => ipcRenderer.invoke('lightyear:invoke', command, payload),
   onEvent: (callback) => {

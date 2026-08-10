@@ -24,7 +24,7 @@ let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0
 const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.18.ccx'
+const UXP_PACKAGE_FILE = 'lightyear-banana-0.3.19.ccx'
 const SETTINGS_FILE = 'lightyear-settings.json'
 const DIAGNOSTICS_DIRECTORY = 'diagnostics'
 const APP_UPDATE_MANIFEST_URL = 'https://cake.catrefuse.com/releases/latest.json'
@@ -253,6 +253,100 @@ function readCommandPayloadSummary(command, payload) {
   }
 
   return {}
+}
+
+const GENERATION_DIAGNOSTIC_METADATA_KEYS = new Set([
+  'phase',
+  'provider',
+  'customFormat',
+  'model',
+  'count',
+  'selectedSize',
+  'size',
+  'ratio',
+  'quality',
+  'referenceCount',
+  'referenceWidth',
+  'referenceHeight',
+  'requestedAspectRatio',
+  'promptLength',
+  'hasCanvasSize',
+  'wireResolution',
+  'wireSize',
+  'wireAspectRatio',
+  'wireImageSize',
+  'referenceIndex',
+  'taskId',
+  'attempt',
+  'maxRequestRetries',
+  'requestAttempt',
+  'errorMessage',
+  'retryable'
+])
+
+function readGenerationDiagnosticMetadata(value) {
+  if (!value || typeof value !== 'object') {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(([key, entry]) =>
+      GENERATION_DIAGNOSTIC_METADATA_KEYS.has(key) &&
+      (entry === null || ['string', 'number', 'boolean'].includes(typeof entry))
+    )
+  )
+}
+
+function readGenerationDiagnosticUrl(value) {
+  try {
+    const url = new URL(String(value || ''))
+    url.username = ''
+    url.password = ''
+    return url.toString()
+  } catch {
+    return String(value || '')
+  }
+}
+
+async function recordGenerationRequestDiagnostic(payload) {
+  const metadata = readGenerationDiagnosticMetadata(payload?.metadata)
+  const statusValue = Number(payload?.status)
+  const status = Number.isFinite(statusValue) ? statusValue : 0
+  const ok = payload?.ok === true
+  const totalMsValue = Number(payload?.stages?.totalMs)
+  const durationMs = Number.isFinite(totalMsValue) ? Math.max(0, totalMsValue) : undefined
+  const errorMessage = typeof metadata.errorMessage === 'string' && metadata.errorMessage
+    ? metadata.errorMessage
+    : status > 0
+      ? `API 返回 HTTP ${status}`
+      : '无法连接 API'
+
+  await writeDiagnostic({
+    level: ok ? 'info' : status === 499 ? 'warn' : 'error',
+    category: 'generation',
+    operation: 'generation.api.request',
+    phase: ok ? 'success' : status === 499 ? 'cancel' : 'error',
+    durationMs,
+    details: {
+      requestLogId: payload?.id,
+      url: readGenerationDiagnosticUrl(payload?.url),
+      method: payload?.method,
+      status,
+      ok,
+      contentLength: payload?.contentLength,
+      metadata,
+      stages: payload?.stages
+    },
+    error: ok
+      ? undefined
+      : {
+          message: errorMessage,
+          code: status > 0 ? `HTTP_${status}` : 'NETWORK_ERROR',
+          recoverable: metadata.retryable === true
+        }
+  })
+
+  return { ok: true }
 }
 
 function rememberDiagnosticEvent(requestId, eventId) {
@@ -2155,6 +2249,10 @@ ipcMain.handle('lightyear:status', async () => readBridgeStatus())
 
 ipcMain.on('lightyear:settings:load', (event) => {
   event.returnValue = readPersistedSettings()
+})
+
+ipcMain.on('lightyear:generation:request', (_event, payload) => {
+  void recordGenerationRequestDiagnostic(payload)
 })
 
 ipcMain.handle('lightyear:settings:save', async (_event, settings) => {
