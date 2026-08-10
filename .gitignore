@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local deployment credentials and generated workspace artifacts
+key.env
+.tmp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

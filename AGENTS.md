@@ -1,5 +1,15 @@
 # AGENTS.md instructions for /Users/tanshow/Developer/lightyear-banana
 
+
+## 部署参数
+
+请在 `key.env` 环境变量中获取部署参数：
+- server_ip
+- password
+- domain
+- secondary_domain
+
+
 ## Release Build Gate
 
 - 修改或提交 `package.json` 版本号前，必须先读取 `docs/build-todo-list.md`。
