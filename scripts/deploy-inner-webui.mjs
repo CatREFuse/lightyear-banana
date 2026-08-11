@@ -30,7 +30,7 @@ function readOption(name) {
   return index >= 0 ? process.argv[index + 1] : undefined
 }
 
-function parseEnv(contents) {
+export function parseEnv(contents) {
   const result = {}
   for (const rawLine of contents.split(/\r?\n/)) {
     const line = rawLine.trim()
@@ -40,7 +40,10 @@ function parseEnv(contents) {
     if (separator < 1) throw new Error(`Invalid key.env line: ${rawLine}`)
     const key = normalized.slice(0, separator).trim()
     let value = normalized.slice(separator + 1).trim()
-    if (!/^[A-Z][A-Z0-9_]*$/.test(key)) throw new Error(`Invalid key.env name: ${key}`)
+    if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
+      if (/^[a-z][a-z0-9_]*$/.test(key)) continue
+      throw new Error(`Invalid key.env name: ${key}`)
+    }
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1)
     }

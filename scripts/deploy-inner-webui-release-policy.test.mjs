@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  parseEnv,
   resolveInnerReleaseUrl,
   validatePublicLatestJson,
   verifyPublicReleaseIndex
 } from './deploy-inner-webui.mjs'
+
+test('ignores legacy lowercase deployment keys while keeping application settings strict', () => {
+  assert.deepEqual(parseEnv([
+    'server_ip=192.0.2.1',
+    'password=local-only',
+    'INNER_WEBUI_URL=https://webui.product.dev/'
+  ].join('\n')), {
+    INNER_WEBUI_URL: 'https://webui.product.dev/'
+  })
+  assert.throws(() => parseEnv('Mixed_Name=value'), /Invalid key.env name/)
+})
 
 const releaseRoot = new URL('https://downloads.product.dev/releases/')
 const latest = {
