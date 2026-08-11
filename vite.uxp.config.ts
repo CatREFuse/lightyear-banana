@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
@@ -88,6 +88,22 @@ function resolveMugenEnvironment(mode: string): MugenEnvironment {
   return mode === 'production' ? 'production' : 'development'
 }
 
+function copyDirectorySync(source: string, target: string) {
+  mkdirSync(target, { recursive: true })
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = path.join(source, entry.name)
+    const targetPath = path.join(target, entry.name)
+    if (entry.isDirectory()) {
+      copyDirectorySync(sourcePath, targetPath)
+      continue
+    }
+    if (!entry.isFile()) {
+      throw new Error(`Unsupported Inner WebUI build entry: ${entry.name}`)
+    }
+    copyFileSync(sourcePath, targetPath)
+  }
+}
+
 function uxpPostBuildPlugin(innerWebUiUrl: URL): Plugin {
   return {
     name: 'uxp-post-build',
@@ -136,7 +152,7 @@ function uxpPostBuildPlugin(innerWebUiUrl: URL): Plugin {
         throw new Error('Inner WebUI build not found. Run npm run build:inner-webui first.')
       }
       rmSync(webUiTarget, { recursive: true, force: true })
-      cpSync(webUiSource, webUiTarget, { recursive: true })
+      copyDirectorySync(webUiSource, webUiTarget)
     }
   }
 }
