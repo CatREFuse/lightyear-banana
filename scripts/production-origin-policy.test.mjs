@@ -23,6 +23,7 @@ test('rejects documentation, legacy, local, reserved, and address hostnames', ()
     'webui',
     'cake.catrefuse.com',
     'inner.cake.catrefuse.com',
+    'webui.catrefuse.com',
     'example.com',
     'webui.example.net',
     'webui.invalid',

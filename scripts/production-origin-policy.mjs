@@ -1,6 +1,6 @@
 import { isIP } from 'node:net'
 
-const blockedDomains = ['cake.catrefuse.com', 'example.com', 'example.net', 'example.org']
+const blockedDomains = ['cake.catrefuse.com', 'webui.catrefuse.com', 'example.com', 'example.net', 'example.org']
 const blockedSuffixes = ['invalid', 'test', 'example', 'localhost', 'local']
 const dnsLabelPattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
 

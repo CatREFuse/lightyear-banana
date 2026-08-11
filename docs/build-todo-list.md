@@ -47,7 +47,7 @@
 ## 当前 Inner WebUI 0.1 / CCX 1.0 状态
 
 - Vue 3、TypeScript、Tailwind CSS WebUI 与 UXP Host 已按 `inner-host/v1` 接入，BYOK 明文仅保存在 UXP SecureStorage。
-- `key.env` 已按忽略提交策略配置；`https://webui.catrefuse.com/inner/v1/` 已原子部署 WebUI `0.1.0`，公网入口、全部动态资源、发布元数据、严格 CSP、缓存策略和 `https://webui.catrefuse.com/releases/latest.json` 均通过正式门禁。
+- `key.env` 已按忽略提交策略配置；`https://mugen.catrefuse.com/inner/v1/` 已原子部署 WebUI `0.1.0`，公网入口、全部动态资源、发布元数据、严格 CSP、缓存策略和 `https://mugen.catrefuse.com/releases/latest.json` 均通过正式门禁。
 - WebUI 生产构建、content hash 与来源提交已写入线上 `release.json`；生产 CCX、SHA256 sidecar 与来源元数据已生成到 `dist/`。
 - 协议 13 项、WebUI 26 项、WebUI E2E 4 项、UXP Host 62 项、Provider 能力 43 项和发布策略 24 项测试均通过，`verify:uxp` 与生产 CCX 打包通过。
 - 真实 Photoshop 回归尚未执行；在握手、画布、BYOK、生成、取消、落图、保存、历史和诊断导出全部通过前，不把官网 `latest.json` 切换到 CCX `1.0.0`，也不删除 Electron 旧实现。
