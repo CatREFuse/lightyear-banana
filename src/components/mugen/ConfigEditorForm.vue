@@ -542,9 +542,9 @@ function parseNodeIds(value: string) {
   display: grid;
   gap: 8px;
   padding: 10px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-card);
+  background: var(--mugen-card);
 }
 
 .form-actions {
@@ -562,13 +562,13 @@ function parseNodeIds(value: string) {
 
 h2 {
   margin: 0;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 13px;
 }
 
 .form-title small {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -581,9 +581,9 @@ h2 {
   gap: 12px;
   min-height: 42px;
   padding: 10px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-card);
+  background: var(--mugen-card);
   cursor: pointer;
 }
 
@@ -595,7 +595,7 @@ h2 {
 
 .toggle-copy strong {
   overflow: hidden;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -604,7 +604,7 @@ h2 {
 
 .toggle-copy small {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -624,9 +624,9 @@ h2 {
   width: 42px;
   height: 24px;
   border-radius: 999px;
-  background: var(--lb-surface-2);
+  background: var(--mugen-surface-2);
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--lb-hairline);
+  box-shadow: inset 0 0 0 1px var(--mugen-hairline);
   transition:
     background-color 160ms ease,
     box-shadow 160ms ease;
@@ -640,12 +640,12 @@ h2 {
   height: 18px;
   border-radius: 999px;
   background: white;
-  box-shadow: 0 2px 6px var(--lb-shadow);
+  box-shadow: 0 2px 6px var(--mugen-shadow);
   transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .toggle-input:checked + .toggle-track {
-  background: var(--lb-accent);
+  background: var(--mugen-accent);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
@@ -655,8 +655,8 @@ h2 {
 
 .toggle-input:focus-visible + .toggle-track {
   box-shadow:
-    0 0 0 2px var(--lb-accent-soft),
-    inset 0 0 0 1px var(--lb-accent);
+    0 0 0 2px var(--mugen-accent-soft),
+    inset 0 0 0 1px var(--mugen-accent);
 }
 
 label {
@@ -673,13 +673,13 @@ label {
   min-height: 28px;
   padding: 5px 7px;
   border-radius: 6px;
-  background: var(--lb-surface);
+  background: var(--mugen-surface);
   cursor: pointer;
 }
 
 .inline-toggle span:first-child {
   overflow: hidden;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -712,22 +712,22 @@ label {
   min-height: 32px;
   padding: 0 8px;
   border-radius: 6px;
-  background: var(--lb-field);
-  color: var(--lb-secondary);
+  background: var(--mugen-field);
+  color: var(--mugen-secondary);
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
 }
 
 .guide-link:hover {
-  background: var(--lb-hover);
-  color: var(--lb-text);
+  background: var(--mugen-hover);
+  color: var(--mugen-text);
 }
 
 label span,
 .label-heading,
 .capability-box span {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
 }
 
@@ -736,7 +736,7 @@ label span,
   gap: 6px;
   padding: 8px;
   border-radius: 8px;
-  background: var(--lb-surface);
+  background: var(--mugen-surface);
 }
 
 .model-list-items {
@@ -753,9 +753,9 @@ label span,
   max-width: 100%;
   padding: 0 7px;
   overflow: hidden;
-  border-color: var(--lb-hairline);
-  background: var(--lb-field);
-  color: var(--lb-secondary);
+  border-color: var(--mugen-hairline);
+  background: var(--mugen-field);
+  color: var(--mugen-secondary);
   font-size: 11px;
 }
 
@@ -767,9 +767,9 @@ label span,
 }
 
 .model-chip.active {
-  border-color: var(--lb-accent);
-  background: var(--lb-accent-soft);
-  color: var(--lb-text);
+  border-color: var(--mugen-accent);
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-text);
 }
 
 .model-chip span {
@@ -799,22 +799,22 @@ label span,
   width: 26px;
   min-height: 26px;
   padding: 0;
-  border-color: var(--lb-hairline);
-  background: var(--lb-field);
-  color: var(--lb-secondary);
+  border-color: var(--mugen-hairline);
+  background: var(--mugen-field);
+  color: var(--mugen-secondary);
 }
 
 .model-chip:hover,
 .model-chip:focus-visible,
 .model-inline-add button:hover,
 .model-inline-add button:focus-visible {
-  border-color: var(--lb-accent);
-  background: var(--lb-accent-soft);
-  color: var(--lb-text);
+  border-color: var(--mugen-accent);
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-text);
 }
 
 .model-inline-add button:disabled {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   opacity: 0.6;
 }
 
@@ -832,8 +832,8 @@ input {
   min-height: 32px;
   border: 0;
   border-radius: 6px;
-  background: var(--lb-field);
-  color: var(--lb-text);
+  background: var(--mugen-field);
+  color: var(--mugen-text);
   font: inherit;
   font-size: 12px;
   padding: 0 8px;
@@ -845,8 +845,8 @@ textarea {
   resize: vertical;
   border: 0;
   border-radius: 6px;
-  background: var(--lb-field);
-  color: var(--lb-text);
+  background: var(--mugen-field);
+  color: var(--mugen-text);
   font: inherit;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
@@ -855,7 +855,7 @@ textarea {
 }
 
 input:disabled {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   opacity: 0.7;
 }
 
@@ -864,7 +864,7 @@ input:disabled {
   gap: 9px;
   padding: 9px;
   border-radius: 8px;
-  background: var(--lb-surface);
+  background: var(--mugen-surface);
 }
 
 .comfy-heading {
@@ -879,7 +879,7 @@ input:disabled {
   align-items: center;
   gap: 5px;
   min-width: 0;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -893,7 +893,7 @@ input:disabled {
   min-height: 28px;
   padding: 0 8px;
   border-color: transparent;
-  background: var(--lb-field);
+  background: var(--mugen-field);
   font-size: 11px;
 }
 
@@ -926,7 +926,7 @@ input:disabled {
 .node-remove {
   width: 30px;
   padding: 0;
-  color: var(--lb-danger);
+  color: var(--mugen-danger);
 }
 
 .comfy-timing-grid {
@@ -941,7 +941,7 @@ input:disabled {
   padding: 9px;
   border: 0;
   border-radius: 8px;
-  background: var(--lb-surface);
+  background: var(--mugen-surface);
 }
 
 .capability-box div {
@@ -951,7 +951,7 @@ input:disabled {
 }
 
 .capability-box strong {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.35;
@@ -982,7 +982,7 @@ input:disabled {
 }
 
 .form-actions .test-button {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   transition:
     background-color 220ms ease,
     color 220ms ease,
@@ -1012,28 +1012,28 @@ input:disabled {
 }
 
 .form-actions .test-button.is-testing {
-  background: var(--lb-accent-soft);
-  color: var(--lb-accent);
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-accent);
 }
 
 .form-actions .test-button.is-success {
-  background: var(--lb-success-bg);
-  color: var(--lb-success);
+  background: var(--mugen-success-bg);
+  color: var(--mugen-success);
 }
 
 .form-actions .test-button.is-error {
-  background: var(--lb-danger-bg);
-  color: var(--lb-danger-muted);
+  background: var(--mugen-danger-bg);
+  color: var(--mugen-danger-muted);
 }
 
 .form-actions .copy-button {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .form-actions .copy-button:hover,
 .form-actions .copy-button:focus-visible {
-  background: var(--lb-hover);
-  color: var(--lb-text);
+  background: var(--mugen-hover);
+  color: var(--mugen-text);
 }
 
 .form-actions .test-button:disabled {
@@ -1041,14 +1041,14 @@ input:disabled {
 }
 
 .form-actions .primary {
-  border-color: var(--lb-accent);
-  background: var(--lb-accent);
+  border-color: var(--mugen-accent);
+  background: var(--mugen-accent);
   color: white;
 }
 
 .form-actions .danger {
   border-color: transparent;
-  color: var(--lb-danger);
+  color: var(--mugen-danger);
 }
 
 .spinning {

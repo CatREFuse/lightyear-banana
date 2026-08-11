@@ -672,7 +672,7 @@ watch(
   gap: 18px;
   overflow-y: auto;
   padding: 12px 12px 16px;
-  background: var(--lb-thread-bg);
+  background: var(--mugen-thread-bg);
   scroll-behavior: smooth;
 }
 
@@ -690,8 +690,8 @@ watch(
   margin: 4px auto 0;
   padding: 5px 8px;
   border-radius: 999px;
-  background: var(--lb-empty-bg);
-  color: var(--lb-secondary);
+  background: var(--mugen-empty-bg);
+  color: var(--mugen-secondary);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -721,8 +721,8 @@ watch(
   padding: 9px 10px;
   border: 0;
   border-radius: 8px;
-  background: var(--lb-thread-surface-2);
-  color: var(--lb-text);
+  background: var(--mugen-thread-surface-2);
+  color: var(--mugen-text);
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -738,9 +738,9 @@ watch(
   width: fit-content;
   max-width: 100%;
   padding: 7px 10px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 999px;
-  background: var(--lb-thread-card);
+  background: var(--mugen-thread-card);
   box-sizing: border-box;
 }
 
@@ -749,7 +749,7 @@ watch(
   height: 16px;
   align-items: center;
   gap: 6px;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 12px;
   line-height: 16px;
   white-space: nowrap;
@@ -763,14 +763,14 @@ watch(
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 12px;
   line-height: 16px;
   cursor: pointer;
 }
 
 .cancel-generation:hover {
-  color: var(--lb-text);
+  color: var(--mugen-text);
 }
 
 .loading-log-trigger {
@@ -784,7 +784,7 @@ watch(
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   cursor: pointer;
 }
 
@@ -794,26 +794,26 @@ watch(
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   outline: none;
 }
 
 .loading-log-trigger.has-logs .loading-spinner {
-  border-top-color: var(--lb-success, #65d48a);
+  border-top-color: var(--mugen-success, #65d48a);
 }
 
 .loading-spinner {
   width: 12px;
   height: 12px;
-  border: 1.5px solid var(--lb-border-strong);
-  border-top-color: var(--lb-accent);
+  border: 1.5px solid var(--mugen-border-strong);
+  border-top-color: var(--mugen-accent);
   border-radius: 999px;
   animation: loading-spin 800ms linear infinite;
 }
 
 .canceled-text {
   margin: 0;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 12px;
   line-height: 16px;
   white-space: nowrap;
@@ -824,7 +824,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
 }
 
@@ -847,29 +847,29 @@ watch(
 
 .elapsed-trigger:focus-visible,
 .elapsed-trigger.is-open {
-  border-color: var(--lb-border-strong);
-  background: var(--lb-surface-2);
+  border-color: var(--mugen-border-strong);
+  background: var(--mugen-surface-2);
   box-shadow: 0 0 0 3px rgba(86, 140, 255, 0.1);
-  color: var(--lb-text);
+  color: var(--mugen-text);
   outline: none;
 }
 
 .elapsed-trigger.has-logs {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .append-button {
   min-height: 22px;
   padding: 0 7px;
   border-color: transparent;
-  background: var(--lb-field);
-  color: var(--lb-secondary);
+  background: var(--mugen-field);
+  color: var(--mugen-secondary);
   font-size: 11px;
 }
 
 .append-button:hover {
-  background: var(--lb-surface-2);
-  color: var(--lb-text);
+  background: var(--mugen-surface-2);
+  color: var(--mugen-text);
 }
 
 .response-actions {
@@ -881,7 +881,7 @@ watch(
 
 .response-text {
   margin: 0;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 12px;
 }
 
@@ -898,7 +898,7 @@ watch(
 
 .request-log-empty {
   margin: 0;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   line-height: 16px;
 }
@@ -911,13 +911,13 @@ watch(
 }
 
 .request-log-title strong {
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 11px;
 }
 
 .request-log-title small {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -928,17 +928,17 @@ watch(
   gap: 7px;
   min-width: 0;
   padding: 8px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 7px;
-  background: var(--lb-surface);
+  background: var(--mugen-surface);
 }
 
 .request-log-item code {
   overflow: hidden;
   padding: 5px 6px;
   border-radius: 6px;
-  background: var(--lb-field);
-  color: var(--lb-secondary);
+  background: var(--mugen-field);
+  color: var(--mugen-secondary);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -957,7 +957,7 @@ watch(
 }
 
 .request-log-grid span {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
 }
 
@@ -972,31 +972,31 @@ watch(
 .request-log-grid dd {
   overflow: hidden;
   margin: 0;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .request-log-grid dt {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .assistant-message.is-error {
   width: fit-content;
   max-width: 100%;
   padding: 9px 10px;
-  border: 1px solid var(--lb-danger-border);
+  border: 1px solid var(--mugen-danger-border);
   border-radius: 8px;
-  background: var(--lb-danger-bg);
+  background: var(--mugen-danger-bg);
 }
 
 .assistant-message.is-error .response-header {
-  color: var(--lb-danger-muted);
+  color: var(--mugen-danger-muted);
 }
 
 .assistant-message.is-error .response-text {
-  color: var(--lb-danger-text);
+  color: var(--mugen-danger-text);
   line-height: 1.45;
 }
 
@@ -1008,9 +1008,9 @@ watch(
 
 .result-card {
   position: relative;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-thread-card);
+  background: var(--mugen-thread-card);
 }
 
 .thumbnail-button {
@@ -1019,7 +1019,7 @@ watch(
   padding: 0;
   border: 0;
   border-radius: 7px 7px 0 0;
-  background: var(--lb-thread-image-bg);
+  background: var(--mugen-thread-image-bg);
 }
 
 .thumbnail-button img {
@@ -1036,7 +1036,7 @@ watch(
   align-items: stretch;
   min-width: 0;
   border-radius: 0 0 7px 7px;
-  background: var(--lb-thread-card-deep);
+  background: var(--mugen-thread-card-deep);
   overflow: visible;
 }
 
@@ -1052,7 +1052,7 @@ watch(
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 11px;
   white-space: nowrap;
   overflow: visible;
@@ -1079,11 +1079,11 @@ watch(
 .place-more {
   width: 28px;
   flex: 0 0 28px;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .result-icon-action {
-  box-shadow: inset 1px 0 var(--lb-hairline);
+  box-shadow: inset 1px 0 var(--mugen-hairline);
 }
 
 .action-tooltip::after {
@@ -1093,11 +1093,11 @@ watch(
   left: 50%;
   max-width: 128px;
   padding: 4px 7px;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 6px;
-  background: var(--lb-overlay);
-  box-shadow: 0 10px 24px var(--lb-shadow);
-  color: var(--lb-text);
+  background: var(--mugen-overlay);
+  box-shadow: 0 10px 24px var(--mugen-shadow);
+  color: var(--mugen-text);
   content: attr(data-tooltip);
   font-size: 11px;
   line-height: 1.2;
@@ -1120,8 +1120,8 @@ watch(
 .action-spinner {
   width: 11px;
   height: 11px;
-  border: 1.5px solid var(--lb-border-strong);
-  border-top-color: var(--lb-accent);
+  border: 1.5px solid var(--mugen-border-strong);
+  border-top-color: var(--mugen-accent);
   border-radius: 999px;
   animation: loading-spin 800ms linear infinite;
 }
@@ -1141,10 +1141,10 @@ watch(
   display: grid;
   width: 156px;
   overflow: hidden;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  box-shadow: 0 12px 32px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 12px 32px var(--mugen-shadow);
   transform-origin: bottom right;
 }
 
@@ -1162,8 +1162,8 @@ watch(
 .place-menu button:hover,
 .place-menu button.selected,
 .result-actions button:hover {
-  background: var(--lb-surface-2);
-  color: var(--lb-text);
+  background: var(--mugen-surface-2);
+  color: var(--mugen-text);
 }
 
 .image-context-menu {
@@ -1172,10 +1172,10 @@ watch(
   display: grid;
   width: 148px;
   overflow: hidden;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  box-shadow: 0 12px 32px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 12px 32px var(--mugen-shadow);
   transform-origin: top left;
 }
 
@@ -1189,14 +1189,14 @@ watch(
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 12px;
   text-align: left;
   white-space: nowrap;
 }
 
 .image-context-menu button:hover {
-  background: var(--lb-surface-2);
+  background: var(--mugen-surface-2);
 }
 
 .menu-pop-enter-active,

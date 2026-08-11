@@ -551,8 +551,8 @@ if (
 if (!innerWebUiUrl.pathname.endsWith('/')) {
   throw new Error('INNER_WEBUI_URL must end with /.')
 }
-if (innerWebUiUrl.pathname !== '/inner/v1/') {
-  throw new Error('INNER_WEBUI_URL path must be /inner/v1/.')
+if (innerWebUiUrl.href !== 'https://mugen.catrefuse.com/webui/') {
+  throw new Error('INNER_WEBUI_URL must be https://mugen.catrefuse.com/webui/.')
 }
 const innerReleaseUrl = resolveInnerReleaseUrl(environment, innerWebUiUrl.origin)
 const verifyOnly = process.argv.includes('--verify-only')

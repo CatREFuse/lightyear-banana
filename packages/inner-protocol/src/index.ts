@@ -111,9 +111,22 @@ export type PublicModelConfig = Omit<ModelConfig, 'hasCredential'> & {
   hasCredential?: boolean
 }
 
+export type PromptPreset = {
+  id: string
+  name: string
+  content: string
+}
+
+export type ThemePreferences = {
+  visualTheme: 'nothing' | 'classic'
+  colorMode: ThemeMode
+}
+
 export type SettingsSnapshot = {
   activeConfigId?: string
   configs: PublicModelConfig[]
+  promptPresets?: PromptPreset[]
+  themePreferences?: ThemePreferences
 }
 
 export type GenerationSnapshot = {
@@ -509,7 +522,17 @@ function isPublicModelConfig(value: unknown): value is PublicModelConfig {
 }
 
 function isSettingsSnapshot(value: unknown): value is SettingsSnapshot {
-  return isRecord(value) && optionalString(value.activeConfigId) && Array.isArray(value.configs) && value.configs.every(isPublicModelConfig)
+  if (!isRecord(value) || !optionalString(value.activeConfigId) || !Array.isArray(value.configs) || !value.configs.every(isPublicModelConfig)) return false
+  if (value.themePreferences !== undefined && (
+    !isRecord(value.themePreferences)
+    || !['nothing', 'classic'].includes(String(value.themePreferences.visualTheme))
+    || !['system', 'dark', 'light'].includes(String(value.themePreferences.colorMode))
+  )) return false
+  return value.promptPresets === undefined || (
+    Array.isArray(value.promptPresets) &&
+    value.promptPresets.length <= 50 &&
+    value.promptPresets.every((preset) => isRecord(preset) && nonEmptyText(preset.id, 96) && nonEmptyText(preset.name, 128) && typeof preset.content === 'string' && preset.content.length <= 20_000)
+  )
 }
 
 export function isGenerationSnapshot(value: unknown): value is GenerationSnapshot {

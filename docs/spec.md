@@ -1,11 +1,34 @@
 # Mugen 当前功能规格
 
-版本：0.2
-日期：2026-07-17
+版本：1.0
+日期：2026-08-11
+
+## 产品标识与线上入口
+
+- 项目技术名统一为 `mugen`，英文品牌名为 `Mugen`，中文产品名为“无幻”。
+- Photoshop 插件 ID 为 `com.tanshow.mugen`，独立插件 ID 为 `com.tanshow.mugen.standalone`，工作区 package scope 为 `@mugen/*`。
+- 正式站点为 `https://mugen.catrefuse.com/`，公开 WebUI 镜像为 `https://mugen.catrefuse.com/webui/`，发行清单位于 `https://mugen.catrefuse.com/releases/`。
+- 当前 CCX 版本为 `1.0.0`，Inner WebUI 版本为 `0.1.0`；Electron 桌面端继续独立版本化。
+- 新配置写入 `mugen.settings.v1` 与 `mugen.theme.v1`；读取时兼容旧版 `lightyear-banana.*` key，成功迁移后只写入新 key。
+- `mugen.catrefuse.com` 使用独立 Let’s Encrypt 证书；官网从 `/` 提供，公开 WebUI 镜像从 `/webui/` 提供。
+- Photoshop 插件从 CCX 内的 `plugin:/webui/index.html` 打开工作台，不依赖公网 WebUI；桥接只允许本地 WebView。
+- 旧域名 `webui.catrefuse.com` 只提供到新域名的 HTTPS 308 跳转。
+- 官网只提供 `mugen-1.0.0.ccx`，不展示 macOS 或 Windows 桌面端下载。
+- 官网静态资源使用相对路径，必须同时支持从域名根路径和本地静态预览加载。
 
 ## 本次范围
 
-本规格覆盖三项已实现能力：Nothing 视觉主题、Provider 注册架构、预设提示词。现有工作台、参考图、模型参数、生成结果和 Photoshop 画布流程保持原有信息架构。
+本规格覆盖 Nothing 视觉主题、Provider 注册架构、预设提示词，以及 Electron 工作台到 Photoshop 内置 WebUI 的迁移。WebUI 直接复用原工作台组件、交互和样式，参考图、模型参数、生成结果与 Photoshop 画布流程保持原有信息架构。
+
+## Photoshop 内置 WebUI
+
+- `apps/inner-webui` 的生产入口直接渲染共享 `src/components/mugen/MugenPanel.vue`，不保留另一套生产 UI。
+- WebUI 通过 `inner-host/v1` 调用 UXP Host；模型 API、文件、凭据、画布和历史操作都在 Host 中执行。
+- 生产入口只能使用 `WebViewHostClient`；无宿主时显示不可用状态，URL 参数不得启用 Mock Host。
+- Mock Host 只允许在单元测试和 Playwright 测试夹具中使用，不得进入生产 bundle。
+- CCX 必须包含 WebUI 的 HTML、JavaScript、CSS 和本地字体，资源路径必须相对 `webui/index.html`。
+- UXP 宿主根节点必须占满面板可视区，并在面板尺寸变化时把实际像素宽高同步给 WebView；WebUI 不得退化为顶部固定高度区域。
+- 主题、模型配置和预设提示词通过 UXP 数据目录保存；API Key 只保存在 UXP SecureStorage。
 
 ## Nothing 主题
 
@@ -13,8 +36,7 @@
 
 - 界面主题支持 `Nothing` 和 `经典`，默认使用 `Nothing`。
 - 明暗模式支持 `跟随系统`、`深色`、`浅色`，首次使用默认深色。
-- 主题偏好写入 `localStorage` key `mugen.theme.v1`。
-- 首次启动时读取旧版 `lightyear-banana.theme.v1` 并写入 Mugen key，保留已有主题偏好。
+- Electron 主题偏好写入 `localStorage` key `mugen.theme.v1`；Photoshop 内置 WebUI 通过 UXP 设置文件保存主题偏好。
 - Nothing 使用本地打包的 Doto、Space Grotesk 和 Space Mono 字体，不依赖远程字体服务。
 - 经典主题保留原有字体和主体样式。
 - Nothing 与经典主题共用组件尺寸、间距、布局和响应式规则，切换主题不会改变界面几何结构。
@@ -66,8 +88,7 @@
 - 名称长度为 1–24 个 Unicode 字符，只支持中文、英文字母、数字、`_`、`-`。
 - 名称使用 NFKC 和 ASCII 小写规则检查冲突。
 - 提示词内容不能为空，可以包含多行和任意正文。
-- 预设与模型配置一起写入 `localStorage` key `mugen.settings.v1`。
-- 首次启动时读取旧版 `lightyear-banana.settings.v1` 并写入 Mugen key，保留已有配置、历史和预设。
+- Electron 中预设与模型配置写入 `localStorage` key `mugen.settings.v1`；Photoshop 内置 WebUI 通过 UXP 设置文件保存相同数据。
 
 ### 调用
 
@@ -89,5 +110,8 @@
 - `node scripts/imini-provider-smoke.mjs`
 - `npm run build:web`
 - `npm run verify:uxp`
+- `npm run smoke:apimart-server`
 - 浏览器检查 390px 深色、390px 浅色、主题菜单、预设管理、斜杠菜单和 260px 窄面板。
 - Photoshop 中执行 UXP Developer Tools Reload 后检查中转面板的实际字体、明暗模式、连接状态和重连按钮。
+- 安装最终 CCX 后，在 Photoshop 中选择图层，通过插件创建 APIMart 配置并填写本地 Base URL 与测试 Key，抓取图层作为参考图，生成猫图并将结果置入当前文档。
+- `/__smoke/state` 必须显示上传、生成和任务查询均被调用，Photoshop 文档必须出现新生成结果图层。

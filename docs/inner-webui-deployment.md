@@ -32,7 +32,7 @@ Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.1.0`，CCX 使用 `1.0.0`，�
 - `__INNER_WEBUI_ROOT__`
 - `__RELEASES_ROOT__`
 
-`__INNER_WEBUI_ROOT__` 必须与 `DEPLOY_WEB_ROOT` 相同，`__RELEASES_ROOT__` 必须与 `DEPLOY_RELEASES_ROOT` 相同。Nginx 的全局 `http` 配置必须加载标准 `mime.types`，确保 JavaScript 返回 JavaScript MIME、CSS 返回 `text/css`。`/releases/latest.json` 禁止缓存，版本化发行文件使用不可变缓存，点号开头的备份文件不会公开。启用配置后先执行 `nginx -t`，通过后再 reload，并通过 `nginx -T` 确认最终配置包含模板中的 CSP、HSTS 和 `nosniff` 响应头。WebUI 使用 Hash Router，浏览器路径固定在 `/inner/v1/`。
+`__INNER_WEBUI_ROOT__` 必须与 `DEPLOY_WEB_ROOT` 相同，`__RELEASES_ROOT__` 必须与 `DEPLOY_RELEASES_ROOT` 相同。Nginx 的全局 `http` 配置必须加载标准 `mime.types`，确保 JavaScript 返回 JavaScript MIME、CSS 返回 `text/css`。`/releases/latest.json` 禁止缓存，版本化发行文件使用不可变缓存，点号开头的备份文件不会公开。启用配置后先执行 `nginx -t`，通过后再 reload，并通过 `nginx -T` 确认最终配置包含模板中的 CSP、HSTS 和 `nosniff` 响应头。WebUI 使用 Hash Router，浏览器路径固定在 `/webui/`。
 
 部署账号只需要目标目录的写权限，不使用日常管理员账号。服务器需要提供 POSIX `sh`、`tar`、`grep`、`flock`、`sha256sum`、`readlink`、`ln` 和 GNU `cp`、`mv`。模板启用 HSTS；同一域名仍承载 HTTP 资源时，先完成全站 HTTPS 迁移再启用该配置。
 

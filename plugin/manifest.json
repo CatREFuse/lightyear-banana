@@ -22,8 +22,9 @@
     },
     "webview": {
       "allow": "yes",
-      "domains": ["https://inner-webui.invalid"],
-      "enableMessageBridge": "localAndRemote"
+      "domains": [],
+      "allowLocalRendering": "yes",
+      "enableMessageBridge": "localOnly"
     }
   },
   "entrypoints": [
@@ -38,7 +39,7 @@
       "type": "panel",
       "id": "panel",
       "label": {
-        "default": "Mugen"
+        "default": "无幻"
       },
       "minimumSize": {
         "width": 260,

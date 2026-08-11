@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import { buildInfo } from '../../buildInfo'
-import { useMugen } from '../../composables/useMugen'
-import { useThemePreferences } from '../../composables/useThemePreferences'
+import { useMugen, type MugenController } from '../../composables/useMugen'
+import { useThemePreferences, type ThemePreferencesController } from '../../composables/useThemePreferences'
 import { hasElectronBridge, openElectronPreviewImage } from '../../services/electronBridge'
 import type { DesktopPlatform, RuntimeName } from '../../types/mugen'
 import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
@@ -16,8 +16,16 @@ const props = defineProps<{
   runtime: RuntimeName
   desktopPlatform: DesktopPlatform
   showWindowControls?: boolean
+  controller?: MugenController
+  version?: string
+  appUpdateCheckAvailable?: boolean
+  diagnosticExportAvailable?: boolean
+  macPermissionSettingsAvailable?: boolean
+  themeController?: ThemePreferencesController
 }>()
 
+const localController = props.controller ? undefined : useMugen(props.runtime)
+const localThemeController = props.themeController ? undefined : useThemePreferences()
 const {
   activeCapability,
   activeConfigId,
@@ -87,7 +95,7 @@ const {
   updatePromptPresets,
   windowDeployState,
   useResultAsReference
-} = useMugen(props.runtime)
+} = props.controller ?? localController!
 
 const {
   colorMode,
@@ -95,7 +103,7 @@ const {
   setColorMode,
   setVisualTheme,
   visualTheme
-} = useThemePreferences()
+} = props.themeController ?? localThemeController!
 const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
 const previewDialogStyle = computed(() => {
@@ -117,7 +125,7 @@ const previewDialogStyle = computed(() => {
 })
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return `Mugen v${buildInfo.version}`
+    return `无幻 v${props.version || buildInfo.version}`
   }
 
   if (settingsView.value === 'list') {
@@ -250,9 +258,9 @@ function handleManageModels() {
         :configs="configs"
         :editing-capability="editingCapability"
         :editing-config-id="editingConfigId"
-        :mac-permission-settings-available="props.runtime === 'electron' && props.desktopPlatform === 'darwin'"
-        :app-update-check-available="props.runtime === 'electron'"
-        :diagnostic-export-available="props.runtime === 'electron'"
+        :mac-permission-settings-available="props.macPermissionSettingsAvailable ?? (props.runtime === 'electron' && props.desktopPlatform === 'darwin')"
+        :app-update-check-available="props.appUpdateCheckAvailable ?? props.runtime === 'electron'"
+        :diagnostic-export-available="props.diagnosticExportAvailable ?? props.runtime === 'electron'"
         :diagnostic-export-state="diagnosticExportState"
         :crx-log-export-state="crxLogExportState"
         :provider-capabilities="providerCapabilities"
@@ -373,19 +381,19 @@ function handleManageModels() {
 
 <style scoped>
 .mugen-shell {
-  --lb-accent: #2f8cff;
-  --lb-accent-soft: rgba(47, 140, 255, 0.14);
-  --lb-danger: #ffb4c0;
-  --lb-danger-bg: rgba(236, 81, 93, 0.11);
-  --lb-danger-border: rgba(255, 111, 126, 0.32);
-  --lb-danger-muted: #ff9aa8;
-  --lb-danger-text: #ffd7dc;
-  --lb-success: #43d17a;
-  --lb-success-bg: rgba(31, 156, 91, 0.14);
-  --lb-success-ring: rgba(67, 209, 122, 0.16);
-  --lb-warning: #ffbd2e;
-  --lb-warning-ring: rgba(255, 189, 46, 0.16);
-  --lb-neutral-ring: rgba(116, 128, 147, 0.13);
+  --mugen-accent: #2f8cff;
+  --mugen-accent-soft: rgba(47, 140, 255, 0.14);
+  --mugen-danger: #ffb4c0;
+  --mugen-danger-bg: rgba(236, 81, 93, 0.11);
+  --mugen-danger-border: rgba(255, 111, 126, 0.32);
+  --mugen-danger-muted: #ff9aa8;
+  --mugen-danger-text: #ffd7dc;
+  --mugen-success: #43d17a;
+  --mugen-success-bg: rgba(31, 156, 91, 0.14);
+  --mugen-success-ring: rgba(67, 209, 122, 0.16);
+  --mugen-warning: #ffbd2e;
+  --mugen-warning-ring: rgba(255, 189, 46, 0.16);
+  --mugen-neutral-ring: rgba(116, 128, 147, 0.13);
   position: relative;
   display: flex;
   width: 100%;
@@ -394,8 +402,8 @@ function handleManageModels() {
   min-height: 100%;
   flex-direction: column;
   overflow: hidden;
-  background: var(--lb-bg);
-  color: var(--lb-text);
+  background: var(--mugen-bg);
+  color: var(--mugen-text);
 }
 
 .operation-status {
@@ -405,19 +413,19 @@ function handleManageModels() {
   gap: 8px;
   min-height: 28px;
   padding: 4px 12px;
-  border-top: 1px solid var(--lb-hairline);
-  background: var(--lb-composer);
-  color: var(--lb-secondary);
+  border-top: 1px solid var(--mugen-hairline);
+  background: var(--mugen-composer);
+  color: var(--mugen-secondary);
   font-size: 11px;
 }
 
 .operation-status > span {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .operation-status > strong {
   overflow: hidden;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -441,17 +449,17 @@ function handleManageModels() {
   max-width: calc(100% - 24px);
   min-height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  color: var(--lb-text);
-  box-shadow: 0 12px 32px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  color: var(--mugen-text);
+  box-shadow: 0 12px 32px var(--mugen-shadow);
   font-size: 12px;
   white-space: nowrap;
 }
 
 .toast :deep(.box-icon) {
-  color: var(--lb-accent);
+  color: var(--mugen-accent);
 }
 
 .toast-pop-enter-active,
@@ -484,10 +492,10 @@ function handleManageModels() {
   max-width: calc(100vw - 28px);
   max-height: calc(100vh - 28px);
   overflow: hidden;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 10px;
-  background: var(--lb-overlay);
-  box-shadow: 0 20px 54px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 20px 54px var(--mugen-shadow);
 }
 
 .preview-header {
@@ -497,8 +505,8 @@ function handleManageModels() {
   justify-content: space-between;
   gap: 10px;
   padding: 10px 10px 8px;
-  border-bottom: 1px solid var(--lb-hairline);
-  color: var(--lb-secondary);
+  border-bottom: 1px solid var(--mugen-hairline);
+  color: var(--mugen-secondary);
   font-size: 12px;
 }
 
@@ -524,13 +532,13 @@ function handleManageModels() {
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 12px;
 }
 
 .preview-header button:hover {
-  background: var(--lb-hover);
-  color: var(--lb-text);
+  background: var(--mugen-hover);
+  color: var(--mugen-text);
 }
 
 .preview-media {
@@ -540,7 +548,7 @@ function handleManageModels() {
   aspect-ratio: var(--preview-aspect, 1 / 1);
   place-items: center;
   overflow: hidden;
-  background: var(--lb-thread-image-bg);
+  background: var(--mugen-thread-image-bg);
 }
 
 .preview-media img {
@@ -588,70 +596,70 @@ function handleManageModels() {
 
 .mugen-shell.theme-dark {
   color-scheme: dark;
-  --lb-bg: #1a2028;
-  --lb-workspace: #151b23;
-  --lb-thread-bg: #0d1218;
-  --lb-thread-surface: #202733;
-  --lb-thread-surface-2: #252d39;
-  --lb-thread-card: #1b222c;
-  --lb-thread-card-deep: #171e27;
-  --lb-thread-image-bg: #111720;
-  --lb-composer: #171e27;
-  --lb-surface: #242b36;
-  --lb-surface-2: #2c3440;
-  --lb-field: #1e2630;
-  --lb-card: #202733;
-  --lb-card-deep: #1b222c;
-  --lb-overlay: #242b36;
-  --lb-border: rgba(168, 179, 196, 0.15);
-  --lb-border-strong: rgba(180, 190, 205, 0.24);
-  --lb-hairline: rgba(168, 179, 196, 0.12);
-  --lb-hover: rgba(255, 255, 255, 0.045);
-  --lb-text: #f3f4f6;
-  --lb-secondary: #aeb5c2;
-  --lb-muted: #7e8795;
-  --lb-empty-bg: rgba(255, 255, 255, 0.045);
-  --lb-shadow: rgba(0, 0, 0, 0.38);
+  --mugen-bg: #1a2028;
+  --mugen-workspace: #151b23;
+  --mugen-thread-bg: #0d1218;
+  --mugen-thread-surface: #202733;
+  --mugen-thread-surface-2: #252d39;
+  --mugen-thread-card: #1b222c;
+  --mugen-thread-card-deep: #171e27;
+  --mugen-thread-image-bg: #111720;
+  --mugen-composer: #171e27;
+  --mugen-surface: #242b36;
+  --mugen-surface-2: #2c3440;
+  --mugen-field: #1e2630;
+  --mugen-card: #202733;
+  --mugen-card-deep: #1b222c;
+  --mugen-overlay: #242b36;
+  --mugen-border: rgba(168, 179, 196, 0.15);
+  --mugen-border-strong: rgba(180, 190, 205, 0.24);
+  --mugen-hairline: rgba(168, 179, 196, 0.12);
+  --mugen-hover: rgba(255, 255, 255, 0.045);
+  --mugen-text: #f3f4f6;
+  --mugen-secondary: #aeb5c2;
+  --mugen-muted: #7e8795;
+  --mugen-empty-bg: rgba(255, 255, 255, 0.045);
+  --mugen-shadow: rgba(0, 0, 0, 0.38);
 }
 
 .mugen-shell.theme-light {
   color-scheme: light;
-  --lb-bg: #ffffff;
-  --lb-workspace: #f6f6f4;
-  --lb-thread-bg: #eef0f3;
-  --lb-thread-surface: #ffffff;
-  --lb-thread-surface-2: #ffffff;
-  --lb-thread-card: #ffffff;
-  --lb-thread-card-deep: #ffffff;
-  --lb-thread-image-bg: #e8ebf0;
-  --lb-composer: #ffffff;
-  --lb-surface: #f4f4f2;
-  --lb-surface-2: #ececea;
-  --lb-field: #f7f7f5;
-  --lb-card: #ffffff;
-  --lb-card-deep: #f5f5f3;
-  --lb-overlay: #ffffff;
-  --lb-border: rgba(48, 43, 35, 0.12);
-  --lb-border-strong: rgba(48, 43, 35, 0.2);
-  --lb-hairline: rgba(48, 43, 35, 0.1);
-  --lb-hover: rgba(48, 43, 35, 0.055);
-  --lb-text: #22211e;
-  --lb-secondary: #5d5a53;
-  --lb-muted: #8a857c;
-  --lb-empty-bg: rgba(48, 43, 35, 0.055);
-  --lb-shadow: rgba(67, 57, 39, 0.18);
-  --lb-accent-soft: rgba(47, 140, 255, 0.13);
-  --lb-danger: #a63b4a;
-  --lb-danger-bg: #fff0f2;
-  --lb-danger-border: rgba(185, 48, 65, 0.3);
-  --lb-danger-muted: #b33446;
-  --lb-danger-text: #7f1d2d;
-  --lb-success: #1b7f4d;
-  --lb-success-bg: rgba(27, 127, 77, 0.12);
-  --lb-success-ring: rgba(27, 127, 77, 0.16);
-  --lb-warning: #936300;
-  --lb-warning-ring: rgba(147, 99, 0, 0.16);
-  --lb-neutral-ring: rgba(99, 95, 88, 0.14);
+  --mugen-bg: #ffffff;
+  --mugen-workspace: #f6f6f4;
+  --mugen-thread-bg: #eef0f3;
+  --mugen-thread-surface: #ffffff;
+  --mugen-thread-surface-2: #ffffff;
+  --mugen-thread-card: #ffffff;
+  --mugen-thread-card-deep: #ffffff;
+  --mugen-thread-image-bg: #e8ebf0;
+  --mugen-composer: #ffffff;
+  --mugen-surface: #f4f4f2;
+  --mugen-surface-2: #ececea;
+  --mugen-field: #f7f7f5;
+  --mugen-card: #ffffff;
+  --mugen-card-deep: #f5f5f3;
+  --mugen-overlay: #ffffff;
+  --mugen-border: rgba(48, 43, 35, 0.12);
+  --mugen-border-strong: rgba(48, 43, 35, 0.2);
+  --mugen-hairline: rgba(48, 43, 35, 0.1);
+  --mugen-hover: rgba(48, 43, 35, 0.055);
+  --mugen-text: #22211e;
+  --mugen-secondary: #5d5a53;
+  --mugen-muted: #8a857c;
+  --mugen-empty-bg: rgba(48, 43, 35, 0.055);
+  --mugen-shadow: rgba(67, 57, 39, 0.18);
+  --mugen-accent-soft: rgba(47, 140, 255, 0.13);
+  --mugen-danger: #a63b4a;
+  --mugen-danger-bg: #fff0f2;
+  --mugen-danger-border: rgba(185, 48, 65, 0.3);
+  --mugen-danger-muted: #b33446;
+  --mugen-danger-text: #7f1d2d;
+  --mugen-success: #1b7f4d;
+  --mugen-success-bg: rgba(27, 127, 77, 0.12);
+  --mugen-success-ring: rgba(27, 127, 77, 0.16);
+  --mugen-warning: #936300;
+  --mugen-warning-ring: rgba(147, 99, 0, 0.16);
+  --mugen-neutral-ring: rgba(99, 95, 88, 0.14);
 }
 
 .route-shell {
@@ -660,7 +668,7 @@ function handleManageModels() {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  background: var(--lb-workspace);
+  background: var(--mugen-workspace);
 }
 
 .route-page {
@@ -699,7 +707,7 @@ function handleManageModels() {
   display: flex;
   min-height: 0;
   flex-direction: column;
-  background: var(--lb-workspace);
+  background: var(--mugen-workspace);
 }
 
 @media (prefers-reduced-motion: reduce) {

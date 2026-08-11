@@ -39,7 +39,7 @@ const emit = defineEmits<{
 .reference-thumb {
   width: 56px;
   margin: 0;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
   text-align: center;
 }
@@ -55,7 +55,7 @@ const emit = defineEmits<{
   overflow: hidden;
   border: 0;
   border-radius: 7px;
-  background: var(--lb-field);
+  background: var(--mugen-field);
   cursor: zoom-in;
 }
 
@@ -79,7 +79,7 @@ img {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--lb-accent);
+  background: var(--mugen-accent);
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -100,8 +100,8 @@ img {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: var(--lb-card-deep);
-  color: var(--lb-text);
+  background: var(--mugen-card-deep);
+  color: var(--mugen-text);
   font-size: 13px;
   line-height: 17px;
 }

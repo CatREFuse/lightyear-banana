@@ -186,6 +186,75 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
   }
 }
 
+export async function verifyCcxRelease({ root = rootFromScript } = {}) {
+  const pluginManifest = JSON.parse(await readFile(join(root, "plugin", "manifest.json"), "utf8"))
+  const standaloneManifest = JSON.parse(await readFile(join(root, "standalone-uxp-plugin", "manifest.json"), "utf8"))
+  const ccxVersion = requireSemver(pluginManifest.version, "plugin manifest version")
+  requireEqual(standaloneManifest.version, ccxVersion, "standalone manifest version")
+
+  const uxpMetadataPath = join(root, "dist", "uxp-release.json")
+  let uxpMetadata
+  try {
+    uxpMetadata = JSON.parse(await readFile(uxpMetadataPath, "utf8"))
+  } catch (error) {
+    fail(`cannot read ${uxpMetadataPath}: ${error.message}`)
+  }
+  requireObject(uxpMetadata, "dist/uxp-release.json")
+  requireEqual(uxpMetadata.schemaVersion, 1, "uxp-release.json schemaVersion")
+  requireEqual(uxpMetadata.ccxVersion, ccxVersion, "uxp-release.json ccxVersion")
+  requireEqual(uxpMetadata.filename, `mugen-${ccxVersion}.ccx`, "uxp-release.json filename")
+  requireEqual(uxpMetadata.dirty, false, "uxp-release.json dirty")
+  if (typeof uxpMetadata.sourceCommit !== "string" || !/^[a-fA-F0-9]{40}$/.test(uxpMetadata.sourceCommit)) {
+    fail("uxp-release.json sourceCommit must contain 40 hexadecimal characters")
+  }
+  if (typeof uxpMetadata.builtAt !== "string" || Number.isNaN(Date.parse(uxpMetadata.builtAt))) {
+    fail("uxp-release.json builtAt must be an ISO timestamp")
+  }
+  if (typeof uxpMetadata.sha256 !== "string" || !/^[a-fA-F0-9]{64}$/.test(uxpMetadata.sha256)) {
+    fail("uxp-release.json sha256 must contain 64 hexadecimal characters")
+  }
+  const webviewOrigin = assertProductionOrigin(uxpMetadata.webviewOrigin, "uxp-release.json webviewOrigin")
+  const releaseUrl = resolveReleaseUrl({
+    processEnvironment: { INNER_RELEASE_URL: uxpMetadata.releaseUrl },
+    webviewOrigin,
+    production: true
+  }).href
+  requireEqual(uxpMetadata.releaseUrl, releaseUrl, "uxp-release.json releaseUrl")
+
+  const path = join(root, "dist", uxpMetadata.filename)
+  const checksumPath = `${path}.sha256`
+  let fileStats
+  try {
+    fileStats = await stat(path)
+  } catch (error) {
+    fail(`cannot read ${path}: ${error.message}`)
+  }
+  if (!fileStats.isFile() || fileStats.size <= 0) fail(`${path} must be a non-empty file`)
+
+  let checksumContents
+  try {
+    checksumContents = await readFile(checksumPath, "utf8")
+  } catch (error) {
+    fail(`cannot read ${checksumPath}: ${error.message}`)
+  }
+  const listedChecksums = parseChecksums(checksumContents, [uxpMetadata.filename])
+  const sha256 = await sha256File(path)
+  requireEqual(listedChecksums.get(uxpMetadata.filename), sha256, `SHA256 for ${uxpMetadata.filename}`)
+  requireEqual(uxpMetadata.sha256.toLowerCase(), sha256, "uxp-release.json CCX SHA256")
+
+  return {
+    version: ccxVersion,
+    ccxVersion,
+    releaseDir: join(root, "dist"),
+    checksumPath,
+    uxpMetadataPath,
+    uxpMetadata,
+    artifacts: {
+      ccx: { filename: uxpMetadata.filename, path, sha256, size: fileStats.size }
+    }
+  }
+}
+
 function findAnchor(html, attribute, value) {
   const expectedAttribute = value
     ? `${escapeRegExp(attribute)}=["']${escapeRegExp(value)}["']`
@@ -263,7 +332,7 @@ export async function verifySiteMetadata({
   siteDir = join(root, "site"),
   bundle
 } = {}) {
-  const verifiedBundle = bundle ?? await verifyReleaseBundle({ root })
+  const verifiedBundle = bundle ?? await verifyCcxRelease({ root })
   const { version, artifacts, uxpMetadata } = verifiedBundle
   const latestPath = join(siteDir, "releases", "latest.json")
   const releaseRootUrl = uxpMetadata.releaseUrl
@@ -280,7 +349,8 @@ export async function verifySiteMetadata({
   requireEqual(latest.updateCheckUrl, updateCheckUrl, "latest.json updateCheckUrl")
   requireObject(latest.downloads, "latest.json downloads")
 
-  for (const key of ["mac", "windows", "ccx"]) {
+  requireEqual(Object.keys(latest.downloads).sort().join(","), "ccx", "latest.json download keys")
+  for (const key of ["ccx"]) {
     const artifact = artifacts[key]
     const download = latest.downloads[key]
     requireObject(download, `latest.json downloads.${key}`)
@@ -291,7 +361,7 @@ export async function verifySiteMetadata({
   }
 
   const html = materializeReleaseOrigin(await readFile(join(siteDir, "index.html"), "utf8"), releaseOrigin)
-  for (const [key, dataDownload] of [["mac", "mac"], ["windows", "win"], ["ccx", "ccx"]]) {
+  for (const [key, dataDownload] of [["ccx", "ccx"]]) {
     const artifact = artifacts[key]
     const expectedUrl = `${releaseBaseUrl}/${artifact.filename}`
     const anchor = findAnchor(html, "data-download", dataDownload)
@@ -314,7 +384,7 @@ export async function verifySiteMetadata({
   requireEqual(readFollowingLine(llms, "Manifest:"), updateCheckUrl, "llms.txt manifest URL")
   requireEqual(readFollowingLine(llms, "Release checksums:"), expectedReleaseUrl, "llms.txt release checksums URL")
 
-  for (const [key, heading] of [["mac", "macOS desktop:"], ["windows", "Windows desktop:"], ["ccx", "Adobe Photoshop plugin:"]]) {
+  for (const [key, heading] of [["ccx", "Adobe Photoshop plugin:"]]) {
     const artifact = artifacts[key]
     const block = readDownloadBlock(llms, heading)
     requireEqual(block.url, `${releaseBaseUrl}/${artifact.filename}`, `llms.txt ${key} URL`)
@@ -330,7 +400,7 @@ export async function verifySiteMetadata({
 }
 
 export async function verifyReleaseSite(options = {}) {
-  const bundle = await verifyReleaseBundle(options)
+  const bundle = await verifyCcxRelease(options)
   return await verifySiteMetadata({ ...options, bundle })
 }
 

@@ -179,7 +179,7 @@ if (hasCustomIcon) {
   run('plutil', ['-remove', 'CFBundleIconFile', plistPath])
 }
 run('plutil', ['-replace', 'CFBundleName', '-string', appName, plistPath])
-run('plutil', ['-replace', 'CFBundleIdentifier', '-string', 'com.tanshow.mugen.desktop', plistPath])
+run('plutil', ['-replace', 'CFBundleIdentifier', '-string', 'com.mugen.banana', plistPath])
 run('plutil', ['-replace', 'CFBundleShortVersionString', '-string', packageJson.version, plistPath])
 run('plutil', ['-replace', 'CFBundleVersion', '-string', packageJson.version, plistPath])
 run('plutil', [

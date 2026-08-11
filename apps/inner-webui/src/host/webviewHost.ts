@@ -17,7 +17,6 @@ import type {
 } from '@mugen/inner-protocol'
 import {
   BridgeValidationError,
-  CLIENT_READY_SIGNAL,
   HostClientError,
   PROTOCOL_VERSION,
   assertMessageSize,
@@ -25,20 +24,13 @@ import {
   createRequestEnvelope,
   isProtocolCompatible,
   parseBridgeEnvelope,
-  readLocationBridgeMessage,
   toModelConfig,
   toWebUiAssetRef,
   validateCommandResult,
   validateHostEventPayload
 } from '@mugen/inner-protocol'
 
-type UxpHostMessageListener = (event: MessageEvent) => void
-
-export type UxpHostBridge = {
-  postMessage(message: unknown): void
-  addEventListener?(type: 'message', listener: UxpHostMessageListener): void
-  removeEventListener?(type: 'message', listener: UxpHostMessageListener): void
-}
+export type UxpHostBridge = { postMessage(message: unknown): void }
 
 declare global {
   interface Window {
@@ -89,26 +81,20 @@ export class WebViewHostClient implements HostClient {
   private readonly compatibilityListeners = new Set<(event: HostEvent) => void>()
   private readyState?: ReadyState
   private establishedSessionId?: string
-  private readonly readySignalTimer: ReturnType<typeof setInterval>
   private disposed = false
 
   constructor(private readonly host: UxpHostBridge = window.uxpHost as UxpHostBridge) {
     if (!host || typeof host.postMessage !== 'function') throw clientError('HOST_UNAVAILABLE', 'Photoshop 宿主暂时不可用')
     window.addEventListener('message', this.handleMessage)
-    window.addEventListener('hashchange', this.handleLocationMessage)
-    host.addEventListener?.('message', this.handleMessage)
-    host.postMessage(CLIENT_READY_SIGNAL)
-    this.readySignalTimer = setInterval(() => {
-      if (!this.readyState && !this.disposed) host.postMessage(CLIENT_READY_SIGNAL)
-    }, 1_000)
   }
 
-  private acceptIncoming(data: unknown) {
+  private handleMessage = (event: MessageEvent) => {
     if (this.disposed) return
+    if (event.source !== (this.host as unknown as MessageEventSource)) return
 
     let envelope: BridgeEnvelope
     try {
-      envelope = parseBridgeEnvelope(incomingPayload(data))
+      envelope = parseBridgeEnvelope(incomingPayload(event.data))
     } catch {
       return
     }
@@ -121,15 +107,6 @@ export class WebViewHostClient implements HostClient {
     if (!this.readyState || envelope.sessionId !== this.readyState.sessionId) return
     if (envelope.kind === 'response') this.acceptResponse(envelope)
     if (envelope.kind === 'event' && this.establishedSessionId === envelope.sessionId) this.acceptEvent(envelope)
-  }
-
-  private handleMessage = (event: MessageEvent) => {
-    this.acceptIncoming(event.data)
-  }
-
-  private handleLocationMessage = () => {
-    const message = readLocationBridgeMessage(window.location.hash)
-    if (message !== undefined) this.acceptIncoming(message)
   }
 
   private acceptReady(envelope: BridgeEnvelope) {
@@ -146,7 +123,6 @@ export class WebViewHostClient implements HostClient {
       this.establishedSessionId = undefined
     }
     this.readyState = next
-    clearInterval(this.readySignalTimer)
     for (const waiter of this.readyWaiters) {
       clearTimeout(waiter.timeoutId)
       waiter.resolve(next)
@@ -281,14 +257,14 @@ export class WebViewHostClient implements HostClient {
 
   async handshake(payload: Handshake): Promise<HandshakeResult> {
     const ready = await this.waitForReady()
-    if (!isProtocolCompatible(ready.payload.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', 'Mugen 插件需要更新', false)
+    if (!isProtocolCompatible(ready.payload.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', '无幻插件需要更新', false)
     const request = { ...payload, hostNonce: ready.payload.hostNonce }
     const result = await this.sendRequest('host.handshake', request, ready.sessionId)
     if (result.sessionId !== ready.sessionId || result.clientNonce !== payload.clientNonce || result.hostNonce !== ready.payload.hostNonce) {
       this.establishedSessionId = undefined
       throw clientError('HANDSHAKE_MISMATCH', '宿主会话验证失败', false)
     }
-    if (!isProtocolCompatible(result.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', 'Mugen 插件需要更新', false)
+    if (!isProtocolCompatible(result.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', '无幻插件需要更新', false)
     this.establishedSessionId = result.sessionId
     return result
   }
@@ -346,10 +322,7 @@ export class WebViewHostClient implements HostClient {
   dispose() {
     if (this.disposed) return
     this.disposed = true
-    clearInterval(this.readySignalTimer)
     window.removeEventListener('message', this.handleMessage)
-    window.removeEventListener('hashchange', this.handleLocationMessage)
-    this.host.removeEventListener?.('message', this.handleMessage)
     this.rejectPending(clientError('CLIENT_DISPOSED', '宿主连接已关闭', false))
     for (const waiter of this.readyWaiters) {
       clearTimeout(waiter.timeoutId)

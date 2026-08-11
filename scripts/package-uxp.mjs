@@ -23,12 +23,6 @@ if (typeof builtManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(builtMa
   throw new Error('Built UXP manifest must contain a semantic version.')
 }
 
-const webviewDomains = builtManifest.requiredPermissions?.webview?.domains
-if (!Array.isArray(webviewDomains) || webviewDomains.length !== 1) {
-  throw new Error('Built UXP manifest must contain one exact production WebView origin.')
-}
-const webviewOrigin = assertProductionOrigin(webviewDomains[0], 'Built UXP WebView domain')
-
 function readKeyEnvironment() {
   const filePath = path.join(projectRoot, 'key.env')
   if (!existsSync(filePath)) return {}
@@ -46,9 +40,21 @@ function readKeyEnvironment() {
   )
 }
 
+const webviewDomains = builtManifest.requiredPermissions?.webview?.domains
+if (
+  !Array.isArray(webviewDomains) || webviewDomains.length !== 0 ||
+  builtManifest.requiredPermissions?.webview?.allowLocalRendering !== 'yes' ||
+  builtManifest.requiredPermissions?.webview?.enableMessageBridge !== 'localOnly'
+) {
+  throw new Error('Built UXP manifest must use only the bundled local WebUI bridge.')
+}
+const keyEnvironment = readKeyEnvironment()
+const hostedWebUiUrl = new URL(process.env.INNER_WEBUI_URL ?? keyEnvironment.INNER_WEBUI_URL ?? 'https://mugen.catrefuse.com/webui/')
+const webviewOrigin = assertProductionOrigin(hostedWebUiUrl.origin, 'Published WebUI origin')
+
 const releaseUrl = resolveReleaseUrl({
   processEnvironment: process.env,
-  keyEnvironment: readKeyEnvironment(),
+  keyEnvironment,
   webviewOrigin,
   production: true
 }).href

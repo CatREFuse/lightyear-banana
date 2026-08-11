@@ -222,8 +222,8 @@ watch(
 .prompt-preset-settings {
   display: grid;
   gap: 24px;
-  color: var(--lb-text, #e8e8e8);
-  font-family: var(--lb-font-body, "Space Grotesk", system-ui, sans-serif);
+  color: var(--mugen-text, #e8e8e8);
+  font-family: var(--mugen-font-body, "Space Grotesk", system-ui, sans-serif);
 }
 
 .section-heading {
@@ -245,15 +245,15 @@ watch(
 
 .section-heading p,
 .section-heading > span {
-  color: var(--lb-muted, #999999);
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  color: var(--mugen-muted, #999999);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .section-heading h2 {
-  color: var(--lb-text, #e8e8e8);
+  color: var(--mugen-text, #e8e8e8);
   font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -263,7 +263,7 @@ watch(
   display: grid;
   gap: 16px;
   padding-top: 16px;
-  border-top: 1px solid var(--lb-border-strong, #333333);
+  border-top: 1px solid var(--mugen-border-strong, #333333);
 }
 
 .form-heading {
@@ -288,27 +288,27 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--lb-muted, #999999);
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  color: var(--mugen-muted, #999999);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .field-label .invalid {
-  color: var(--lb-danger, #d71921);
+  color: var(--mugen-danger, #d71921);
 }
 
 input,
 textarea {
   box-sizing: border-box;
   width: 100%;
-  border: 1px solid var(--lb-border-strong, #333333);
+  border: 1px solid var(--mugen-border-strong, #333333);
   border-radius: 4px;
   outline: 0;
   background: transparent;
-  color: var(--lb-text, #e8e8e8);
-  font-family: var(--lb-font-body, "Space Grotesk", system-ui, sans-serif);
+  color: var(--mugen-text, #e8e8e8);
+  font-family: var(--mugen-font-body, "Space Grotesk", system-ui, sans-serif);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -326,32 +326,32 @@ textarea {
 
 input:focus,
 textarea:focus {
-  border-color: var(--lb-text, #e8e8e8);
+  border-color: var(--mugen-text, #e8e8e8);
 }
 
 input[aria-invalid="true"],
 textarea[aria-invalid="true"] {
-  border-color: var(--lb-danger, #d71921);
+  border-color: var(--mugen-danger, #d71921);
 }
 
 .field-hint,
 .field-error,
 .form-error {
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 10px;
   line-height: 1.4;
 }
 
 .field-hint {
   overflow: hidden;
-  color: var(--lb-muted, #999999);
+  color: var(--mugen-muted, #999999);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .field-error,
 .form-error {
-  color: var(--lb-danger, #d71921);
+  color: var(--mugen-danger, #d71921);
 }
 
 .save-button,
@@ -360,7 +360,7 @@ textarea[aria-invalid="true"] {
 .row-actions button {
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 11px;
   letter-spacing: 0.04em;
 }
@@ -369,23 +369,23 @@ textarea[aria-invalid="true"] {
 .add-button {
   min-height: 44px;
   border: 0;
-  background: var(--lb-text, #e8e8e8);
-  color: var(--lb-workspace, #000000);
+  background: var(--mugen-text, #e8e8e8);
+  color: var(--mugen-workspace, #000000);
 }
 
 .ghost-button,
 .row-actions button {
   min-height: 36px;
   padding: 0 10px;
-  border: 1px solid var(--lb-border-strong, #333333);
+  border: 1px solid var(--mugen-border-strong, #333333);
   background: transparent;
-  color: var(--lb-secondary, #999999);
+  color: var(--mugen-secondary, #999999);
 }
 
 .ghost-button:hover,
 .row-actions button:hover {
-  border-color: var(--lb-text, #e8e8e8);
-  color: var(--lb-text, #e8e8e8);
+  border-color: var(--mugen-text, #e8e8e8);
+  color: var(--mugen-text, #e8e8e8);
 }
 
 .preset-list {
@@ -399,11 +399,11 @@ textarea[aria-invalid="true"] {
   gap: 16px;
   min-width: 0;
   padding: 16px 0;
-  border-top: 1px solid var(--lb-hairline, #222222);
+  border-top: 1px solid var(--mugen-hairline, #222222);
 }
 
 .preset-row:last-child {
-  border-bottom: 1px solid var(--lb-hairline, #222222);
+  border-bottom: 1px solid var(--mugen-hairline, #222222);
 }
 
 .preset-copy {
@@ -414,7 +414,7 @@ textarea[aria-invalid="true"] {
 
 .preset-copy strong {
   overflow: hidden;
-  color: var(--lb-text, #e8e8e8);
+  color: var(--mugen-text, #e8e8e8);
   font-size: 14px;
   font-weight: 500;
   text-overflow: ellipsis;
@@ -425,7 +425,7 @@ textarea[aria-invalid="true"] {
   display: -webkit-box;
   overflow: hidden;
   margin: 0;
-  color: var(--lb-secondary, #999999);
+  color: var(--mugen-secondary, #999999);
   font-size: 12px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
@@ -434,8 +434,8 @@ textarea[aria-invalid="true"] {
 
 .preset-copy small {
   overflow: hidden;
-  color: var(--lb-muted, #999999);
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  color: var(--mugen-muted, #999999);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 10px;
   letter-spacing: 0.04em;
   text-overflow: ellipsis;
@@ -448,16 +448,16 @@ textarea[aria-invalid="true"] {
 }
 
 .row-actions .delete-button {
-  border-color: var(--lb-danger, #d71921);
-  color: var(--lb-danger, #d71921);
+  border-color: var(--mugen-danger, #d71921);
+  color: var(--mugen-danger, #d71921);
 }
 
 .empty-state {
   margin: 0;
   padding: 48px 16px;
-  border-top: 1px solid var(--lb-hairline, #222222);
-  border-bottom: 1px solid var(--lb-hairline, #222222);
-  color: var(--lb-muted, #999999);
+  border-top: 1px solid var(--mugen-hairline, #222222);
+  border-bottom: 1px solid var(--mugen-hairline, #222222);
+  color: var(--mugen-muted, #999999);
   font-size: 13px;
   text-align: center;
 }

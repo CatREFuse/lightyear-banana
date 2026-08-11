@@ -1,4 +1,4 @@
-# Mugen
+# Mugen（无幻）
 
 在 Photoshop 里连接 AI 生图模型。你可以把当前画布、选区和图层作为参考图，生成新图片后直接置入 Photoshop 文档。
 

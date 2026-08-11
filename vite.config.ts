@@ -12,7 +12,8 @@ const environmentValues = new Set<MugenEnvironment>(['development', 'test', 'pro
 
 function resolveMugenEnvironment(mode: string): MugenEnvironment {
   const env = loadEnv(mode, process.cwd(), '')
-  const rawEnvironment = env.VITE_MUGEN_ENV ?? env.MUGEN_ENV
+  const rawEnvironment =
+    env.VITE_MUGEN_ENV ?? env.MUGEN_ENV ?? env.VITE_LIGHTYEAR_ENV ?? env.LIGHTYEAR_ENV
 
   if (environmentValues.has(rawEnvironment as MugenEnvironment)) {
     return rawEnvironment as MugenEnvironment

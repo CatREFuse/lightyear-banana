@@ -175,6 +175,17 @@ describe('BYOK credential binding', () => {
     expect(runtime.credentials.size).toBe(0)
   })
 
+  it('persists WebUI theme preferences in the UXP settings file', async () => {
+    const saved = await saveSettings({
+      activeConfigId: 'config-1',
+      configs: [config()],
+      themePreferences: { visualTheme: 'classic', colorMode: 'light' }
+    })
+
+    expect(saved.themePreferences).toEqual({ visualTheme: 'classic', colorMode: 'light' })
+    expect((await getSettings()).themePreferences).toEqual({ visualTheme: 'classic', colorMode: 'light' })
+  })
+
   it('treats unbound legacy secure-storage values as missing', async () => {
     await save(config())
     runtime.credentials.set('mugen.provider-credential.v1.config-1', new TextEncoder().encode('legacy-secret'))

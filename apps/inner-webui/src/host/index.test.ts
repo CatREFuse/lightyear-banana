@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { expectsUxpHost, requestedMockScenario } from './index'
+import { createHostClient, expectsUxpHost } from './index'
 
 describe('browser preview routing', () => {
-  it('accepts only named mock scenarios', () => {
-    expect(requestedMockScenario('?mock=success')).toBe('success')
-    expect(requestedMockScenario('?mock=provider-failure')).toBe('provider-failure')
-    expect(requestedMockScenario('')).toBeNull()
-    expect(requestedMockScenario('?mock=anything')).toBeNull()
+  it('never enables a production mock host from the URL', () => {
+    const value = { location: { search: '?mock=success' } } as unknown as Window
+    expect(createHostClient(value).mode).toBe('unavailable')
   })
 
   it('reserves the embedded marker for the UXP shell', () => {

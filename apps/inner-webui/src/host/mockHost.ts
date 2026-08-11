@@ -234,7 +234,7 @@ export class MockHostClient implements HostClient {
       case 'canvas.placeAsset': {
         const request = payload as HostCommandPayload<'canvas.placeAsset'>
         this.requireAsset(request.assetId)
-        return { layerName: 'Mugen 生成图', target: request.target } as HostCommandResult<TCommand>
+        return { layerName: '无幻生成图', target: request.target } as HostCommandResult<TCommand>
       }
       case 'asset.save': {
         const request = payload as HostCommandPayload<'asset.save'>

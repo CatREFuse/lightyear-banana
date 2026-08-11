@@ -124,7 +124,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 
 .select-label {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -144,8 +144,8 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   min-height: 28px;
   padding: 0 7px;
   border-color: transparent;
-  background: var(--lb-field);
-  color: var(--lb-text);
+  background: var(--mugen-field);
+  color: var(--mugen-text);
   font-size: 11px;
   text-align: left;
   white-space: nowrap;
@@ -170,11 +170,11 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 }
 
 .select-chevron {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .select-field.is-open .select-trigger {
-  border-color: var(--lb-accent);
+  border-color: var(--mugen-accent);
 }
 
 .select-menu {
@@ -185,10 +185,10 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   width: max(100%, 132px);
   max-height: 190px;
   overflow-y: auto;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  box-shadow: 0 12px 32px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 12px 32px var(--mugen-shadow);
 }
 
 .is-wide .select-menu {
@@ -214,7 +214,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 12px;
   text-align: left;
 }
@@ -249,30 +249,30 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   min-height: 8px;
   padding: 0;
   border-radius: 999px;
-  background: var(--lb-surface-2);
-  box-shadow: 0 0 0 2px var(--lb-neutral-ring);
+  background: var(--mugen-surface-2);
+  box-shadow: 0 0 0 2px var(--mugen-neutral-ring);
 }
 
 .select-status.is-ready {
-  background: var(--lb-success);
-  box-shadow: 0 0 0 2px var(--lb-success-ring);
+  background: var(--mugen-success);
+  box-shadow: 0 0 0 2px var(--mugen-success-ring);
 }
 
 .select-status.is-warning {
-  background: var(--lb-warning);
-  box-shadow: 0 0 0 2px var(--lb-warning-ring);
+  background: var(--mugen-warning);
+  box-shadow: 0 0 0 2px var(--mugen-warning-ring);
 }
 
 .select-menu button:hover,
 .select-menu button.selected {
-  background: var(--lb-accent-soft);
-  color: var(--lb-text);
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-text);
 }
 
 .select-menu small {
   overflow: hidden;
   max-width: 190px;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;

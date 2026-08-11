@@ -128,7 +128,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 
 .ratio-label {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -148,8 +148,8 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   min-height: 28px;
   padding: 0 7px;
   border-color: transparent;
-  background: var(--lb-field);
-  color: var(--lb-text);
+  background: var(--mugen-field);
+  color: var(--mugen-text);
   font-size: 11px;
   text-align: left;
   white-space: nowrap;
@@ -162,11 +162,11 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 }
 
 .ratio-chevron {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .ratio-picker.is-open .ratio-trigger {
-  border-color: var(--lb-accent);
+  border-color: var(--mugen-accent);
 }
 
 .ratio-menu {
@@ -178,10 +178,10 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   width: 230px;
   max-height: 230px;
   overflow-y: auto;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  box-shadow: 0 12px 32px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 12px 32px var(--mugen-shadow);
 }
 
 .ratio-option {
@@ -194,14 +194,14 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   text-align: left;
 }
 
 .ratio-option:hover,
 .ratio-option.selected {
-  background: var(--lb-accent-soft);
-  color: var(--lb-text);
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-text);
 }
 
 .ratio-shape {
@@ -210,7 +210,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   max-height: 28px;
   min-height: 12px;
   justify-self: center;
-  border: 1px solid var(--lb-hairline);
+  border: 1px solid var(--mugen-hairline);
   border-radius: 3px;
   background: linear-gradient(135deg, rgba(47, 140, 255, 0.58), rgba(174, 181, 194, 0.12));
 }
@@ -234,7 +234,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 }
 
 .ratio-copy small {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
 }
 

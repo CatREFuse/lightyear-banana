@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
@@ -13,13 +13,14 @@ type SourceManifest = {
   version?: unknown
   requiredPermissions?: {
     network?: { domains?: string[] | 'all' }
-    webview?: { domains?: string[] }
+    webview?: { domains?: string[]; allowLocalRendering?: string; enableMessageBridge?: string }
   }
 }
 
 const environmentValues = new Set<MugenEnvironment>(['development', 'test', 'production'])
 
 const fallbackDevelopmentWebUiUrl = 'http://localhost:4173/'
+const productionInnerWebUiUrl = 'https://mugen.catrefuse.com/webui/'
 
 function readSourceManifest(): SourceManifest {
   return JSON.parse(readFileSync(path.join(projectRoot, 'plugin', 'manifest.json'), 'utf8')) as SourceManifest
@@ -56,10 +57,7 @@ function resolveInnerWebUiUrl(mode: string) {
   const keyEnv = readKeyEnv()
   const configured = process.env.INNER_WEBUI_URL
     ?? keyEnv.INNER_WEBUI_URL
-    ?? (mode === 'production' ? undefined : viteEnv.INNER_WEBUI_URL)
-  if (mode === 'production' && !configured?.trim()) {
-    throw new Error('Production INNER_WEBUI_URL must be supplied by key.env or the process environment.')
-  }
+    ?? (mode === 'production' ? productionInnerWebUiUrl : viteEnv.INNER_WEBUI_URL)
   const url = new URL(configured?.trim() || fallbackDevelopmentWebUiUrl)
   const localDevelopment = mode !== 'production' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
 
@@ -70,8 +68,8 @@ function resolveInnerWebUiUrl(mode: string) {
     throw new Error('INNER_WEBUI_URL must not contain credentials, query parameters, or fragments.')
   }
   if (!url.pathname.endsWith('/')) url.pathname += '/'
-  if (mode === 'production' && url.pathname !== '/inner/v1/') {
-    throw new Error('Production INNER_WEBUI_URL must use the versioned /inner/v1/ path.')
+  if (mode === 'production' && url.href !== productionInnerWebUiUrl) {
+    throw new Error(`Production INNER_WEBUI_URL must be ${productionInnerWebUiUrl}`)
   }
   if (mode === 'production' && isDisallowedProductionHostname(url.hostname)) {
     throw new Error('Production INNER_WEBUI_URL must use the approved deployment domain.')
@@ -99,6 +97,8 @@ function uxpPostBuildPlugin(innerWebUiUrl: URL): Plugin {
       const manifestTarget = path.join(uxpOutDir, 'manifest.json')
       const iconsSource = path.join(projectRoot, 'plugin', 'icons')
       const iconsTarget = path.join(uxpOutDir, 'icons')
+      const webUiSource = path.join(projectRoot, 'apps', 'inner-webui', 'dist')
+      const webUiTarget = path.join(uxpOutDir, 'webui')
 
       let html = readFileSync(panelPath, 'utf8')
       html = html
@@ -118,7 +118,9 @@ function uxpPostBuildPlugin(innerWebUiUrl: URL): Plugin {
       const manifest = readSourceManifest()
       const origin = innerWebUiUrl.origin
       if (manifest.requiredPermissions?.webview) {
-        manifest.requiredPermissions.webview.domains = [origin]
+        manifest.requiredPermissions.webview.domains = []
+        manifest.requiredPermissions.webview.allowLocalRendering = 'yes'
+        manifest.requiredPermissions.webview.enableMessageBridge = 'localOnly'
       }
       const networkDomains = manifest.requiredPermissions?.network?.domains
       if (Array.isArray(networkDomains) && !networkDomains.includes(origin)) {
@@ -130,6 +132,11 @@ function uxpPostBuildPlugin(innerWebUiUrl: URL): Plugin {
       for (const iconFile of readdirSync(iconsSource)) {
         copyFileSync(path.join(iconsSource, iconFile), path.join(iconsTarget, iconFile))
       }
+      if (!existsSync(path.join(webUiSource, 'index.html'))) {
+        throw new Error('Inner WebUI build not found. Run npm run build:inner-webui first.')
+      }
+      rmSync(webUiTarget, { recursive: true, force: true })
+      cpSync(webUiSource, webUiTarget, { recursive: true })
     }
   }
 }
@@ -150,7 +157,7 @@ export default defineConfig(({ mode }) => {
     base: './',
     define: {
       __MUGEN_APP_ENV__: JSON.stringify(mugenEnvironment),
-      __INNER_WEBUI_URL__: JSON.stringify(innerWebUiUrl.href),
+      __INNER_WEBUI_URL__: JSON.stringify('plugin:/webui/index.html'),
       __INNER_RELEASE_URL__: JSON.stringify(releaseUrl.href),
       __CCX_VERSION__: JSON.stringify(ccxVersion)
     },

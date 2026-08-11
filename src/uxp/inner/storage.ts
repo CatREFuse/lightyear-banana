@@ -1,4 +1,4 @@
-import type { PublicModelConfig, SettingsSnapshot } from '../../../packages/inner-protocol/src/index'
+import type { PromptPreset, PublicModelConfig, SettingsSnapshot, ThemePreferences } from '../../../packages/inner-protocol/src/index'
 import { providerCapabilities, providerRequiresApiKey } from '../../data/providerCapabilities'
 import { getHostRequire } from '../photoshopHost'
 import { decodeUtf8, encodeUtf8, utf8ByteLength } from './utf8'
@@ -9,6 +9,8 @@ type SettingsState = {
   schemaVersion: 1
   activeConfigId?: string
   configs: StoredModelConfig[]
+  promptPresets?: PromptPreset[]
+  themePreferences?: ThemePreferences
 }
 
 type UxpFile = {
@@ -217,6 +219,29 @@ function validateConfig(value: unknown): StoredModelConfig {
   }
 }
 
+function validatePromptPresets(value: unknown): PromptPreset[] {
+  if (!Array.isArray(value)) return []
+  if (value.length > 50) throw new Error('预设提示词数量超过上限')
+  const presets = value.map((item) => {
+    const preset = item as Record<string, unknown>
+    const id = typeof preset?.id === 'string' ? preset.id.slice(0, 96) : ''
+    const name = typeof preset?.name === 'string' ? preset.name.trim().slice(0, 128) : ''
+    const content = typeof preset?.content === 'string' ? preset.content.slice(0, 20_000) : ''
+    if (!/^[a-zA-Z0-9_-]{1,96}$/.test(id) || !name) throw new Error('预设提示词无效')
+    return { id, name, content }
+  })
+  if (new Set(presets.map((preset) => preset.id)).size !== presets.length) throw new Error('预设提示词 ID 重复')
+  return presets
+}
+
+function validateThemePreferences(value: unknown): ThemePreferences | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const preferences = value as Record<string, unknown>
+  if (!['nothing', 'classic'].includes(String(preferences.visualTheme))) return undefined
+  if (!['system', 'dark', 'light'].includes(String(preferences.colorMode))) return undefined
+  return preferences as ThemePreferences
+}
+
 async function readState(): Promise<SettingsState> {
   const localFileSystem = getStorage().localFileSystem
   if (!localFileSystem) return { schemaVersion: 1, configs: [] }
@@ -240,7 +265,9 @@ async function readState(): Promise<SettingsState> {
   const activeConfigId = typeof parsed.activeConfigId === 'string' && configs.some((config) => config.id === parsed.activeConfigId)
     ? parsed.activeConfigId
     : configs.find((config) => config.enabled)?.id
-  return { schemaVersion: 1, ...(activeConfigId ? { activeConfigId } : {}), configs }
+  const promptPresets = validatePromptPresets(parsed.promptPresets)
+  const themePreferences = validateThemePreferences(parsed.themePreferences)
+  return { schemaVersion: 1, ...(activeConfigId ? { activeConfigId } : {}), configs, ...(promptPresets.length ? { promptPresets } : {}), ...(themePreferences ? { themePreferences } : {}) }
 }
 
 async function writeState(state: SettingsState) {
@@ -260,6 +287,8 @@ export async function getSettings(): Promise<SettingsSnapshot> {
   const state = await readState()
   return {
     activeConfigId: state.activeConfigId,
+    ...(state.promptPresets?.length ? { promptPresets: state.promptPresets } : {}),
+    ...(state.themePreferences ? { themePreferences: state.themePreferences } : {}),
     configs: await Promise.all(state.configs.map(async (config) => {
       const credentialState = await readCredentialState(config)
       return { ...config, credentialState, hasCredential: credentialState === 'stored' }
@@ -276,6 +305,12 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
   const activeConfigId = typeof payload.activeConfigId === 'string' && configs.some((config) => config.id === payload.activeConfigId)
     ? payload.activeConfigId
     : configs.find((config) => config.enabled)?.id
+  const promptPresets = payload.promptPresets === undefined
+    ? previous.promptPresets ?? []
+    : validatePromptPresets(payload.promptPresets)
+  const themePreferences = payload.themePreferences === undefined
+    ? previous.themePreferences
+    : validateThemePreferences(payload.themePreferences)
   const nextConfigs = new Map(configs.map((config) => [config.id, config]))
   const invalidatedIds = previous.configs
     .filter((oldConfig) => {
@@ -291,7 +326,7 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
   for (const configId of invalidatedIds) {
     await clearStoredCredential(configId, true)
   }
-  await writeState({ schemaVersion: 1, ...(activeConfigId ? { activeConfigId } : {}), configs })
+  await writeState({ schemaVersion: 1, ...(activeConfigId ? { activeConfigId } : {}), configs, ...(promptPresets.length ? { promptPresets } : {}), ...(themePreferences ? { themePreferences } : {}) })
   return getSettings()
 }
 

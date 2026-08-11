@@ -409,7 +409,6 @@ Mugen 是面向 Photoshop 的 UXP 生图插件原型。它把 Photoshop 当前�
 验收标准：
 
 - 使用 `localStorage` key `mugen.settings.v1`。
-- 新 key 不存在时读取 `lightyear-banana.settings.v1`，并把有效数据迁移到 Mugen key。
 - 读取失败时回退默认配置。
 - 写入失败时不阻断主流程。
 - 默认配置升级时合并本地已存配置。
@@ -449,8 +448,7 @@ Mugen 是面向 Photoshop 的 UXP 生图插件原型。它把 Photoshop 当前�
 - 支持通过环境变量修改端口和延迟范围。
 - 支持 `/mock/manual` 查看能力。
 - 支持 `/mock-images/cats/*.jpg` 返回 fixture。
-- 支持 OpenAI、Gemini、APIMart、Qwen、Kling、Seedream、OpenAI compatible 的 mock endpoint。
-- APIMart 测试夹具支持模型列表、参考图上传、任务创建和任务轮询，并可固定返回同一张猫图。
+- 支持 OpenAI、Gemini、Qwen、Kling、Seedream、OpenAI compatible 的 mock endpoint。
 - 支持 `mock-good` 和 provider 专属 good key。
 - 支持 invalid、expired、permission、rate、quota、server、timeout 错误。
 - Kling 创建任务后可以通过 task id 获取同一组结果。
@@ -561,7 +559,6 @@ Mugen 是面向 Photoshop 的 UXP 生图插件原型。它把 Photoshop 当前�
 - 主题菜单点击外部区域后收起。
 - 260px 宽度下不产生水平溢出或内容裁切。
 - 主题偏好保存在 `mugen.theme.v1`。
-- 新 key 不存在时读取 `lightyear-banana.theme.v1`，并把有效数据迁移到 Mugen key。
 - UXP 中转面板使用相同视觉语言，并保留 Spectrum 控件与桥接行为。
 
 来源：

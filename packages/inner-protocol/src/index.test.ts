@@ -62,6 +62,21 @@ describe('inner-host/v1 envelope', () => {
     expect(() => validateCommandPayload('generation.testConfig', { config: {}, apiKey: 'secret' })).toThrow('配置测试')
   })
 
+  it('accepts only supported persisted theme preferences', () => {
+    const config = {
+      id: 'config-1', name: '配置', provider: 'apimart', model: 'gpt-image-1',
+      baseUrl: 'https://api.apimart.ai', enabled: true, credentialState: 'stored'
+    }
+    expect(() => validateCommandPayload('settings.save', {
+      configs: [config], activeConfigId: config.id,
+      themePreferences: { visualTheme: 'nothing', colorMode: 'system' }
+    })).not.toThrow()
+    expect(() => validateCommandPayload('settings.save', {
+      configs: [config], activeConfigId: config.id,
+      themePreferences: { visualTheme: 'gradient', colorMode: 'dark' }
+    })).toThrow('设置参数')
+  })
+
   it('validates workspace asset ownership without accepting preview data in the request', () => {
     expect(() => validateCommandPayload('asset.retain', { assetId: 'asset-1' })).not.toThrow()
     expect(() => validateCommandPayload('asset.retain', { assetId: '' })).toThrow('asset.retain')

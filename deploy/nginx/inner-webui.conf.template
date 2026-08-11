@@ -40,21 +40,21 @@ server {
     add_header Referrer-Policy "no-referrer" always;
   }
 
-  location = /inner/v1 {
-    return 308 /inner/v1/;
+  location = /webui {
+    return 308 /webui/;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer" always;
   }
 
-  location ^~ /inner/v1/assets/ {
+  location ^~ /webui/assets/ {
     alias __INNER_WEBUI_ROOT__/assets/;
     add_header Cache-Control "public, max-age=31536000, immutable" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
   }
 
-  location ^~ /inner/v1/ {
+  location ^~ /webui/ {
     alias __INNER_WEBUI_ROOT__/current/;
     index index.html;
     add_header Cache-Control "no-cache" always;

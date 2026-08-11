@@ -1,12 +1,12 @@
-# Mugen
+# Mugen（无幻）
 
 Mugen connects Adobe Photoshop canvas, selections, layers, and reference images to AI image generation.
 
 This file is the version check and download index for automation.
 
-Current version: 0.3.18
+Current version: 0.3.17
 Minimum supported version: 0.3.0
-Published at: 2026-07-31T13:46:02.196Z
+Published at: 2026-07-26T17:27:19.131Z
 
 Version check:
 GET __MUGEN_RELEASE_ORIGIN__/releases/latest.json
@@ -15,22 +15,22 @@ Manifest:
 __MUGEN_RELEASE_ORIGIN__/releases/latest.json
 
 Release checksums:
-__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/SHA256SUMS.txt
+__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/SHA256SUMS.txt
 
 Downloads:
 macOS desktop:
-__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18-mac.zip
-sha256: 8fc8a3428e814246c23fad15a30accc34236781ee324634d5e717a5613002d02
-size: 114909183 bytes
+__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/lightyear-banana-0.3.17-mac.zip
+sha256: bd01a491dae1bfe49559e23e62728461cf4207d132a89b992dc2047dd117960f
+size: 114908934 bytes
 
 Windows desktop:
-__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18-win.zip
-sha256: dd28168b23ab4869a959932da81e47582035d36c136917daa58f5b9e09dca0fe
-size: 141184271 bytes
+__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/lightyear-banana-0.3.17-win.zip
+sha256: 8ef033193f2d6edd9fb34b675b0ba195affa5c7f7ba6c40c1ec1be43c04a0c5e
+size: 141184053 bytes
 
 Adobe Photoshop plugin:
-__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18.ccx
-sha256: f5048c975870b51dc9a1e1ae945589f684ed0bd72f47da130376275f36c37a25
+__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/lightyear-banana-0.3.17.ccx
+sha256: 87aa18b5894554ac1d3f18243cce2d0a2ceeebcd2ca10b08a4443db955f87866
 size: 22204 bytes
 
 GitHub: https://github.com/CatREFuse/lightyear-banana

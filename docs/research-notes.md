@@ -1,4 +1,4 @@
-# Lightyear Banana 研究记录
+# Mugen 研究记录
 
 ## Adobe 官方文档
 
@@ -212,7 +212,7 @@ UXP build verified: dist/ps-uxp
 UDT 加载：
 
 ```text
-com.tanshow.lightyearbanana
+com.tanshow.mugen
 Plugin Load Successful
 State: Loaded
 ```
@@ -220,18 +220,18 @@ State: Loaded
 Photoshop command 回归：
 
 ```text
-执行前：1|Lightyear Banana Test|1|背景
-执行后：1|Lightyear Banana Test|2|Lightyear Banana
+执行前：1|Mugen Test|1|背景
+执行后：1|Mugen Test|2|Mugen
 ```
 
 Photoshop UXP log：
 
 ```text
-[Lightyear Banana] script loaded true
-[Lightyear Banana] panel create
-[Lightyear Banana] mounting Vue panel
-[Lightyear Banana] Vue panel mounted
-[Lightyear Banana] panel text Photoshop UXP...
-[Lightyear Banana] command createLayer
-[Lightyear Banana] command createLayer done
+[Mugen] script loaded true
+[Mugen] panel create
+[Mugen] mounting Vue panel
+[Mugen] Vue panel mounted
+[Mugen] panel text Photoshop UXP...
+[Mugen] command createLayer
+[Mugen] command createLayer done
 ```

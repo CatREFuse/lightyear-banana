@@ -136,7 +136,7 @@ watch(
       <span class="window-control is-minimize"></span>
       <span class="window-control is-maximize"></span>
     </div>
-    <div v-if="showWindowControls && desktopPlatform === 'win32' && !inSettings" class="window-brand" aria-hidden="true">Mugen</div>
+    <div v-if="showWindowControls && desktopPlatform === 'win32' && !inSettings" class="window-brand" aria-hidden="true">无幻</div>
     <button v-if="showTitlebarBack" class="icon-button titlebar-back" type="button" @click="emit('back')">
       <BoxIcon name="arrow-back" size="16" />
       <span>返回</span>
@@ -251,8 +251,8 @@ watch(
   justify-content: space-between;
   gap: 10px;
   padding: 12px 12px 8px;
-  border-bottom: 1px solid var(--lb-hairline);
-  background: var(--lb-bg);
+  border-bottom: 1px solid var(--mugen-hairline);
+  background: var(--mugen-bg);
 }
 
 .panel-header.has-titlebar-inset {
@@ -286,7 +286,7 @@ watch(
 h1 {
   overflow: hidden;
   margin: 0;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0;
@@ -300,7 +300,7 @@ h1 {
   gap: 6px;
   min-width: 0;
   max-width: 132px;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   line-height: 1;
   white-space: nowrap;
@@ -349,7 +349,7 @@ h1 {
   left: 12px;
   overflow: hidden;
   max-width: calc(100% - 132px);
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 12px;
   font-weight: 700;
   line-height: 24px;
@@ -394,7 +394,7 @@ h1 {
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 13px;
 }
 
@@ -418,7 +418,7 @@ h1 {
 
 .install-plugin-link {
   flex: 0 0 auto;
-  color: var(--lb-accent);
+  color: var(--mugen-accent);
   font-size: 11px;
   font-weight: 600;
   text-decoration: underline;
@@ -426,7 +426,7 @@ h1 {
 }
 
 .install-plugin-link:hover {
-  color: var(--lb-text);
+  color: var(--mugen-text);
 }
 
 .connection-dot {
@@ -438,20 +438,20 @@ h1 {
 }
 
 .connection-status.is-connected {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .connection-status.is-connected .connection-dot {
-  background: var(--lb-success);
+  background: var(--mugen-success);
   box-shadow:
-    0 0 0 2px var(--lb-success-ring),
+    0 0 0 2px var(--mugen-success-ring),
     0 0 14px rgba(67, 209, 122, 0.74);
   animation: connection-glow 2.8s ease-in-out infinite;
 }
 
 .connection-status.is-waiting .connection-dot {
   background: #748093;
-  box-shadow: 0 0 0 2px var(--lb-neutral-ring);
+  box-shadow: 0 0 0 2px var(--mugen-neutral-ring);
 }
 
 .icon-button {
@@ -463,7 +463,7 @@ h1 {
   padding: 0 9px;
   border-color: transparent;
   background: transparent;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -477,8 +477,8 @@ h1 {
 
 .icon-button:hover {
   border-color: transparent;
-  background: var(--lb-surface-2);
-  color: var(--lb-text);
+  background: var(--mugen-surface-2);
+  color: var(--mugen-text);
 }
 
 .icon-button.icon-only {
@@ -506,10 +506,10 @@ h1 {
   display: grid;
   min-width: 118px;
   overflow: hidden;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  box-shadow: 0 14px 34px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 14px 34px var(--mugen-shadow);
 }
 
 .deploy-menu button {
@@ -522,7 +522,7 @@ h1 {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -530,11 +530,11 @@ h1 {
 }
 
 .deploy-menu button + button {
-  box-shadow: inset 0 1px var(--lb-hairline);
+  box-shadow: inset 0 1px var(--mugen-hairline);
 }
 
 .deploy-menu button:hover {
-  background: var(--lb-hover);
+  background: var(--mugen-hover);
 }
 
 .theme-menu {
@@ -545,15 +545,15 @@ h1 {
   display: grid;
   width: 176px;
   padding: 6px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  box-shadow: 0 14px 34px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 14px 34px var(--mugen-shadow);
 }
 
 .theme-menu-label {
   padding: 8px 8px 5px;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -569,19 +569,19 @@ h1 {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 12px;
   text-align: left;
 }
 
 .theme-menu button:hover,
 .theme-menu button.selected {
-  background: var(--lb-hover);
-  color: var(--lb-text);
+  background: var(--mugen-hover);
+  color: var(--mugen-text);
 }
 
 .theme-menu small {
-  color: var(--lb-accent);
+  color: var(--mugen-accent);
   font-size: 9px;
 }
 

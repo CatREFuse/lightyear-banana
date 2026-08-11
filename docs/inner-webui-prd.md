@@ -511,7 +511,7 @@ Electron 当前可以启动 Codex Image Server。UXP 无法启动本地进程或
 - 删除字段、改变语义、改变错误结构或改变必填项属于破坏性修改。
 - 破坏性修改需要新协议版本和新 CCX。
 - WebUI 发布前必须在最低支持 Host 版本上运行契约测试。
-- WebUI 固定加载版本化入口，例如 `/inner/v1/`，避免新 UI 静默破坏旧 CCX。
+- WebUI 固定加载版本化入口，例如 `/webui/`，避免新 UI 静默破坏旧 CCX。
 
 ### 9.2 消息信封
 
@@ -1129,8 +1129,8 @@ Electron 源码删除应单独提交，确保可通过 Git 历史恢复。
 | 环境 | WebUI URL | CCX 配置 |
 | --- | --- | --- |
 | 本地开发 | `http://localhost:<port>/` | 开发 manifest 允许 localhost |
-| Staging | `https://staging.<domain>/inner/v1/` | 内测 CCX 精确允许 staging 域名 |
-| Production | `https://<domain>/inner/v1/` | 正式 CCX 只允许生产域名 |
+| Staging | `https://staging.<domain>/webui/` | 内测 CCX 精确允许 staging 域名 |
+| Production | `https://<domain>/webui/` | 正式 CCX 只允许生产域名 |
 
 开发和生产 manifest 必须分开生成，正式包不得保留 localhost 调试入口和 WebView Inspector 开关。
 

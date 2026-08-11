@@ -1,36 +1,35 @@
 import { expect, test } from '@playwright/test'
+import { installTestHost } from './hostFixture'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/#/workspace')
-  await expect(page.getByText('预览模式')).toBeVisible()
+  await installTestHost(page)
+  await page.goto('/')
+  await expect(page.getByText('Photoshop 已连接')).toBeVisible()
 })
 
 test('completes the reference, generation, preview and history flow', async ({ page }) => {
-  await page.getByRole('button', { name: '添加参考图' }).click()
+  await page.getByRole('button', { name: '添加参考' }).click()
   await page.getByRole('button', { name: '可见图层' }).click()
   await expect(page.getByRole('img', { name: '可见图层' })).toBeVisible()
 
-  await page.getByLabel('提示词').fill('一张夏日音乐节海报')
-  await page.getByRole('button', { name: /^生成/ }).click()
-  const preview = page.getByRole('button', { name: '预览 生成结果 1' })
+  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).fill('一张夏日音乐节海报')
+  await page.getByRole('button', { name: '发送' }).click()
+  const preview = page.getByRole('button', { name: '生成结果 1' })
   await expect(preview).toBeVisible({ timeout: 5_000 })
   await preview.click()
-  await expect(page.getByRole('dialog', { name: '图片预览' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog', { name: '图片预览' })).toBeHidden()
+  const previewRegion = page.getByRole('region', { name: '图片预览' })
+  await expect(previewRegion).toBeVisible()
+  await page.getByRole('button', { name: '关闭预览' }).click()
+  await expect(previewRegion).toBeHidden()
 
-  page.once('dialog', dialog => dialog.accept())
-  await page.getByRole('button', { name: '清除记录' }).click()
-  await expect(page.getByText('从一个想法开始')).toBeVisible()
+  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '清空' }).click()
+  await page.getByRole('button', { name: '再次清空' }).click()
+  await page.getByRole('button', { name: '返回' }).click()
+  await expect(page.getByRole('region', { name: '当前对话' }).getByText('READY')).toBeVisible()
 })
 
-test('creates a keyless local provider configuration', async ({ page }) => {
+test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await page.getByRole('button', { name: '设置' }).click()
-  await page.getByRole('button', { name: '新建配置' }).click()
-  await page.getByLabel('配置名称').fill('本地工作流')
-  await page.getByLabel('服务商').selectOption('comfyui')
-  await page.getByRole('button', { name: '保存' }).click()
-  await expect(page.getByRole('heading', { name: '编辑配置' })).toBeVisible()
-  await page.getByRole('button', { name: '返回配置' }).click()
-  await expect(page.getByText('本地工作流')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })

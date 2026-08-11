@@ -23,7 +23,7 @@
       "type": "panel",
       "id": "panel",
       "label": {
-        "default": "Mugen Standalone"
+        "default": "无幻 Standalone"
       },
       "minimumSize": {
         "width": 280,

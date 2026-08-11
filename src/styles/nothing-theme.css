@@ -2,8 +2,8 @@
   --font-display: "Doto Variable", "Space Mono", monospace;
   --font-ui: "Space Grotesk Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-data: "Space Mono", "SFMono-Regular", Consolas, monospace;
-  --lb-font-body: var(--font-ui);
-  --lb-font-mono: var(--font-data);
+  --mugen-font-body: var(--font-ui);
+  --mugen-font-mono: var(--font-data);
   --nd-accent: #d71921;
   --nd-success: #4a9e5c;
   --nd-warning: #d4a843;
@@ -12,78 +12,78 @@
 
 .mugen-shell.mugen-shell.design-nothing.mode-dark {
   color-scheme: dark;
-  --lb-bg: #000000;
-  --lb-workspace: #000000;
-  --lb-thread-bg: #000000;
-  --lb-thread-surface: #111111;
-  --lb-thread-surface-2: #111111;
-  --lb-thread-card: #000000;
-  --lb-thread-card-deep: #111111;
-  --lb-thread-image-bg: #111111;
-  --lb-composer: #000000;
-  --lb-surface: #111111;
-  --lb-surface-2: #1a1a1a;
-  --lb-field: #000000;
-  --lb-card: #000000;
-  --lb-card-deep: #111111;
-  --lb-overlay: #111111;
-  --lb-border: #222222;
-  --lb-border-strong: #333333;
-  --lb-hairline: #222222;
-  --lb-hover: #1a1a1a;
-  --lb-text: #e8e8e8;
-  --lb-secondary: #999999;
-  --lb-muted: #666666;
-  --lb-empty-bg: transparent;
-  --lb-accent: #ffffff;
-  --lb-accent-soft: #1a1a1a;
-  --lb-danger: #d71921;
-  --lb-danger-bg: transparent;
-  --lb-danger-border: #d71921;
-  --lb-danger-muted: #d71921;
-  --lb-danger-text: #d71921;
-  --lb-success: #4a9e5c;
-  --lb-success-bg: transparent;
-  --lb-warning: #d4a843;
-  --lb-shadow: transparent;
+  --mugen-bg: #000000;
+  --mugen-workspace: #000000;
+  --mugen-thread-bg: #000000;
+  --mugen-thread-surface: #111111;
+  --mugen-thread-surface-2: #111111;
+  --mugen-thread-card: #000000;
+  --mugen-thread-card-deep: #111111;
+  --mugen-thread-image-bg: #111111;
+  --mugen-composer: #000000;
+  --mugen-surface: #111111;
+  --mugen-surface-2: #1a1a1a;
+  --mugen-field: #000000;
+  --mugen-card: #000000;
+  --mugen-card-deep: #111111;
+  --mugen-overlay: #111111;
+  --mugen-border: #222222;
+  --mugen-border-strong: #333333;
+  --mugen-hairline: #222222;
+  --mugen-hover: #1a1a1a;
+  --mugen-text: #e8e8e8;
+  --mugen-secondary: #999999;
+  --mugen-muted: #666666;
+  --mugen-empty-bg: transparent;
+  --mugen-accent: #ffffff;
+  --mugen-accent-soft: #1a1a1a;
+  --mugen-danger: #d71921;
+  --mugen-danger-bg: transparent;
+  --mugen-danger-border: #d71921;
+  --mugen-danger-muted: #d71921;
+  --mugen-danger-text: #d71921;
+  --mugen-success: #4a9e5c;
+  --mugen-success-bg: transparent;
+  --mugen-warning: #d4a843;
+  --mugen-shadow: transparent;
 }
 
 .mugen-shell.mugen-shell.design-nothing.mode-light {
   color-scheme: light;
-  --lb-bg: #f5f5f5;
-  --lb-workspace: #f5f5f5;
-  --lb-thread-bg: #f5f5f5;
-  --lb-thread-surface: #ffffff;
-  --lb-thread-surface-2: #ffffff;
-  --lb-thread-card: #f5f5f5;
-  --lb-thread-card-deep: #ffffff;
-  --lb-thread-image-bg: #f0f0f0;
-  --lb-composer: #f5f5f5;
-  --lb-surface: #ffffff;
-  --lb-surface-2: #f0f0f0;
-  --lb-field: #f5f5f5;
-  --lb-card: #f5f5f5;
-  --lb-card-deep: #ffffff;
-  --lb-overlay: #ffffff;
-  --lb-border: #e8e8e8;
-  --lb-border-strong: #cccccc;
-  --lb-hairline: #e8e8e8;
-  --lb-hover: #f0f0f0;
-  --lb-text: #1a1a1a;
-  --lb-secondary: #666666;
-  --lb-muted: #999999;
-  --lb-empty-bg: transparent;
-  --lb-accent: #000000;
-  --lb-accent-soft: #f0f0f0;
-  --lb-danger: #d71921;
-  --lb-danger-bg: transparent;
-  --lb-danger-border: #d71921;
-  --lb-danger-muted: #d71921;
-  --lb-danger-text: #d71921;
-  --lb-success: #4a9e5c;
-  --lb-success-bg: transparent;
-  --lb-warning: #9a7218;
-  --lb-shadow: transparent;
+  --mugen-bg: #f5f5f5;
+  --mugen-workspace: #f5f5f5;
+  --mugen-thread-bg: #f5f5f5;
+  --mugen-thread-surface: #ffffff;
+  --mugen-thread-surface-2: #ffffff;
+  --mugen-thread-card: #f5f5f5;
+  --mugen-thread-card-deep: #ffffff;
+  --mugen-thread-image-bg: #f0f0f0;
+  --mugen-composer: #f5f5f5;
+  --mugen-surface: #ffffff;
+  --mugen-surface-2: #f0f0f0;
+  --mugen-field: #f5f5f5;
+  --mugen-card: #f5f5f5;
+  --mugen-card-deep: #ffffff;
+  --mugen-overlay: #ffffff;
+  --mugen-border: #e8e8e8;
+  --mugen-border-strong: #cccccc;
+  --mugen-hairline: #e8e8e8;
+  --mugen-hover: #f0f0f0;
+  --mugen-text: #1a1a1a;
+  --mugen-secondary: #666666;
+  --mugen-muted: #999999;
+  --mugen-empty-bg: transparent;
+  --mugen-accent: #000000;
+  --mugen-accent-soft: #f0f0f0;
+  --mugen-danger: #d71921;
+  --mugen-danger-bg: transparent;
+  --mugen-danger-border: #d71921;
+  --mugen-danger-muted: #d71921;
+  --mugen-danger-text: #d71921;
+  --mugen-success: #4a9e5c;
+  --mugen-success-bg: transparent;
+  --mugen-warning: #9a7218;
+  --mugen-shadow: transparent;
 }
 
 .mugen-shell.design-nothing *,
@@ -123,19 +123,19 @@
 }
 
 .mugen-shell.design-nothing .panel-header {
-  border-bottom-color: var(--lb-border);
-  background: var(--lb-bg);
+  border-bottom-color: var(--mugen-border);
+  background: var(--mugen-bg);
 }
 
 .mugen-shell.design-nothing .panel-header h1 {
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-family: var(--font-ui);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
 
 .mugen-shell.design-nothing .connection-status {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-family: var(--font-data);
 }
 
@@ -150,9 +150,9 @@
 }
 
 .mugen-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) {
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
-  background: var(--lb-overlay);
+  background: var(--mugen-overlay);
 }
 
 .mugen-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) button {
@@ -167,35 +167,35 @@
 }
 
 .mugen-shell.design-nothing .thread {
-  background: var(--lb-thread-bg);
+  background: var(--mugen-thread-bg);
 }
 
 .mugen-shell.design-nothing .thread > .empty-state {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .mugen-shell.design-nothing .thread > .empty-state > span:first-of-type {
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: -0.03em;
 }
 
 .mugen-shell.design-nothing .thread > .empty-state > small {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .mugen-shell.design-nothing .user-message p {
   border-radius: 4px;
-  background: var(--lb-thread-surface-2);
-  color: var(--lb-text);
+  background: var(--mugen-thread-surface-2);
+  color: var(--mugen-text);
 }
 
 .mugen-shell.design-nothing :is(.assistant-message, .response-text) {
-  color: var(--lb-text);
+  color: var(--mugen-text);
 }
 
 .mugen-shell.design-nothing .loading-message {
@@ -221,35 +221,35 @@
 }
 
 .mugen-shell.design-nothing .result-actions button {
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 4px;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .mugen-shell.design-nothing .operation-status {
-  border-top: 1px solid var(--lb-border);
-  background: var(--lb-bg);
+  border-top: 1px solid var(--mugen-border);
+  background: var(--mugen-bg);
 }
 
 .mugen-shell.design-nothing .operation-status > span {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .mugen-shell.design-nothing .composer {
-  border-top: 1px solid var(--lb-border-visible, var(--lb-border-strong));
-  background: var(--lb-composer);
+  border-top: 1px solid var(--mugen-border-visible, var(--mugen-border-strong));
+  background: var(--mugen-composer);
 }
 
 .mugen-shell.design-nothing .reference-header {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   letter-spacing: 0.06em;
 }
 
 .mugen-shell.design-nothing :is(.clear-reference, .add-reference-inline) {
   border: 0;
   border-radius: 0;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-family: var(--font-data);
 }
 
@@ -257,59 +257,59 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-family: var(--font-ui);
 }
 
 .mugen-shell.design-nothing .prompt-input:focus {
-  outline: 1px solid var(--lb-text);
+  outline: 1px solid var(--mugen-text);
   outline-offset: -1px;
 }
 
 .mugen-shell.design-nothing :is(.select-trigger, .ratio-trigger, .dimension-field input, .dimension-preset-button) {
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 4px;
   background: transparent;
 }
 
 .mugen-shell.design-nothing :is(.select-label, .ratio-label, .dimension-field > span) {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-family: var(--font-data);
   letter-spacing: 0.07em;
 }
 
 .mugen-shell.design-nothing .ratio-shape {
-  border-color: var(--lb-secondary);
+  border-color: var(--mugen-secondary);
   background: transparent;
 }
 
 .mugen-shell.design-nothing .send-button {
   border: 0;
   border-radius: 999px;
-  background: var(--lb-text);
-  color: var(--lb-bg);
+  background: var(--mugen-text);
+  color: var(--mugen-bg);
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 
 .mugen-shell.design-nothing .send-button:disabled {
-  background: var(--lb-border-strong);
-  color: var(--lb-muted);
+  background: var(--mugen-border-strong);
+  color: var(--mugen-muted);
 }
 
 .mugen-shell.design-nothing .settings-panel {
-  background: var(--lb-workspace);
+  background: var(--mugen-workspace);
 }
 
 .mugen-shell.design-nothing :is(.permission-card, .data-card, .diagnostic-card, .config-list, .field-card, .capability-box, .comfy-panel) {
   border-width: 0 0 1px;
-  border-color: var(--lb-border);
+  border-color: var(--mugen-border);
   border-radius: 0;
   background: transparent;
 }
 
 .mugen-shell.design-nothing .section-header {
-  border-bottom: 1px solid var(--lb-border-strong);
+  border-bottom: 1px solid var(--mugen-border-strong);
 }
 
 .mugen-shell.design-nothing .section-header h2 {
@@ -319,7 +319,7 @@
 
 .mugen-shell.design-nothing .config-row {
   border-width: 0 0 1px;
-  border-color: var(--lb-border);
+  border-color: var(--mugen-border);
   border-radius: 0;
   background: transparent;
 }
@@ -332,7 +332,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .mugen-shell.design-nothing .status-badge.is-unavailable {
@@ -341,16 +341,16 @@
 
 .mugen-shell.design-nothing :is(.form-control input, .form-control textarea, .form-control select, .model-inline-add input) {
   border-width: 0 0 1px;
-  border-color: var(--lb-border-strong);
+  border-color: var(--mugen-border-strong);
   border-radius: 0;
   background: transparent;
 }
 
 .mugen-shell.design-nothing :is(.form-actions button, .permission-actions button, .data-card button, .section-header button) {
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 4px;
   background: transparent;
-  color: var(--lb-text);
+  color: var(--mugen-text);
 }
 
 .mugen-shell.design-nothing .preview-window {
@@ -358,9 +358,9 @@
 }
 
 .mugen-shell.design-nothing .preview-dialog {
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 16px;
-  background: var(--lb-overlay);
+  background: var(--mugen-overlay);
 }
 
 .mugen-shell.design-nothing .preview-header button {

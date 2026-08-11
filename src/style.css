@@ -3,17 +3,17 @@
   font-family: Inter, "Avenir Next", "Helvetica Neue", Arial, sans-serif;
   background: #15171a;
   color: #f3f4f6;
-  --lb-bg: #15171a;
-  --lb-surface: #1e2126;
-  --lb-surface-2: #23272e;
-  --lb-card: #1b1f25;
-  --lb-border: #343a45;
-  --lb-border-strong: #48515f;
-  --lb-text: #f3f4f6;
-  --lb-secondary: #aeb5c2;
-  --lb-muted: #7e8795;
-  --lb-accent: #2f8cff;
-  --lb-accent-soft: rgba(47, 140, 255, 0.16);
+  --mugen-bg: #15171a;
+  --mugen-surface: #1e2126;
+  --mugen-surface-2: #23272e;
+  --mugen-card: #1b1f25;
+  --mugen-border: #343a45;
+  --mugen-border-strong: #48515f;
+  --mugen-text: #f3f4f6;
+  --mugen-secondary: #aeb5c2;
+  --mugen-muted: #7e8795;
+  --mugen-accent: #2f8cff;
+  --mugen-accent-soft: rgba(47, 140, 255, 0.16);
 }
 
 * {
@@ -39,7 +39,7 @@ body {
 
 body {
   min-width: 260px;
-  background: var(--lb-bg);
+  background: var(--mugen-bg);
 }
 
 button,
@@ -51,15 +51,15 @@ textarea {
 
 button {
   min-height: 34px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 6px;
-  background: var(--lb-surface);
-  color: var(--lb-text);
+  background: var(--mugen-surface);
+  color: var(--mugen-text);
   cursor: pointer;
 }
 
 button:hover {
-  background: var(--lb-surface-2);
+  background: var(--mugen-surface-2);
 }
 
 button:disabled {
@@ -70,10 +70,10 @@ button:disabled {
 input {
   width: 100%;
   min-height: 32px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 6px;
-  background: var(--lb-surface);
-  color: var(--lb-text);
+  background: var(--mugen-surface);
+  color: var(--mugen-text);
   padding: 5px 8px;
 }
 

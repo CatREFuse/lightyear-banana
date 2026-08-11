@@ -25,4 +25,10 @@ for (const relativePath of ["index.html", "llms.txt", "LLM.TXT"]) {
 }
 await writeFile(join(outDir, "releases", "latest.json"), `${JSON.stringify(manifest, null, 2)}\n`)
 
+const releaseDir = join(outDir, "releases", bundle.ccxVersion)
+const ccx = bundle.artifacts.ccx
+await mkdir(releaseDir, { recursive: true })
+await cp(ccx.path, join(releaseDir, ccx.filename))
+await writeFile(join(releaseDir, "SHA256SUMS.txt"), `${ccx.sha256}  ${ccx.filename}\n`)
+
 console.log(`Built site for ${manifest.name} ${bundle.version} at ${outDir}`)

@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { GenerationSnapshot, HistoryEntry, HistoryUpsertEntry, HostAssetRef, HostContext, ModelConfig, RequestLog, TaskPhase } from '@mugen/inner-protocol'
+import type { GenerationSnapshot, HistoryEntry, HistoryUpsertEntry, HostAssetRef, HostContext, ModelConfig, PromptPreset, RequestLog, TaskPhase } from '@mugen/inner-protocol'
 import { PROTOCOL_VERSION, createMessageId, isGenerationSnapshot, isProtocolCompatible, providerCapabilities, providerUsesApiKey, readProviderCapability, toHostAssetPointer, toModelConfig } from '@mugen/inner-protocol'
 import { createHostClient } from '@/host'
 
@@ -75,16 +75,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const configs = ref<ModelConfig[]>([])
   const references = ref<HostAssetRef[]>([])
   const turns = ref<ChatTurn[]>([])
+  const promptPresets = ref<PromptPreset[]>([])
   const selectedConfigId = ref('')
-  const theme = ref<'dark' | 'light' | 'system'>((localStorage.getItem('lb-theme') as 'dark' | 'light' | 'system') || 'system')
+  const colorMode = ref<'dark' | 'light' | 'system'>('dark')
+  const visualTheme = ref<'nothing' | 'classic'>('nothing')
   const isPreview = host.mode === 'mock'
   const enabledConfigs = computed(() => configs.value.filter(isConfigUsable))
   const currentConfig = computed(() => enabledConfigs.value.find((config) => config.id === selectedConfigId.value) || enabledConfigs.value[0])
   const currentCapability = computed(() => readProviderCapability(currentConfig.value))
   const canAddReference = computed(() => references.value.length < currentCapability.value.referenceLimit)
-  const resolvedTheme = computed(() => theme.value === 'system' ? (context.value?.theme || 'dark') : theme.value)
+  const resolvedTheme = computed(() => colorMode.value === 'system' ? (context.value?.theme || 'dark') : colorMode.value)
   let activeConfigSave: Promise<void> = Promise.resolve()
   let referenceMutation: Promise<void> = Promise.resolve()
+  let themeSave: Promise<void> = Promise.resolve()
 
   function mutateReferences<T>(operation: () => Promise<T>) {
     const run = referenceMutation.then(operation, operation)
@@ -104,6 +107,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
       const settings = await host.invoke('settings.get', undefined)
       configs.value = settings.configs.map(toModelConfig)
+      promptPresets.value = settings.promptPresets ?? []
+      visualTheme.value = settings.themePreferences?.visualTheme ?? 'nothing'
+      colorMode.value = settings.themePreferences?.colorMode ?? 'dark'
       selectedConfigId.value = pickActiveConfigId(configs.value, settings.activeConfigId)
       if (response.context.capabilities.includes('history.list')) {
         try {
@@ -322,13 +328,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function clearLocalData() {
     return mutateReferences(async () => {
       const result = await host.clearLocalData()
-      localStorage.clear()
-      sessionStorage.clear()
+      try { localStorage.clear() } catch {}
+      try { sessionStorage.clear() } catch {}
       configs.value = []
       references.value = []
       turns.value = []
       selectedConfigId.value = ''
-      theme.value = 'system'
+      visualTheme.value = 'nothing'
+      colorMode.value = 'dark'
       error.value = ''
       return result
     })
@@ -347,9 +354,35 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     configs.value = configs.value.filter((config) => config.id !== configId)
     selectedConfigId.value = enabledConfigs.value[0]?.id || ''
   }
-  function setTheme(value: 'dark' | 'light' | 'system') {
-    theme.value = value
-    localStorage.setItem('lb-theme', value)
+  function persistThemePreferences() {
+    const persist = async () => {
+      try {
+        const settings = await host.invoke('settings.get', undefined)
+        await host.invoke('settings.save', {
+          ...settings,
+          themePreferences: { visualTheme: visualTheme.value, colorMode: colorMode.value }
+        })
+      } catch (reason) {
+        error.value = reason instanceof Error ? `主题未保存：${reason.message}` : '主题暂时无法保存'
+      }
+    }
+    themeSave = themeSave.then(persist, persist)
+    return themeSave
+  }
+  function setColorMode(value: 'dark' | 'light' | 'system') {
+    colorMode.value = value
+    void persistThemePreferences()
+  }
+  function setVisualTheme(value: 'nothing' | 'classic') {
+    visualTheme.value = value
+    void persistThemePreferences()
+  }
+  const theme = colorMode
+  const setTheme = setColorMode
+  async function savePromptPresets(next: PromptPreset[]) {
+    const settings = await host.invoke('settings.get', undefined)
+    const saved = await host.invoke('settings.save', { ...settings, promptPresets: next })
+    promptPresets.value = saved.promptPresets ?? []
   }
 
   host.onEvent((event) => {
@@ -391,9 +424,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   })
 
   return {
-    host, status, context, error, configs, enabledConfigs, references, turns, selectedConfigId, theme, isPreview,
+    host, status, context, error, configs, enabledConfigs, references, turns, promptPresets, selectedConfigId, colorMode, visualTheme, theme, isPreview,
     currentConfig, currentCapability, canAddReference, resolvedTheme, initialize, openReleasePage,
     addReference, removeReference, clearReferences, addResultAsReference, applySnapshot, generate, cancel, place, placeToReference,
-    save, retry, canRetryTurn, clearHistory, clearLocalData, saveConfig, deleteConfig, selectConfig, setTheme
+    save, retry, canRetryTurn, clearHistory, clearLocalData, saveConfig, deleteConfig, selectConfig, setColorMode, setVisualTheme, setTheme, savePromptPresets
   }
 })

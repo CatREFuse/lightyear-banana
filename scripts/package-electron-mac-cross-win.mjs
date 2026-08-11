@@ -156,7 +156,7 @@ const packagedPaths = await packager({
   asar: false,
   appVersion: packageJson.version,
   buildVersion: buildNumber,
-  appBundleId: 'com.tanshow.mugen.desktop.cross-win'
+  appBundleId: 'com.mugen.banana.cross-win'
 })
 
 if (packagedPaths.length !== 1) {

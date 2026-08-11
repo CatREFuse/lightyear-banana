@@ -592,13 +592,10 @@ function readStoredSettings(): StoredSettings {
       }
     }
 
-    const current = localStorage.getItem(settingsStorageKey)
-    const legacy = current === null ? localStorage.getItem(legacySettingsStorageKey) : null
-    const raw = current ?? legacy
+    const raw = localStorage.getItem(settingsStorageKey) ?? localStorage.getItem(legacySettingsStorageKey)
     if (!raw) {
       return fallback
     }
-    if (legacy !== null) localStorage.setItem(settingsStorageKey, legacy)
 
     const parsed = JSON.parse(raw) as Partial<StoredSettings>
     const configs = normalizeConfigs(parsed.configs)
@@ -2406,3 +2403,5 @@ function readHighestQuality(options: string[]): string {
     useResultAsReference
   }
 }
+
+export type MugenController = ReturnType<typeof useMugen>

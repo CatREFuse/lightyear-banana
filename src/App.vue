@@ -56,7 +56,7 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
   width: 100%;
   height: 100%;
   min-height: 100%;
-  background: var(--lb-bg);
+  background: var(--mugen-bg);
 }
 
 .plugin-preview-frame {
@@ -73,7 +73,7 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--lb-bg);
+  background: var(--mugen-bg);
 }
 
 .app-preview-shell.is-plugin-preview {
@@ -104,23 +104,23 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   cursor: pointer;
   font-size: 12px;
 }
 
 .preview-platform-switch button.selected {
-  background: var(--lb-accent-soft);
-  color: var(--lb-text);
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-text);
 }
 
 .is-plugin-preview .plugin-preview-frame {
   width: min(100%, 390px);
   height: 100%;
   overflow: hidden;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 0;
-  background: var(--lb-bg);
+  background: var(--mugen-bg);
 }
 
 @media (max-width: 430px) {

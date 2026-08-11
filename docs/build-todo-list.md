@@ -23,33 +23,35 @@
 
 ## 官网发布门禁
 
-- 官网发布必须等 `dist/release-$VERSION/` 同时包含：
-  - `mugen-$VERSION-mac.zip`
-  - `mugen-$VERSION-win.zip`
-  - `mugen-$CCX_VERSION.ccx`
-  - `SHA256SUMS.txt`
-- `SHA256SUMS.txt` 必须覆盖上述三个安装包。
+- 官网只发布 Photoshop CCX，桌面端安装包继续保留在历史 Release，不进入首页和 `latest.json`。
+- 官网发布必须存在 `dist/mugen-$CCX_VERSION.ccx`、同名 `.sha256` 和 `dist/uxp-release.json`，三者的版本、文件名、大小和 SHA256 必须一致。
+- 正式版本目录 `releases/$CCX_VERSION/` 只包含 `mugen-$CCX_VERSION.ccx` 与覆盖该文件的 `SHA256SUMS.txt`。
 - `site/releases/latest.json` 的下载地址必须全部指向 `key.env` 配置的新正式 Origin；仓库和正式产物不得包含已废弃域名。
 - `site/index.html` 的静态兜底链接必须和 `latest.json` 同步。
 - `npm run build:site` 通过后才允许部署官网。
-- 缺少任一平台包时，只能发布当前平台 GitHub 资产或记录待办，不得把官网 `latest.json` 切到该版本。
+- `site/releases/latest.json` 的 `downloads` 只能包含 `ccx`；出现 macOS 或 Windows 下载项时不得部署官网。
 
 ## Inner WebUI 0.1 / CCX 1.0 发布门禁
 
 - `apps/inner-webui/package.json` 必须为 `0.1.0`，两个 UXP Manifest 必须为 `1.0.0`，根 Electron 版本保持独立。
 - `npm run verify:inner-webui:release`、`npm run verify:uxp` 和 `npm run package:uxp` 必须全部通过。
-- 正式构建前必须在忽略提交的 `key.env` 中提供 `INNER_WEBUI_URL`；该地址必须是新域名上的 HTTPS URL，并以 `/` 结尾。
-- 先部署 WebUI 并从公网校验 `compatibility.json` 的 `webVersion`，再打包嵌入同一 Origin 的 CCX。
-- CCX 包名必须为 `dist/mugen-1.0.0.ccx`，包内 Manifest、Host 协议和 WebView Origin 必须通过静态检查。
+- 生产 CCX 必须把 `apps/inner-webui/dist/` 完整打包到 `webui/`，插件入口固定为 `plugin:/webui/index.html`。
+- Manifest 必须使用 `allowLocalRendering: "yes"`、`enableMessageBridge: "localOnly"` 和空 `domains`；生产 WebUI 不允许直连模型 API。
+- 公网 `https://mugen.catrefuse.com/webui/` 是独立发布镜像，不是插件启动依赖，保持 `frame-ancestors 'none'`。
+- CCX 包名必须为 `dist/mugen-1.0.0.ccx`，包内 Manifest、本地 WebUI、Host 协议和发布元数据必须通过静态检查。
 - 发布前必须在真实 Photoshop 中完成握手、画布抓取、参考图、BYOK、生成、取消、落图、保存、历史和诊断导出的回归。
 - 真实 Photoshop 回归通过前，Electron 只进入维护状态，不删除旧实现和既有安装包。
 
-## 当前 Inner WebUI 0.1 / CCX 1.0 状态
+## 当前 Mugen / Inner WebUI 0.1 / CCX 1.0 状态
 
 - Vue 3、TypeScript、Tailwind CSS WebUI 与 UXP Host 已按 `inner-host/v1` 接入，BYOK 明文仅保存在 UXP SecureStorage。
-- `key.env` 已按忽略提交策略配置；`https://mugen.catrefuse.com/inner/v1/` 已原子部署 WebUI `0.1.0`，公网入口、全部动态资源、发布元数据、严格 CSP、缓存策略和 `https://mugen.catrefuse.com/releases/latest.json` 均通过正式门禁。
-- WebUI 生产构建、content hash 与来源提交已写入线上 `release.json`；生产 CCX、SHA256 sidecar 与来源元数据已生成到 `dist/`。
-- 协议 13 项、WebUI 26 项、WebUI E2E 4 项、UXP Host 62 项、Provider 能力 43 项和发布策略 24 项测试均通过，`verify:uxp` 与生产 CCX 打包通过。
+- 项目技术名为 `mugen`，中文产品名为“无幻”，插件 ID 为 `com.tanshow.mugen`，WebUI 正式入口为 `https://mugen.catrefuse.com/webui/`。
+- 旧站 `https://webui.catrefuse.com/` 已退役：历史 `/inner/v1/` 跳转到新 `/webui/`，历史 `/releases/` 跳转到新发行目录，其余请求跳转到新官网。
+- `https://mugen.catrefuse.com/` 与 `https://mugen.catrefuse.com/webui/` 使用有效 TLS；首页 CSS 和两个入口均已完成公网 200 读回。
+- 当前线上 WebUI 为通过完整本地门禁的冒烟构建，`release.json` 保留 dirty 来源标记；正式 Mugen CCX 发布前仍需从干净提交重新生成 WebUI、CCX、SHA256 sidecar 与来源元数据。
+- 插件已改为本地打包 WebUI，并直接复用原 Electron `MugenPanel`、组件和主题样式；生产入口不加载 Mock Host。
+- 协议 13 项、WebUI 26 项和 UXP Host 62 项测试已通过，`verify:uxp` 已验证 `dist/ps-uxp/webui/` 与本地桥配置；Playwright 与 Photoshop 实机回归仍待完成。
+- APIMart 冒烟服务完整提供图片上传、生成提交、任务查询和猫图下载；最终回归必须验证图层抓取、APIMart 请求、猫图返回和画布落图四步均成功。
 - 真实 Photoshop 回归尚未执行；在握手、画布、BYOK、生成、取消、落图、保存、历史和诊断导出全部通过前，不把官网 `latest.json` 切换到 CCX `1.0.0`，也不删除 Electron 旧实现。
 
 ## 当前 0.3.19 状态

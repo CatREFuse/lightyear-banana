@@ -1,34 +1,34 @@
 {
   "product": "mugen",
-  "name": "Mugen",
-  "version": "0.3.18",
-  "tag": "v0.3.18",
+  "name": "无幻 Mugen",
+  "version": "0.3.17",
+  "tag": "v0.3.17",
   "minimumSupportedVersion": "0.3.0",
-  "publishedAt": "2026-07-31T13:46:02.196Z",
-  "releaseUrl": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/SHA256SUMS.txt",
+  "publishedAt": "2026-07-26T17:27:19.131Z",
+  "releaseUrl": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/SHA256SUMS.txt",
   "githubUrl": "https://github.com/CatREFuse/lightyear-banana",
   "updateCheckUrl": "__MUGEN_RELEASE_ORIGIN__/releases/latest.json",
   "mandatory": false,
   "downloads": {
     "mac": {
       "platform": "mac",
-      "filename": "mugen-0.3.18-mac.zip",
-      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18-mac.zip",
-      "sha256": "8fc8a3428e814246c23fad15a30accc34236781ee324634d5e717a5613002d02",
-      "size": 114909183
+      "filename": "lightyear-banana-0.3.17-mac.zip",
+      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/lightyear-banana-0.3.17-mac.zip",
+      "sha256": "bd01a491dae1bfe49559e23e62728461cf4207d132a89b992dc2047dd117960f",
+      "size": 114908934
     },
     "windows": {
       "platform": "windows",
-      "filename": "mugen-0.3.18-win.zip",
-      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18-win.zip",
-      "sha256": "dd28168b23ab4869a959932da81e47582035d36c136917daa58f5b9e09dca0fe",
-      "size": 141184271
+      "filename": "lightyear-banana-0.3.17-win.zip",
+      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/lightyear-banana-0.3.17-win.zip",
+      "sha256": "8ef033193f2d6edd9fb34b675b0ba195affa5c7f7ba6c40c1ec1be43c04a0c5e",
+      "size": 141184053
     },
     "ccx": {
       "platform": "photoshop-ccx",
-      "filename": "mugen-0.3.18.ccx",
-      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18.ccx",
-      "sha256": "f5048c975870b51dc9a1e1ae945589f684ed0bd72f47da130376275f36c37a25",
+      "filename": "lightyear-banana-0.3.17.ccx",
+      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.17/lightyear-banana-0.3.17.ccx",
+      "sha256": "87aa18b5894554ac1d3f18243cce2d0a2ceeebcd2ca10b08a4443db955f87866",
       "size": 22204
     }
   }

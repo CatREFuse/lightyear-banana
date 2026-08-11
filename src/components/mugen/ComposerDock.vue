@@ -439,8 +439,8 @@ watch(
   flex: 0 0 auto;
   gap: 9px;
   padding: 10px 12px 12px;
-  border-top: 1px solid var(--lb-hairline);
-  background: var(--lb-composer);
+  border-top: 1px solid var(--mugen-hairline);
+  background: var(--mugen-composer);
 }
 
 .prompt-shell {
@@ -458,7 +458,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
 }
 
@@ -477,7 +477,7 @@ watch(
   padding: 0 6px;
   border: 0;
   background: transparent;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -486,24 +486,24 @@ watch(
   border-color: transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .clear-reference:hover,
 .add-reference-inline:hover {
-  background: var(--lb-hover);
-  color: var(--lb-text);
+  background: var(--mugen-hover);
+  color: var(--mugen-text);
 }
 
 .add-reference-inline.is-loading {
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
 }
 
 .inline-spinner {
   width: 11px;
   height: 11px;
-  border: 1.5px solid var(--lb-border-strong);
-  border-top-color: var(--lb-accent);
+  border: 1.5px solid var(--mugen-border-strong);
+  border-top-color: var(--mugen-accent);
   border-radius: 999px;
   animation: inline-spin 800ms linear infinite;
 }
@@ -532,10 +532,10 @@ watch(
   display: grid;
   width: 150px;
   overflow: hidden;
-  border: 1px solid var(--lb-border-strong);
+  border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
-  background: var(--lb-overlay);
-  box-shadow: 0 12px 32px var(--lb-shadow);
+  background: var(--mugen-overlay);
+  box-shadow: 0 12px 32px var(--mugen-shadow);
 }
 
 .reference-menu {
@@ -559,15 +559,15 @@ watch(
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 12px;
   text-align: left;
   white-space: nowrap;
 }
 
 .floating-menu button:hover {
-  background: var(--lb-accent-soft);
-  color: var(--lb-text);
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-text);
 }
 
 .menu-pop-enter-active,
@@ -590,8 +590,8 @@ watch(
   resize: none;
   border: 0;
   border-radius: 8px;
-  background: var(--lb-field);
-  color: var(--lb-text);
+  background: var(--mugen-field);
+  color: var(--mugen-text);
   font: inherit;
   font-size: 12px;
   line-height: 1.45;
@@ -629,7 +629,7 @@ watch(
 
 .dimension-field span,
 .dimension-times {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 10px;
 }
 
@@ -641,14 +641,14 @@ watch(
   padding: 0 8px;
   border: 0;
   border-radius: 6px;
-  background: var(--lb-field);
-  color: var(--lb-text);
+  background: var(--mugen-field);
+  color: var(--mugen-text);
   font: inherit;
   font-size: 12px;
 }
 
 .dimension-field input:focus {
-  outline: 1px solid var(--lb-accent);
+  outline: 1px solid var(--mugen-accent);
 }
 
 .dimension-preset-button {
@@ -657,15 +657,15 @@ watch(
   align-self: end;
   padding: 0 8px;
   border-color: transparent;
-  background: var(--lb-field);
-  color: var(--lb-secondary);
+  background: var(--mugen-field);
+  color: var(--mugen-secondary);
   font-size: 11px;
   white-space: nowrap;
 }
 
 .dimension-preset-button:hover {
-  border-color: var(--lb-accent);
-  color: var(--lb-text);
+  border-color: var(--mugen-accent);
+  color: var(--mugen-text);
 }
 
 .send-button {
@@ -675,7 +675,7 @@ watch(
   gap: 6px;
   min-height: 34px;
   border: 0;
-  background: var(--lb-accent);
+  background: var(--mugen-accent);
   color: white;
   font-size: 13px;
   font-weight: 700;

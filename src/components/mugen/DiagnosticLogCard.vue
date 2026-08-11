@@ -45,9 +45,9 @@ const isExporting = computed(() => props.state.status === 'exporting')
   gap: 10px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-card);
+  background: var(--mugen-card);
 }
 
 .diagnostic-copy {
@@ -61,7 +61,7 @@ const isExporting = computed(() => props.state.status === 'exporting')
   align-items: center;
   gap: 6px;
   overflow: hidden;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -70,35 +70,35 @@ const isExporting = computed(() => props.state.status === 'exporting')
 
 .diagnostic-copy small {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .diagnostic-copy small.is-success {
-  color: var(--lb-success);
+  color: var(--mugen-success);
 }
 
 .diagnostic-copy small.is-error {
-  color: var(--lb-danger-muted);
+  color: var(--mugen-danger-muted);
 }
 
 .diagnostic-card button {
   flex: 0 0 auto;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-surface-2);
-  color: var(--lb-text);
+  background: var(--mugen-surface-2);
+  color: var(--mugen-text);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
 }
 
 .diagnostic-card button:hover:not(:disabled) {
-  background: var(--lb-hover);
+  background: var(--mugen-hover);
 }
 
 .diagnostic-card button:disabled {

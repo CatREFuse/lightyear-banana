@@ -175,11 +175,11 @@ onBeforeUnmount(() => {
   bottom: calc(100% + 8px);
   left: 0;
   overflow: hidden;
-  border: 1px solid var(--lb-border-strong, #333333);
+  border: 1px solid var(--mugen-border-strong, #333333);
   border-radius: 4px;
-  background: var(--lb-overlay, #111111);
-  color: var(--lb-text, #e8e8e8);
-  font-family: var(--lb-font-body, "Space Grotesk", system-ui, sans-serif);
+  background: var(--mugen-overlay, #111111);
+  color: var(--mugen-text, #e8e8e8);
+  font-family: var(--mugen-font-body, "Space Grotesk", system-ui, sans-serif);
 }
 
 header {
@@ -189,9 +189,9 @@ header {
   gap: 16px;
   min-height: 32px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--lb-hairline, #222222);
-  color: var(--lb-muted, #999999);
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  border-bottom: 1px solid var(--mugen-hairline, #222222);
+  color: var(--mugen-muted, #999999);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -199,7 +199,7 @@ header {
 
 header small {
   overflow: hidden;
-  color: var(--lb-muted, #999999);
+  color: var(--mugen-muted, #999999);
   font: inherit;
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
@@ -221,13 +221,13 @@ header small {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--lb-secondary, #999999);
+  color: var(--mugen-secondary, #999999);
   cursor: pointer;
   text-align: left;
 }
 
 .preset-options button + button {
-  border-top: 1px solid var(--lb-hairline, #222222);
+  border-top: 1px solid var(--mugen-hairline, #222222);
 }
 
 .preset-options button::before {
@@ -241,17 +241,17 @@ header small {
 }
 
 .preset-options button.active {
-  background: var(--lb-hover, #1a1a1a);
-  color: var(--lb-text, #e8e8e8);
+  background: var(--mugen-hover, #1a1a1a);
+  color: var(--mugen-text, #e8e8e8);
 }
 
 .preset-options button.active::before {
-  background: var(--lb-accent, #d71921);
+  background: var(--mugen-accent, #d71921);
 }
 
 .preset-command {
   overflow: hidden;
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 11px;
   letter-spacing: 0.04em;
   text-overflow: ellipsis;
@@ -260,7 +260,7 @@ header small {
 
 .preset-content {
   overflow: hidden;
-  color: var(--lb-muted, #999999);
+  color: var(--mugen-muted, #999999);
   font-size: 12px;
   line-height: 1.4;
   text-overflow: ellipsis;
@@ -270,8 +270,8 @@ header small {
 .empty-state {
   margin: 0;
   padding: 32px 16px;
-  color: var(--lb-muted, #999999);
-  font-family: var(--lb-font-mono, "Space Mono", monospace);
+  color: var(--mugen-muted, #999999);
+  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 11px;
   letter-spacing: 0.06em;
   text-align: center;

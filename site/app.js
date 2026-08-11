@@ -1,4 +1,4 @@
-const releaseUrl = "/releases/latest.json"
+const releaseUrl = "./releases/latest.json"
 const githubRepoApiUrl = "https://api.github.com/repos/CatREFuse/lightyear-banana"
 
 function setText(selector, value) {
@@ -74,8 +74,6 @@ async function hydrateRelease() {
     setText("[data-release-version]", release.version)
     setHref("[data-release-url]", release.releaseUrl)
     setHref("[data-github-url]", release.githubUrl)
-    updateDownloadLink("mac", release.downloads?.mac)
-    updateDownloadLink("win", release.downloads?.windows)
     updateDownloadLink("ccx", release.downloads?.ccx)
   } catch {
     return

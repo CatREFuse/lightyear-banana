@@ -1,7 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertProductionOrigin } from './production-origin-policy.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
@@ -11,9 +10,10 @@ const panelPath = path.join(pluginDir, 'uxp-panel.html')
 const browserPreviewPath = path.join(pluginDir, 'browser-preview.html')
 const assetsDir = path.join(pluginDir, 'assets')
 const iconsDir = path.join(pluginDir, 'icons')
+const webUiDir = path.join(pluginDir, 'webui')
 const sourceManifestPath = path.join(projectRoot, 'plugin', 'manifest.json')
 const standaloneManifestPath = path.join(projectRoot, 'standalone-uxp-plugin', 'manifest.json')
-const forbiddenProductionText = ['cake.catrefuse.com', 'inner-webui.invalid']
+const forbiddenProductionText = ['cake.catrefuse.com', 'webui.catrefuse.com', 'inner-webui.invalid']
 
 async function assertFile(filePath, label) {
   const info = await stat(filePath)
@@ -34,6 +34,7 @@ await assertFile(path.join(iconsDir, 'icon_D@1x.png'), 'dark 1x icon')
 await assertFile(path.join(iconsDir, 'icon_D@2x.png'), 'dark 2x icon')
 await assertFile(path.join(iconsDir, 'icon_N@1x.png'), 'light 1x icon')
 await assertFile(path.join(iconsDir, 'icon_N@2x.png'), 'light 2x icon')
+await assertFile(path.join(webUiDir, 'index.html'), 'bundled WebUI index')
 
 try {
   await stat(browserPreviewPath)
@@ -66,18 +67,12 @@ if (
 const webview = manifest.requiredPermissions?.webview
 if (
   webview?.allow !== 'yes' ||
-  webview.enableMessageBridge !== 'localAndRemote' ||
+  webview.allowLocalRendering !== 'yes' ||
+  webview.enableMessageBridge !== 'localOnly' ||
   !Array.isArray(webview.domains) ||
-  webview.domains.length !== 1
+  webview.domains.length !== 0
 ) {
-  throw new Error('manifest.requiredPermissions.webview must allow one exact bridge origin.')
-}
-
-let webviewOrigin
-try {
-  webviewOrigin = assertProductionOrigin(webview.domains[0], 'The production WebView domain')
-} catch {
-  throw new Error('The production WebView domain must be one exact HTTPS origin.')
+  throw new Error('manifest.requiredPermissions.webview must allow only the bundled local WebUI bridge.')
 }
 
 if (manifest.host?.app !== 'PS') {
@@ -109,6 +104,10 @@ if (!panelHtml.includes('id="app"')) {
   throw new Error('uxp-panel.html must keep the Vue mount node.')
 }
 
+if (!panelHtml.includes('height: 100vh;') || !panelHtml.includes('display: flex;')) {
+  throw new Error('uxp-panel.html must provide a definite full-panel height chain for the WebView.')
+}
+
 const appMountIndex = panelHtml.indexOf('id="app"')
 const firstScriptIndex = panelHtml.indexOf('<script')
 if (firstScriptIndex === -1 || firstScriptIndex < appMountIndex) {
@@ -124,15 +123,15 @@ if (assets.some((file) => file.endsWith('.map'))) {
   throw new Error('Production UXP assets must not contain source maps.')
 }
 
-let hasEmbeddedWebviewOrigin = false
 let hasEmbeddedWebviewUrl = false
 let hasInnerHostProtocol = false
+let hasPanelResizeSync = false
 
 for (const scriptFile of scriptFiles) {
   const source = await readFile(path.join(assetsDir, scriptFile), 'utf8')
-  hasEmbeddedWebviewOrigin ||= source.includes(webviewOrigin)
-  hasEmbeddedWebviewUrl ||= source.includes(`${webviewOrigin}/inner/v1/`)
+  hasEmbeddedWebviewUrl ||= source.includes('plugin:/webui/index.html')
   hasInnerHostProtocol ||= source.includes('inner-host/v1')
+  hasPanelResizeSync ||= source.includes('data-mugen-fill-panel') && source.includes('innerHeight') && source.includes('innerWidth')
   if (source.includes('new MutationObserver')) {
     throw new Error(`${scriptFile} contains Vite modulepreload polyfill.`)
   }
@@ -149,14 +148,14 @@ for (const scriptFile of scriptFiles) {
   }
 }
 
-if (!hasEmbeddedWebviewOrigin) {
-  throw new Error('The bundled Host does not contain the Manifest WebView origin.')
-}
 if (!hasEmbeddedWebviewUrl) {
-  throw new Error('The bundled Host must use the versioned /inner/v1/ WebView URL.')
+  throw new Error('The bundled Host must load plugin:/webui/index.html.')
 }
 if (!hasInnerHostProtocol) {
   throw new Error('The bundled Host does not contain the inner-host/v1 protocol marker.')
+}
+if (!hasPanelResizeSync) {
+  throw new Error('The bundled Host must synchronize the WebView pixel size with the Photoshop panel.')
 }
 
 for (const filePath of [manifestPath, panelPath]) {
@@ -168,4 +167,12 @@ for (const filePath of [manifestPath, panelPath]) {
   }
 }
 
-console.log(`UXP ${manifest.version} build verified for ${webviewOrigin}: ${path.relative(projectRoot, pluginDir)}`)
+const webUiAssets = await readdir(path.join(webUiDir, 'assets'))
+if (!webUiAssets.some((file) => file.endsWith('.js')) || !webUiAssets.some((file) => file.endsWith('.css'))) {
+  throw new Error('The bundled WebUI must contain its JavaScript and CSS assets.')
+}
+if (webUiAssets.some((file) => file.endsWith('.map'))) {
+  throw new Error('The bundled WebUI must not contain source maps.')
+}
+
+console.log(`UXP ${manifest.version} build verified with bundled local WebUI: ${path.relative(projectRoot, pluginDir)}`)

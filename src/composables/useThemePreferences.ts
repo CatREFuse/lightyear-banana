@@ -1,9 +1,18 @@
 import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import type { ColorMode, ResolvedColorMode, VisualTheme } from '../types/mugen'
+import type { ComputedRef, Ref } from 'vue'
 
 type StoredThemePreferences = {
   visualTheme?: VisualTheme
   colorMode?: ColorMode
+}
+
+export type ThemePreferencesController = {
+  colorMode: Ref<ColorMode>
+  resolvedColorMode: ComputedRef<ResolvedColorMode>
+  setColorMode(mode: ColorMode): void
+  setVisualTheme(theme: VisualTheme): void
+  visualTheme: Ref<VisualTheme>
 }
 
 const themeStorageKey = 'mugen.theme.v1'
@@ -11,10 +20,9 @@ const legacyThemeStorageKey = 'lightyear-banana.theme.v1'
 
 function readStoredPreferences(): Required<StoredThemePreferences> {
   try {
-    const current = localStorage.getItem(themeStorageKey)
-    const legacy = current === null ? localStorage.getItem(legacyThemeStorageKey) : null
-    const stored = JSON.parse(current ?? legacy ?? '{}') as StoredThemePreferences
-    if (legacy !== null) localStorage.setItem(themeStorageKey, legacy)
+    const stored = JSON.parse(
+      localStorage.getItem(themeStorageKey) ?? localStorage.getItem(legacyThemeStorageKey) ?? '{}'
+    ) as StoredThemePreferences
     return {
       visualTheme: stored.visualTheme === 'classic' ? 'classic' : 'nothing',
       colorMode: stored.colorMode === 'system' || stored.colorMode === 'dark' || stored.colorMode === 'light'

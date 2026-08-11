@@ -291,7 +291,7 @@ onUnmounted(() => {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  background: var(--lb-workspace);
+  background: var(--mugen-workspace);
 }
 
 .settings-page {
@@ -304,7 +304,7 @@ onUnmounted(() => {
 
 .settings-intro {
   margin: 0;
-  color: var(--lb-secondary);
+  color: var(--mugen-secondary);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -313,9 +313,9 @@ onUnmounted(() => {
   display: grid;
   gap: 10px;
   padding: 10px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-card);
+  background: var(--mugen-card);
 }
 
 .permission-heading {
@@ -329,7 +329,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   overflow: hidden;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -338,7 +338,7 @@ onUnmounted(() => {
 
 .permission-heading small {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -354,10 +354,10 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 32px;
   padding: 0 8px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-surface-2);
-  color: var(--lb-text);
+  background: var(--mugen-surface-2);
+  color: var(--mugen-text);
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
@@ -365,7 +365,7 @@ onUnmounted(() => {
 }
 
 .permission-actions button:hover {
-  background: var(--lb-hover);
+  background: var(--mugen-hover);
 }
 
 .data-card {
@@ -375,9 +375,9 @@ onUnmounted(() => {
   gap: 10px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-card);
+  background: var(--mugen-card);
 }
 
 .data-card div {
@@ -391,7 +391,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   overflow: hidden;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -400,7 +400,7 @@ onUnmounted(() => {
 
 .data-card small {
   overflow: hidden;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -410,10 +410,10 @@ onUnmounted(() => {
   flex: 0 0 auto;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--lb-danger-border);
+  border: 1px solid var(--mugen-danger-border);
   border-radius: 8px;
-  background: var(--lb-danger-bg);
-  color: var(--lb-danger-text);
+  background: var(--mugen-danger-bg);
+  color: var(--mugen-danger-text);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -425,9 +425,9 @@ onUnmounted(() => {
 
 .config-list {
   display: grid;
-  border: 1px solid var(--lb-border);
+  border: 1px solid var(--mugen-border);
   border-radius: 8px;
-  background: var(--lb-card);
+  background: var(--mugen-card);
   overflow: hidden;
 }
 
@@ -437,12 +437,12 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 8px;
   padding: 10px;
-  box-shadow: inset 0 -1px var(--lb-hairline);
+  box-shadow: inset 0 -1px var(--mugen-hairline);
 }
 
 h2 {
   margin: 0;
-  color: var(--lb-text);
+  color: var(--mugen-text);
   font-size: 13px;
 }
 
@@ -472,7 +472,7 @@ h2 {
 }
 
 .config-icon {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .section-header + .config-row {
@@ -480,15 +480,15 @@ h2 {
 }
 
 .config-row + .config-row {
-  box-shadow: inset 0 1px var(--lb-hairline);
+  box-shadow: inset 0 1px var(--mugen-hairline);
 }
 
 .config-row:hover {
-  background: var(--lb-hover);
+  background: var(--mugen-hover);
 }
 
 .config-row.selected {
-  background: var(--lb-accent-soft);
+  background: var(--mugen-accent-soft);
 }
 
 .config-row span {
@@ -505,7 +505,7 @@ h2 {
 }
 
 .config-row small {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .config-row em {
@@ -524,18 +524,18 @@ h2 {
 }
 
 .status-badge.is-enabled {
-  background: var(--lb-success-bg);
-  color: var(--lb-success);
+  background: var(--mugen-success-bg);
+  color: var(--mugen-success);
 }
 
 .status-badge.is-disabled {
   background: rgba(143, 151, 163, 0.12);
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .status-badge.is-unavailable {
-  background: var(--lb-danger-bg);
-  color: var(--lb-danger-muted);
+  background: var(--mugen-danger-bg);
+  color: var(--mugen-danger-muted);
 }
 
 .settings-meta {
@@ -545,7 +545,7 @@ h2 {
   gap: 6px 10px;
   margin-top: auto;
   padding: 2px 2px 0;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -553,17 +553,17 @@ h2 {
 .settings-meta span,
 .settings-meta button {
   min-width: 0;
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
   font: inherit;
   white-space: nowrap;
 }
 
 .settings-meta span.is-available {
-  color: var(--lb-success);
+  color: var(--mugen-success);
 }
 
 .settings-meta span.is-error {
-  color: var(--lb-danger-muted);
+  color: var(--mugen-danger-muted);
 }
 
 .settings-meta button {
@@ -575,7 +575,7 @@ h2 {
 }
 
 .settings-meta button:hover:not(:disabled) {
-  color: var(--lb-text);
+  color: var(--mugen-text);
 }
 
 .settings-meta button:disabled {
@@ -584,7 +584,7 @@ h2 {
 }
 
 .row-arrow {
-  color: var(--lb-muted);
+  color: var(--mugen-muted);
 }
 
 .settings-forward-enter-active,
