@@ -2,7 +2,7 @@
 
 ## 目标
 
-Lightyear Banana 后续采用桌面应用主导的架构：
+Mugen 后续采用桌面应用主导的架构：
 
 ```text
 Electron App
@@ -21,7 +21,7 @@ Photoshop 相关能力仍由 UXP 插件执行。Electron 负责完整 Web App �
 │ Electron Renderer                             │
 │ - 聊天式生图界面                              │
 │ - 参考图、结果、历史、模型配置                 │
-│ - 只访问 window.lightyearBridge               │
+│ - 只访问 window.mugenBridge               │
 └──────────────────────┬───────────────────────┘
                        │ IPC
 ┌──────────────────────▼───────────────────────┐
@@ -67,14 +67,14 @@ Renderer 不直接访问：
 - Photoshop UXP API
 - 任意 Node 全局对象
 
-Renderer 只通过 `window.lightyearBridge` 调用 Main 暴露的安全 API。
+Renderer 只通过 `window.mugenBridge` 调用 Main 暴露的安全 API。
 
 ### Electron Preload
 
 负责安全 IPC 包装：
 
 ```ts
-window.lightyearBridge = {
+window.mugenBridge = {
   invoke(command, payload),
   onEvent(callback),
   getBridgeStatus()
@@ -329,7 +329,7 @@ UXP 执行写入时必须：
 
 ### 命令执行
 
-1. Renderer 调用 `window.lightyearBridge.invoke('canvas.captureVisible')`。
+1. Renderer 调用 `window.mugenBridge.invoke('canvas.captureVisible')`。
 2. Main 生成 request id。
 3. Main 把命令放入 UXP 队列。
 4. UXP 执行 Photoshop API。
@@ -357,7 +357,7 @@ Mock Image API: 38322
 后续可以增加端口发现文件：
 
 ```text
-~/Library/Application Support/Lightyear Banana/bridge.json
+~/Library/Application Support/Mugen/bridge.json
 ```
 
 示例：
@@ -434,7 +434,7 @@ npm run verify:uxp
 ## 推荐目录结构
 
 ```text
-lightyear-banana/
+mugen/
   apps/
     desktop/
       electron/
@@ -607,10 +607,10 @@ Main 负责 asset 生命周期：
 | --- | --- |
 | UXP Photoshop adapter | `src/uxp/canvasPrimitives.ts` |
 | UXP service layer | `src/uxp/canvasPrimitiveService.ts` |
-| Renderer 工作台 | `src/components/lightyear/` |
+| Renderer 工作台 | `src/components/mugen/` |
 | 生图 API adapter | `src/services/imageApiClient.ts` |
 | 模型能力配置 | `src/data/providerCapabilities.ts` |
-| 类型定义 | `src/types/lightyear.ts` |
+| 类型定义 | `src/types/mugen.ts` |
 | Mock Server 参考 | `scripts/mock-image-api-server.mjs` |
 
 ## 技术选型建议

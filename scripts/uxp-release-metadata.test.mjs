@@ -4,7 +4,7 @@ import { createUxpReleaseMetadata } from './uxp-release-metadata.mjs'
 
 const validInput = {
   ccxVersion: '1.0.0',
-  filename: 'lightyear-banana-1.0.0.ccx',
+  filename: 'mugen-1.0.0.ccx',
   sha256: 'a'.repeat(64),
   webviewOrigin: 'https://webui.product.dev',
   releaseUrl: 'https://releases.product.dev/releases/',

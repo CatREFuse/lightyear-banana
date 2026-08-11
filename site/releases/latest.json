@@ -1,33 +1,33 @@
 {
-  "product": "lightyear-banana",
-  "name": "Lightyear Banana",
+  "product": "mugen",
+  "name": "Mugen",
   "version": "0.3.18",
   "tag": "v0.3.18",
   "minimumSupportedVersion": "0.3.0",
   "publishedAt": "2026-07-31T13:46:02.196Z",
-  "releaseUrl": "__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/SHA256SUMS.txt",
+  "releaseUrl": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/SHA256SUMS.txt",
   "githubUrl": "https://github.com/CatREFuse/lightyear-banana",
-  "updateCheckUrl": "__LIGHTYEAR_RELEASE_ORIGIN__/releases/latest.json",
+  "updateCheckUrl": "__MUGEN_RELEASE_ORIGIN__/releases/latest.json",
   "mandatory": false,
   "downloads": {
     "mac": {
       "platform": "mac",
-      "filename": "lightyear-banana-0.3.18-mac.zip",
-      "url": "__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/lightyear-banana-0.3.18-mac.zip",
+      "filename": "mugen-0.3.18-mac.zip",
+      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18-mac.zip",
       "sha256": "8fc8a3428e814246c23fad15a30accc34236781ee324634d5e717a5613002d02",
       "size": 114909183
     },
     "windows": {
       "platform": "windows",
-      "filename": "lightyear-banana-0.3.18-win.zip",
-      "url": "__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/lightyear-banana-0.3.18-win.zip",
+      "filename": "mugen-0.3.18-win.zip",
+      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18-win.zip",
       "sha256": "dd28168b23ab4869a959932da81e47582035d36c136917daa58f5b9e09dca0fe",
       "size": 141184271
     },
     "ccx": {
       "platform": "photoshop-ccx",
-      "filename": "lightyear-banana-0.3.18.ccx",
-      "url": "__LIGHTYEAR_RELEASE_ORIGIN__/releases/0.3.18/lightyear-banana-0.3.18.ccx",
+      "filename": "mugen-0.3.18.ccx",
+      "url": "__MUGEN_RELEASE_ORIGIN__/releases/0.3.18/mugen-0.3.18.ccx",
       "sha256": "f5048c975870b51dc9a1e1ae945589f684ed0bd72f47da130376275f36c37a25",
       "size": 22204
     }

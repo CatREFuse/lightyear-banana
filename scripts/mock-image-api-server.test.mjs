@@ -29,7 +29,7 @@ function waitForReady(child) {
     const timeout = setTimeout(() => reject(new Error(`Mock server did not start. ${stderr}`)), 5_000)
     child.stderr.on('data', (chunk) => { stderr += chunk.toString() })
     child.stdout.on('data', (chunk) => {
-      if (!chunk.toString().includes('Lightyear Banana Image API Mock Server')) return
+      if (!chunk.toString().includes('Mugen Image API Mock Server')) return
       clearTimeout(timeout)
       resolve()
     })
@@ -51,7 +51,7 @@ test('APIMart profile returns the same cat through its async task fixture', asyn
     '--delay-max-ms', '0'
   ], {
     cwd: projectRoot,
-    env: { ...process.env, LIGHTYEAR_MOCK_IMAGE_API_PORT: String(port) },
+    env: { ...process.env, MUGEN_MOCK_IMAGE_API_PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   })
 

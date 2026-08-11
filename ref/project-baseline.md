@@ -2,7 +2,7 @@
 
 ## 项目定位
 
-Lightyear Banana 是 Photoshop UXP 生图插件。当前架构由 CCX Host、`inner-host/v1` 消息协议和线上 Inner WebUI 组成；Electron 0.3.x 进入维护状态。
+Mugen 是 Photoshop UXP 生图插件。当前架构由 CCX Host、`inner-host/v1` 消息协议和线上 Inner WebUI 组成；Electron 0.3.x 进入维护状态。
 
 当前技术栈：
 
@@ -20,7 +20,7 @@ Lightyear Banana 是 Photoshop UXP 生图插件。当前架构由 CCX Host、`in
 
 - `npm run verify:inner-webui:release` 已通过协议、WebUI 单元测试、生产构建和两种面板宽度的 Playwright E2E。
 - UXP Host 已通过资产生命周期、用户确认、历史、Provider、安全 URL、选区绑定和 SecureStorage 测试。
-- `npm run package:uxp` 已生成并校验 `dist/lightyear-banana-1.0.0.ccx`、SHA256 和 `dist/uxp-release.json`。
+- `npm run package:uxp` 已生成并校验 `dist/mugen-1.0.0.ccx`、SHA256 和 `dist/uxp-release.json`。
 - Inner WebUI `0.1.0` 已部署到 `https://webui.catrefuse.com/inner/v1/`，公网资源、发布元数据、安全响应头和 releases 索引通过正式门禁。
 - 真实 Photoshop 中的 Inner WebUI 完整业务回归仍是正式发布前门禁。
 

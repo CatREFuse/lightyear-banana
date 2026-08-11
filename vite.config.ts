@@ -6,16 +6,16 @@ const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.met
   version: string
 }
 
-type LightyearEnvironment = 'development' | 'test' | 'production'
+type MugenEnvironment = 'development' | 'test' | 'production'
 
-const environmentValues = new Set<LightyearEnvironment>(['development', 'test', 'production'])
+const environmentValues = new Set<MugenEnvironment>(['development', 'test', 'production'])
 
-function resolveLightyearEnvironment(mode: string): LightyearEnvironment {
+function resolveMugenEnvironment(mode: string): MugenEnvironment {
   const env = loadEnv(mode, process.cwd(), '')
-  const rawEnvironment = env.VITE_LIGHTYEAR_ENV ?? env.LIGHTYEAR_ENV
+  const rawEnvironment = env.VITE_MUGEN_ENV ?? env.MUGEN_ENV
 
-  if (environmentValues.has(rawEnvironment as LightyearEnvironment)) {
-    return rawEnvironment as LightyearEnvironment
+  if (environmentValues.has(rawEnvironment as MugenEnvironment)) {
+    return rawEnvironment as MugenEnvironment
   }
 
   return mode === 'production' ? 'production' : 'development'
@@ -23,13 +23,13 @@ function resolveLightyearEnvironment(mode: string): LightyearEnvironment {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const lightyearEnvironment = resolveLightyearEnvironment(mode)
+  const mugenEnvironment = resolveMugenEnvironment(mode)
 
   return {
     plugins: [vue()],
     define: {
-      __LIGHTYEAR_APP_ENV__: JSON.stringify(lightyearEnvironment),
-      __LIGHTYEAR_VERSION__: JSON.stringify(packageJson.version)
+      __MUGEN_APP_ENV__: JSON.stringify(mugenEnvironment),
+      __MUGEN_VERSION__: JSON.stringify(packageJson.version)
     }
   }
 })

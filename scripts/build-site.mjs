@@ -6,7 +6,7 @@ import { verifyReleaseSite } from "./verify-release-bundle.mjs"
 const root = dirname(fileURLToPath(new URL("../package.json", import.meta.url)))
 const siteDir = join(root, "site")
 const outDir = join(root, "dist", "site")
-const releaseOriginPlaceholder = "__LIGHTYEAR_RELEASE_ORIGIN__"
+const releaseOriginPlaceholder = "__MUGEN_RELEASE_ORIGIN__"
 
 const { bundle, latest: manifest } = await verifyReleaseSite({ root, siteDir })
 

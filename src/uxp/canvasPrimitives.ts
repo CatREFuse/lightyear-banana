@@ -616,7 +616,7 @@ async function createTemporaryPreviewFile(image: CapturedCanvasImage) {
 
   const { bytes, extension } = await readPreviewImageBytes(image.previewUrl)
   const folder = await localFileSystem.getTemporaryFolder()
-  const file = await folder.createFile(`lightyear-place-${Date.now()}.${extension}`, { overwrite: true })
+  const file = await folder.createFile(`mugen-place-${Date.now()}.${extension}`, { overwrite: true })
   const binaryFormat = uxp.storage?.formats?.binary
 
   await file.write(bytes, binaryFormat ? { format: binaryFormat } : undefined)
@@ -818,7 +818,7 @@ export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImag
       } finally {
         await closeTemporaryDocument(photoshop, document)
       }
-    }, { commandName: '读取 Lightyear Banana 图片缩略图', timeOut: 120 })
+    }, { commandName: '读取 Mugen 图片缩略图', timeOut: 120 })
   } finally {
     await deleteTemporaryFile(temporaryFile.file)
   }
@@ -1078,7 +1078,7 @@ async function getMergedVisiblePixels(bounds: PixelBounds, trace?: UxpDiagnostic
   }
 
   await emitTrace(trace, 'composite.fallback.duplicate', 'start', { documentId: sourceDocument.id, bounds })
-  const mergedDocument = await sourceDocument.duplicate(`Lightyear Banana ${Date.now()}`, true)
+  const mergedDocument = await sourceDocument.duplicate(`Mugen ${Date.now()}`, true)
   await emitTrace(trace, 'composite.fallback.duplicate', 'success', { documentId: mergedDocument.id })
 
   try {

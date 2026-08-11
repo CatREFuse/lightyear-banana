@@ -11,7 +11,7 @@ import type {
   ModelConfig,
   ProviderCapability,
   SettingsTestState
-} from '../../types/lightyear'
+} from '../../types/mugen'
 import BoxIcon from './BoxIcon.vue'
 import type { BoxIconName } from './boxIcons'
 import ControlSelect from './ControlSelect.vue'

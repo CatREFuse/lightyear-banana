@@ -1,4 +1,4 @@
-# Lightyear Banana Standalone UXP Plugin
+# Mugen Standalone UXP Plugin
 
 这个目录是独立 Photoshop UXP 插件原型。它不依赖 Vite 构建，直接在 UXP Developer Tools 中加载。
 
@@ -23,7 +23,7 @@ standalone-uxp-plugin/manifest.json
 - 把结果加入下一轮参考图。
 - 把结果填入超分参数。
 - 把结果置入全画布、当前选区或参考图位置。
-- 通过菜单命令创建 `Lightyear Banana` 图层。
+- 通过菜单命令创建 `Mugen` 图层。
 
 ## 校验
 

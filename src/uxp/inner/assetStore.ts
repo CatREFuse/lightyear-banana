@@ -55,7 +55,7 @@ const MAX_THUMBNAIL_BYTES = 48 * 1024
 const MAX_PERSISTENT_ASSET_COUNT = 256
 const MAX_PERSISTENT_ASSET_BYTES = 512 * 1024 * 1024
 const MAX_PERSISTENT_FILE_BYTES = 128 * 1024 * 1024
-const PERSISTENT_FOLDER = 'lightyear-inner-assets-v1'
+const PERSISTENT_FOLDER = 'mugen-inner-assets-v1'
 const PERSISTENT_INDEX = 'index.json'
 const WORKSPACE_OWNER = 'workspace'
 

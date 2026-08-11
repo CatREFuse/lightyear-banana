@@ -7,7 +7,7 @@ import type {
   VisualTheme,
   WindowDeploySide,
   WindowDeployState
-} from '../../types/lightyear'
+} from '../../types/mugen'
 import BoxIcon from './BoxIcon.vue'
 
 const props = defineProps<{
@@ -136,7 +136,7 @@ watch(
       <span class="window-control is-minimize"></span>
       <span class="window-control is-maximize"></span>
     </div>
-    <div v-if="showWindowControls && desktopPlatform === 'win32' && !inSettings" class="window-brand" aria-hidden="true">Lightyear Banana</div>
+    <div v-if="showWindowControls && desktopPlatform === 'win32' && !inSettings" class="window-brand" aria-hidden="true">Mugen</div>
     <button v-if="showTitlebarBack" class="icon-button titlebar-back" type="button" @click="emit('back')">
       <BoxIcon name="arrow-back" size="16" />
       <span>返回</span>

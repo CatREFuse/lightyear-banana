@@ -983,7 +983,7 @@ async function testRemoteImageDimensionsAndPreviewStyle(requireFromBuild, outDir
     globalThis.fetch = originalFetch
   }
 
-  const messageThread = await readFile(new URL('../src/components/lightyear/MessageThread.vue', import.meta.url), 'utf8')
+  const messageThread = await readFile(new URL('../src/components/mugen/MessageThread.vue', import.meta.url), 'utf8')
   assert.doesNotMatch(messageThread, /aspect-ratio:\s*1\s*\/\s*1/)
   assert.match(messageThread, /aspectRatio:\s*readResultAspectRatio\(image\)/)
   assert.match(messageThread, /@load="handleResultImageLoad\(\$event, image\)"/)
@@ -993,7 +993,7 @@ async function testRemoteImageDimensionsAndPreviewStyle(requireFromBuild, outDir
 
 async function testNothingThemePreservesGeometry() {
   const themeCss = await readFile(new URL('../src/styles/nothing-theme.css', import.meta.url), 'utf8')
-  const lightyearPanel = await readFile(new URL('../src/components/lightyear/LightyearPanel.vue', import.meta.url), 'utf8')
+  const mugenPanel = await readFile(new URL('../src/components/mugen/MugenPanel.vue', import.meta.url), 'utf8')
   const geometryProperties = new Set([
     'align-content',
     'align-items',
@@ -1077,16 +1077,16 @@ async function testNothingThemePreservesGeometry() {
     `Nothing theme must inherit component geometry: ${overriddenGeometry.join(', ')}`
   )
   assert.doesNotMatch(themeCss, /@media\b/, 'Nothing theme must reuse the shared responsive layout')
-  assert.match(lightyearPanel, /\.lightyear-shell\s*\{[\s\S]*?min-width:\s*260px;/, 'Shared shell must own the 260px minimum width')
+  assert.match(mugenPanel, /\.mugen-shell\s*\{[\s\S]*?min-width:\s*260px;/, 'Shared shell must own the 260px minimum width')
 }
 
 async function main() {
-  const outDir = join(tmpdir(), 'lightyear-banana-regression-smoke')
+  const outDir = join(tmpdir(), 'mugen-regression-smoke')
   const sourceOutDir = compileRegressionSources(outDir)
   const requireFromBuild = createRequire(import.meta.url)
 
   try {
-    globalThis.__LIGHTYEAR_APP_ENV__ = 'test'
+    globalThis.__MUGEN_APP_ENV__ = 'test'
     const imageApi = requireFromBuild(join(sourceOutDir, 'services', 'imageApiClient.js'))
     const providerCapabilities = requireFromBuild(join(sourceOutDir, 'data', 'providerCapabilities.js'))
     const providerRegistry = requireFromBuild(join(sourceOutDir, 'providers', 'registry.js'))
@@ -1102,7 +1102,7 @@ async function main() {
     await testNothingThemePreservesGeometry()
     console.log('Canvas capture, source-ratio, retry, and Nothing theme regressions passed.')
   } finally {
-    delete globalThis.__LIGHTYEAR_APP_ENV__
+    delete globalThis.__MUGEN_APP_ENV__
     rmSync(outDir, { force: true, recursive: true })
   }
 }

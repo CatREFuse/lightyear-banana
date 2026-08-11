@@ -291,8 +291,8 @@ describe('persistent Host assets', () => {
 
     await history.clearAllLocalData()
 
-    expect(runtime.dataFolder?.entries.has('lightyear-inner-history.v1.json')).toBe(false)
-    const assetFolder = runtime.dataFolder?.entries.get('lightyear-inner-assets-v1') as MemoryFolder
+    expect(runtime.dataFolder?.entries.has('mugen-inner-history.v1.json')).toBe(false)
+    const assetFolder = runtime.dataFolder?.entries.get('mugen-inner-assets-v1') as MemoryFolder
     expect(assetFolder.entries.size).toBe(0)
     expect((await new HistoryStore(new AssetStore()).list(undefined, 10)).items).toEqual([])
   })

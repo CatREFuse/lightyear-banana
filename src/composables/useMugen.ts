@@ -43,7 +43,7 @@ import {
   type WindowDeployResult,
   type WindowDeploySide,
   type WindowDeployState
-} from '../types/lightyear'
+} from '../types/mugen'
 import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
 import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
@@ -87,7 +87,8 @@ type StoredSettings = {
   promptPresets: PromptPreset[]
 }
 
-const settingsStorageKey = 'lightyear-banana.settings.v1'
+const settingsStorageKey = 'mugen.settings.v1'
+const legacySettingsStorageKey = 'lightyear-banana.settings.v1'
 const maxStoredTurns = 50
 const apiRetryDelayMs = 800
 const retiredBundledConfigIds = new Set([
@@ -156,7 +157,7 @@ function sanitizeImageFileName(value: string) {
     .replace(/^\.+|\.+$/g, '')
     .trim()
 
-  return clean || 'lightyear-image'
+  return clean || 'mugen-image'
 }
 
 function readGeneratedImageFileName(image: CapturedCanvasImage, extension?: string) {
@@ -591,10 +592,13 @@ function readStoredSettings(): StoredSettings {
       }
     }
 
-    const raw = localStorage.getItem(settingsStorageKey)
+    const current = localStorage.getItem(settingsStorageKey)
+    const legacy = current === null ? localStorage.getItem(legacySettingsStorageKey) : null
+    const raw = current ?? legacy
     if (!raw) {
       return fallback
     }
+    if (legacy !== null) localStorage.setItem(settingsStorageKey, legacy)
 
     const parsed = JSON.parse(raw) as Partial<StoredSettings>
     const configs = normalizeConfigs(parsed.configs)
@@ -623,7 +627,7 @@ function writeStoredSettings(settings: StoredSettings) {
   void writeElectronStoredSettings(settings)
 }
 
-export function useLightyearBanana(runtime: RuntimeName) {
+export function useMugen(runtime: RuntimeName) {
   const storedSettings = readStoredSettings()
   const isElectronRuntime = runtime === 'electron'
   const initialConfig =
@@ -634,7 +638,7 @@ export function useLightyearBanana(runtime: RuntimeName) {
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Lightyear App' : '浏览器预览')
+  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Mugen App' : '浏览器预览')
   const connectionStatus = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Photoshop 未连接' : '浏览器预览')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
@@ -980,7 +984,7 @@ function readHighestQuality(options: string[]): string {
     } catch (error) {
       status.value = readErrorMessage(error, '操作失败').replace(/^Error invoking remote method '[^']+': Error: /, '')
     } finally {
-      console.debug(`[Lightyear Banana] ${operation.label || operation.type} ${Math.round(performance.now() - startedAt)}ms`)
+      console.debug(`[Mugen] ${operation.label || operation.type} ${Math.round(performance.now() - startedAt)}ms`)
       canvasOperation.value = { type: 'idle', label: '' }
       busy.value = false
     }
@@ -1026,7 +1030,7 @@ function readHighestQuality(options: string[]): string {
       }
 
       if (!canUseElectronBridge.value && !canUsePhotoshop.value) {
-        status.value = '请在 Lightyear App 或 Photoshop 面板中添加参考'
+        status.value = '请在 Mugen App 或 Photoshop 面板中添加参考'
         return
       }
 
@@ -2076,7 +2080,7 @@ function readHighestQuality(options: string[]): string {
 
   async function deployWindows(side: WindowDeploySide) {
     if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Lightyear App 中使用'
+      const message = '请在 Mugen App 中使用'
       windowDeployState.value = { status: 'error', message }
       status.value = message
       return
@@ -2106,7 +2110,7 @@ function readHighestQuality(options: string[]): string {
 
   async function openMacPermissionSettings(pane: MacPermissionPane) {
     if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Lightyear App 中使用'
+      const message = '请在 Mugen App 中使用'
       status.value = message
       return
     }
@@ -2124,7 +2128,7 @@ function readHighestQuality(options: string[]): string {
 
   async function checkForUpdates() {
     if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Lightyear App 中使用'
+      const message = '请在 Mugen App 中使用'
       appUpdateState.value = {
         status: 'error',
         message,
@@ -2204,7 +2208,7 @@ function readHighestQuality(options: string[]): string {
 
   async function exportDiagnostics() {
     if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Lightyear App 中使用'
+      const message = '请在 Mugen App 中使用'
       diagnosticExportState.value = { status: 'error', message }
       status.value = message
       showToast(message)
@@ -2237,7 +2241,7 @@ function readHighestQuality(options: string[]): string {
 
   async function exportCrxLogs() {
     if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Lightyear App 中使用'
+      const message = '请在 Mugen App 中使用'
       crxLogExportState.value = { status: 'error', message }
       status.value = message
       showToast(message)

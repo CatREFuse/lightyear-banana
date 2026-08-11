@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
 import { buildInfo } from '../../buildInfo'
-import { useLightyearBanana } from '../../composables/useLightyearBanana'
+import { useMugen } from '../../composables/useMugen'
 import { useThemePreferences } from '../../composables/useThemePreferences'
 import { hasElectronBridge, openElectronPreviewImage } from '../../services/electronBridge'
-import type { DesktopPlatform, RuntimeName } from '../../types/lightyear'
+import type { DesktopPlatform, RuntimeName } from '../../types/mugen'
 import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
 import ComposerDock from './ComposerDock.vue'
 import BoxIcon from './BoxIcon.vue'
@@ -87,7 +87,7 @@ const {
   updatePromptPresets,
   windowDeployState,
   useResultAsReference
-} = useLightyearBanana(props.runtime)
+} = useMugen(props.runtime)
 
 const {
   colorMode,
@@ -117,7 +117,7 @@ const previewDialogStyle = computed(() => {
 })
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return `Lightyear Banana v${buildInfo.version}`
+    return `Mugen v${buildInfo.version}`
   }
 
   if (settingsView.value === 'list') {
@@ -160,7 +160,7 @@ function readPreviewFileName(image: CapturedCanvasImage) {
   const cleanLabel = image.label
     .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
     .replace(/\s+/g, ' ')
-    .trim() || 'lightyear-image'
+    .trim() || 'mugen-image'
 
   return `${cleanLabel}-${image.width}x${image.height}.png`
 }
@@ -213,7 +213,7 @@ function handleManageModels() {
 
 <template>
   <main
-    class="lightyear-shell"
+    class="mugen-shell"
     :class="[
       `theme-${resolvedColorMode}`,
       `design-${visualTheme}`,
@@ -372,7 +372,7 @@ function handleManageModels() {
 </template>
 
 <style scoped>
-.lightyear-shell {
+.mugen-shell {
   --lb-accent: #2f8cff;
   --lb-accent-soft: rgba(47, 140, 255, 0.14);
   --lb-danger: #ffb4c0;
@@ -560,25 +560,25 @@ function handleManageModels() {
   opacity: 0;
 }
 
-.lightyear-shell,
+.mugen-shell,
 .route-shell,
 .route-page,
 .workspace-route,
-.lightyear-shell :deep(.panel-header),
-.lightyear-shell :deep(.thread),
-.lightyear-shell :deep(.composer),
-.lightyear-shell :deep(.icon-button),
-.lightyear-shell :deep(.empty-state),
-.lightyear-shell :deep(.user-message p),
-.lightyear-shell :deep(.select-button),
-.lightyear-shell :deep(.result-card),
-.lightyear-shell :deep(.result-actions),
-.lightyear-shell :deep(.result-actions button),
-.lightyear-shell :deep(.add-reference-inline),
-.lightyear-shell :deep(.clear-reference),
-.lightyear-shell :deep(.prompt-input),
-.lightyear-shell :deep(.select-trigger),
-.lightyear-shell :deep(.ratio-trigger) {
+.mugen-shell :deep(.panel-header),
+.mugen-shell :deep(.thread),
+.mugen-shell :deep(.composer),
+.mugen-shell :deep(.icon-button),
+.mugen-shell :deep(.empty-state),
+.mugen-shell :deep(.user-message p),
+.mugen-shell :deep(.select-button),
+.mugen-shell :deep(.result-card),
+.mugen-shell :deep(.result-actions),
+.mugen-shell :deep(.result-actions button),
+.mugen-shell :deep(.add-reference-inline),
+.mugen-shell :deep(.clear-reference),
+.mugen-shell :deep(.prompt-input),
+.mugen-shell :deep(.select-trigger),
+.mugen-shell :deep(.ratio-trigger) {
   transition:
     background-color 180ms ease,
     border-color 180ms ease,
@@ -586,7 +586,7 @@ function handleManageModels() {
     color 180ms ease;
 }
 
-.lightyear-shell.theme-dark {
+.mugen-shell.theme-dark {
   color-scheme: dark;
   --lb-bg: #1a2028;
   --lb-workspace: #151b23;
@@ -614,7 +614,7 @@ function handleManageModels() {
   --lb-shadow: rgba(0, 0, 0, 0.38);
 }
 
-.lightyear-shell.theme-light {
+.mugen-shell.theme-light {
   color-scheme: light;
   --lb-bg: #ffffff;
   --lb-workspace: #f6f6f4;
@@ -703,25 +703,25 @@ function handleManageModels() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lightyear-shell,
+  .mugen-shell,
   .route-shell,
   .route-page,
   .workspace-route,
-  .lightyear-shell :deep(.panel-header),
-  .lightyear-shell :deep(.thread),
-  .lightyear-shell :deep(.composer),
-  .lightyear-shell :deep(.icon-button),
-  .lightyear-shell :deep(.empty-state),
-  .lightyear-shell :deep(.user-message p),
-  .lightyear-shell :deep(.select-button),
-  .lightyear-shell :deep(.result-card),
-  .lightyear-shell :deep(.result-actions),
-  .lightyear-shell :deep(.result-actions button),
-  .lightyear-shell :deep(.add-reference-inline),
-  .lightyear-shell :deep(.clear-reference),
-  .lightyear-shell :deep(.prompt-input),
-  .lightyear-shell :deep(.select-trigger),
-  .lightyear-shell :deep(.ratio-trigger) {
+  .mugen-shell :deep(.panel-header),
+  .mugen-shell :deep(.thread),
+  .mugen-shell :deep(.composer),
+  .mugen-shell :deep(.icon-button),
+  .mugen-shell :deep(.empty-state),
+  .mugen-shell :deep(.user-message p),
+  .mugen-shell :deep(.select-button),
+  .mugen-shell :deep(.result-card),
+  .mugen-shell :deep(.result-actions),
+  .mugen-shell :deep(.result-actions button),
+  .mugen-shell :deep(.add-reference-inline),
+  .mugen-shell :deep(.clear-reference),
+  .mugen-shell :deep(.prompt-input),
+  .mugen-shell :deep(.select-trigger),
+  .mugen-shell :deep(.ratio-trigger) {
     transition: none;
   }
 

@@ -1,5 +1,6 @@
 export const PROTOCOL_VERSION = 1 as const
 export const INNER_HOST_PROTOCOL = 'inner-host/v1' as const
+// These wire identifiers stay stable so a Mugen host can load an already deployed v1 WebUI.
 export const CLIENT_READY_SIGNAL = 'lightyear-banana:client-ready:v1' as const
 export const LOCATION_BRIDGE_QUERY = '__lightyear_bridge' as const
 export const MAX_BRIDGE_MESSAGE_BYTES = 1024 * 1024

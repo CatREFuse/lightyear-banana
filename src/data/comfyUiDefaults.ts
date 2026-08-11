@@ -1,4 +1,4 @@
-import type { ComfyUiNodeMapping, ComfyUiSettings } from '../types/lightyear'
+import type { ComfyUiNodeMapping, ComfyUiSettings } from '../types/mugen'
 
 const productionDefaultWorkflowNodes: ComfyUiNodeMapping[] = [
   { type: 'prompt', nodeIds: [], key: 'text' },

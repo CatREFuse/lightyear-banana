@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import type { HostAssetRef } from '@lightyear-banana/inner-protocol'
-import { toHostAssetPointer } from '@lightyear-banana/inner-protocol'
+import type { HostAssetRef } from '@mugen/inner-protocol'
+import { toHostAssetPointer } from '@mugen/inner-protocol'
 import { useWorkspaceStore, type ChatTurn } from '@/stores/workspace'
 
 const store = useWorkspaceStore()

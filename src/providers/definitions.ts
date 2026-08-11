@@ -6,7 +6,7 @@ import {
   providerCapabilityData,
   resolveProviderCapabilityData
 } from '../../packages/inner-protocol/src/providerCapabilityData'
-import type { CustomModelFormat, ImageProviderId, ModelConfig, ProviderCapability } from '../types/lightyear'
+import type { CustomModelFormat, ImageProviderId, ModelConfig, ProviderCapability } from '../types/mugen'
 import type {
   ProviderConfigValidationIssue,
   ProviderConfigValidationResult,

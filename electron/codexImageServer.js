@@ -85,7 +85,7 @@ function getOutputDir() {
 }
 
 function getLogDir() {
-  return process.env.CODEX_IMAGE_SERVER_LOG_DIR || path.join(getCodexHome(), 'logs', 'lightyear-banana')
+  return process.env.CODEX_IMAGE_SERVER_LOG_DIR || path.join(getCodexHome(), 'logs', 'mugen')
 }
 
 function getLogFile() {

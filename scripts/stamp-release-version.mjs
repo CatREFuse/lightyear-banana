@@ -132,8 +132,8 @@ function stageReleaseVersion() {
   stageText(stagedFiles, targetFiles.standaloneIndex, (source) =>
     replaceExactlyOnce(
       source,
-      /Lightyear Banana v\d+\.\d+\.\d+/,
-      `Lightyear Banana v${version}`,
+      /Mugen v\d+\.\d+\.\d+/,
+      `Mugen v${version}`,
       'standalone index version'
     )
   )
@@ -141,8 +141,8 @@ function stageReleaseVersion() {
   stageText(stagedFiles, targetFiles.standaloneMain, (source) =>
     replaceExactlyOnce(
       source,
-      /const APP_TITLE = 'Lightyear Banana v\d+\.\d+\.\d+'/,
-      `const APP_TITLE = 'Lightyear Banana v${version}'`,
+      /const APP_TITLE = 'Mugen v\d+\.\d+\.\d+'/,
+      `const APP_TITLE = 'Mugen v${version}'`,
       'standalone app title version'
     )
   )
@@ -150,8 +150,8 @@ function stageReleaseVersion() {
   stageText(stagedFiles, targetFiles.standalonePackage, (source) =>
     replaceExactlyOnce(
       source,
-      /lightyear-banana-standalone-\d+\.\d+\.\d+\.zip/,
-      `lightyear-banana-standalone-${version}.zip`,
+      /mugen-standalone-\d+\.\d+\.\d+\.zip/,
+      `mugen-standalone-${version}.zip`,
       'standalone archive version'
     )
   )
@@ -159,14 +159,14 @@ function stageReleaseVersion() {
   stageText(stagedFiles, targetFiles.readme, (source) => {
     let updated = replaceAllMatches(
       source,
-      /lightyear-banana-\d+\.\d+\.\d+-(mac|win)\.zip/,
-      (_match, platform) => `lightyear-banana-${version}-${platform}.zip`,
+      /mugen-\d+\.\d+\.\d+-(mac|win)\.zip/,
+      (_match, platform) => `mugen-${version}-${platform}.zip`,
       'README desktop archive versions'
     )
     updated = replaceAllMatches(
       updated,
-      /lightyear-banana-\d+\.\d+\.\d+\.ccx/,
-      `lightyear-banana-${ccxVersion}.ccx`,
+      /mugen-\d+\.\d+\.\d+\.ccx/,
+      `mugen-${ccxVersion}.ccx`,
       'README CCX versions'
     )
     return replaceAllMatches(
@@ -214,20 +214,20 @@ function verifyReleaseVersion(read = readText) {
     `displayVersion: 'v${version}+${buildNumber}'`,
     'buildInfo display version'
   )
-  assertTargetContains(targetFiles.standaloneIndex, `Lightyear Banana v${version}`, 'standalone index version')
+  assertTargetContains(targetFiles.standaloneIndex, `Mugen v${version}`, 'standalone index version')
   assertTargetContains(
     targetFiles.standaloneMain,
-    `const APP_TITLE = 'Lightyear Banana v${version}'`,
+    `const APP_TITLE = 'Mugen v${version}'`,
     'standalone app title version'
   )
   assertTargetContains(
     targetFiles.standalonePackage,
-    `lightyear-banana-standalone-${version}.zip`,
+    `mugen-standalone-${version}.zip`,
     'standalone archive version'
   )
-  assertTargetContains(targetFiles.readme, `lightyear-banana-${version}-mac.zip`, 'README macOS archive version')
-  assertTargetContains(targetFiles.readme, `lightyear-banana-${version}-win.zip`, 'README Windows archive version')
-  assertTargetContains(targetFiles.readme, `lightyear-banana-${ccxVersion}.ccx`, 'README CCX version')
+  assertTargetContains(targetFiles.readme, `mugen-${version}-mac.zip`, 'README macOS archive version')
+  assertTargetContains(targetFiles.readme, `mugen-${version}-win.zip`, 'README Windows archive version')
+  assertTargetContains(targetFiles.readme, `mugen-${ccxVersion}.ccx`, 'README CCX version')
   assertTargetContains(targetFiles.readme, `dist/release-${version}/`, 'README release directory version')
 }
 

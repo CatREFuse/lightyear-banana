@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ReferenceImage } from '../../types/lightyear'
+import type { ReferenceImage } from '../../types/mugen'
 import BoxIcon from './BoxIcon.vue'
 
 defineProps<{

@@ -12,7 +12,7 @@ body {
   box-sizing: border-box;
 }
 
-.lightyear-shell {
+.mugen-shell {
   --lb-accent: #2f8cff;
   --lb-accent-soft: rgba(47, 140, 255, 0.14);
   --lb-bg: #1a2028;
@@ -45,7 +45,7 @@ body {
   color: var(--lb-text);
 }
 
-.lightyear-shell.theme-light {
+.mugen-shell.theme-light {
   --lb-bg: #ffffff;
   --lb-workspace: #f6f6f4;
   --lb-thread-bg: #eef0f3;

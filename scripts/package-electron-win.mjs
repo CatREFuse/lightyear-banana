@@ -12,12 +12,12 @@ const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.js
 const electronPackageJsonPath = require.resolve('electron/package.json')
 const electronPackageDir = path.dirname(electronPackageJsonPath)
 const electronPackageJson = JSON.parse(await readFile(electronPackageJsonPath, 'utf8'))
-const electronRuntimeOverride = process.env.LIGHTYEAR_ELECTRON_WIN_RUNTIME_DIR?.trim()
+const electronRuntimeOverride = process.env.MUGEN_ELECTRON_WIN_RUNTIME_DIR?.trim()
 const electronRuntimeDir = electronRuntimeOverride
   ? path.resolve(projectRoot, electronRuntimeOverride)
   : path.join(electronPackageDir, 'dist')
 const outDir = path.join(projectRoot, 'dist', 'win')
-const appName = 'Lightyear Banana'
+const appName = 'Mugen'
 const packagedDir = path.join(outDir, `${appName}-win32-x64`)
 const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${packageJson.version}-win.zip`)
 const resourcesDir = path.join(packagedDir, 'resources')

@@ -31,15 +31,15 @@ type UxpStorage = {
   }
 }
 
-const SETTINGS_FILE = 'lightyear-inner-settings.v1.json'
+const SETTINGS_FILE = 'mugen-inner-settings.v1.json'
 const MAX_SETTINGS_BYTES = 800 * 1024
 const MAX_WORKFLOW_BYTES = 600 * 1024
 const PROVIDER_IDS = new Set<PublicModelConfig['provider']>([
   'openai', 'iMini', 'gemini', 'apimart', 'seedream', 'qwen', 'kling', 'flux',
   'comfyui', 'custom-openai', 'codex-image-server'
 ])
-const credentialKey = (configId: string) => `lightyear.provider-credential.v1.${configId}`
-const CREDENTIAL_RECORD_KIND = 'lightyear.provider-credential'
+const credentialKey = (configId: string) => `mugen.provider-credential.v1.${configId}`
+const CREDENTIAL_RECORD_KIND = 'mugen.provider-credential'
 const LOCAL_PROVIDER_DEFAULTS: Partial<Record<PublicModelConfig['provider'], string>> = {
   comfyui: 'http://127.0.0.1:8000',
   'codex-image-server': 'http://127.0.0.1:17341'
@@ -298,7 +298,7 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
 export async function getCredential(config: CredentialBindingConfig) {
   if (!/^[a-zA-Z0-9_-]{1,96}$/.test(config.id)) throw new Error('配置 ID 无效')
   if (!providerRequiresApiKey(config.provider)) return ''
-  if (__LIGHTYEAR_APP_ENV__ !== 'production' && isDevelopmentApimartFixture(config)) return 'mock-good-apimart'
+  if (__MUGEN_APP_ENV__ !== 'production' && isDevelopmentApimartFixture(config)) return 'mock-good-apimart'
   const expectedBinding = resolveCredentialBinding(config)
   if (!expectedBinding) return ''
   const value = await readStoredCredential(config.id)

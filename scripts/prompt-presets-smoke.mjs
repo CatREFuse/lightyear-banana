@@ -153,7 +153,7 @@ function runFilterAndResolutionTests(api) {
 }
 
 function main() {
-  const outDir = join(tmpdir(), 'lightyear-banana-prompt-presets-smoke')
+  const outDir = join(tmpdir(), 'mugen-prompt-presets-smoke')
   rmSync(outDir, { force: true, recursive: true })
 
   try {

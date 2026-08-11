@@ -1,4 +1,4 @@
-import type { ImageProviderId, ModelConfig } from '../types/lightyear'
+import type { ImageProviderId, ModelConfig } from '../types/mugen'
 import type {
   ImageGenerationParams,
   NormalizedImageResult,

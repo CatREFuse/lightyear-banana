@@ -30,7 +30,7 @@ function createStatus(message: string, retry: () => void) {
   const status = document.createElement('div')
   status.style.cssText = 'display:flex;min-height:100%;padding:16px;box-sizing:border-box;flex-direction:column;gap:10px;background:var(--uxp-host-background-color,#11161f);color:var(--uxp-host-text-color,#f5f7fb);font-family:Segoe UI,sans-serif;'
   const title = document.createElement('strong')
-  title.textContent = 'Lightyear Banana'
+  title.textContent = 'Mugen'
   const body = document.createElement('span')
   body.textContent = message
   const button = document.createElement('button')
@@ -70,7 +70,7 @@ export function createWebViewShell(options: {
 
   webview.setAttribute('width', '100%')
   webview.setAttribute('height', '100%')
-  if (__LIGHTYEAR_APP_ENV__ !== 'production') {
+  if (__MUGEN_APP_ENV__ !== 'production') {
     webview.setAttribute('uxpallowinspector', 'true')
     webview.uxpallowinspector = true
   }
@@ -82,21 +82,21 @@ export function createWebViewShell(options: {
       try {
         const locationUrl = createLocationBridgeUrl(messageTargetUrl, message)
         messageTargetUrl = locationUrl
-        console.info('[Lightyear Banana] WebView location message sent', JSON.stringify({ command: message.command }))
+        console.info('[Mugen] WebView location message sent', JSON.stringify({ command: message.command }))
         webview.setAttribute('src', locationUrl)
       } catch (error) {
-        console.error('[Lightyear Banana] WebView location bridge failed', String(error))
+        console.error('[Mugen] WebView location bridge failed', String(error))
       }
       return
     }
     if (typeof webview.postMessage !== 'function') {
-      console.error('[Lightyear Banana] WebView message bridge unavailable')
+      console.error('[Mugen] WebView message bridge unavailable')
       return
     }
     webview.postMessage(JSON.stringify(message))
   }
   const postReady = () => {
-    console.info('[Lightyear Banana] WebView bridge ready', JSON.stringify({ origin: expectedOrigin }))
+    console.info('[Mugen] WebView bridge ready', JSON.stringify({ origin: expectedOrigin }))
     postMessage({
       protocol: INNER_HOST_PROTOCOL,
       kind: 'event',
@@ -115,14 +115,14 @@ export function createWebViewShell(options: {
     if (destroyed) return
     clearLoadTimer()
     replaceRoot(webview)
-    console.info('[Lightyear Banana] Loading WebView', JSON.stringify({ url: embeddedWebUiUrl.href }))
+    console.info('[Mugen] Loading WebView', JSON.stringify({ url: embeddedWebUiUrl.href }))
     webview.setAttribute('src', embeddedWebUiUrl.href)
     loadTimer = setTimeout(() => {
       if (!destroyed) replaceRoot(createStatus('工作台加载超时，请重试', load))
     }, 20_000)
   }
   const handleLoadStart = (event: Event) => {
-    console.info('[Lightyear Banana] WebView load started', JSON.stringify({
+    console.info('[Mugen] WebView load started', JSON.stringify({
       url: (event as WebViewLoadEvent).url ?? embeddedWebUiUrl.href
     }))
   }
@@ -139,7 +139,7 @@ export function createWebViewShell(options: {
         return
       }
     }
-    console.info('[Lightyear Banana] WebView load completed', JSON.stringify({
+    console.info('[Mugen] WebView load completed', JSON.stringify({
       url: loadedUrl ?? embeddedWebUiUrl.href
     }))
     clearLoadTimer()
@@ -149,7 +149,7 @@ export function createWebViewShell(options: {
   const handleLoadError = (event?: Event) => {
     if (destroyed) return
     const loadEvent = event as WebViewLoadEvent | undefined
-    console.error('[Lightyear Banana] WebView load failed', JSON.stringify({
+    console.error('[Mugen] WebView load failed', JSON.stringify({
       url: loadEvent?.url ?? embeddedWebUiUrl.href,
       code: loadEvent?.code,
       message: loadEvent?.message
@@ -159,7 +159,7 @@ export function createWebViewShell(options: {
   }
   const handleWindowMessage = (event: Event) => {
     const messageEvent = event as WebViewMessageEvent
-    console.info('[Lightyear Banana] WebView message observed', JSON.stringify({
+    console.info('[Mugen] WebView message observed', JSON.stringify({
       origin: messageEvent.origin,
       expectedOrigin,
       sourceMatches: messageEvent.source === webview,
@@ -171,13 +171,13 @@ export function createWebViewShell(options: {
       readySignalCount += 1
       if (readySignalCount >= 2) {
         useLocationBridge = true
-        console.warn('[Lightyear Banana] Falling back to WebView location bridge')
+        console.warn('[Mugen] Falling back to WebView location bridge')
       }
       postReady()
       return
     }
     const envelope = messageEvent.data as Partial<BridgeEnvelope> | undefined
-    console.info('[Lightyear Banana] WebView message received', JSON.stringify({ command: envelope?.command }))
+    console.info('[Mugen] WebView message received', JSON.stringify({ command: envelope?.command }))
     options.onMessage(messageEvent)
   }
 

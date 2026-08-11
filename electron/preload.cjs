@@ -1,15 +1,15 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
-contextBridge.exposeInMainWorld('lightyearBridge', {
-  getBridgeStatus: () => ipcRenderer.invoke('lightyear:status'),
-  loadSettings: () => ipcRenderer.sendSync('lightyear:settings:load'),
-  openPreview: (image) => ipcRenderer.invoke('lightyear:preview:open', image),
-  recordGenerationRequest: (entry) => ipcRenderer.send('lightyear:generation:request', entry),
-  saveSettings: (settings) => ipcRenderer.invoke('lightyear:settings:save', settings),
-  invoke: (command, payload) => ipcRenderer.invoke('lightyear:invoke', command, payload),
+contextBridge.exposeInMainWorld('mugenBridge', {
+  getBridgeStatus: () => ipcRenderer.invoke('mugen:status'),
+  loadSettings: () => ipcRenderer.sendSync('mugen:settings:load'),
+  openPreview: (image) => ipcRenderer.invoke('mugen:preview:open', image),
+  recordGenerationRequest: (entry) => ipcRenderer.send('mugen:generation:request', entry),
+  saveSettings: (settings) => ipcRenderer.invoke('mugen:settings:save', settings),
+  invoke: (command, payload) => ipcRenderer.invoke('mugen:invoke', command, payload),
   onEvent: (callback) => {
     const listener = (_event, payload) => callback(payload)
-    ipcRenderer.on('lightyear:event', listener)
-    return () => ipcRenderer.removeListener('lightyear:event', listener)
+    ipcRenderer.on('mugen:event', listener)
+    return () => ipcRenderer.removeListener('mugen:event', listener)
   }
 })

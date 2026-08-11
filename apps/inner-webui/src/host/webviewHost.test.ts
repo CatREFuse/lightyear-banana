@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { BridgeEnvelope, HostContext } from '@lightyear-banana/inner-protocol'
-import { CLIENT_READY_SIGNAL, INNER_HOST_PROTOCOL, LOCATION_BRIDGE_QUERY, PROTOCOL_VERSION } from '@lightyear-banana/inner-protocol'
+import type { BridgeEnvelope, HostContext } from '@mugen/inner-protocol'
+import { CLIENT_READY_SIGNAL, INNER_HOST_PROTOCOL, LOCATION_BRIDGE_QUERY, PROTOCOL_VERSION } from '@mugen/inner-protocol'
 import { WebViewHostClient, type UxpHostBridge } from './webviewHost'
 
 const context: HostContext = {

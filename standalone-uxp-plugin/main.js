@@ -1,8 +1,8 @@
 const uxp = require('uxp')
 const photoshop = require('photoshop')
 const { app, core, imaging, action } = photoshop
-const LOG_PREFIX = '[Lightyear Banana Standalone]'
-const APP_TITLE = 'Lightyear Banana v0.3.19'
+const LOG_PREFIX = '[Mugen Standalone]'
+const APP_TITLE = 'Mugen v0.3.19'
 
 console.log(LOG_PREFIX, 'script loaded')
 
@@ -480,7 +480,7 @@ function createMockResult(prompt, reference, options = readGenerationOptions()) 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <rect width="100%" height="100%" fill="#1f2633"/>
     <rect x="24" y="24" width="${Math.max(1, width - 48)}" height="${Math.max(1, height - 48)}" rx="24" fill="#2f8cff" opacity="0.68"/>
-    <text x="32" y="64" fill="white" font-family="Arial" font-size="24">Lightyear Banana</text>
+    <text x="32" y="64" fill="white" font-family="Arial" font-size="24">Mugen</text>
     <text x="32" y="100" fill="white" font-family="Arial" font-size="16">${escapeXml(prompt || 'Mock 结果')}</text>
     <text x="32" y="128" fill="white" font-family="Arial" font-size="14">${escapeXml(`${options.model} · ${options.quality}`)}</text>
   </svg>`
@@ -1008,7 +1008,7 @@ async function placeResult() {
       async () => {
         let imageData
         try {
-          const layer = await createPixelLayer('Lightyear Banana Result')
+          const layer = await createPixelLayer('Mugen Result')
           imageData = await imaging.createImageDataFromBuffer(resized, {
             width: target.width,
             height: target.height,
@@ -1031,7 +1031,7 @@ async function placeResult() {
           disposeImageData(imageData)
         }
       },
-      { commandName: '置入 Lightyear Banana 结果' }
+      { commandName: '置入 Mugen 结果' }
     )
 
     setStatus('已置入 Photoshop')
@@ -1042,9 +1042,9 @@ async function createNamedLayer() {
   console.log(LOG_PREFIX, 'createLayer command')
   await core.executeAsModal(
     async () => {
-      await createPixelLayer('Lightyear Banana')
+      await createPixelLayer('Mugen')
     },
-    { commandName: '创建 Lightyear Banana 图层' }
+    { commandName: '创建 Mugen 图层' }
   )
 }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, useTemplateRef, watch } from 'vue'
-import type { CanvasOperationState, ModelConfig, PromptPreset, ReferenceImage, ReferenceSource, ResolutionInputMode } from '../../types/lightyear'
-import type { ProviderCapability } from '../../types/lightyear'
+import type { CanvasOperationState, ModelConfig, PromptPreset, ReferenceImage, ReferenceSource, ResolutionInputMode } from '../../types/mugen'
+import type { ProviderCapability } from '../../types/mugen'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
 import { providerSupportsQuality, validateProviderConfig } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
@@ -46,7 +46,7 @@ const props = defineProps<{
   size: string
 }>()
 
-const manageModelsValue = '__lightyear_manage_models__'
+const manageModelsValue = '__mugen_manage_models__'
 
 const emit = defineEmits<{
   addReference: [source: ReferenceSource]
@@ -71,7 +71,7 @@ const emit = defineEmits<{
 const openPanel = shallowRef('')
 const expandedPresetContent = shallowRef<string | null>(null)
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
-const customSizeValue = '__lightyear_custom_resolution__'
+const customSizeValue = '__mugen_custom_resolution__'
 
 const referenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; label: string }> = [
   { icon: 'image', source: 'visible', label: '可见图层' },

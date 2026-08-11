@@ -1,4 +1,4 @@
-# Lightyear Banana Inner WebUI 产品需求与工程迁移规格
+# Mugen Inner WebUI 产品需求与工程迁移规格
 
 | 属性 | 值 |
 | --- | --- |
@@ -9,7 +9,7 @@
 
 ## 1. 文档目的
 
-本文定义 Lightyear Banana 从“Electron UI + 本地 HTTP Bridge + CCX”迁移到“CCX WebView + 线上 Inner WebUI”的目标产品、功能规格、工程结构、宿主协议、数据边界和上线门禁。
+本文定义 Mugen 从“Electron UI + 本地 HTTP Bridge + CCX”迁移到“CCX WebView + 线上 Inner WebUI”的目标产品、功能规格、工程结构、宿主协议、数据边界和上线门禁。
 
 本文供产品、前端、UXP、服务端、测试和发布人员共同使用。迁移完成前，现有 Electron 架构仍是线上行为基线；迁移通过本文的功能等价门禁后，Electron 才进入废弃流程。
 
@@ -101,7 +101,7 @@ BYOK 首版不要求账号系统。模型 API Key 不上传到 Web Host。若后
 
 ### 4.1 产品目标
 
-- 用户只安装一个 CCX，即可使用完整 Lightyear Banana 工作台。
+- 用户只安装一个 CCX，即可使用完整 Mugen 工作台。
 - 工作台功能达到当前 Electron UI 的核心功能等价。
 - 常规 UI 发布不再依赖 macOS、Windows Electron 打包。
 - Photoshop 画布读取和写入留在本地 UXP Runtime。
@@ -122,7 +122,7 @@ BYOK 首版不要求账号系统。模型 API Key 不上传到 Web Host。若后
 - 首版不提供独立桌面窗口和系统级窗口部署。
 - 首版不提供 Electron 内置 Codex Image Server 进程。
 - 首版不自动迁移旧 Electron 中保存的 API Key。
-- 首版不把完整 Photoshop 原图、提示词或 API Key 同步到 Lightyear Banana 自有服务器。
+- 首版不把完整 Photoshop 原图、提示词或 API Key 同步到 Mugen 自有服务器。
 - 首版不支持在普通浏览器中直接操作 Photoshop。
 - 首版不引入账号、订阅、云端历史同步和多人协作。
 
@@ -130,7 +130,7 @@ BYOK 首版不要求账号系统。模型 API Key 不上传到 Web Host。若后
 
 ### 5.1 启动流程
 
-1. 用户在 Photoshop 中打开 Lightyear Banana Panel。
+1. 用户在 Photoshop 中打开 Mugen Panel。
 2. CCX 渲染最小原生启动壳，并创建 WebView。
 3. WebView 加载固定的 HTTPS WebUI v1 地址。
 4. WebUI 发送 `host.handshake`。
@@ -142,9 +142,9 @@ BYOK 首版不要求账号系统。模型 API Key 不上传到 Web Host。若后
 
 | 状态 | 文案 | 操作 |
 | --- | --- | --- |
-| 加载中 | `正在打开 Lightyear Banana` | 无 |
+| 加载中 | `正在打开 Mugen` | 无 |
 | 网络不可用 | `无法加载工作台，请检查网络后重试` | `重试` |
-| 协议不兼容 | `Lightyear Banana 插件需要更新` | `查看更新` |
+| 协议不兼容 | `Mugen 插件需要更新` | `查看更新` |
 | Web Host 故障 | `工作台暂时不可用，请稍后重试` | `重试` |
 
 ### 5.2 主流程
@@ -440,7 +440,7 @@ Inner WebUI 必须对齐当前 `providerCapabilities` 中的配置能力：
 secureStorage Key 使用稳定命名：
 
 ```text
-lightyear.provider-credential.v1.<configId>
+mugen.provider-credential.v1.<configId>
 ```
 
 验收标准：
@@ -730,7 +730,7 @@ apps/
         messageTransport.ts
       components/
         ui/
-        lightyear/
+        mugen/
       features/
         workspace/
         references/
@@ -780,7 +780,7 @@ packages/
       commands.ts
       events.ts
       validators.ts
-  lightyear-domain/
+  mugen-domain/
     src/
       providerCapabilities.ts
       generation.ts
@@ -803,7 +803,7 @@ packages/
 
 - Vue 组件和浏览器 API。
 - Tailwind CSS。
-- `inner-protocol` 和 `lightyear-domain`。
+- `inner-protocol` 和 `mugen-domain`。
 - 通过 `HostClient` 调用宿主。
 
 禁止：
@@ -837,7 +837,7 @@ packages/
 - 不导入 Vue、Node、Electron、Photoshop 或 UXP。
 - 每个命令拥有请求、响应、错误和版本兼容测试。
 
-#### `packages/lightyear-domain`
+#### `packages/mugen-domain`
 
 - 保存 Provider Capability、参数归一化、生成快照和配置公共类型。
 - 不保存 API Key。
@@ -1033,7 +1033,7 @@ Mock Host 必须支持成功、无文档、无选区、Provider 失败、超时�
 - CSS 重写为 Tailwind utility 和主题变量。
 - 删除 Electron 标题栏、窗口部署和平台窗口按钮。
 - 所有 Host 行为通过 `HostClient`。
-- 把 `useLightyearBanana.ts` 拆为领域 Store 和 service，避免继续形成单个大型 composable。
+- 把 `useMugen.ts` 拆为领域 Store 和 service，避免继续形成单个大型 composable。
 - 现有用户可见文案可以复用；工程状态不得进入产品正文。
 
 退出条件：
@@ -1287,8 +1287,8 @@ CCX 发布继续遵守当前项目的 UXP 构建和验证要求。迁移完成�
 
 ## 19. 关联文档
 
-- `docs/lightyear-banana-prototype-requirements.md`
-- `docs/lightyear-banana-interaction-spec.md`
+- `docs/mugen-prototype-requirements.md`
+- `docs/mugen-interaction-spec.md`
 - `docs/standalone-web-parity-audit.md`
 - `ref/electron-bridge-architecture.md`
 - `ref/uxp-ui-runtime-rules.md`

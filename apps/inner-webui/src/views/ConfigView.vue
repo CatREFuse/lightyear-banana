@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { ModelConfig } from '@lightyear-banana/inner-protocol'
-import { createMessageId, providerUsesApiKey } from '@lightyear-banana/inner-protocol'
+import type { ModelConfig } from '@mugen/inner-protocol'
+import { createMessageId, providerUsesApiKey } from '@mugen/inner-protocol'
 import PanelHeader from '@/components/PanelHeader.vue'
 import { capabilities, useWorkspaceStore } from '@/stores/workspace'
 const route = useRoute(); const router = useRouter(); const store = useWorkspaceStore(); const saved = computed(() => store.configs.find(config => config.id === route.params.configId))

@@ -70,7 +70,7 @@ npm run deploy:inner-webui -- --rollback
 
 ## 发布顺序
 
-先发布并校验 WebUI，随后运行 `npm run package:uxp`。正式 CCX 打包入口会再次把公网 WebUI 与本地发布快照逐字节比对，并要求 Git 工作区干净。CCX 校验会确认 Manifest 版本为 `1.0.0`、WebView 只有一个正式 HTTPS Origin，并扫描构建产物中的旧域名和占位域名。最终产物为 `dist/lightyear-banana-1.0.0.ccx`，同目录的发布元数据和 SHA256 sidecar 用于 Electron 打包与产物追踪。
+先发布并校验 WebUI，随后运行 `npm run package:uxp`。正式 CCX 打包入口会再次把公网 WebUI 与本地发布快照逐字节比对，并要求 Git 工作区干净。CCX 校验会确认 Manifest 版本为 `1.0.0`、WebView 只有一个正式 HTTPS Origin，并扫描构建产物中的旧域名和占位域名。最终产物为 `dist/mugen-1.0.0.ccx`，同目录的发布元数据和 SHA256 sidecar 用于 Electron 打包与产物追踪。
 
 安装 CCX 后，在真实 Photoshop 中验证握手、画布抓取、参考图、生成、取消、落图、保存、历史和诊断导出。完成这些验证后，才能按 PRD 的退出门禁停止 Electron 新功能开发。
 

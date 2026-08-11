@@ -8,7 +8,7 @@ import { isDisallowedProductionHostname, resolveReleaseUrl } from './scripts/pro
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
 const uxpOutDir = path.resolve(projectRoot, 'dist/ps-uxp')
 
-type LightyearEnvironment = 'development' | 'test' | 'production'
+type MugenEnvironment = 'development' | 'test' | 'production'
 type SourceManifest = {
   version?: unknown
   requiredPermissions?: {
@@ -17,7 +17,7 @@ type SourceManifest = {
   }
 }
 
-const environmentValues = new Set<LightyearEnvironment>(['development', 'test', 'production'])
+const environmentValues = new Set<MugenEnvironment>(['development', 'test', 'production'])
 
 const fallbackDevelopmentWebUiUrl = 'http://localhost:4173/'
 
@@ -79,12 +79,12 @@ function resolveInnerWebUiUrl(mode: string) {
   return url
 }
 
-function resolveLightyearEnvironment(mode: string): LightyearEnvironment {
+function resolveMugenEnvironment(mode: string): MugenEnvironment {
   const env = loadEnv(mode, projectRoot, '')
-  const rawEnvironment = env.VITE_LIGHTYEAR_ENV ?? env.LIGHTYEAR_ENV
+  const rawEnvironment = env.VITE_MUGEN_ENV ?? env.MUGEN_ENV
 
-  if (environmentValues.has(rawEnvironment as LightyearEnvironment)) {
-    return rawEnvironment as LightyearEnvironment
+  if (environmentValues.has(rawEnvironment as MugenEnvironment)) {
+    return rawEnvironment as MugenEnvironment
   }
 
   return mode === 'production' ? 'production' : 'development'
@@ -135,7 +135,7 @@ function uxpPostBuildPlugin(innerWebUiUrl: URL): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  const lightyearEnvironment = resolveLightyearEnvironment(mode)
+  const mugenEnvironment = resolveMugenEnvironment(mode)
   const innerWebUiUrl = resolveInnerWebUiUrl(mode)
   const releaseUrl = resolveReleaseUrl({
     processEnvironment: process.env,
@@ -149,7 +149,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: './',
     define: {
-      __LIGHTYEAR_APP_ENV__: JSON.stringify(lightyearEnvironment),
+      __MUGEN_APP_ENV__: JSON.stringify(mugenEnvironment),
       __INNER_WEBUI_URL__: JSON.stringify(innerWebUiUrl.href),
       __INNER_RELEASE_URL__: JSON.stringify(releaseUrl.href),
       __CCX_VERSION__: JSON.stringify(ccxVersion)
@@ -162,7 +162,7 @@ export default defineConfig(({ mode }) => {
       },
       outDir: uxpOutDir,
       emptyOutDir: true,
-      sourcemap: lightyearEnvironment !== 'production',
+      sourcemap: mugenEnvironment !== 'production',
       rollupOptions: {
         input: fileURLToPath(new URL('./uxp-panel.html', import.meta.url)),
         output: {

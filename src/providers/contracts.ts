@@ -4,7 +4,7 @@ import type {
   ModelConfig,
   ProviderCapability,
   ReferenceImage
-} from '../types/lightyear'
+} from '../types/mugen'
 
 export type NormalizedImageResult = {
   previewUrl: string

@@ -177,7 +177,7 @@ describe('BYOK credential binding', () => {
 
   it('treats unbound legacy secure-storage values as missing', async () => {
     await save(config())
-    runtime.credentials.set('lightyear.provider-credential.v1.config-1', new TextEncoder().encode('legacy-secret'))
+    runtime.credentials.set('mugen.provider-credential.v1.config-1', new TextEncoder().encode('legacy-secret'))
 
     const settings = await getSettings()
 

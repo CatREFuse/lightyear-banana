@@ -1,5 +1,5 @@
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
-import type { DiagnosticExportResult, ImageRequestLogEntry, PlacementTarget } from '../types/lightyear'
+import type { DiagnosticExportResult, ImageRequestLogEntry, PlacementTarget } from '../types/mugen'
 
 type BridgeStatus = {
   bridge: {
@@ -33,7 +33,7 @@ type SerializedCanvasImage = Omit<CapturedCanvasImage, 'rgba'> & {
 
 declare global {
   interface Window {
-    lightyearBridge?: ElectronBridgeApi
+    mugenBridge?: ElectronBridgeApi
   }
 }
 
@@ -76,31 +76,31 @@ function base64ToBytes(value: string) {
 }
 
 export function hasElectronBridge() {
-  return typeof window !== 'undefined' && Boolean(window.lightyearBridge)
+  return typeof window !== 'undefined' && Boolean(window.mugenBridge)
 }
 
 export function readElectronStoredSettings() {
-  if (!window.lightyearBridge?.loadSettings) {
+  if (!window.mugenBridge?.loadSettings) {
     return undefined
   }
 
-  return window.lightyearBridge.loadSettings()
+  return window.mugenBridge.loadSettings()
 }
 
 export async function writeElectronStoredSettings(settings: unknown) {
-  if (!window.lightyearBridge?.saveSettings) {
+  if (!window.mugenBridge?.saveSettings) {
     return
   }
 
-  await window.lightyearBridge.saveSettings(settings)
+  await window.mugenBridge.saveSettings(settings)
 }
 
 export async function openElectronPreviewImage(image: CapturedCanvasImage) {
-  if (!window.lightyearBridge?.openPreview) {
-    throw new Error('Lightyear App 未启动')
+  if (!window.mugenBridge?.openPreview) {
+    throw new Error('Mugen App 未启动')
   }
 
-  return window.lightyearBridge.openPreview({
+  return window.mugenBridge.openPreview({
     height: image.height,
     label: image.label,
     previewUrl: image.previewUrl,
@@ -109,19 +109,19 @@ export async function openElectronPreviewImage(image: CapturedCanvasImage) {
 }
 
 export async function getElectronBridgeStatus() {
-  if (!window.lightyearBridge) {
-    throw new Error('Lightyear App 未启动')
+  if (!window.mugenBridge) {
+    throw new Error('Mugen App 未启动')
   }
 
-  return window.lightyearBridge.getBridgeStatus()
+  return window.mugenBridge.getBridgeStatus()
 }
 
 export async function invokeElectronBridge<T = unknown>(command: string, payload?: unknown) {
-  if (!window.lightyearBridge) {
-    throw new Error('Lightyear App 未启动')
+  if (!window.mugenBridge) {
+    throw new Error('Mugen App 未启动')
   }
 
-  return window.lightyearBridge.invoke<T>(command, payload)
+  return window.mugenBridge.invoke<T>(command, payload)
 }
 
 export async function exportElectronDiagnostics() {
@@ -133,15 +133,15 @@ export async function exportElectronCrxLogs() {
 }
 
 export function recordElectronGenerationRequest(entry: ImageRequestLogEntry) {
-  window.lightyearBridge?.recordGenerationRequest?.(entry)
+  window.mugenBridge?.recordGenerationRequest?.(entry)
 }
 
 export function onElectronBridgeEvent(callback: (event: unknown) => void) {
-  if (!window.lightyearBridge) {
+  if (!window.mugenBridge) {
     return undefined
   }
 
-  return window.lightyearBridge.onEvent(callback)
+  return window.mugenBridge.onEvent(callback)
 }
 
 export function deserializeCanvasImage(image: SerializedCanvasImage): CapturedCanvasImage {

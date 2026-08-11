@@ -21,7 +21,7 @@ import type {
   PlacementTarget,
   PublicModelConfig,
   TaskEvent
-} from '@lightyear-banana/inner-protocol'
+} from '@mugen/inner-protocol'
 import {
   HostClientError,
   PROTOCOL_VERSION,
@@ -29,7 +29,7 @@ import {
   toModelConfig,
   validateCommandPayload,
   validateCommandResult
-} from '@lightyear-banana/inner-protocol'
+} from '@mugen/inner-protocol'
 
 export type MockHostScenario = 'success' | 'no-document' | 'no-selection' | 'provider-failure' | 'timeout' | 'asset-invalidated' | 'incompatible'
 export type MockHostOptions = { scenario?: MockHostScenario; latencyMs?: number }
@@ -234,7 +234,7 @@ export class MockHostClient implements HostClient {
       case 'canvas.placeAsset': {
         const request = payload as HostCommandPayload<'canvas.placeAsset'>
         this.requireAsset(request.assetId)
-        return { layerName: 'Lightyear Banana 生成图', target: request.target } as HostCommandResult<TCommand>
+        return { layerName: 'Mugen 生成图', target: request.target } as HostCommandResult<TCommand>
       }
       case 'asset.save': {
         const request = payload as HostCommandPayload<'asset.save'>
@@ -249,7 +249,7 @@ export class MockHostClient implements HostClient {
         const request = payload as HostCommandPayload<'asset.release'>
         return { assetId: request.assetId, released: true } as HostCommandResult<TCommand>
       }
-      case 'diagnostics.export': return { saved: true, fileName: 'lightyear-banana-diagnostics.jsonl' } as HostCommandResult<TCommand>
+      case 'diagnostics.export': return { saved: true, fileName: 'mugen-diagnostics.jsonl' } as HostCommandResult<TCommand>
       case 'storage.clearAll':
         for (const taskId of [...this.timers.keys()]) this.stopTimers(taskId)
         this.taskSnapshots.clear()

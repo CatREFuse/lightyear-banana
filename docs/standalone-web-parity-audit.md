@@ -1,4 +1,4 @@
-# Lightyear Banana Standalone 与 Web 技术原型对齐审计
+# Mugen Standalone 与 Web 技术原型对齐审计
 
 日期：2026-04-28
 
@@ -6,7 +6,7 @@
 
 本次检查对比两套实现：
 
-- Web/Vue 技术原型：`src/components/lightyear/`、`src/composables/useLightyearBanana.ts`、`src/services/imageApiClient.ts`、`src/data/providerCapabilities.ts`、`plugin/manifest.json`
+- Web/Vue 技术原型：`src/components/mugen/`、`src/composables/useMugen.ts`、`src/services/imageApiClient.ts`、`src/data/providerCapabilities.ts`、`plugin/manifest.json`
 - 当前 UXP 独立插件：`standalone-uxp-plugin/index.html`、`standalone-uxp-plugin/main.js`、`standalone-uxp-plugin/manifest.json`
 
 同时核对项目约束：
@@ -209,7 +209,7 @@ Web 原型和独立插件的 `upload`、`clipboard` 当前都是 Mock。后续�
 
 Web 原型的核心在：
 
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 - `providerCapabilities.ts`
 - `imageApiClient.ts`
 - `canvasPrimitiveService.ts`

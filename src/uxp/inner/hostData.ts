@@ -54,7 +54,7 @@ async function deleteDataFile(name: string) {
   await file.delete()
 }
 
-const HISTORY_FILE = 'lightyear-inner-history.v1.json'
+const HISTORY_FILE = 'mugen-inner-history.v1.json'
 const MAX_HISTORY_ITEMS = 100
 const MAX_HISTORY_RESPONSE_BYTES = 700 * 1024
 const HISTORY_ASSET_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240"%3E%3Crect width="320" height="240" fill="%231a2028"/%3E%3Cpath d="M80 164l54-58 38 38 28-28 40 48H80z" fill="%238b5cf6" opacity=".45"/%3E%3C/svg%3E'
@@ -317,7 +317,7 @@ type DiagnosticRecord = {
   details?: Record<string, unknown>
 }
 
-const DIAGNOSTICS_FILE = 'lightyear-inner-diagnostics.v1.json'
+const DIAGNOSTICS_FILE = 'mugen-inner-diagnostics.v1.json'
 const MAX_DIAGNOSTIC_RECORDS = 500
 const DIAGNOSTIC_RETENTION_MS = 24 * 60 * 60 * 1000
 const secretPattern = /(?:api[-_]?key|authorization|cookie|credential|password|secret|token|prompt|workflow|image|rgba|base64|body|content)/i
@@ -403,7 +403,7 @@ export class DiagnosticStore {
     const records = retainedDiagnostics(await this.load())
     const fileSystem = getLocalFileSystem()
     if (!fileSystem?.getFileForSaving) throw new Error('文件保存器不可用')
-    const fileName = `lightyear-banana-diagnostics-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`
+    const fileName = `mugen-diagnostics-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`
     const file = await fileSystem.getFileForSaving(fileName, { types: ['jsonl'] })
     if (!file) return { saved: false }
     const jsonl = records.map((record) => JSON.stringify(sanitize(record))).join('\n')

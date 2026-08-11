@@ -3,7 +3,7 @@ import './styles/fonts.css'
 import './style.css'
 import './styles/nothing-theme.css'
 import App from './App.vue'
-import type { DesktopPlatform, RuntimeName } from './types/lightyear'
+import type { DesktopPlatform, RuntimeName } from './types/mugen'
 
 const params = new URLSearchParams(window.location.search)
 const runtime: RuntimeName = params.get('runtime') === 'electron' ? 'electron' : 'browser'

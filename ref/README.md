@@ -1,4 +1,4 @@
-# Lightyear Banana 开发参考
+# Mugen 开发参考
 
 本目录把当前实现、cookbook 和研究结论整理成可直接查阅的开发参考。开发时优先看这里，再回到 `docs/` 查更完整的历史记录。
 
@@ -7,8 +7,8 @@
 | 想查什么 | 先看 |
 | --- | --- |
 | 项目在做什么、当前验证到哪里、怎么运行 | `ref/project-baseline.md` |
-| 当前原型标定了哪些功能 | `docs/lightyear-banana-prototype-requirements.md` |
-| 工作台、结果流、设置页和 Photoshop 写入怎么交互 | `docs/lightyear-banana-interaction-spec.md` |
+| 当前原型标定了哪些功能 | `docs/mugen-prototype-requirements.md` |
+| 工作台、结果流、设置页和 Photoshop 写入怎么交互 | `docs/mugen-interaction-spec.md` |
 | Photoshop 画布抓图、选区、图层、插图等交互原语 | `ref/canvas-primitives.md` |
 | UXP entrypoint、Photoshop host、imaging、modal、文件访问等原子能力 | `ref/atomic-capabilities.md` |
 | Vue 3 + Vite + TypeScript + Manifest v5 的框架和构建方式 | `ref/framework-build.md` |
@@ -23,8 +23,8 @@
 这些参考来自当前仓库实现和已有文档：
 
 - `README.md`
-- `docs/lightyear-banana-prototype-requirements.md`
-- `docs/lightyear-banana-interaction-spec.md`
+- `docs/mugen-prototype-requirements.md`
+- `docs/mugen-interaction-spec.md`
 - `docs/uxp-cookbook.md`
 - `docs/canvas-primitives-reference.md`
 - `docs/uxp-development-best-practices-report.md`

@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertProductionOrigin, resolveReleaseUrl } from "./production-origin-policy.mjs"
 
 const rootFromScript = dirname(fileURLToPath(new URL("../package.json", import.meta.url)))
-const RELEASE_ORIGIN_PLACEHOLDER = "__LIGHTYEAR_RELEASE_ORIGIN__"
+const RELEASE_ORIGIN_PLACEHOLDER = "__MUGEN_RELEASE_ORIGIN__"
 
 function materializeReleaseOrigin(value, releaseOrigin) {
   return value.replaceAll(RELEASE_ORIGIN_PLACEHOLDER, releaseOrigin)
@@ -98,9 +98,9 @@ function requireSemver(value, label) {
 
 function expectedArtifactFilenames(electronVersion, ccxVersion) {
   return {
-    mac: `lightyear-banana-${electronVersion}-mac.zip`,
-    windows: `lightyear-banana-${electronVersion}-win.zip`,
-    ccx: `lightyear-banana-${ccxVersion}.ccx`
+    mac: `mugen-${electronVersion}-mac.zip`,
+    windows: `mugen-${electronVersion}-win.zip`,
+    ccx: `mugen-${ccxVersion}.ccx`
   }
 }
 
@@ -128,7 +128,7 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
     fail("uxp-release.json filename must be a string")
   }
   requireEqual(uxpMetadata.filename, basename(uxpMetadata.filename), "uxp-release.json filename basename")
-  requireEqual(uxpMetadata.filename, `lightyear-banana-${ccxVersion}.ccx`, "uxp-release.json filename")
+  requireEqual(uxpMetadata.filename, `mugen-${ccxVersion}.ccx`, "uxp-release.json filename")
   if (typeof uxpMetadata.sha256 !== "string" || !/^[a-fA-F0-9]{64}$/.test(uxpMetadata.sha256)) {
     fail("uxp-release.json sha256 must contain 64 hexadecimal characters")
   }

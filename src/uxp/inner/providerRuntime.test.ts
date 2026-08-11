@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { GenerationSnapshot } from '../../../packages/inner-protocol/src/index'
-import type { ImageProviderId } from '../../types/lightyear'
+import type { ImageProviderId } from '../../types/mugen'
 import {
   ProviderRuntime,
   mapProviderTimingPhase,

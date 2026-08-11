@@ -13,7 +13,7 @@ const packageJson = JSON.parse(readFileSync(path.join(projectRoot, 'package.json
 const electronPackage = JSON.parse(readFileSync(require.resolve('electron/package.json'), 'utf8'))
 const buildInfoSource = readFileSync(path.join(projectRoot, 'src', 'buildInfo.ts'), 'utf8')
 const buildNumber = buildInfoSource.match(/buildNumber: '([^']+)'/)?.[1]
-const appName = 'Lightyear Banana'
+const appName = 'Mugen'
 const stagingDir = path.join(distDir, 'mac-cross-win-staging')
 const outDir = path.join(distDir, 'mac-cross-win')
 const archivePath = path.join(distDir, `${packageJson.name}-${packageJson.version}-mac-cross-win.zip`)
@@ -156,7 +156,7 @@ const packagedPaths = await packager({
   asar: false,
   appVersion: packageJson.version,
   buildVersion: buildNumber,
-  appBundleId: 'com.lightyear.banana.cross-win'
+  appBundleId: 'com.tanshow.mugen.desktop.cross-win'
 })
 
 if (packagedPaths.length !== 1) {

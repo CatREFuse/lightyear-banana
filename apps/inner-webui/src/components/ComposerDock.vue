@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import type { GenerationSnapshot, HostAssetRef } from '@lightyear-banana/inner-protocol'
+import type { GenerationSnapshot, HostAssetRef } from '@mugen/inner-protocol'
 import { useWorkspaceStore } from '@/stores/workspace'
 import {
   CUSTOM_SIZE_OPTION,

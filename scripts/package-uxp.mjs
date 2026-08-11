@@ -84,15 +84,15 @@ try {
         'Bypass',
         '-Command',
         '$ErrorActionPreference = "Stop"; ' +
-          'Get-ChildItem -LiteralPath $env:LIGHTYEAR_UXP_SOURCE_DIR -Force | ' +
-          'Compress-Archive -DestinationPath $env:LIGHTYEAR_UXP_ARCHIVE_PATH -Force'
+          'Get-ChildItem -LiteralPath $env:MUGEN_UXP_SOURCE_DIR -Force | ' +
+          'Compress-Archive -DestinationPath $env:MUGEN_UXP_ARCHIVE_PATH -Force'
       ],
       {
         cwd: projectRoot,
         env: {
           ...process.env,
-          LIGHTYEAR_UXP_ARCHIVE_PATH: temporaryArchivePath,
-          LIGHTYEAR_UXP_SOURCE_DIR: sourceDir
+          MUGEN_UXP_ARCHIVE_PATH: temporaryArchivePath,
+          MUGEN_UXP_SOURCE_DIR: sourceDir
         },
         stdio: 'inherit'
       }

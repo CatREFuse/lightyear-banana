@@ -8,25 +8,25 @@
 - 修改 CCX 版本时，确认 `plugin/manifest.json`、`standalone-uxp-plugin/manifest.json` 与构建后的 `dist/ps-uxp/manifest.json` 一致；CCX 产物名从构建后的 Manifest 读取版本。
 - 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、`compatibility.json` 和构建元数据一致。
 - 提交根 `package.json` 的 Electron 版本号前，必须先打包当前运行平台的桌面端产物；只修改独立 CCX 或 Inner WebUI 版本时，执行下方对应门禁。
-- 在 Windows 上提交 Electron 版本时，必须产出并验证 `dist/lightyear-banana-$VERSION-win.zip`。
-- 在 macOS 上提交 Electron 版本时，必须产出并验证 `dist/lightyear-banana-$VERSION-mac.zip`。
+- 在 Windows 上提交 Electron 版本时，必须产出并验证 `dist/mugen-$VERSION-win.zip`。
+- 在 macOS 上提交 Electron 版本时，必须产出并验证 `dist/mugen-$VERSION-mac.zip`。
 - 不允许用 Windows 交叉生成的 macOS 包或 macOS 交叉生成的 Windows 包作为正式官网发行物。
 - Electron 当前平台产物缺失或版本不一致时，不得提交 Electron 版本号、不得打 tag、不得更新桌面端官网发行信息。
 
 ## 跨平台派发判断
 
-- Windows 打包完成后，检查 `dist/release-$VERSION/lightyear-banana-$VERSION-mac.zip` 是否存在且版本正确。
+- Windows 打包完成后，检查 `dist/release-$VERSION/mugen-$VERSION-mac.zip` 是否存在且版本正确。
 - 如果 macOS 包缺失、版本不一致或 SHA256 不在 `SHA256SUMS.txt` 中，必须派发 macOS 打包任务。
-- macOS 打包完成后，检查 `dist/release-$VERSION/lightyear-banana-$VERSION-win.zip` 是否存在且版本正确。
+- macOS 打包完成后，检查 `dist/release-$VERSION/mugen-$VERSION-win.zip` 是否存在且版本正确。
 - 如果 Windows 包缺失、版本不一致或 SHA256 不在 `SHA256SUMS.txt` 中，必须派发 Windows 打包任务。
 - 派发任务必须写明版本号、目标文件名、需要上传回来的文件、SHA256 校验要求和是否需要重新生成 `SHA256SUMS.txt`。
 
 ## 官网发布门禁
 
 - 官网发布必须等 `dist/release-$VERSION/` 同时包含：
-  - `lightyear-banana-$VERSION-mac.zip`
-  - `lightyear-banana-$VERSION-win.zip`
-  - `lightyear-banana-$CCX_VERSION.ccx`
+  - `mugen-$VERSION-mac.zip`
+  - `mugen-$VERSION-win.zip`
+  - `mugen-$CCX_VERSION.ccx`
   - `SHA256SUMS.txt`
 - `SHA256SUMS.txt` 必须覆盖上述三个安装包。
 - `site/releases/latest.json` 的下载地址必须全部指向 `key.env` 配置的新正式 Origin；仓库和正式产物不得包含已废弃域名。
@@ -40,7 +40,7 @@
 - `npm run verify:inner-webui:release`、`npm run verify:uxp` 和 `npm run package:uxp` 必须全部通过。
 - 正式构建前必须在忽略提交的 `key.env` 中提供 `INNER_WEBUI_URL`；该地址必须是新域名上的 HTTPS URL，并以 `/` 结尾。
 - 先部署 WebUI 并从公网校验 `compatibility.json` 的 `webVersion`，再打包嵌入同一 Origin 的 CCX。
-- CCX 包名必须为 `dist/lightyear-banana-1.0.0.ccx`，包内 Manifest、Host 协议和 WebView Origin 必须通过静态检查。
+- CCX 包名必须为 `dist/mugen-1.0.0.ccx`，包内 Manifest、Host 协议和 WebView Origin 必须通过静态检查。
 - 发布前必须在真实 Photoshop 中完成握手、画布抓取、参考图、BYOK、生成、取消、落图、保存、历史和诊断导出的回归。
 - 真实 Photoshop 回归通过前，Electron 只进入维护状态，不删除旧实现和既有安装包。
 

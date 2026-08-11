@@ -1,4 +1,4 @@
-.lightyear-shell.lightyear-shell.design-nothing {
+.mugen-shell.mugen-shell.design-nothing {
   --font-display: "Doto Variable", "Space Mono", monospace;
   --font-ui: "Space Grotesk Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-data: "Space Mono", "SFMono-Regular", Consolas, monospace;
@@ -10,7 +10,7 @@
   font-family: var(--font-ui);
 }
 
-.lightyear-shell.lightyear-shell.design-nothing.mode-dark {
+.mugen-shell.mugen-shell.design-nothing.mode-dark {
   color-scheme: dark;
   --lb-bg: #000000;
   --lb-workspace: #000000;
@@ -48,7 +48,7 @@
   --lb-shadow: transparent;
 }
 
-.lightyear-shell.lightyear-shell.design-nothing.mode-light {
+.mugen-shell.mugen-shell.design-nothing.mode-light {
   color-scheme: light;
   --lb-bg: #f5f5f5;
   --lb-workspace: #f5f5f5;
@@ -86,24 +86,24 @@
   --lb-shadow: transparent;
 }
 
-.lightyear-shell.design-nothing *,
-.lightyear-shell.design-nothing *::before,
-.lightyear-shell.design-nothing *::after {
+.mugen-shell.design-nothing *,
+.mugen-shell.design-nothing *::before,
+.mugen-shell.design-nothing *::after {
   box-shadow: none !important;
   text-shadow: none !important;
   transition: none !important;
   animation: none !important;
 }
 
-.lightyear-shell.design-nothing * {
+.mugen-shell.design-nothing * {
   background-image: none !important;
 }
 
-.lightyear-shell.design-nothing :is(button, input, textarea, select) {
+.mugen-shell.design-nothing :is(button, input, textarea, select) {
   font-family: var(--font-ui);
 }
 
-.lightyear-shell.design-nothing :is(
+.mugen-shell.design-nothing :is(
   .connection-status,
   .operation-status,
   .reference-header,
@@ -122,138 +122,138 @@
   letter-spacing: 0.055em;
 }
 
-.lightyear-shell.design-nothing .panel-header {
+.mugen-shell.design-nothing .panel-header {
   border-bottom-color: var(--lb-border);
   background: var(--lb-bg);
 }
 
-.lightyear-shell.design-nothing .panel-header h1 {
+.mugen-shell.design-nothing .panel-header h1 {
   color: var(--lb-text);
   font-family: var(--font-ui);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
 
-.lightyear-shell.design-nothing .connection-status {
+.mugen-shell.design-nothing .connection-status {
   color: var(--lb-secondary);
   font-family: var(--font-data);
 }
 
-.lightyear-shell.design-nothing .select-status.is-warning {
+.mugen-shell.design-nothing .select-status.is-warning {
   color: var(--nd-warning);
 }
 
-.lightyear-shell.design-nothing .icon-button {
+.mugen-shell.design-nothing .icon-button {
   border: 0;
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) {
+.mugen-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) {
   border: 1px solid var(--lb-border-strong);
   border-radius: 8px;
   background: var(--lb-overlay);
 }
 
-.lightyear-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) button {
+.mugen-shell.design-nothing :is(.deploy-menu, .theme-menu, .floating-menu, .select-menu, .ratio-menu, .place-menu, .image-context-menu) button {
   border-radius: 4px;
   font-family: var(--font-data);
   font-weight: 400;
 }
 
-.lightyear-shell.design-nothing :is(.theme-menu, .select-menu, .ratio-menu) button.selected,
-.lightyear-shell.design-nothing :is(.config-row, .select-option).selected {
+.mugen-shell.design-nothing :is(.theme-menu, .select-menu, .ratio-menu) button.selected,
+.mugen-shell.design-nothing :is(.config-row, .select-option).selected {
   border-left: 2px solid var(--nd-accent);
 }
 
-.lightyear-shell.design-nothing .thread {
+.mugen-shell.design-nothing .thread {
   background: var(--lb-thread-bg);
 }
 
-.lightyear-shell.design-nothing .thread > .empty-state {
+.mugen-shell.design-nothing .thread > .empty-state {
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--lb-muted);
 }
 
-.lightyear-shell.design-nothing .thread > .empty-state > span:first-of-type {
+.mugen-shell.design-nothing .thread > .empty-state > span:first-of-type {
   color: var(--lb-text);
   font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: -0.03em;
 }
 
-.lightyear-shell.design-nothing .thread > .empty-state > small {
+.mugen-shell.design-nothing .thread > .empty-state > small {
   color: var(--lb-secondary);
 }
 
-.lightyear-shell.design-nothing .user-message p {
+.mugen-shell.design-nothing .user-message p {
   border-radius: 4px;
   background: var(--lb-thread-surface-2);
   color: var(--lb-text);
 }
 
-.lightyear-shell.design-nothing :is(.assistant-message, .response-text) {
+.mugen-shell.design-nothing :is(.assistant-message, .response-text) {
   color: var(--lb-text);
 }
 
-.lightyear-shell.design-nothing .loading-message {
+.mugen-shell.design-nothing .loading-message {
   border-width: 1px 0;
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing .result-card {
+.mugen-shell.design-nothing .result-card {
   border: 0;
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing .thumbnail-button,
-.lightyear-shell.design-nothing .thumbnail-button img {
+.mugen-shell.design-nothing .thumbnail-button,
+.mugen-shell.design-nothing .thumbnail-button img {
   border-radius: 4px;
 }
 
-.lightyear-shell.design-nothing .result-actions {
+.mugen-shell.design-nothing .result-actions {
   border: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing .result-actions button {
+.mugen-shell.design-nothing .result-actions button {
   border: 1px solid var(--lb-border-strong);
   border-radius: 4px;
   background: transparent;
   color: var(--lb-secondary);
 }
 
-.lightyear-shell.design-nothing .operation-status {
+.mugen-shell.design-nothing .operation-status {
   border-top: 1px solid var(--lb-border);
   background: var(--lb-bg);
 }
 
-.lightyear-shell.design-nothing .operation-status > span {
+.mugen-shell.design-nothing .operation-status > span {
   color: var(--lb-secondary);
 }
 
-.lightyear-shell.design-nothing .composer {
+.mugen-shell.design-nothing .composer {
   border-top: 1px solid var(--lb-border-visible, var(--lb-border-strong));
   background: var(--lb-composer);
 }
 
-.lightyear-shell.design-nothing .reference-header {
+.mugen-shell.design-nothing .reference-header {
   color: var(--lb-secondary);
   letter-spacing: 0.06em;
 }
 
-.lightyear-shell.design-nothing :is(.clear-reference, .add-reference-inline) {
+.mugen-shell.design-nothing :is(.clear-reference, .add-reference-inline) {
   border: 0;
   border-radius: 0;
   color: var(--lb-secondary);
   font-family: var(--font-data);
 }
 
-.lightyear-shell.design-nothing .prompt-input {
+.mugen-shell.design-nothing .prompt-input {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -261,29 +261,29 @@
   font-family: var(--font-ui);
 }
 
-.lightyear-shell.design-nothing .prompt-input:focus {
+.mugen-shell.design-nothing .prompt-input:focus {
   outline: 1px solid var(--lb-text);
   outline-offset: -1px;
 }
 
-.lightyear-shell.design-nothing :is(.select-trigger, .ratio-trigger, .dimension-field input, .dimension-preset-button) {
+.mugen-shell.design-nothing :is(.select-trigger, .ratio-trigger, .dimension-field input, .dimension-preset-button) {
   border: 1px solid var(--lb-border-strong);
   border-radius: 4px;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing :is(.select-label, .ratio-label, .dimension-field > span) {
+.mugen-shell.design-nothing :is(.select-label, .ratio-label, .dimension-field > span) {
   color: var(--lb-secondary);
   font-family: var(--font-data);
   letter-spacing: 0.07em;
 }
 
-.lightyear-shell.design-nothing .ratio-shape {
+.mugen-shell.design-nothing .ratio-shape {
   border-color: var(--lb-secondary);
   background: transparent;
 }
 
-.lightyear-shell.design-nothing .send-button {
+.mugen-shell.design-nothing .send-button {
   border: 0;
   border-radius: 999px;
   background: var(--lb-text);
@@ -292,77 +292,77 @@
   letter-spacing: 0.08em;
 }
 
-.lightyear-shell.design-nothing .send-button:disabled {
+.mugen-shell.design-nothing .send-button:disabled {
   background: var(--lb-border-strong);
   color: var(--lb-muted);
 }
 
-.lightyear-shell.design-nothing .settings-panel {
+.mugen-shell.design-nothing .settings-panel {
   background: var(--lb-workspace);
 }
 
-.lightyear-shell.design-nothing :is(.permission-card, .data-card, .diagnostic-card, .config-list, .field-card, .capability-box, .comfy-panel) {
+.mugen-shell.design-nothing :is(.permission-card, .data-card, .diagnostic-card, .config-list, .field-card, .capability-box, .comfy-panel) {
   border-width: 0 0 1px;
   border-color: var(--lb-border);
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing .section-header {
+.mugen-shell.design-nothing .section-header {
   border-bottom: 1px solid var(--lb-border-strong);
 }
 
-.lightyear-shell.design-nothing .section-header h2 {
+.mugen-shell.design-nothing .section-header h2 {
   font-family: var(--font-ui);
   font-weight: 500;
 }
 
-.lightyear-shell.design-nothing .config-row {
+.mugen-shell.design-nothing .config-row {
   border-width: 0 0 1px;
   border-color: var(--lb-border);
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing .config-row.selected {
+.mugen-shell.design-nothing .config-row.selected {
   border-left: 2px solid var(--nd-accent);
 }
 
-.lightyear-shell.design-nothing .status-badge {
+.mugen-shell.design-nothing .status-badge {
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--lb-secondary);
 }
 
-.lightyear-shell.design-nothing .status-badge.is-unavailable {
+.mugen-shell.design-nothing .status-badge.is-unavailable {
   color: var(--nd-accent);
 }
 
-.lightyear-shell.design-nothing :is(.form-control input, .form-control textarea, .form-control select, .model-inline-add input) {
+.mugen-shell.design-nothing :is(.form-control input, .form-control textarea, .form-control select, .model-inline-add input) {
   border-width: 0 0 1px;
   border-color: var(--lb-border-strong);
   border-radius: 0;
   background: transparent;
 }
 
-.lightyear-shell.design-nothing :is(.form-actions button, .permission-actions button, .data-card button, .section-header button) {
+.mugen-shell.design-nothing :is(.form-actions button, .permission-actions button, .data-card button, .section-header button) {
   border: 1px solid var(--lb-border-strong);
   border-radius: 4px;
   background: transparent;
   color: var(--lb-text);
 }
 
-.lightyear-shell.design-nothing .preview-window {
+.mugen-shell.design-nothing .preview-window {
   background: rgba(0, 0, 0, 0.82);
 }
 
-.lightyear-shell.design-nothing .preview-dialog {
+.mugen-shell.design-nothing .preview-dialog {
   border: 1px solid var(--lb-border-strong);
   border-radius: 16px;
   background: var(--lb-overlay);
 }
 
-.lightyear-shell.design-nothing .preview-header button {
+.mugen-shell.design-nothing .preview-header button {
   border-radius: 4px;
 }

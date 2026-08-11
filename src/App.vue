@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
-import LightyearPanel from './components/lightyear/LightyearPanel.vue'
-import type { DesktopPlatform, RuntimeName } from './types/lightyear'
+import MugenPanel from './components/mugen/MugenPanel.vue'
+import type { DesktopPlatform, RuntimeName } from './types/mugen'
 
 const props = withDefaults(
   defineProps<{
@@ -42,7 +42,7 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
       </button>
     </div>
     <div class="plugin-preview-frame">
-      <LightyearPanel
+      <MugenPanel
         :runtime="props.runtime"
         :desktop-platform="props.runtime === 'browser' ? previewPlatform : props.platform"
         :show-window-controls="props.runtime === 'browser'"

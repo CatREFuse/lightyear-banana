@@ -19,14 +19,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = join(__dirname, '..', 'dist')
 const BRIDGE_HOST = '127.0.0.1'
 const DEFAULT_BRIDGE_PORT = 38321
-const requestedBridgePort = Number(process.env.LIGHTYEAR_BRIDGE_PORT || DEFAULT_BRIDGE_PORT)
+const requestedBridgePort = Number(process.env.MUGEN_BRIDGE_PORT || DEFAULT_BRIDGE_PORT)
 let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0 ? requestedBridgePort : DEFAULT_BRIDGE_PORT
-const BRIDGE_TOKEN = process.env.LIGHTYEAR_BRIDGE_TOKEN || 'lightyear-dev-token'
+const BRIDGE_TOKEN = process.env.MUGEN_BRIDGE_TOKEN || 'mugen-dev-token'
 const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
 const UXP_RELEASE_METADATA_FILE = 'uxp-release.json'
-const DEFAULT_UXP_PACKAGE_FILE = 'lightyear-banana-1.0.0.ccx'
-const SETTINGS_FILE = 'lightyear-settings.json'
+const DEFAULT_UXP_PACKAGE_FILE = 'mugen-1.0.0.ccx'
+const SETTINGS_FILE = 'mugen-settings.json'
 const DIAGNOSTICS_DIRECTORY = 'diagnostics'
 const APP_UPDATE_TIMEOUT_MS = 10000
 const MIME_TYPES = {
@@ -73,7 +73,7 @@ function readUxpPackageFile() {
     if (
       typeof metadata.filename !== 'string' ||
       basename(metadata.filename) !== metadata.filename ||
-      metadata.filename !== `lightyear-banana-${metadata.ccxVersion}.ccx`
+      metadata.filename !== `mugen-${metadata.ccxVersion}.ccx`
     ) {
       throw new Error('filename must match ccxVersion and use a basename')
     }
@@ -659,7 +659,8 @@ function readPlatformDownload(downloads) {
 }
 
 function normalizeUpdateManifest(value) {
-  if (!isPlainObject(value) || value.product !== 'lightyear-banana' || typeof value.version !== 'string') {
+  const supportedProducts = new Set(['mugen', 'lightyear-banana'])
+  if (!isPlainObject(value) || !supportedProducts.has(value.product) || typeof value.version !== 'string') {
     throw new Error('更新信息不可用')
   }
 
@@ -762,7 +763,7 @@ async function promptForUpdate(result) {
     defaultId: 0,
     cancelId: result.mandatory ? 1 : 1,
     title: '发现新版本',
-    message: `Lightyear Banana v${result.latestVersion} 可下载`,
+    message: `Mugen v${result.latestVersion} 可下载`,
     detail,
     noLink: true
   })
@@ -846,7 +847,7 @@ function normalizeDeploySide(value) {
 
 function readDeploymentBounds(side) {
   if (!mainWindow || mainWindow.isDestroyed()) {
-    throw new Error('Lightyear App 窗口未启动')
+    throw new Error('Mugen App 窗口未启动')
   }
 
   const display = screen.getDisplayMatching(mainWindow.getBounds())
@@ -926,14 +927,14 @@ $ErrorActionPreference = "Stop"
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public static class LightyearWin32 {
+public static class MugenWin32 {
   [DllImport("user32.dll")]
   public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
 }
 "@
 $photoshop = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.ProcessName -like "Photoshop*" } | Select-Object -First 1
 if (-not $photoshop) { throw "未找到 Photoshop 窗口" }
-$moved = [LightyearWin32]::MoveWindow($photoshop.MainWindowHandle, ${bounds.x}, ${bounds.y}, ${bounds.width}, ${bounds.height}, $true)
+$moved = [MugenWin32]::MoveWindow($photoshop.MainWindowHandle, ${bounds.x}, ${bounds.y}, ${bounds.width}, ${bounds.height}, $true)
 if (-not $moved) { throw "Photoshop 窗口调整失败" }
 `
 
@@ -1103,7 +1104,7 @@ async function compressReferenceImageFile(filePath) {
     return encodeNativeReferenceJpeg(image)
   }
 
-  const outputPath = join(tmpdir(), `lightyear-reference-${randomUUID()}.jpg`)
+  const outputPath = join(tmpdir(), `mugen-reference-${randomUUID()}.jpg`)
   let lastError = null
   for (const quality of ['90', '82', '74', '66', '58', '50']) {
     try {
@@ -1329,7 +1330,7 @@ function sanitizeSaveFileName(fileName = '') {
     .replace(/^\.+|\.+$/g, '')
     .trim()
 
-  return clean || 'lightyear-image.png'
+  return clean || 'mugen-image.png'
 }
 
 function withImageSaveExtension(fileName, extension) {
@@ -1449,12 +1450,12 @@ async function saveGeneratedImageFile(payload = {}) {
 
 function readDiagnosticExportFileName() {
   const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13)
-  return `lightyear-banana-diagnostics-${timestamp}.jsonl`
+  return `mugen-diagnostics-${timestamp}.jsonl`
 }
 
 function readCrxLogExportFileName() {
   const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13)
-  return `lightyear-banana-crx-logs-${timestamp}.jsonl`
+  return `mugen-crx-logs-${timestamp}.jsonl`
 }
 
 async function exportDiagnosticLog() {
@@ -1532,7 +1533,7 @@ function broadcastRendererEvent(event) {
     return
   }
 
-  mainWindow.webContents.send('lightyear:event', event)
+  mainWindow.webContents.send('mugen:event', event)
 }
 
 function resolvePending(message) {
@@ -1901,7 +1902,7 @@ async function sendDownloadFile(response, fileName, headOnly = false) {
 
 function readPreviewFileName(record) {
   return withImageSaveExtension(
-    sanitizeSaveFileName(`${record.label || 'lightyear-image'}-${record.width || 0}x${record.height || 0}.png`),
+    sanitizeSaveFileName(`${record.label || 'mugen-image'}-${record.width || 0}x${record.height || 0}.png`),
     'png'
   )
 }
@@ -2192,7 +2193,7 @@ async function startBridgeServerWithFallback() {
     try {
       await startBridgeServer()
       if (port !== requestedBridgePort) {
-        console.warn(`Lightyear bridge port switched to ${readBridgeOrigin()} because ${BRIDGE_HOST}:${requestedBridgePort} is unavailable`)
+        console.warn(`Mugen bridge port switched to ${readBridgeOrigin()} because ${BRIDGE_HOST}:${requestedBridgePort} is unavailable`)
       }
       return
     } catch (error) {
@@ -2200,11 +2201,11 @@ async function startBridgeServerWithFallback() {
       if (error?.code !== 'EADDRINUSE') {
         throw error
       }
-      console.warn(`Lightyear bridge port already in use: http://${BRIDGE_HOST}:${port}`)
+      console.warn(`Mugen bridge port already in use: http://${BRIDGE_HOST}:${port}`)
     }
   }
 
-  throw lastError ?? new Error('Lightyear bridge unavailable')
+  throw lastError ?? new Error('Mugen bridge unavailable')
 }
 
 async function startBuiltInCodexImageServer() {
@@ -2318,22 +2319,22 @@ async function openPreviewWindow(payload = {}) {
   return { ok: true }
 }
 
-ipcMain.handle('lightyear:status', async () => readBridgeStatus())
+ipcMain.handle('mugen:status', async () => readBridgeStatus())
 
-ipcMain.on('lightyear:settings:load', (event) => {
+ipcMain.on('mugen:settings:load', (event) => {
   event.returnValue = readPersistedSettings()
 })
 
-ipcMain.on('lightyear:generation:request', (_event, payload) => {
+ipcMain.on('mugen:generation:request', (_event, payload) => {
   void recordGenerationRequestDiagnostic(payload)
 })
 
-ipcMain.handle('lightyear:settings:save', async (_event, settings) => {
+ipcMain.handle('mugen:settings:save', async (_event, settings) => {
   writePersistedSettings(settings)
   return { ok: true }
 })
 
-ipcMain.handle('lightyear:preview:open', async (_event, payload) => openPreviewWindow(payload))
+ipcMain.handle('mugen:preview:open', async (_event, payload) => openPreviewWindow(payload))
 
 async function runRendererCommand(command, payload) {
   if (command === 'app.status') {
@@ -2375,7 +2376,7 @@ async function runRendererCommand(command, payload) {
   return sendToUxp(command, payload)
 }
 
-ipcMain.handle('lightyear:invoke', async (_event, command, payload) => {
+ipcMain.handle('mugen:invoke', async (_event, command, payload) => {
   const startedAt = Date.now()
   void writeDiagnostic({
     category: 'app',
@@ -2413,7 +2414,7 @@ app.whenReady().then(async () => {
     await initializeDiagnostics()
   } catch (error) {
     diagnosticLogger = null
-    console.error('[Lightyear diagnostics] initialization failed', error)
+    console.error('[Mugen diagnostics] initialization failed', error)
   }
 
   await startBridgeServerWithFallback()

@@ -82,7 +82,7 @@ export default defineConfig({
     __WEBUI_VERSION__: JSON.stringify(webVersion),
     __BUILD_COMMIT__: JSON.stringify(buildCommit)
   },
-  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)), '@lightyear-banana/inner-protocol': fileURLToPath(new URL('../../packages/inner-protocol/src/index.ts', import.meta.url)) } },
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)), '@mugen/inner-protocol': fileURLToPath(new URL('../../packages/inner-protocol/src/index.ts', import.meta.url)) } },
   server: { host: '127.0.0.1', port: 4173, strictPort: true },
   build: { outDir: 'dist', assetsDir: 'assets', sourcemap: false, target: 'es2022' }
 })

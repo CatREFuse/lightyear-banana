@@ -1,4 +1,4 @@
-# AGENTS.md instructions for /Users/tanshow/Developer/lightyear-banana
+# AGENTS.md instructions for /Users/tanshow/Developer/mugen
 
 
 ## 部署参数
@@ -14,7 +14,7 @@
 
 - 修改或提交 `package.json` 版本号前，必须先读取 `docs/build-todo-list.md`。
 - `docs/build-todo-list.md` 是版本提交、当前平台打包、跨平台派发判断、官网发布门禁的索引入口。
-- 提交版本号时必须打包当前平台版本：Windows 产出 `dist/lightyear-banana-$VERSION-win.zip`，macOS 产出 `dist/lightyear-banana-$VERSION-mac.zip`。
+- 提交版本号时必须打包当前平台版本：Windows 产出 `dist/mugen-$VERSION-win.zip`，macOS 产出 `dist/mugen-$VERSION-mac.zip`。
 - 不允许用跨平台临时包替代正式平台包。macOS 包必须由 macOS 环境打包，Windows 包必须由 Windows 环境打包。
 - 在 macOS 上打包时，必须判断是否需要派发 Windows 打包任务；在 Windows 上打包时，必须判断是否需要派发 macOS 打包任务。
 - 官网发布前必须确认 `dist/release-$VERSION/` 同时包含 macOS、Windows、CCX 和 `SHA256SUMS.txt`，否则只记录待办，不更新线上 `latest.json`。
@@ -50,7 +50,7 @@
 - 所有的句子、过渡词和连接词替换为最基础、最常用的词语。尽量使用简单、直接的表达方式，避免使用复杂或生僻的词汇，确保句子之间的逻辑关系清晰，删掉文末总结的部分。
 - 有参考的情况下，请通过重构句子和段落的逻辑，确保思想的流畅性并且与原文有所区别
 
-## Lightyear Banana 开发参考路由
+## Mugen 开发参考路由
 
 开发本项目时优先查阅 `ref/`。`docs/` 保留研究过程和更完整背景，`ref/` 是后续开发的直接参考。
 
@@ -67,7 +67,7 @@
 
 ## 开发约定
 
-- 所有功能改动必须符合需求文档；动手前先核对 `docs/lightyear-banana-prototype-requirements.md` 和相关交互文档，改完后自查本次变更是否违背需求文档。
+- 所有功能改动必须符合需求文档；动手前先核对 `docs/mugen-prototype-requirements.md` 和相关交互文档，改完后自查本次变更是否违背需求文档。
 - 如果实现和需求文档不一致，先更新或确认需求文档，再继续改代码；不得把临时实现默认为新需求。
 - 新增 Photoshop 画布能力时，先在 `src/uxp/canvasPrimitives.ts` 增加最小原子函数，再由 `src/uxp/canvasPrimitiveService.ts` 暴露服务层方法。
 - Vue 组件和 composable 不直接拼复杂 batchPlay descriptor。

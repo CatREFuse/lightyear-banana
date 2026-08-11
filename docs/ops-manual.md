@@ -1,4 +1,4 @@
-# Lightyear Banana 运维手册
+# Mugen 运维手册
 
 ## 发行流程
 
@@ -53,8 +53,8 @@ npm run build:web
 npm run verify:uxp
 
 $Dist = (Resolve-Path "dist").Path
-$CcxZip = Join-Path $Dist "lightyear-banana-$Version.zip"
-$Ccx = Join-Path $Dist "lightyear-banana-$Version.ccx"
+$CcxZip = Join-Path $Dist "mugen-$Version.zip"
+$Ccx = Join-Path $Dist "mugen-$Version.ccx"
 Remove-Item -LiteralPath $CcxZip -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $Ccx -Force -ErrorAction SilentlyContinue
 Push-Location "dist/ps-uxp"
@@ -63,8 +63,8 @@ Pop-Location
 Move-Item -LiteralPath $CcxZip -Destination $Ccx
 
 node scripts/package-electron-win.mjs
-Get-Item "dist/lightyear-banana-$Version-win.zip", $Ccx | Select-Object Name, Length
-Get-FileHash -Algorithm SHA256 "dist/lightyear-banana-$Version-win.zip", $Ccx
+Get-Item "dist/mugen-$Version-win.zip", $Ccx | Select-Object Name, Length
+Get-FileHash -Algorithm SHA256 "dist/mugen-$Version-win.zip", $Ccx
 ```
 
 macOS 使用原生环境构建 macOS 桌面包和 CCX：
@@ -73,8 +73,8 @@ macOS 使用原生环境构建 macOS 桌面包和 CCX：
 VERSION=$(node -p "require('./package.json').version")
 npm run package:electron:mac
 shasum -a 256 \
-  "dist/lightyear-banana-$VERSION-mac.zip" \
-  "dist/lightyear-banana-$VERSION.ccx"
+  "dist/mugen-$VERSION-mac.zip" \
+  "dist/mugen-$VERSION.ccx"
 ```
 
 Windows 只能提交 Windows 正式包，macOS 只能提交 macOS 正式包。构建完成后，检查归档中的 `package.json`、应用版本和内置 CCX 版本都等于 `$VERSION`。
@@ -89,9 +89,9 @@ $BuildNumber = "202607120001"
 gh workflow run package-macos.yml --ref main -f "version=$Version" -f "build_number=$BuildNumber"
 $RunId = gh run list --workflow package-macos.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId'
 gh run watch $RunId --exit-status
-gh run download $RunId --name "lightyear-banana-$Version-macos" --dir "dist/action-macos-$Version"
-Get-FileHash -Algorithm SHA256 "dist/action-macos-$Version/lightyear-banana-$Version-mac.zip"
-Get-Content "dist/action-macos-$Version/lightyear-banana-$Version-mac.zip.sha256"
+gh run download $RunId --name "mugen-$Version-macos" --dir "dist/action-macos-$Version"
+Get-FileHash -Algorithm SHA256 "dist/action-macos-$Version/mugen-$Version-mac.zip"
+Get-Content "dist/action-macos-$Version/mugen-$Version-mac.zip.sha256"
 ```
 
 macOS 构建完成后，通过 `Package Windows` 工作流取得 Windows 原生包：
@@ -102,10 +102,10 @@ gh workflow run package-windows.yml --ref main -f version="$VERSION"
 RUN_ID=$(gh run list --workflow package-windows.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
 gh run watch "$RUN_ID" --exit-status
 gh run download "$RUN_ID" \
-  --name "lightyear-banana-$VERSION-windows" \
+  --name "mugen-$VERSION-windows" \
   --dir "dist/action-windows-$VERSION"
-shasum -a 256 "dist/action-windows-$VERSION/lightyear-banana-$VERSION-win.zip"
-cat "dist/action-windows-$VERSION/lightyear-banana-$VERSION-win.zip.sha256"
+shasum -a 256 "dist/action-windows-$VERSION/mugen-$VERSION-win.zip"
+cat "dist/action-windows-$VERSION/mugen-$VERSION-win.zip.sha256"
 ```
 
 `Package Windows` 会核对所选 Git ref 中的 `package.json` 版本。派发前要先确认该 ref 已包含目标版本。CI 下载完成后仍需在本地重新计算 SHA256，不直接信任日志中的摘要。
@@ -114,9 +114,9 @@ cat "dist/action-windows-$VERSION/lightyear-banana-$VERSION-win.zip.sha256"
 
 最终目录必须包含：
 
-- `lightyear-banana-$VERSION-mac.zip`
-- `lightyear-banana-$VERSION-win.zip`
-- `lightyear-banana-$VERSION.ccx`
+- `mugen-$VERSION-mac.zip`
+- `mugen-$VERSION-win.zip`
+- `mugen-$VERSION.ccx`
 - `SHA256SUMS.txt`
 
 PowerShell：
@@ -125,15 +125,15 @@ PowerShell：
 $Version = node -p "require('./package.json').version"
 $ReleaseDir = Join-Path (Resolve-Path "dist").Path "release-$Version"
 New-Item -ItemType Directory -Path $ReleaseDir -Force | Out-Null
-Copy-Item "dist/action-macos-$Version/lightyear-banana-$Version-mac.zip" $ReleaseDir
-Copy-Item "dist/lightyear-banana-$Version-win.zip" $ReleaseDir
-Copy-Item "dist/lightyear-banana-$Version.ccx" $ReleaseDir
+Copy-Item "dist/action-macos-$Version/mugen-$Version-mac.zip" $ReleaseDir
+Copy-Item "dist/mugen-$Version-win.zip" $ReleaseDir
+Copy-Item "dist/mugen-$Version.ccx" $ReleaseDir
 
 Push-Location $ReleaseDir
 $Files = @(
-  "lightyear-banana-$Version-mac.zip",
-  "lightyear-banana-$Version-win.zip",
-  "lightyear-banana-$Version.ccx"
+  "mugen-$Version-mac.zip",
+  "mugen-$Version-win.zip",
+  "mugen-$Version.ccx"
 )
 [string[]] $Lines = $Files | ForEach-Object {
   $Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash.ToLowerInvariant()
@@ -149,15 +149,15 @@ macOS 或 Linux：
 VERSION=$(node -p "require('./package.json').version")
 RELEASE_DIR="dist/release-$VERSION"
 mkdir -p "$RELEASE_DIR"
-cp "dist/lightyear-banana-$VERSION-mac.zip" "$RELEASE_DIR/"
-cp "dist/action-windows-$VERSION/lightyear-banana-$VERSION-win.zip" "$RELEASE_DIR/"
-cp "dist/lightyear-banana-$VERSION.ccx" "$RELEASE_DIR/"
+cp "dist/mugen-$VERSION-mac.zip" "$RELEASE_DIR/"
+cp "dist/action-windows-$VERSION/mugen-$VERSION-win.zip" "$RELEASE_DIR/"
+cp "dist/mugen-$VERSION.ccx" "$RELEASE_DIR/"
 (
   cd "$RELEASE_DIR"
   shasum -a 256 \
-    "lightyear-banana-$VERSION-mac.zip" \
-    "lightyear-banana-$VERSION-win.zip" \
-    "lightyear-banana-$VERSION.ccx" > SHA256SUMS.txt
+    "mugen-$VERSION-mac.zip" \
+    "mugen-$VERSION-win.zip" \
+    "mugen-$VERSION.ccx" > SHA256SUMS.txt
 )
 ```
 
@@ -177,9 +177,9 @@ cp "dist/lightyear-banana-$VERSION.ccx" "$RELEASE_DIR/"
 下载地址固定为：
 
 ```text
-${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-mac.zip
-${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-win.zip
-${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$CCX_VERSION.ccx
+${RELEASE_ORIGIN}/releases/$VERSION/mugen-$VERSION-mac.zip
+${RELEASE_ORIGIN}/releases/$VERSION/mugen-$VERSION-win.zip
+${RELEASE_ORIGIN}/releases/$VERSION/mugen-$CCX_VERSION.ccx
 ${RELEASE_ORIGIN}/releases/$VERSION/SHA256SUMS.txt
 ```
 
@@ -213,7 +213,7 @@ git push origin HEAD
 git push origin "v$VERSION"
 gh release create "v$VERSION" "dist/release-$VERSION"/* \
   --title "v$VERSION" \
-  --notes "Lightyear Banana v$VERSION"
+  --notes "Mugen v$VERSION"
 ```
 
 替换已有 Release 资产：
@@ -228,9 +228,9 @@ gh release upload "v$VERSION" "dist/release-$VERSION"/* --clobber
 ```bash
 VERSION=$(node -p "require('./package.json').version")
 gh release view "v$VERSION" --json tagName,assets
-curl -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/lightyear-banana-$VERSION-mac.zip"
-curl -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/lightyear-banana-$VERSION-win.zip"
-curl -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/lightyear-banana-$VERSION.ccx"
+curl -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/mugen-$VERSION-mac.zip"
+curl -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/mugen-$VERSION-win.zip"
+curl -fsSI -L "https://github.com/CatREFuse/lightyear-banana/releases/download/v$VERSION/mugen-$VERSION.ccx"
 ```
 
 PowerShell 中使用 `curl.exe`，避免调用 `Invoke-WebRequest` 的 `curl` 别名。
@@ -240,7 +240,7 @@ PowerShell 中使用 `curl.exe`，避免调用 `Invoke-WebRequest` 的 `curl` �
 官网静态目录：
 
 ```text
-/etc/nginx/static/lightyear-banana-site
+/etc/nginx/static/mugen-site
 ```
 
 Inner WebUI 的 Nginx 配置模板：
@@ -261,14 +261,14 @@ REMOTE_BASE=$(node -p "new URL(process.argv[1] + '/', require('./dist/uxp-releas
 VERIFY_DIR=$(mktemp -d)
 trap 'rm -rf "$VERIFY_DIR"' EXIT
 
-ssh codex-47-97-root "mkdir -p /etc/nginx/static/lightyear-banana-site/releases/$VERSION"
-rsync -az --delete "$RELEASE_DIR/" "codex-47-97-root:/etc/nginx/static/lightyear-banana-site/releases/$VERSION/"
+ssh codex-47-97-root "mkdir -p /etc/nginx/static/mugen-site/releases/$VERSION"
+rsync -az --delete "$RELEASE_DIR/" "codex-47-97-root:/etc/nginx/static/mugen-site/releases/$VERSION/"
 ssh codex-47-97-root 'nginx -t && systemctl reload nginx'
 
 for FILE in \
-  "lightyear-banana-$VERSION-mac.zip" \
-  "lightyear-banana-$VERSION-win.zip" \
-  "lightyear-banana-$CCX_VERSION.ccx"
+  "mugen-$VERSION-mac.zip" \
+  "mugen-$VERSION-win.zip" \
+  "mugen-$CCX_VERSION.ccx"
 do
   curl --noproxy '*' -fsSL "$REMOTE_BASE/$FILE" -o "$VERIFY_DIR/$FILE"
   EXPECTED_SHA=$(awk -v file="$FILE" '$2 == file { print tolower($1) }' "$RELEASE_DIR/SHA256SUMS.txt")
@@ -280,8 +280,8 @@ curl --noproxy '*' -fsSL "$REMOTE_BASE/SHA256SUMS.txt" | cmp - "$RELEASE_DIR/SHA
 
 rsync -az --delete \
   --exclude='/releases/***' \
-  dist/site/ codex-47-97-root:/etc/nginx/static/lightyear-banana-site/
-rsync -az dist/site/releases/latest.json codex-47-97-root:/etc/nginx/static/lightyear-banana-site/releases/latest.json
+  dist/site/ codex-47-97-root:/etc/nginx/static/mugen-site/
+rsync -az dist/site/releases/latest.json codex-47-97-root:/etc/nginx/static/mugen-site/releases/latest.json
 ssh codex-47-97-root 'nginx -t && systemctl reload nginx'
 ```
 
@@ -292,12 +292,12 @@ $Version = node -p "require('./package.json').version"
 $CcxVersion = node -p "require('./plugin/manifest.json').version"
 $ReleaseOrigin = node -p "new URL(require('./dist/uxp-release.json').releaseUrl).origin"
 $ReleaseDir = (Resolve-Path "dist/release-$Version").Path
-$VerifyDir = Join-Path ([IO.Path]::GetTempPath()) "lightyear-banana-$Version-remote-check"
+$VerifyDir = Join-Path ([IO.Path]::GetTempPath()) "mugen-$Version-remote-check"
 New-Item -ItemType Directory -Path $VerifyDir -Force | Out-Null
 $Files = @(
-  "lightyear-banana-$Version-mac.zip",
-  "lightyear-banana-$Version-win.zip",
-  "lightyear-banana-$CcxVersion.ccx"
+  "mugen-$Version-mac.zip",
+  "mugen-$Version-win.zip",
+  "mugen-$CcxVersion.ccx"
 )
 foreach ($File in $Files) {
   $RemoteFile = Join-Path $VerifyDir $File
@@ -322,9 +322,9 @@ curl --noproxy '*' -fsSI ${RELEASE_ORIGIN}/
 curl --noproxy '*' -fsSL ${RELEASE_ORIGIN}/releases/latest.json | node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(0,"utf8")); console.log(JSON.stringify({version:m.version, mac:m.downloads.mac.filename, windows:m.downloads.windows.filename, ccx:m.downloads.ccx.filename, updateCheckUrl:m.updateCheckUrl}, null, 2));'
 VERSION=$(node -p "require('./package.json').version")
 CCX_VERSION=$(node -p "require('./plugin/manifest.json').version")
-curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-mac.zip"
-curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$VERSION-win.zip"
-curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/lightyear-banana-$CCX_VERSION.ccx"
+curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/mugen-$VERSION-mac.zip"
+curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/mugen-$VERSION-win.zip"
+curl --noproxy '*' -fsSI -L "${RELEASE_ORIGIN}/releases/$VERSION/mugen-$CCX_VERSION.ccx"
 curl --noproxy '*' -fsSL "${RELEASE_ORIGIN}/releases/$VERSION/SHA256SUMS.txt"
 ```
 

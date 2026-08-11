@@ -1,7 +1,7 @@
 {
   "manifestVersion": 5,
-  "id": "com.tanshow.lightyearbanana",
-  "name": "Lightyear Banana",
+  "id": "com.tanshow.mugen",
+  "name": "Mugen",
   "version": "1.0.0",
   "main": "uxp-panel.html",
   "host": {
@@ -38,7 +38,7 @@
       "type": "panel",
       "id": "panel",
       "label": {
-        "default": "Lightyear Banana"
+        "default": "Mugen"
       },
       "minimumSize": {
         "width": 260,

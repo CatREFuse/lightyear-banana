@@ -20,7 +20,7 @@ export function readActiveDocumentLabel() {
   }
 }
 
-export async function createNamedLayer(name = 'Lightyear Banana') {
+export async function createNamedLayer(name = 'Mugen') {
   const hostRequire = getHostRequire()
   if (!hostRequire) {
     throw new Error('Photoshop UXP runtime is unavailable.')
@@ -46,6 +46,6 @@ export async function createNamedLayer(name = 'Lightyear Banana') {
         {}
       )
     },
-    { commandName: 'Create Lightyear Banana Layer' }
+    { commandName: 'Create Mugen Layer' }
   )
 }

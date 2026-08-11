@@ -53,11 +53,11 @@ const paths = computed(() => boxIconPaths[props.name])
   display: none;
 }
 
-:global(.lightyear-shell.design-nothing .box-icon-classic) {
+:global(.mugen-shell.design-nothing .box-icon-classic) {
   display: none;
 }
 
-:global(.lightyear-shell.design-nothing .box-icon-nothing) {
+:global(.mugen-shell.design-nothing .box-icon-nothing) {
   display: inline;
 }
 </style>

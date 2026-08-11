@@ -14,7 +14,7 @@ import type {
   HostRequestOptions,
   ModelConfig,
   PublicModelConfig
-} from '@lightyear-banana/inner-protocol'
+} from '@mugen/inner-protocol'
 import {
   BridgeValidationError,
   CLIENT_READY_SIGNAL,
@@ -30,7 +30,7 @@ import {
   toWebUiAssetRef,
   validateCommandResult,
   validateHostEventPayload
-} from '@lightyear-banana/inner-protocol'
+} from '@mugen/inner-protocol'
 
 type UxpHostMessageListener = (event: MessageEvent) => void
 
@@ -281,14 +281,14 @@ export class WebViewHostClient implements HostClient {
 
   async handshake(payload: Handshake): Promise<HandshakeResult> {
     const ready = await this.waitForReady()
-    if (!isProtocolCompatible(ready.payload.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', 'Lightyear Banana 插件需要更新', false)
+    if (!isProtocolCompatible(ready.payload.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', 'Mugen 插件需要更新', false)
     const request = { ...payload, hostNonce: ready.payload.hostNonce }
     const result = await this.sendRequest('host.handshake', request, ready.sessionId)
     if (result.sessionId !== ready.sessionId || result.clientNonce !== payload.clientNonce || result.hostNonce !== ready.payload.hostNonce) {
       this.establishedSessionId = undefined
       throw clientError('HANDSHAKE_MISMATCH', '宿主会话验证失败', false)
     }
-    if (!isProtocolCompatible(result.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', 'Lightyear Banana 插件需要更新', false)
+    if (!isProtocolCompatible(result.protocolVersion)) throw clientError('UNSUPPORTED_PROTOCOL', 'Mugen 插件需要更新', false)
     this.establishedSessionId = result.sessionId
     return result
   }

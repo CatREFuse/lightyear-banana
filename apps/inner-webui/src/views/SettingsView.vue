@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { PROTOCOL_VERSION } from '@lightyear-banana/inner-protocol'
+import { PROTOCOL_VERSION } from '@mugen/inner-protocol'
 import PanelHeader from '@/components/PanelHeader.vue'
 import { LOCAL_DATA_TYPES, confirmAndClearLocalData } from '@/localData'
 import { useWorkspaceStore } from '@/stores/workspace'

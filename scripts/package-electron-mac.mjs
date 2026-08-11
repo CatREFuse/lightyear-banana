@@ -8,12 +8,12 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const packageJson = JSON.parse(await readText(path.join(projectRoot, 'package.json')))
 const electronApp = path.join(projectRoot, 'node_modules', 'electron', 'dist', 'Electron.app')
 const outDir = path.join(projectRoot, 'dist', 'mac')
-const appName = 'Lightyear Banana'
+const appName = 'Mugen'
 const appPath = path.join(outDir, `${appName}.app`)
 const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${packageJson.version}-mac.zip`)
 const resourcesDir = path.join(appPath, 'Contents', 'Resources')
 const appResourcesDir = path.join(resourcesDir, 'app')
-const appIconName = 'lightyear-banana.icns'
+const appIconName = 'mugen.icns'
 const appIconPath = path.join(resourcesDir, appIconName)
 
 function readUxpRelease() {
@@ -56,7 +56,7 @@ function readCommand(command, args) {
 }
 
 function readCodesignIdentity() {
-  const configuredIdentity = process.env.LIGHTYEAR_MAC_CODESIGN_IDENTITY?.trim()
+  const configuredIdentity = process.env.MUGEN_MAC_CODESIGN_IDENTITY?.trim()
   if (configuredIdentity) {
     return configuredIdentity
   }
@@ -73,7 +73,7 @@ function readCodesignIdentity() {
 function generateBananaIcon() {
   const iconWorkDir = path.join(projectRoot, 'dist', 'electron-icon')
   const sourcePng = path.join(iconWorkDir, 'banana-1024.png')
-  const iconsetDir = path.join(iconWorkDir, 'lightyear-banana.iconset')
+  const iconsetDir = path.join(iconWorkDir, 'mugen.iconset')
   const pythonCode = `
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -179,7 +179,7 @@ if (hasCustomIcon) {
   run('plutil', ['-remove', 'CFBundleIconFile', plistPath])
 }
 run('plutil', ['-replace', 'CFBundleName', '-string', appName, plistPath])
-run('plutil', ['-replace', 'CFBundleIdentifier', '-string', 'com.lightyear.banana', plistPath])
+run('plutil', ['-replace', 'CFBundleIdentifier', '-string', 'com.tanshow.mugen.desktop', plistPath])
 run('plutil', ['-replace', 'CFBundleShortVersionString', '-string', packageJson.version, plistPath])
 run('plutil', ['-replace', 'CFBundleVersion', '-string', packageJson.version, plistPath])
 run('plutil', [

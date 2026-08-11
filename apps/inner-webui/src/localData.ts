@@ -1,4 +1,4 @@
-import type { LocalDataClearResult } from '@lightyear-banana/inner-protocol'
+import type { LocalDataClearResult } from '@mugen/inner-protocol'
 
 export const LOCAL_DATA_TYPES = [
   'API Key 和访问凭据',

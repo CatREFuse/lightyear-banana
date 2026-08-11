@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DiagnosticExportState } from '../../types/lightyear'
+import type { DiagnosticExportState } from '../../types/mugen'
 import BoxIcon from './BoxIcon.vue'
 
 const props = withDefaults(defineProps<{

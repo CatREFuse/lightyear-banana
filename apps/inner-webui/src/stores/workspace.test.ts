@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { HistoryEntry, ModelConfig } from '@lightyear-banana/inner-protocol'
-import { toHostAssetPointer } from '@lightyear-banana/inner-protocol'
+import type { HistoryEntry, ModelConfig } from '@mugen/inner-protocol'
+import { toHostAssetPointer } from '@mugen/inner-protocol'
 import { canRetryTurn, historyEntryToTurn, isConfigUsable, pickActiveConfigId, turnToHistoryEntry } from './workspace'
 
 const config: ModelConfig = {

@@ -11,7 +11,7 @@ import type {
   ProviderCapability,
   SettingsTestState,
   SettingsView
-} from '../../types/lightyear'
+} from '../../types/mugen'
 import { validateProviderConfig } from '../../data/providerCapabilities'
 import BoxIcon from './BoxIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'

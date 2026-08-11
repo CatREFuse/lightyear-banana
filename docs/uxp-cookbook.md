@@ -6,7 +6,7 @@
 
 - Vue 3 + Vite 构建为 UXP 可加载的静态 IIFE bundle。
 - UXP Developer Tools 能从 `dist/ps-uxp/manifest.json` 加载插件。
-- Photoshop 的 `增效工具 > Lightyear Banana > 创建图层` 能调用 UXP Photoshop API，并在当前文档创建 `Lightyear Banana` 图层。
+- Photoshop 的 `增效工具 > Mugen > 创建图层` 能调用 UXP Photoshop API，并在当前文档创建 `Mugen` 图层。
 - 面板入口 `panel` 能触发 `entrypoints.setup()` 的 `create` / `show`，Vue 挂载成功，日志能输出面板 DOM 文案。
 
 Adobe 文档仍把 Vue 放在 unsupported 列表里，但 Adobe 官方样例仓库提供过 Vue starter。当前方案把 Vue 当作编译后的静态 UI 使用，避开 dev server、HMR、动态 import 和运行时代码生成。
@@ -77,9 +77,9 @@ icons/*.png
 3. 点击 `Add Plugin...`。
 4. 选择 `dist/ps-uxp/manifest.json`。
 5. 在插件行点击 `Load`。
-6. 回到 Photoshop，打开 `增效工具 > Lightyear Banana > Lightyear Banana`。
+6. 回到 Photoshop，打开 `增效工具 > Mugen > Mugen`。
 7. 打开任意文档后，点击面板里的 `读取文档` 或 `创建图层`。
-8. 也可以直接执行 `增效工具 > Lightyear Banana > 创建图层` 验证 Photoshop API。
+8. 也可以直接执行 `增效工具 > Mugen > 创建图层` 验证 Photoshop API。
 
 ## 修改后的重载规则
 
@@ -127,8 +127,8 @@ UXP 面板加载本地静态文件。当前 `vite.uxp.config.ts` 做了这些处
 ```json
 {
   "manifestVersion": 5,
-  "id": "com.tanshow.lightyearbanana",
-  "name": "Lightyear Banana",
+  "id": "com.tanshow.mugen",
+  "name": "Mugen",
   "version": "0.1.0",
   "main": "uxp-panel.html",
   "host": {
@@ -150,7 +150,7 @@ UXP 面板加载本地静态文件。当前 `vite.uxp.config.ts` 做了这些处
       "type": "panel",
       "id": "panel",
       "label": {
-        "default": "Lightyear Banana"
+        "default": "Mugen"
       }
     }
   ]
@@ -225,7 +225,7 @@ await photoshop.core.executeAsModal(
           _target: [{ _ref: 'layer' }],
           using: {
             _obj: 'layer',
-            name: 'Lightyear Banana'
+            name: 'Mugen'
           },
           _options: {
             dialogOptions: 'dontDisplay'
@@ -235,7 +235,7 @@ await photoshop.core.executeAsModal(
       {}
     )
   },
-  { commandName: 'Create Lightyear Banana Layer' }
+  { commandName: 'Create Mugen Layer' }
 )
 ```
 
@@ -869,7 +869,7 @@ UXP build verified: dist/ps-uxp
 UDT：
 
 ```text
-com.tanshow.lightyearbanana
+com.tanshow.mugen
 Plugin Load Successful
 State: Loaded
 ```
@@ -877,17 +877,17 @@ State: Loaded
 Photoshop 菜单命令：
 
 ```text
-执行前：1|Lightyear Banana Test|1|背景
-执行后：1|Lightyear Banana Test|2|Lightyear Banana
+执行前：1|Mugen Test|1|背景
+执行后：1|Mugen Test|2|Mugen
 ```
 
 UXP log：
 
 ```text
-[Lightyear Banana] script loaded true
-[Lightyear Banana] panel create
-[Lightyear Banana] Vue panel mounted
-[Lightyear Banana] panel text Photoshop UXP...
-[Lightyear Banana] command createLayer
-[Lightyear Banana] command createLayer done
+[Mugen] script loaded true
+[Mugen] panel create
+[Mugen] Vue panel mounted
+[Mugen] panel text Photoshop UXP...
+[Mugen] command createLayer
+[Mugen] command createLayer done
 ```

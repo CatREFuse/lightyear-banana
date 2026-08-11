@@ -21,7 +21,7 @@ function writeJsonFixture(root, relativePath, value) {
 }
 
 function createTemporaryRoot(t) {
-  const root = mkdtempSync(path.join(tmpdir(), 'lightyear-version-chain-'))
+  const root = mkdtempSync(path.join(tmpdir(), 'mugen-version-chain-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   return root
 }
@@ -37,13 +37,13 @@ test('desktop stamping leaves the CCX manifests and Electron package selection i
   writeJsonFixture(root, 'standalone-uxp-plugin/manifest.json', { version: '1.0.0' })
   writeFixture(root, 'electron/main.js', "const UXP_RELEASE_METADATA_FILE = 'uxp-release.json'\n")
   writeFixture(root, 'src/buildInfo.ts', "export const buildInfo = { version: '0.3.19', buildNumber: '202608090001', displayVersion: 'v0.3.19+202608090001' }\n")
-  writeFixture(root, 'standalone-uxp-plugin/index.html', '<title>Lightyear Banana v0.3.19</title>\n')
-  writeFixture(root, 'standalone-uxp-plugin/main.js', "const APP_TITLE = 'Lightyear Banana v0.3.19'\n")
-  writeFixture(root, 'standalone-uxp-plugin/package.mjs', "const archive = 'lightyear-banana-standalone-0.3.19.zip'\n")
+  writeFixture(root, 'standalone-uxp-plugin/index.html', '<title>Mugen v0.3.19</title>\n')
+  writeFixture(root, 'standalone-uxp-plugin/main.js', "const APP_TITLE = 'Mugen v0.3.19'\n")
+  writeFixture(root, 'standalone-uxp-plugin/package.mjs', "const archive = 'mugen-standalone-0.3.19.zip'\n")
   writeFixture(
     root,
     'README.md',
-    'lightyear-banana-0.3.19-mac.zip\nlightyear-banana-0.3.19-win.zip\nlightyear-banana-0.3.19.ccx\ndist/release-0.3.19/\n'
+    'mugen-0.3.19-mac.zip\nmugen-0.3.19-win.zip\nmugen-0.3.19.ccx\ndist/release-0.3.19/\n'
   )
 
   execFileSync(
@@ -57,9 +57,9 @@ test('desktop stamping leaves the CCX manifests and Electron package selection i
   assert.equal(JSON.parse(readFileSync(path.join(root, 'standalone-uxp-plugin/manifest.json'), 'utf8')).version, '1.0.0')
   assert.equal(readFileSync(path.join(root, 'electron/main.js'), 'utf8'), "const UXP_RELEASE_METADATA_FILE = 'uxp-release.json'\n")
   const readme = readFileSync(path.join(root, 'README.md'), 'utf8')
-  assert.match(readme, /lightyear-banana-9\.8\.7-mac\.zip/)
-  assert.match(readme, /lightyear-banana-1\.0\.0\.ccx/)
-  assert.doesNotMatch(readme, /lightyear-banana-9\.8\.7\.ccx/)
+  assert.match(readme, /mugen-9\.8\.7-mac\.zip/)
+  assert.match(readme, /mugen-1\.0\.0\.ccx/)
+  assert.doesNotMatch(readme, /mugen-9\.8\.7\.ccx/)
 })
 
 function sha256(contents) {
@@ -71,9 +71,9 @@ function createReleaseFixture(t, { metadataVersion = '1.0.0' } = {}) {
   const electronVersion = '0.3.19'
   const ccxVersion = '1.0.0'
   const filenames = {
-    mac: `lightyear-banana-${electronVersion}-mac.zip`,
-    windows: `lightyear-banana-${electronVersion}-win.zip`,
-    ccx: `lightyear-banana-${ccxVersion}.ccx`
+    mac: `mugen-${electronVersion}-mac.zip`,
+    windows: `mugen-${electronVersion}-win.zip`,
+    ccx: `mugen-${ccxVersion}.ccx`
   }
   const contents = {
     mac: Buffer.from('native macOS archive'),
@@ -114,9 +114,9 @@ test('release bundle uses desktop and CCX versions for their own filenames', asy
   assert.equal(bundle.electronVersion, '0.3.19')
   assert.equal(bundle.ccxVersion, '1.0.0')
   assert.equal(bundle.releaseDir, fixture.releaseDir)
-  assert.equal(bundle.artifacts.mac.filename, 'lightyear-banana-0.3.19-mac.zip')
-  assert.equal(bundle.artifacts.windows.filename, 'lightyear-banana-0.3.19-win.zip')
-  assert.equal(bundle.artifacts.ccx.filename, 'lightyear-banana-1.0.0.ccx')
+  assert.equal(bundle.artifacts.mac.filename, 'mugen-0.3.19-mac.zip')
+  assert.equal(bundle.artifacts.windows.filename, 'mugen-0.3.19-win.zip')
+  assert.equal(bundle.artifacts.ccx.filename, 'mugen-1.0.0.ccx')
 })
 
 test('release bundle rejects CCX metadata that disagrees with the manifests', async (t) => {
@@ -131,7 +131,7 @@ test('Electron selects the CCX through release metadata and keeps its own versio
   const source = readFileSync(path.join(projectRoot, 'electron', 'main.js'), 'utf8')
   assert.match(source, /const UXP_PACKAGE_FILE = readUxpPackageFile\(\)/)
   assert.match(source, /metadata\?\.schemaVersion !== 1/)
-  assert.match(source, /metadata\.filename !== `lightyear-banana-\$\{metadata\.ccxVersion\}\.ccx`/)
+  assert.match(source, /metadata\.filename !== `mugen-\$\{metadata\.ccxVersion\}\.ccx`/)
   assert.match(source, /new URL\('latest\.json', selectedUxpReleaseMetadata\.releaseUrl\)/)
   assert.doesNotMatch(source, /cake\.catrefuse\.com/)
   assert.doesNotMatch(source, /UXP_PACKAGE_FILE\.match\(/)

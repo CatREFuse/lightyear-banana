@@ -7,7 +7,7 @@ import type {
   GenerationLoadingPhase,
   GenerationLoadingState,
   PlacementTarget
-} from '../../types/lightyear'
+} from '../../types/mugen'
 import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
 import BoxIcon from './BoxIcon.vue'
 import ReferenceThumb from './ReferenceThumb.vue'

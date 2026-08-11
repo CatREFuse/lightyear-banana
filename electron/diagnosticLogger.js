@@ -177,7 +177,7 @@ export function createDiagnosticLogger(options) {
     retentionMs = DIAGNOSTIC_RETENTION_MS,
     sessionId = randomUUID(),
     schedule = true,
-    reportError = (error) => console.error('[Lightyear diagnostics]', error)
+    reportError = (error) => console.error('[Mugen diagnostics]', error)
   } = options
 
   if (!directory) {

@@ -2,7 +2,7 @@ import {
   validateProviderGenerationParameters,
   type ModelConfig,
   type ProviderGenerationValidationResult
-} from '@lightyear-banana/inner-protocol'
+} from '@mugen/inner-protocol'
 
 export const CUSTOM_SIZE_OPTION = '自定义'
 

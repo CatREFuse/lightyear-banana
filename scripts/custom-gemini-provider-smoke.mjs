@@ -28,7 +28,7 @@ async function readRequestBody(request) {
 }
 
 async function main() {
-  const outDir = join(tmpdir(), 'lightyear-banana-custom-gemini-smoke')
+  const outDir = join(tmpdir(), 'mugen-custom-gemini-smoke')
   rmSync(outDir, { force: true, recursive: true })
 
   execFileSync(process.execPath, [readTscBin(),
@@ -44,11 +44,12 @@ async function main() {
     '--outDir',
     outDir,
     '--rootDir',
-    'src',
+    '.',
     '--skipLibCheck',
+    'src/env.d.ts',
     'src/services/imageApiClient.ts',
     'src/data/providerCapabilities.ts',
-    'src/types/lightyear.ts'
+    'src/types/mugen.ts'
   ], { stdio: 'pipe' })
 
   const captured = []
@@ -107,7 +108,7 @@ async function main() {
 
   try {
     const require = createRequire(import.meta.url)
-    const { generateImagesWithProvider, testImageConfig } = require(join(outDir, 'services', 'imageApiClient.js'))
+    const { generateImagesWithProvider, testImageConfig } = require(join(outDir, 'src', 'services', 'imageApiClient.js'))
     const config = {
       apiKey: 'test-token',
       baseUrl: `http://127.0.0.1:${port}/v1`,

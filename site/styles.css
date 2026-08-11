@@ -127,7 +127,7 @@ img {
   background:
     linear-gradient(90deg, rgba(12, 12, 12, 0.98) 0%, rgba(12, 12, 12, 0.8) 36%, rgba(12, 12, 12, 0.2) 78%),
     linear-gradient(0deg, rgba(12, 12, 12, 0.7), rgba(12, 12, 12, 0.04) 42%),
-    url("/assets/lightyear-hero-imagegen.png");
+    url("/assets/mugen-hero-imagegen.png");
   background-position: center;
   background-size: cover;
   color: var(--hero-text);
@@ -609,7 +609,7 @@ code {
     padding-bottom: 82px;
     background:
       linear-gradient(0deg, rgba(12, 12, 12, 0.92) 0%, rgba(12, 12, 12, 0.68) 48%, rgba(12, 12, 12, 0.18) 100%),
-      url("/assets/lightyear-hero-imagegen.png");
+      url("/assets/mugen-hero-imagegen.png");
     background-position: 58% center;
     background-size: cover;
   }
@@ -663,7 +663,7 @@ code {
     background:
       linear-gradient(90deg, rgba(12, 12, 12, 0.9) 0%, rgba(12, 12, 12, 0.74) 58%, rgba(12, 12, 12, 0.32) 100%),
       linear-gradient(0deg, rgba(12, 12, 12, 0.9) 0%, rgba(12, 12, 12, 0.46) 58%, rgba(12, 12, 12, 0.16) 100%),
-      url("/assets/lightyear-hero-imagegen.png");
+      url("/assets/mugen-hero-imagegen.png");
     background-position: 62% center;
     background-size: cover;
   }

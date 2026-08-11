@@ -64,7 +64,7 @@ function createReference() {
 }
 
 async function main() {
-  const outDir = join(tmpdir(), 'lightyear-banana-imini-smoke')
+  const outDir = join(tmpdir(), 'mugen-imini-smoke')
   rmSync(outDir, { force: true, recursive: true })
 
   execFileSync(process.execPath, [readTscBin(),
@@ -80,11 +80,12 @@ async function main() {
     '--outDir',
     outDir,
     '--rootDir',
-    'src',
+    '.',
     '--skipLibCheck',
+    'src/env.d.ts',
     'src/services/imageApiClient.ts',
     'src/data/providerCapabilities.ts',
-    'src/types/lightyear.ts'
+    'src/types/mugen.ts'
   ], { stdio: 'pipe' })
 
   const captured = []
@@ -142,8 +143,8 @@ async function main() {
 
   try {
     const require = createRequire(import.meta.url)
-    const { providerCapabilities, readProviderCapability } = require(join(outDir, 'data', 'providerCapabilities.js'))
-    const { generateImagesWithProvider } = require(join(outDir, 'services', 'imageApiClient.js'))
+    const { providerCapabilities, readProviderCapability } = require(join(outDir, 'src', 'data', 'providerCapabilities.js'))
+    const { generateImagesWithProvider } = require(join(outDir, 'src', 'services', 'imageApiClient.js'))
 
     assert(
       JSON.stringify(providerCapabilities.iMini.modelOptions) === JSON.stringify([

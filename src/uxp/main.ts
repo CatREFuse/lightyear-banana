@@ -22,7 +22,7 @@ type DevelopmentSmokeHarness = {
 
 const uxpGlobal = globalThis as typeof globalThis & {
   require?: UxpRequire
-  __LIGHTYEAR_SMOKE__?: DevelopmentSmokeHarness
+  __MUGEN_SMOKE__?: DevelopmentSmokeHarness
 }
 let panelRuntime: PanelRuntime | undefined
 
@@ -49,8 +49,8 @@ function destroyPanel() {
   panelRuntime?.shell.destroy()
   panelRuntime?.registry.destroy()
   panelRuntime = undefined
-  if (__LIGHTYEAR_APP_ENV__ !== 'production') {
-    delete uxpGlobal.__LIGHTYEAR_SMOKE__
+  if (__MUGEN_APP_ENV__ !== 'production') {
+    delete uxpGlobal.__MUGEN_SMOKE__
   }
 }
 
@@ -63,7 +63,7 @@ function mountPanel(rootNode?: unknown) {
   const smokeEvents: DevelopmentSmokeEvent[] = []
   let shell: WebViewShell
   const registry = new CommandRegistry(CCX_VERSION, session, (command, payload) => {
-    if (__LIGHTYEAR_APP_ENV__ !== 'production') {
+    if (__MUGEN_APP_ENV__ !== 'production') {
       smokeEvents.push({ command, payload })
       if (smokeEvents.length > 100) smokeEvents.splice(0, smokeEvents.length - 100)
     }
@@ -104,8 +104,8 @@ function mountPanel(rootNode?: unknown) {
     }
   })
   panelRuntime = { mountNode, session, registry, shell }
-  if (__LIGHTYEAR_APP_ENV__ !== 'production') {
-    uxpGlobal.__LIGHTYEAR_SMOKE__ = {
+  if (__MUGEN_APP_ENV__ !== 'production') {
+    uxpGlobal.__MUGEN_SMOKE__ = {
       invoke(command, payload) {
         return registry.invoke({
           protocol: INNER_HOST_PROTOCOL,

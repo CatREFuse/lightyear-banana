@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="dist/lightyear-banana-$REQUESTED_VERSION-mac.zip"
+          archive="dist/mugen-$REQUESTED_VERSION-mac.zip"
           extract="dist/macos-release-check"
           if [[ ! -f "$archive" ]]; then
             echo "Missing $archive" >&2
@@ -166,10 +166,10 @@ jobs:
       - name: Upload macOS release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lightyear-banana-${{ inputs.version }}-macos
+          name: mugen-${{ inputs.version }}-macos
           path: |
-            dist/lightyear-banana-${{ inputs.version }}-mac.zip
-            dist/lightyear-banana-${{ inputs.version }}-mac.zip.sha256
+            dist/mugen-${{ inputs.version }}-mac.zip
+            dist/mugen-${{ inputs.version }}-mac.zip.sha256
           if-no-files-found: error
           retention-days: 7
 

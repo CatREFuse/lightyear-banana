@@ -3,7 +3,7 @@ import { decodeUtf8, encodeUtf8, utf8ByteLength } from './utf8'
 
 describe('UXP UTF-8 helpers', () => {
   it('round-trips ASCII, Chinese and supplementary characters without browser encoding globals', () => {
-    const value = 'Lightyear 小猫 🐈'
+    const value = 'Mugen 小猫 🐈'
     const encoded = encodeUtf8(value)
 
     expect(decodeUtf8(encoded)).toBe(value)

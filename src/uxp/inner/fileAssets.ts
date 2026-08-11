@@ -104,7 +104,7 @@ async function readPreviewBytes(previewUrl: string) {
 }
 
 function sanitizeFileName(value: string) {
-  return value.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120) || 'lightyear-image'
+  return value.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120) || 'mugen-image'
 }
 
 export class FileAssetService {

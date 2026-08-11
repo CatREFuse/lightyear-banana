@@ -7,7 +7,7 @@ import type {
   ImageRequestLogValue,
   ModelConfig,
   ReferenceImage
-} from '../types/lightyear'
+} from '../types/mugen'
 import type { ImageGenerationParams, NormalizedImageResult } from './contracts'
 import { normalizeCustomModelFormat, providerCapabilities } from './definitions'
 
@@ -187,7 +187,7 @@ function nowMs() {
 }
 
 function logApiTiming(label: string, fields: Record<string, unknown>) {
-  console.info(`[Lightyear API] ${label}`, fields)
+  console.info(`[Mugen API] ${label}`, fields)
 }
 
 function createRequestLogId() {
@@ -336,8 +336,8 @@ function isApimartMockBaseUrlOverride(config: ModelConfig) {
 
 function resolveBaseUrl(config: ModelConfig) {
   if (
-    typeof __LIGHTYEAR_APP_ENV__ !== 'undefined'
-    && __LIGHTYEAR_APP_ENV__ !== 'production'
+    typeof __MUGEN_APP_ENV__ !== 'undefined'
+    && __MUGEN_APP_ENV__ !== 'production'
     && isApimartMockBaseUrlOverride(config)
   ) {
     return config.baseUrl.trim()
@@ -1321,7 +1321,7 @@ async function uploadApimartReferenceImage(baseUrl: string, config: ModelConfig,
   const blob = await readReferenceImageBlob(reference, signal)
   const form = new FormData()
   const extension = readImageExtensionFromMimeType(blob.type || 'image/png')
-  form.append('file', blob, `lightyear-reference-${index + 1}.${extension}`)
+  form.append('file', blob, `mugen-reference-${index + 1}.${extension}`)
 
   const payload = await fetchJson(joinUrl(baseUrl, '/v1/uploads/images'), {
     method: 'POST',
@@ -1361,7 +1361,7 @@ async function uploadApimartReferenceImages(params: ImageGenerationParams, baseU
 
 async function uploadComfyUiImage(baseUrl: string, config: ModelConfig, reference: ReferenceImage, index: number) {
   const form = new FormData()
-  form.append('image', dataUrlToBlob(reference.image.previewUrl), `lightyear-reference-${index + 1}.png`)
+  form.append('image', dataUrlToBlob(reference.image.previewUrl), `mugen-reference-${index + 1}.png`)
   form.append('overwrite', 'true')
   form.append('type', 'input')
 
@@ -1371,7 +1371,7 @@ async function uploadComfyUiImage(baseUrl: string, config: ModelConfig, referenc
     body: form
   })
 
-  return (payload as any).name ?? `lightyear-reference-${index + 1}.png`
+  return (payload as any).name ?? `mugen-reference-${index + 1}.png`
 }
 
 function readDefaultComfyUiKey(type: ComfyUiNodeMapping['type']) {
@@ -2225,7 +2225,7 @@ async function requestComfyUi(params: ImageGenerationParams) {
   )
   applyComfyUiWorkflowNodes(workflow, settings.workflowNodes, params, uploadedImages)
 
-  const clientId = `lightyear-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const clientId = `mugen-${Date.now()}-${Math.random().toString(16).slice(2)}`
   const task = (await fetchJson(joinUrl(baseUrl, '/prompt'), {
     method: 'POST',
     headers: {

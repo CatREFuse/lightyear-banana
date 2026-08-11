@@ -1,5 +1,5 @@
 {
-  "name": "@lightyear-banana/inner-webui",
+  "name": "@mugen/inner-webui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@lightyear-banana/inner-protocol": "1.0.0",
+    "@mugen/inner-protocol": "1.0.0",
     "pinia": "^3.0.0",
     "vue": "^3.5.32",
     "vue-router": "^4.5.0"

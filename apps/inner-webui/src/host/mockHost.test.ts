@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PROTOCOL_VERSION } from '@lightyear-banana/inner-protocol'
-import type { GenerationSnapshot } from '@lightyear-banana/inner-protocol'
+import { PROTOCOL_VERSION } from '@mugen/inner-protocol'
+import type { GenerationSnapshot } from '@mugen/inner-protocol'
 import { MockHostClient } from './mockHost'
 
 const snapshot: GenerationSnapshot = {

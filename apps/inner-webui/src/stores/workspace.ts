@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { GenerationSnapshot, HistoryEntry, HistoryUpsertEntry, HostAssetRef, HostContext, ModelConfig, RequestLog, TaskPhase } from '@lightyear-banana/inner-protocol'
-import { PROTOCOL_VERSION, createMessageId, isGenerationSnapshot, isProtocolCompatible, providerCapabilities, providerUsesApiKey, readProviderCapability, toHostAssetPointer, toModelConfig } from '@lightyear-banana/inner-protocol'
+import type { GenerationSnapshot, HistoryEntry, HistoryUpsertEntry, HostAssetRef, HostContext, ModelConfig, RequestLog, TaskPhase } from '@mugen/inner-protocol'
+import { PROTOCOL_VERSION, createMessageId, isGenerationSnapshot, isProtocolCompatible, providerCapabilities, providerUsesApiKey, readProviderCapability, toHostAssetPointer, toModelConfig } from '@mugen/inner-protocol'
 import { createHostClient } from '@/host'
 
 export type ChatTurn = {

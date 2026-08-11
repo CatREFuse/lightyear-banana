@@ -12,7 +12,7 @@ import {
 } from './diagnosticLogger.js'
 
 async function createFixture(nowValue = Date.parse('2026-07-10T08:00:00.000Z')) {
-  const directory = await mkdtemp(join(tmpdir(), 'lightyear-diagnostics-'))
+  const directory = await mkdtemp(join(tmpdir(), 'mugen-diagnostics-'))
   let currentTime = nowValue
   const logger = createDiagnosticLogger({
     directory,
@@ -214,7 +214,7 @@ test('exports a filtered connection log with dedicated metadata', async () => {
 })
 
 test('removes expired records while the app remains idle', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'lightyear-diagnostics-idle-'))
+  const directory = await mkdtemp(join(tmpdir(), 'mugen-diagnostics-idle-'))
   const logger = createDiagnosticLogger({
     directory,
     retentionMs: 30,

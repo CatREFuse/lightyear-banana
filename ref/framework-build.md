@@ -76,8 +76,8 @@ UXP 面板加载本地静态文件。`vite.uxp.config.ts` 负责把 Vite 产物�
 ```json
 {
   "manifestVersion": 5,
-  "id": "com.tanshow.lightyearbanana",
-  "name": "Lightyear Banana",
+  "id": "com.tanshow.mugen",
+  "name": "Mugen",
   "version": "0.1.0",
   "main": "uxp-panel.html",
   "host": {

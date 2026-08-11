@@ -1,4 +1,4 @@
-# Lightyear Banana 技术原型功能需求
+# Mugen 技术原型功能需求
 
 版本：0.1  
 日期：2026-04-28  
@@ -6,7 +6,7 @@
 
 ## 产品定位
 
-Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photoshop 当前画布、选区、图层和外部生图模型连接起来，让用户可以从画布取参考图，调用图像生成 API，再把生成结果置入 Photoshop 文档。
+Mugen 是面向 Photoshop 的 UXP 生图插件原型。它把 Photoshop 当前画布、选区、图层和外部生图模型连接起来，让用户可以从画布取参考图，调用图像生成 API，再把生成结果置入 Photoshop 文档。
 
 当前原型同时承担两类任务：验证 Photoshop UXP 画布交互能力，验证多模型生图工作台的核心交互闭环。
 
@@ -30,8 +30,8 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 | UXP 插件入口 | 已实现 | `plugin/manifest.json`、`src/uxp/main.ts` |
 | Vue 面板挂载 | 已实现 | `src/uxp/main.ts`、`src/App.vue` |
 | Photoshop 创建图层命令 | 已实现 | `createLayer` command |
-| 主工作台 | 已实现 | `LightyearPanel.vue`、`ComposerDock.vue`、`MessageThread.vue` |
-| 参考图采集 | 部分实现 | `useLightyearBanana.ts`、`canvasPrimitiveService.ts` |
+| 主工作台 | 已实现 | `MugenPanel.vue`、`ComposerDock.vue`、`MessageThread.vue` |
+| 参考图采集 | 部分实现 | `useMugen.ts`、`canvasPrimitiveService.ts` |
 | 生图请求 | 已实现原型 | `imageApiClient.ts` |
 | 结果展示 | 已实现 | `MessageThread.vue` |
 | 结果置入 Photoshop | 已实现原型 | `canvasPrimitives.ts` |
@@ -46,7 +46,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 ### FR-001 UXP 插件加载与入口
 
-用户可以把插件加载到 Photoshop UXP Developer Tools，并打开 Lightyear Banana 面板。
+用户可以把插件加载到 Photoshop UXP Developer Tools，并打开 Mugen 面板。
 
 验收标准：
 
@@ -66,7 +66,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 ### FR-002 Photoshop 创建图层命令
 
-用户可以从 Photoshop 菜单执行创建图层命令，在当前文档中新建名为 `Lightyear Banana` 的图层。
+用户可以从 Photoshop 菜单执行创建图层命令，在当前文档中新建名为 `Mugen` 的图层。
 
 验收标准：
 
@@ -104,7 +104,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 验收标准：
 
 - 顶部显示当前标题和状态。
-- 工作台标题为 `Lightyear Banana v0.1`。
+- 工作台标题为 `Mugen v0.1`。
 - 设置页显示 `设置`、`新建配置` 或当前配置名称。
 - 用户可以打开设置。
 - 用户可以从配置详情返回配置列表，也可以返回工作台。
@@ -112,7 +112,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 来源：
 
-- `LightyearPanel.vue`
+- `MugenPanel.vue`
 - `PanelHeader.vue`
 
 ### FR-005 添加参考图
@@ -146,7 +146,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 - `ComposerDock.vue`
 - `ReferenceThumb.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 - `canvasPrimitiveService.ts`
 - `canvasPrimitives.ts`
 
@@ -169,7 +169,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `ComposerDock.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-007 生图参数选择
 
@@ -193,7 +193,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - `ControlSelect.vue`
 - `RatioPicker.vue`
 - `providerCapabilities.ts`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-008 多供应商图像生成
 
@@ -243,7 +243,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 来源：
 
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 - `MessageThread.vue`
 
 ### FR-010 生成结果展示
@@ -261,7 +261,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `MessageThread.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-011 结果置入 Photoshop
 
@@ -287,7 +287,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `MessageThread.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 - `canvasPrimitiveService.ts`
 - `canvasPrimitives.ts`
 - `imagePixels.ts`
@@ -306,7 +306,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `MessageThread.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-013 超分参数填充
 
@@ -326,7 +326,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `MessageThread.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-014 模型配置列表
 
@@ -373,7 +373,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `ConfigEditorForm.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-016 API 配置测试
 
@@ -392,7 +392,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `ConfigEditorForm.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 - `imageApiClient.ts`
 
 ### FR-017 设置持久化
@@ -408,7 +408,8 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 验收标准：
 
-- 使用 `localStorage` key `lightyear-banana.settings.v1`。
+- 使用 `localStorage` key `mugen.settings.v1`。
+- 新 key 不存在时读取 `lightyear-banana.settings.v1`，并把有效数据迁移到 Mugen key。
 - 读取失败时回退默认配置。
 - 写入失败时不阻断主流程。
 - 默认配置升级时合并本地已存配置。
@@ -416,7 +417,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 
 来源：
 
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-018 Mock Server 开关
 
@@ -434,7 +435,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `SettingsPanel.vue`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 - `imageApiClient.ts`
 - `mock-image-api-server.mjs`
 
@@ -505,7 +506,7 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `vite.uxp.config.ts`
-- `useLightyearBanana.ts`
+- `useMugen.ts`
 
 ### FR-022 UXP 构建与打包
 
@@ -559,7 +560,8 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 主题只覆盖视觉 token 与控件外观，不覆盖组件尺寸、间距、布局和响应式断点。
 - 主题菜单点击外部区域后收起。
 - 260px 宽度下不产生水平溢出或内容裁切。
-- 主题偏好保存在 `lightyear-banana.theme.v1`。
+- 主题偏好保存在 `mugen.theme.v1`。
+- 新 key 不存在时读取 `lightyear-banana.theme.v1`，并把有效数据迁移到 Mugen key。
 - UXP 中转面板使用相同视觉语言，并保留 Spectrum 控件与桥接行为。
 
 来源：
@@ -567,8 +569,8 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - `src/styles/nothing-theme.css`
 - `src/styles/fonts.css`
 - `src/composables/useThemePreferences.ts`
-- `src/components/lightyear/PanelHeader.vue`
-- `src/components/lightyear/BoxIcon.vue`
+- `src/components/mugen/PanelHeader.vue`
+- `src/components/mugen/BoxIcon.vue`
 - `src/uxp/main.ts`
 
 ### FR-025 预设提示词
@@ -591,9 +593,9 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 来源：
 
 - `src/utils/promptPresets.ts`
-- `src/components/lightyear/PromptPresetMenu.vue`
-- `src/components/lightyear/PromptPresetSettings.vue`
-- `src/composables/useLightyearBanana.ts`
+- `src/components/mugen/PromptPresetMenu.vue`
+- `src/components/mugen/PromptPresetSettings.vue`
+- `src/composables/useMugen.ts`
 - `scripts/prompt-presets-smoke.mjs`
 
 ### FR-026 Provider 注册架构

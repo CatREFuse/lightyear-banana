@@ -56,7 +56,7 @@ jobs:
         shell: pwsh
         run: |
           $version = '${{ inputs.version }}'
-          $archive = "dist/lightyear-banana-$version-win.zip"
+          $archive = "dist/mugen-$version-win.zip"
           $extract = "dist/windows-release-check"
           if (-not (Test-Path $archive -PathType Leaf)) {
             throw "Missing $archive"
@@ -87,16 +87,16 @@ jobs:
             throw 'Packaged CCX does not match uxp-release.json'
           }
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
-          "$hash  lightyear-banana-$version-win.zip" | Set-Content "$archive.sha256" -Encoding ascii
+          "$hash  mugen-$version-win.zip" | Set-Content "$archive.sha256" -Encoding ascii
           Get-Item $archive | Select-Object FullName, Length
           Get-Content "$archive.sha256"
 
       - name: Upload Windows release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lightyear-banana-${{ inputs.version }}-windows
+          name: mugen-${{ inputs.version }}-windows
           path: |
-            dist/lightyear-banana-${{ inputs.version }}-win.zip
-            dist/lightyear-banana-${{ inputs.version }}-win.zip.sha256
+            dist/mugen-${{ inputs.version }}-win.zip
+            dist/mugen-${{ inputs.version }}-win.zip.sha256
           if-no-files-found: error
           retention-days: 7

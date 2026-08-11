@@ -57,7 +57,7 @@ vi.mock('../photoshopHost', () => ({
 
 import { DiagnosticStore } from './hostData'
 
-const diagnosticFile = 'lightyear-inner-diagnostics.v1.json'
+const diagnosticFile = 'mugen-inner-diagnostics.v1.json'
 
 function diagnostic(id: string, timestamp = new Date().toISOString()) {
   return { id, timestamp, category: 'bridge', operation: 'message-validation', phase: 'notice' as const }

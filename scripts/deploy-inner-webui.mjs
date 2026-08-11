@@ -149,7 +149,7 @@ function createRollbackCommand(remoteRoot, token, expectedCurrent) {
     `ln -s "$current_target" ${shellQuote(old)}`,
     `mv -Tf ${shellQuote(next)} ${shellQuote(current)}`,
     `mv -Tf ${shellQuote(old)} ${shellQuote(previous)}`,
-    `printf ${shellQuote('__LIGHTYEAR_TARGET__%s\\n')} "$previous_target"`,
+    `printf ${shellQuote('__MUGEN_TARGET__%s\\n')} "$previous_target"`,
     'cat "$previous_target/release.json"'
   ].join('; ')
   return withRemoteLock(remoteRoot, commands)
@@ -186,10 +186,10 @@ function validateReleaseMetadata(value, label) {
 
 function parseRollbackOutput(value, label) {
   const separator = value.indexOf('\n')
-  if (separator < 0 || !value.startsWith('__LIGHTYEAR_TARGET__')) {
+  if (separator < 0 || !value.startsWith('__MUGEN_TARGET__')) {
     throw new Error(`${label} did not return a release target.`)
   }
-  const target = value.slice('__LIGHTYEAR_TARGET__'.length, separator).trim()
+  const target = value.slice('__MUGEN_TARGET__'.length, separator).trim()
   const release = validateReleaseMetadata(JSON.parse(value.slice(separator + 1)), `${label} release.json`)
   return { target, release }
 }
@@ -623,7 +623,7 @@ console.log(`WebUI ${webUiPackage.version} deployment target: ${configuration.ta
 console.log(`Public URL: ${innerWebUiUrl.href}`)
 if (dryRun) return
 
-const temporaryDirectory = mkdtempSync(path.join(tmpdir(), 'lightyear-inner-webui-'))
+const temporaryDirectory = mkdtempSync(path.join(tmpdir(), 'mugen-inner-webui-'))
 const snapshotRoot = path.join(temporaryDirectory, 'snapshot')
 const archivePath = path.join(temporaryDirectory, `${releaseId}-${token}.tar.gz`)
 

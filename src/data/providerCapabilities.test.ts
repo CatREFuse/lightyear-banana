@@ -9,7 +9,7 @@ import {
   validateProviderGenerationParameters
 } from '../../packages/inner-protocol/src/providerCapabilityData'
 import type { ModelConfig as WebUiModelConfig, ProviderCapability as WebUiProviderCapability } from '../../packages/inner-protocol/src/index'
-import type { ModelConfig, ProviderCapability } from '../types/lightyear'
+import type { ModelConfig, ProviderCapability } from '../types/mugen'
 import {
   providerCapabilities as adapterCapabilities,
   providerSupportsQuality,

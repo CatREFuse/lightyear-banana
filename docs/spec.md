@@ -1,4 +1,4 @@
-# Lightyear Banana 当前功能规格
+# Mugen 当前功能规格
 
 版本：0.2
 日期：2026-07-17
@@ -13,7 +13,8 @@
 
 - 界面主题支持 `Nothing` 和 `经典`，默认使用 `Nothing`。
 - 明暗模式支持 `跟随系统`、`深色`、`浅色`，首次使用默认深色。
-- 主题偏好写入 `localStorage` key `lightyear-banana.theme.v1`。
+- 主题偏好写入 `localStorage` key `mugen.theme.v1`。
+- 首次启动时读取旧版 `lightyear-banana.theme.v1` 并写入 Mugen key，保留已有主题偏好。
 - Nothing 使用本地打包的 Doto、Space Grotesk 和 Space Mono 字体，不依赖远程字体服务。
 - 经典主题保留原有字体和主体样式。
 - Nothing 与经典主题共用组件尺寸、间距、布局和响应式规则，切换主题不会改变界面几何结构。
@@ -65,7 +66,8 @@
 - 名称长度为 1–24 个 Unicode 字符，只支持中文、英文字母、数字、`_`、`-`。
 - 名称使用 NFKC 和 ASCII 小写规则检查冲突。
 - 提示词内容不能为空，可以包含多行和任意正文。
-- 预设与模型配置一起写入 `localStorage` key `lightyear-banana.settings.v1`。
+- 预设与模型配置一起写入 `localStorage` key `mugen.settings.v1`。
+- 首次启动时读取旧版 `lightyear-banana.settings.v1` 并写入 Mugen key，保留已有配置、历史和预设。
 
 ### 调用
 

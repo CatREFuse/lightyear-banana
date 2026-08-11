@@ -5,7 +5,7 @@ import {
   testImageConfig,
   type NormalizedImageResult
 } from '../../services/imageApiClient'
-import type { ImageProviderId, ModelConfig, ReferenceImage } from '../../types/lightyear'
+import type { ImageProviderId, ModelConfig, ReferenceImage } from '../../types/mugen'
 import { providerRequiresApiKey } from '../../data/providerCapabilities'
 import { createCanvasImageFromApiAsset } from '../../utils/imagePixels'
 import { getHostRequire } from '../photoshopHost'

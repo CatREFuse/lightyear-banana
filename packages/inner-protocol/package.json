@@ -1,5 +1,5 @@
 {
-  "name": "@lightyear-banana/inner-protocol",
+  "name": "@mugen/inner-protocol",
   "version": "1.0.0",
   "private": true,
   "type": "module",

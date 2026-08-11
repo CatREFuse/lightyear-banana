@@ -17,15 +17,15 @@ http://127.0.0.1:38322
 成功生图响应默认会随机等待 3 到 5 秒。可以用环境变量调整：
 
 ```bash
-LIGHTYEAR_MOCK_IMAGE_API_DELAY_MIN_MS=3000 \
-LIGHTYEAR_MOCK_IMAGE_API_DELAY_MAX_MS=5000 \
+MUGEN_MOCK_IMAGE_API_DELAY_MIN_MS=3000 \
+MUGEN_MOCK_IMAGE_API_DELAY_MAX_MS=5000 \
 node scripts/mock-image-api-server.mjs
 ```
 
 也可以指定端口：
 
 ```bash
-LIGHTYEAR_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
+MUGEN_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
 ```
 
 前端设置页打开 `Mock Server` 后，OpenAI、Google Gemini、Qwen-Image、Kling、Seedream、自定义 OpenAI 兼容配置都会请求这个本地地址。
