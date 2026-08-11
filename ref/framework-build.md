@@ -53,6 +53,7 @@ plugin/                   当前 CCX Manifest 和图标
 - 生产 WebView 入口为 `plugin:/webui/index.html`。
 - 本地 WebView 使用 `allowLocalRendering: "yes"` 与 `enableMessageBridge: "localOnly"`。
 - WebUI 与 Host 的协议和兼容元数据进入静态校验。
+- production mode 固定注入 `__MUGEN_APP_ENV__ = "production"`；设置 `VITE_MUGEN_ENV` 或 `MUGEN_ENV` 为 `development` / `test` 时构建直接失败。
 
 ## Manifest 基线
 
@@ -74,7 +75,11 @@ plugin/                   当前 CCX Manifest 和图标
 - Manifest v5、插件 ID、host、entrypoint 和 WebView 权限正确。
 - Host HTML 使用 classic script。
 - WebUI 资源完整且使用可在 `plugin:/` 下加载的相对路径。
+- `apps/inner-webui/dist/` 与 `dist/ps-uxp/webui/` 的文件集和每个文件的字节完全一致，且两份 `release.json` 的 `contentHash` 可复算。
+- 两份 WebUI `release.json` 都声明活动版本 `0.2.0` 并绑定当前 Git HEAD；本地 `verify:uxp` 要求 `dirty` 与实际工作树状态一致，正式 `package:uxp` 进一步要求干净工作树和 `dirty: false`。
+- CCX 归档生成后逐文件核对归档文件集与最终 staging 目录的字节哈希；`dist/uxp-release.json` 的 `sourceCommit` 必须绑定同一干净提交。
 - Host bundle 不包含 `eval`、`new Function`、动态 `import()` 或 `import.meta`。
+- 正式 UXP 产物不包含 smoke 全局对象、MockHost、fixture key、`/__smoke/` 路由或开发域名。
 - WebUI bundle 不包含 Electron runtime 或生产 Mock Host 注入。
 - 协议与版本兼容信息一致。
 

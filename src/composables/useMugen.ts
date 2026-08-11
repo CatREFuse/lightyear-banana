@@ -5,7 +5,9 @@ import {
   normalizeCustomModelFormat,
   providerCapabilities,
   providerRequiresApiKey,
-  readProviderCapability,
+  readProviderCapabilitiesForRuntime,
+  readProviderCapabilityForRuntime,
+  resolveProviderRatioForRuntime,
   validateProviderConfig
 } from '../data/providerCapabilities'
 import {
@@ -627,11 +629,12 @@ function writeStoredSettings(settings: StoredSettings) {
 export function useMugen(runtime: RuntimeName) {
   const storedSettings = readStoredSettings()
   const isElectronRuntime = __MUGEN_LEGACY_DESKTOP__ && runtime === 'electron'
+  const runtimeProviderCapabilities = readProviderCapabilitiesForRuntime(runtime)
   const initialConfig =
     storedSettings.configs.find((config) => config.id === storedSettings.activeConfigId) ??
     storedSettings.configs[0] ??
     createEmptyModelConfig()
-  const initialCapability = readProviderCapability(initialConfig)
+  const initialCapability = readProviderCapabilityForRuntime(initialConfig, runtime)
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
@@ -679,8 +682,8 @@ export function useMugen(runtime: RuntimeName) {
   const activeConfig = computed(
     () => configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? createEmptyModelConfig()
   )
-  const activeCapability = computed(() => readProviderCapability(activeConfig.value))
-  const editingCapability = computed(() => readProviderCapability(settingsDraft))
+  const activeCapability = computed(() => readProviderCapabilityForRuntime(activeConfig.value, runtime))
+  const editingCapability = computed(() => readProviderCapabilityForRuntime(settingsDraft, runtime))
   const enabledConfigs = computed(() => configs.value.filter((config) => config.enabled))
   const referenceLimit = computed(() => activeCapability.value.referenceLimit)
   const canAddReference = computed(() => references.value.length < referenceLimit.value)
@@ -712,7 +715,7 @@ export function useMugen(runtime: RuntimeName) {
   function readCapabilityForConfig(configId: string) {
     const config = configs.value.find((item) => item.id === configId) ?? activeConfig.value
 
-    return readProviderCapability(config)
+    return readProviderCapabilityForRuntime(config, runtime)
   }
 
   function selectModel(model: string) {
@@ -1254,7 +1257,7 @@ function readHighestQuality(options: string[]): string {
   }
 
   async function readCanvasSizeForRequest(requestRatio: string) {
-    if (requestRatio !== '画布比例') {
+    if (runtime === 'browser' || requestRatio !== '画布比例') {
       return undefined
     }
 
@@ -1301,18 +1304,24 @@ function readHighestQuality(options: string[]): string {
   }
 
   function normalizeGenerationSnapshotForRequest(snapshot: GenerationRequestSnapshot): GenerationRequestSnapshot {
-    const resolvedSize = readRequestSizeForSnapshot(snapshot)
-    if (!resolvedSize || resolvedSize === snapshot.resolvedSize) {
-      return snapshot
+    const capability = readProviderCapabilityForRuntime(snapshot.config, runtime)
+    const normalizedSnapshot = {
+      ...snapshot,
+      canvasSize: runtime === 'browser' ? undefined : snapshot.canvasSize,
+      ratio: resolveProviderRatioForRuntime(capability, runtime, snapshot.ratio)
+    }
+    const resolvedSize = readRequestSizeForSnapshot(normalizedSnapshot)
+    if (!resolvedSize || resolvedSize === normalizedSnapshot.resolvedSize) {
+      return normalizedSnapshot
     }
 
     return {
-      ...snapshot,
+      ...normalizedSnapshot,
       resolvedSize,
       summary: readGenerationSummary({
-        quality: snapshot.quality,
+        quality: normalizedSnapshot.quality,
         resolvedSize,
-        selectedSize: snapshot.selectedSize
+        selectedSize: normalizedSnapshot.selectedSize
       })
     }
   }
@@ -1326,7 +1335,7 @@ function readHighestQuality(options: string[]): string {
   }
 
   function readRequestCountForSnapshot(snapshot: GenerationRequestSnapshot) {
-    return readRequestCountForCapability(snapshot.count, readProviderCapability(snapshot.config))
+    return readRequestCountForCapability(snapshot.count, readProviderCapabilityForRuntime(snapshot.config, runtime))
   }
 
   function finalizeGenerationSnapshot(snapshot: GenerationRequestSnapshot, resolvedSize?: string): GenerationRequestSnapshot {
@@ -1398,10 +1407,14 @@ function readHighestQuality(options: string[]): string {
     const requestPrompt = cleanPrompt || '根据参考图生成'
     const sentReferences = references.value.map((reference) => ({ ...reference }))
     const requestConfig = cloneModelConfig(activeConfig.value)
-    const requestCapability = readProviderCapability(requestConfig)
+    const requestCapability = readProviderCapabilityForRuntime(requestConfig, runtime)
     const requestCount = readRequestCountForCapability(count.value, requestCapability)
     const requestQuality = requestCapability.qualityOptions.includes(quality.value) ? quality.value : readDefaultQuality(requestCapability.qualityOptions)
-    const requestRatio = resolutionMode.value === 'custom' ? '自定义' : ratio.value
+    const requestRatio = resolveProviderRatioForRuntime(
+      requestCapability,
+      runtime,
+      resolutionMode.value === 'custom' ? '自定义' : ratio.value
+    )
     let requestSize = resolutionMode.value === 'custom' ? readCustomResolutionSize() : size.value
     let requestCanvasSize: { width: number; height: number } | undefined
 
@@ -2100,7 +2113,7 @@ function readHighestQuality(options: string[]): string {
 
   function updateSettingsDraft(patch: Partial<ModelConfig>) {
     if (patch.provider && patch.provider !== settingsDraft.provider) {
-      const capability = providerCapabilities[patch.provider]
+      const capability = runtimeProviderCapabilities[patch.provider]
       patch.model = capability.modelOptions[0] ?? settingsDraft.model
       patch.models = capability.modelOptions.length ? [...capability.modelOptions] : [patch.model]
       patch.baseUrl = readDefaultBaseUrl(patch.provider, settingsDraft.baseUrl)
@@ -2195,7 +2208,7 @@ function readHighestQuality(options: string[]): string {
     placeImage,
     prompt,
     promptPresets,
-    providerCapabilities,
+    providerCapabilities: runtimeProviderCapabilities,
     quality,
     ratio,
     referenceLimit,

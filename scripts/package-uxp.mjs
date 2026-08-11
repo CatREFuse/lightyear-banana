@@ -7,6 +7,14 @@ import { assertProductionOrigin, resolveReleaseUrl } from './production-origin-p
 import { publishReleaseFileSet } from './release-file-set.mjs'
 import { resolveReleaseProvenance } from './release-provenance.mjs'
 import { createUxpReleaseMetadata } from './uxp-release-metadata.mjs'
+import {
+  createVerifiedDirectorySnapshot,
+  verifyArchiveMatchesDirectory
+} from './package-archive-integrity.mjs'
+import {
+  assertUxpReleaseMatchesInnerWebUiProvenance,
+  verifyEmbeddedInnerWebUiProvenance
+} from './inner-webui-provenance.mjs'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const provenance = resolveReleaseProvenance(projectRoot)
@@ -17,6 +25,11 @@ const builtManifestPath = path.join(sourceDir, 'manifest.json')
 if (!existsSync(builtManifestPath)) {
   throw new Error('UXP build not found. Run npm run verify:uxp first.')
 }
+verifyEmbeddedInnerWebUiProvenance({
+  projectRoot,
+  provenance,
+  requireClean: true
+})
 
 const builtManifest = JSON.parse(readFileSync(builtManifestPath, 'utf8'))
 if (typeof builtManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(builtManifest.version)) {
@@ -70,6 +83,9 @@ const temporaryArchivePath = path.join(
 )
 const temporaryMetadataPath = path.join(projectRoot, 'dist', `.uxp-release-${temporarySuffix}.json`)
 const temporaryChecksumPath = path.join(projectRoot, 'dist', `.${path.basename(archivePath)}-${temporarySuffix}.sha256`)
+const stagingRoot = path.join(projectRoot, 'dist', `.uxp-package-stage-${temporarySuffix}`)
+const stagedSourceDir = path.join(stagingRoot, 'ps-uxp')
+const stagedWebUiSourceDir = path.join(stagingRoot, 'inner-webui')
 const archiveBackupPath = path.join(projectRoot, 'dist', `.${path.basename(archivePath)}-${temporarySuffix}.backup`)
 const checksumBackupPath = path.join(projectRoot, 'dist', `.${path.basename(archiveChecksumPath)}-${temporarySuffix}.backup`)
 const metadataBackupPath = path.join(projectRoot, 'dist', `.uxp-release-${temporarySuffix}.backup`)
@@ -77,10 +93,27 @@ const metadataBackupPath = path.join(projectRoot, 'dist', `.uxp-release-${tempor
 rmSync(temporaryArchivePath, { force: true })
 rmSync(temporaryMetadataPath, { force: true })
 rmSync(temporaryChecksumPath, { force: true })
+rmSync(stagingRoot, { recursive: true, force: true })
 
 let sha256 = ''
 
 try {
+  createVerifiedDirectorySnapshot({
+    sourceDirectory: sourceDir,
+    stagingDirectory: stagedSourceDir
+  })
+  createVerifiedDirectorySnapshot({
+    sourceDirectory: path.join(projectRoot, 'apps', 'inner-webui', 'dist'),
+    stagingDirectory: stagedWebUiSourceDir
+  })
+  const stagedInnerWebUiProvenance = verifyEmbeddedInnerWebUiProvenance({
+    projectRoot,
+    sourceDirectory: stagedWebUiSourceDir,
+    embeddedDirectory: path.join(stagedSourceDir, 'webui'),
+    provenance,
+    requireClean: true
+  })
+
   if (process.platform === 'win32') {
     execFileSync(
       'powershell.exe',
@@ -98,13 +131,13 @@ try {
         env: {
           ...process.env,
           MUGEN_UXP_ARCHIVE_PATH: temporaryArchivePath,
-          MUGEN_UXP_SOURCE_DIR: sourceDir
+          MUGEN_UXP_SOURCE_DIR: stagedSourceDir
         },
         stdio: 'inherit'
       }
     )
   } else {
-    execFileSync('zip', ['-r', '-q', temporaryArchivePath, '.'], { cwd: sourceDir, stdio: 'inherit' })
+    execFileSync('zip', ['-r', '-q', temporaryArchivePath, '.'], { cwd: stagedSourceDir, stdio: 'inherit' })
   }
 
   if (!existsSync(temporaryArchivePath)) {
@@ -133,25 +166,43 @@ try {
     encoding: 'utf8',
     flag: 'wx'
   })
+  const releaseMetadata = createUxpReleaseMetadata({
+    ccxVersion: builtManifest.version,
+    filename: path.basename(archivePath),
+    sha256,
+    webviewOrigin,
+    releaseUrl,
+    builtAt: new Date().toISOString(),
+    sourceCommit: provenance.sourceCommit,
+    dirty: provenance.dirty
+  })
+  assertUxpReleaseMatchesInnerWebUiProvenance(releaseMetadata, stagedInnerWebUiProvenance)
   writeFileSync(
     temporaryMetadataPath,
-    `${JSON.stringify(createUxpReleaseMetadata({
-      ccxVersion: builtManifest.version,
-      filename: path.basename(archivePath),
-      sha256,
-      webviewOrigin,
-      releaseUrl,
-      builtAt: new Date().toISOString(),
-      sourceCommit: provenance.sourceCommit,
-      dirty: provenance.dirty
-    }), null, 2)}\n`,
+    `${JSON.stringify(releaseMetadata, null, 2)}\n`,
     { encoding: 'utf8', flag: 'wx' }
   )
 
+  verifyArchiveMatchesDirectory({
+    sourceDirectory: stagedSourceDir,
+    archiveEntries: entries,
+    readArchiveEntry: (entry) => execFileSync(
+      'tar',
+      ['-xOf', temporaryArchivePath, entry],
+      { cwd: projectRoot, maxBuffer: 256 * 1024 * 1024 }
+    )
+  })
   const finalProvenance = resolveReleaseProvenance(projectRoot)
   if (finalProvenance.sourceCommit !== provenance.sourceCommit) {
     throw new Error('Git HEAD changed while the CCX archive was being packaged.')
   }
+  verifyEmbeddedInnerWebUiProvenance({
+    projectRoot,
+    sourceDirectory: stagedWebUiSourceDir,
+    embeddedDirectory: path.join(stagedSourceDir, 'webui'),
+    provenance: finalProvenance,
+    requireClean: true
+  })
 
   const cleanupErrors = publishReleaseFileSet([
     {
@@ -178,6 +229,7 @@ try {
   rmSync(temporaryArchivePath, { force: true })
   rmSync(temporaryMetadataPath, { force: true })
   rmSync(temporaryChecksumPath, { force: true })
+  rmSync(stagingRoot, { recursive: true, force: true })
 }
 
 console.log(`UXP archive packaged: ${archivePath}`)

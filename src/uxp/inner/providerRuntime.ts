@@ -8,6 +8,7 @@ import {
 import type { ImageProviderId, ModelConfig, ReferenceImage } from '../../types/mugen'
 import { providerRequiresApiKey } from '../../data/providerCapabilities'
 import { createCanvasImageFromApiAsset } from '../../utils/imagePixels'
+import { canUseDevelopmentApimartBaseUrl } from '../../utils/apimartDevelopmentConfig'
 import { getHostRequire } from '../photoshopHost'
 import { AssetStore } from './assetStore'
 import { getCredential, getSettings } from './storage'
@@ -22,6 +23,17 @@ type RuntimeOptions = {
   assets: AssetStore
   emit: RuntimeEmitter
   persistHistory: (entry: HistoryUpsertEntry) => Promise<void>
+}
+
+type MugenEnvironment = 'development' | 'test' | 'production'
+
+type ProviderPreviewContext = {
+  config?: Pick<ModelConfig, 'provider' | 'apiKey' | 'baseUrl'>
+  environment?: MugenEnvironment
+}
+
+type ProviderPreviewMaterializationOptions = ProviderPreviewContext & {
+  fetchImplementation?: typeof fetch
 }
 
 type RunningTask = {
@@ -117,6 +129,23 @@ function isLoopbackHostname(hostname: string) {
   return readIpv4(hostname)?.[0] === 127
 }
 
+function runtimeEnvironment(): MugenEnvironment {
+  return typeof __MUGEN_APP_ENV__ === 'undefined' ? 'production' : __MUGEN_APP_ENV__
+}
+
+function isAuthorizedApimartFixturePreview(url: URL, provider: ImageProviderId, context?: ProviderPreviewContext) {
+  const config = context?.config
+  if (!config || provider !== 'apimart' || config.provider !== provider) return false
+  const environment = context.environment ?? runtimeEnvironment()
+  if (!canUseDevelopmentApimartBaseUrl(config, environment)) return false
+  try {
+    const fixtureOrigin = new URL(config.baseUrl).origin
+    return isLoopbackHostname(normalizeHostname(url.hostname)) && url.origin === fixtureOrigin
+  } catch {
+    return false
+  }
+}
+
 function isDomainOrSubdomain(hostname: string, domain: string) {
   return hostname === domain || hostname.endsWith(`.${domain}`)
 }
@@ -135,7 +164,7 @@ function isValidPublicHostname(hostname: string) {
  * IP literal and revalidate the hostname on each redirect. DNS pinning remains
  * the responsibility of the runtime/network boundary.
  */
-export function validateProviderPreviewNetworkUrl(value: string, provider: ImageProviderId) {
+export function validateProviderPreviewNetworkUrl(value: string, provider: ImageProviderId, context?: ProviderPreviewContext) {
   let url: URL
   try {
     url = new URL(value)
@@ -146,6 +175,11 @@ export function validateProviderPreviewNetworkUrl(value: string, provider: Image
   if (url.username || url.password) throw new Error('生成图片地址不能包含凭据')
   const hostname = normalizeHostname(url.hostname)
   if (!hostname) throw new Error('生成图片地址无效')
+
+  if (isAuthorizedApimartFixturePreview(url, provider, context)) {
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('本地图片地址协议不受支持')
+    return url
+  }
 
   if (localPreviewProviders.has(provider)) {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('本地图片地址协议不受支持')
@@ -189,11 +223,12 @@ export async function materializeProviderPreviewUrl(
   previewUrl: string,
   provider: ImageProviderId,
   signal: AbortSignal,
-  fetchImplementation: typeof fetch = fetch
+  options: ProviderPreviewMaterializationOptions = {}
 ) {
   if (/^data:/i.test(previewUrl)) return validateInlineImageDataUrl(previewUrl)
 
-  let currentUrl = validateProviderPreviewNetworkUrl(previewUrl, provider)
+  const fetchImplementation = options.fetchImplementation ?? fetch
+  let currentUrl = validateProviderPreviewNetworkUrl(previewUrl, provider, options)
   for (let redirectCount = 0; ; redirectCount += 1) {
     if (signal.aborted) throw abortError()
     const response = await fetchImplementation(currentUrl.toString(), {
@@ -209,7 +244,7 @@ export async function materializeProviderPreviewUrl(
       const location = response.headers.get('location')
       if (!location) throw new Error('生成图片跳转地址无效')
       try {
-        currentUrl = validateProviderPreviewNetworkUrl(new URL(location, currentUrl).toString(), provider)
+        currentUrl = validateProviderPreviewNetworkUrl(new URL(location, currentUrl).toString(), provider, options)
       } catch (error) {
         if (error instanceof Error) throw error
         throw new Error('生成图片跳转地址无效')
@@ -482,7 +517,9 @@ export class ProviderRuntime {
       for (let index = 0; index < images.length; index += 1) {
         if (running.controller.signal.aborted) throw abortError()
         const image = images[index]!
-        const previewUrl = await materializeProviderPreviewUrl(image.previewUrl, config!.provider, running.controller.signal)
+        const previewUrl = await materializeProviderPreviewUrl(image.previewUrl, config!.provider, running.controller.signal, {
+          config: config!
+        })
         const canvasImage = await createCanvasImageFromApiAsset({
           id: `${taskId}-${index + 1}`,
           label: image.label || `生成图片 ${index + 1}`,

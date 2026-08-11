@@ -1,22 +1,37 @@
-import { createPrismScene } from './prism-scene.js'
-
 const releaseUrl = './releases/latest.json'
 
-function updateRelease(release) {
+export function resolveCcxReleaseUpdate(release, baseHref) {
   const ccx = release?.downloads?.ccx
+  const filenameMatch = /^mugen-(\d+\.\d+\.\d+)\.ccx$/.exec(ccx?.filename || '')
+  const version = typeof release?.ccxVersion === 'string'
+    ? release.ccxVersion.trim()
+    : filenameMatch?.[1]
+
+  if (!/^\d+\.\d+\.\d+$/.test(version || '') || filenameMatch?.[1] !== version) return null
+  if (typeof ccx?.url !== 'string' || !ccx.url.trim() || ccx.url.includes('__MUGEN_RELEASE_ORIGIN__')) return null
+
+  let baseUrl
+  let url
+  try {
+    baseUrl = new URL(baseHref)
+    url = new URL(ccx.url, baseHref)
+    if (decodeURIComponent(url.pathname.split('/').pop() || '') !== ccx.filename) return null
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:' && url.origin !== baseUrl.origin) return null
+
+  return { href: url.href, version }
+}
+
+function updateRelease(release) {
   const download = document.querySelector('[data-download="ccx"]')
   const version = document.querySelector('[data-ccx-version]')
-  const specimenVersion = typeof release?.ccxVersion === 'string'
-    ? release.ccxVersion
-    : /^mugen-(\d+\.\d+\.\d+)\.ccx$/.exec(ccx?.filename || '')?.[1]
+  const update = resolveCcxReleaseUpdate(release, window.location.href)
+  if (!update || !(download instanceof HTMLAnchorElement) || !version) return
 
-  if (specimenVersion && ccx?.url && download instanceof HTMLAnchorElement) {
-    download.href = ccx.url
-  }
-
-  if (typeof specimenVersion === 'string' && version) {
-    version.textContent = specimenVersion
-  }
+  download.href = update.href
+  version.textContent = update.version
 }
 
 async function loadRelease() {
@@ -29,15 +44,112 @@ async function loadRelease() {
   }
 }
 
-const canvas = document.querySelector('[data-prism-canvas]')
-const stage = document.querySelector('[data-optical-stage]')
+export function createPrismLifecycle({ stage, loadScene }) {
+  let scene = null
+  let initialization = null
+  let generation = 0
+  let suspended = false
+  let terminal = false
+  let unavailable = false
 
-if (canvas instanceof HTMLCanvasElement && stage instanceof HTMLElement) {
-  try {
-    createPrismScene(canvas, stage)
-  } catch {
+  function showFallback() {
     stage.classList.add('webgl-unavailable')
   }
+
+  function hideFallback() {
+    stage.classList.remove('webgl-unavailable')
+  }
+
+  function handleSceneFatal(token) {
+    if (token !== generation || terminal) return
+    unavailable = true
+    scene = null
+    showFallback()
+  }
+
+  async function initialize() {
+    if (terminal || unavailable || scene) return scene
+    if (initialization) return initialization
+
+    const token = ++generation
+    const task = (async () => {
+      try {
+        const candidate = await loadScene((error) => handleSceneFatal(token, error))
+        if (terminal || unavailable || token !== generation) {
+          candidate?.dispose?.()
+          return null
+        }
+        scene = candidate
+        if (suspended) scene?.pause?.()
+        hideFallback()
+        return scene
+      } catch {
+        if (!terminal && token === generation) {
+          unavailable = true
+          showFallback()
+        }
+        return null
+      }
+    })()
+    initialization = task
+    try {
+      return await task
+    } finally {
+      if (initialization === task) initialization = null
+    }
+  }
+
+  function handlePageHide(event) {
+    suspended = true
+    if (event?.persisted) {
+      scene?.pause?.()
+      return
+    }
+
+    terminal = true
+    generation += 1
+    scene?.dispose?.()
+    scene = null
+  }
+
+  function handlePageShow(event) {
+    if (!event?.persisted || terminal) return
+    suspended = false
+    if (unavailable) return
+    if (scene) {
+      scene.resume?.()
+      return
+    }
+    void initialize()
+  }
+
+  function dispose() {
+    if (terminal) return
+    terminal = true
+    generation += 1
+    scene?.dispose?.()
+    scene = null
+  }
+
+  return { dispose, handlePageHide, handlePageShow, initialize }
 }
 
-loadRelease()
+if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+  const canvas = document.querySelector('[data-prism-canvas]')
+  const stage = document.querySelector('[data-optical-stage]')
+
+  if (canvas instanceof HTMLCanvasElement && stage instanceof HTMLElement) {
+    const lifecycle = createPrismLifecycle({
+      stage,
+      loadScene: async (onFatal) => {
+        const { createPrismScene } = await import('./prism-scene.js')
+        return createPrismScene(canvas, stage, { onFatal })
+      }
+    })
+    window.addEventListener('pagehide', lifecycle.handlePageHide)
+    window.addEventListener('pageshow', lifecycle.handlePageShow)
+    void lifecycle.initialize()
+  }
+
+  void loadRelease()
+}

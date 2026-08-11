@@ -1,6 +1,8 @@
 import { readFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifyEmbeddedInnerWebUiProvenance } from './inner-webui-provenance.mjs'
+import { assertProductionUxpArtifactsClean } from './uxp-production-artifact-policy.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
@@ -12,7 +14,6 @@ const assetsDir = path.join(pluginDir, 'assets')
 const iconsDir = path.join(pluginDir, 'icons')
 const webUiDir = path.join(pluginDir, 'webui')
 const sourceManifestPath = path.join(projectRoot, 'plugin', 'manifest.json')
-const forbiddenProductionText = ['cake.catrefuse.com', 'webui.catrefuse.com', 'inner-webui.invalid']
 
 async function assertFile(filePath, label) {
   const info = await stat(filePath)
@@ -33,6 +34,11 @@ await assertFile(path.join(iconsDir, 'icon_D@2x.png'), 'dark 2x icon')
 await assertFile(path.join(iconsDir, 'icon_N@1x.png'), 'light 1x icon')
 await assertFile(path.join(iconsDir, 'icon_N@2x.png'), 'light 2x icon')
 await assertFile(path.join(webUiDir, 'index.html'), 'bundled WebUI index')
+
+const innerWebUiProvenance = verifyEmbeddedInnerWebUiProvenance({
+  projectRoot,
+  requireClean: false
+})
 
 try {
   await stat(browserPreviewPath)
@@ -139,11 +145,6 @@ for (const scriptFile of scriptFiles) {
   if (/\bimport\s*\(/.test(source) || /\bimport\.meta\b/.test(source)) {
     throw new Error(`${scriptFile} still contains dynamic ESM markers.`)
   }
-  for (const forbidden of forbiddenProductionText) {
-    if (source.includes(forbidden)) {
-      throw new Error(`${scriptFile} contains forbidden production text: ${forbidden}`)
-    }
-  }
 }
 
 if (!hasEmbeddedWebviewUrl) {
@@ -156,15 +157,6 @@ if (!hasPanelResizeSync) {
   throw new Error('The bundled Host must synchronize the WebView pixel size with the Photoshop panel.')
 }
 
-for (const filePath of [manifestPath, panelPath]) {
-  const source = await readFile(filePath, 'utf8')
-  for (const forbidden of forbiddenProductionText) {
-    if (source.includes(forbidden)) {
-      throw new Error(`${path.basename(filePath)} contains forbidden production text: ${forbidden}`)
-    }
-  }
-}
-
 const webUiAssets = await readdir(path.join(webUiDir, 'assets'))
 if (!webUiAssets.some((file) => file.endsWith('.js')) || !webUiAssets.some((file) => file.endsWith('.css'))) {
   throw new Error('The bundled WebUI must contain its JavaScript and CSS assets.')
@@ -173,4 +165,10 @@ if (webUiAssets.some((file) => file.endsWith('.map'))) {
   throw new Error('The bundled WebUI must not contain source maps.')
 }
 
-console.log(`UXP ${manifest.version} build verified with bundled local WebUI: ${path.relative(projectRoot, pluginDir)}`)
+const productionArtifactScan = await assertProductionUxpArtifactsClean(pluginDir)
+
+console.log(
+  `UXP ${manifest.version} build verified with bundled Inner WebUI ${innerWebUiProvenance.version} ` +
+  `from ${innerWebUiProvenance.sourceCommit} and ${productionArtifactScan.scannedFileCount} scanned artifacts: ` +
+  path.relative(projectRoot, pluginDir)
+)

@@ -333,7 +333,7 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
 export async function getCredential(config: CredentialBindingConfig) {
   if (!/^[a-zA-Z0-9_-]{1,96}$/.test(config.id)) throw new Error('配置 ID 无效')
   if (!providerRequiresApiKey(config.provider)) return ''
-  if (__MUGEN_APP_ENV__ !== 'production' && isDevelopmentApimartFixture(config)) return 'mock-good-apimart'
+  if (__MUGEN_APP_ENV__ !== 'production' && isDevelopmentApimartFixture(config)) return 'mock-apimart-good'
   const expectedBinding = resolveCredentialBinding(config)
   if (!expectedBinding) return ''
   const value = await readStoredCredential(config.id)

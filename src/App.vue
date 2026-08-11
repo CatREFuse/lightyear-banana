@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
+import { buildInfo } from './buildInfo'
 import MugenPanel from './components/mugen/MugenPanel.vue'
 import type { DesktopPlatform, RuntimeName } from './types/mugen'
 
@@ -46,6 +47,7 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
         :runtime="props.runtime"
         :desktop-platform="props.runtime === 'browser' ? previewPlatform : props.platform"
         :show-window-controls="props.runtime === 'browser'"
+        :version="buildInfo.version"
       />
     </div>
   </main>

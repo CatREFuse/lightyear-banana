@@ -11,9 +11,13 @@ import {
 import type { ModelConfig as WebUiModelConfig, ProviderCapability as WebUiProviderCapability } from '../../packages/inner-protocol/src/index'
 import type { ModelConfig, ProviderCapability } from '../types/mugen'
 import {
+  adaptProviderCapabilityForRuntime,
   providerCapabilities as adapterCapabilities,
   providerSupportsQuality,
-  readProviderCapability as readAdapterCapability
+  readProviderCapabilitiesForRuntime,
+  readProviderCapability as readAdapterCapability,
+  readProviderCapabilityForRuntime,
+  resolveProviderRatioForRuntime
 } from './providerCapabilities'
 
 type CapabilityConfig = Pick<ModelConfig, 'provider' | 'model' | 'customFormat'>
@@ -150,6 +154,28 @@ describe('shared provider capability declarations', () => {
     expect(providerSupportsQuality({ provider: 'iMini', model: 'openai/gpt-image-2' })).toBe(true)
     expect(providerSupportsQuality({ provider: 'apimart', model: 'gpt-image-2' })).toBe(false)
     expect(providerSupportsQuality({ provider: 'apimart', model: 'gpt-image-2-official' })).toBe(true)
+  })
+
+  it('removes Photoshop canvas ratios from every browser capability without changing CCX', () => {
+    const browserCapabilities = readProviderCapabilitiesForRuntime('browser')
+    const ccxCapability = readProviderCapabilityForRuntime(
+      { provider: 'codex-image-server', model: 'gpt-image-2' },
+      'photoshop-uxp'
+    )
+
+    for (const capability of Object.values(browserCapabilities)) {
+      expect(capability.ratioOptions).not.toContain('画布比例')
+    }
+    expect(ccxCapability.ratioOptions).toContain('画布比例')
+    expect(adapterCapabilities['codex-image-server'].ratioOptions).toContain('画布比例')
+  })
+
+  it('never resolves a browser request to the Photoshop canvas ratio', () => {
+    const capability = adapterCapabilities['codex-image-server']
+
+    expect(resolveProviderRatioForRuntime(capability, 'browser', '画布比例')).toBe('参考图比例')
+    expect(resolveProviderRatioForRuntime(capability, 'photoshop-uxp', '画布比例')).toBe('画布比例')
+    expect(adaptProviderCapabilityForRuntime(capability, 'browser').ratioOptions).not.toContain('画布比例')
   })
 
   it('enforces model-specific reference and output boundaries', () => {

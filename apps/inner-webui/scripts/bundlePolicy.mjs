@@ -7,8 +7,19 @@ export const forbiddenBundleMarkers = Object.freeze([
   { id: 'desktop-window-deploy-command', expression: /deployWindows/i },
   { id: 'desktop-update-command', expression: /checkForUpdates/i },
   { id: 'desktop-permission-command', expression: /openMacPermissionSettings/i },
-  { id: 'retired-connection-log-command', expression: /crx\.logs\.export/i }
+  { id: 'retired-connection-log-command', expression: /crx\.logs\.export/i },
+  { id: 'retired-mock-host', expression: /MockHost/i },
+  { id: 'retired-desktop-version', expression: /0\.3\.19/ }
 ])
+
+export const forbiddenSourceModuleSuffixes = Object.freeze([
+  '/src/host/mockHost.fixture.ts'
+])
+
+export function findForbiddenSourceModule(moduleId) {
+  const normalized = String(moduleId).split('?', 1)[0].replaceAll('\\', '/')
+  return forbiddenSourceModuleSuffixes.find((suffix) => normalized.endsWith(suffix))
+}
 
 const textExtensions = new Set(['.css', '.html', '.js', '.json', '.map', '.mjs', '.svg', '.txt'])
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createHostClient, expectsUxpHost, resolveWebUiRuntime } from './index'
+import { createHostClient, resolveWebUiRuntime } from './index'
 
 describe('browser preview routing', () => {
   it('never enables a production mock host from the URL', () => {
@@ -7,13 +7,7 @@ describe('browser preview routing', () => {
     expect(createHostClient(value).mode).toBe('unavailable')
   })
 
-  it('reserves the embedded marker for the UXP shell', () => {
-    expect(expectsUxpHost('?host=uxp')).toBe(true)
-    expect(expectsUxpHost('')).toBe(false)
-    expect(expectsUxpHost('?host=browser')).toBe(false)
-  })
-
-  it('uses the shared browser runtime when no UXP bridge is present', () => {
+  it('uses the shared browser runtime when no trusted UXP bridge is present', () => {
     const browser = { location: { search: '' } } as unknown as Window
     const embedded = {
       location: { search: '' },
@@ -22,6 +16,15 @@ describe('browser preview routing', () => {
 
     expect(resolveWebUiRuntime(browser)).toBe('browser')
     expect(resolveWebUiRuntime(embedded)).toBe('embedded')
-    expect(resolveWebUiRuntime({ location: { search: '?host=uxp' } } as unknown as Window)).toBe('embedded')
+  })
+
+  it('does not let URL parameters impersonate the Photoshop runtime', () => {
+    const forgedUrls = ['?host=uxp', '?host=photoshop-uxp', '?mock=success&host=uxp']
+
+    for (const search of forgedUrls) {
+      const browser = { location: { search } } as unknown as Window
+      expect(resolveWebUiRuntime(browser)).toBe('browser')
+      expect(createHostClient(browser).mode).toBe('unavailable')
+    }
   })
 })

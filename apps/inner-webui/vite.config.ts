@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig, type Plugin } from 'vite'
 import { PROTOCOL_VERSION } from '../../packages/inner-protocol/src/index'
+import { findForbiddenSourceModule } from './scripts/bundlePolicy.mjs'
 
 const appRoot = fileURLToPath(new URL('.', import.meta.url))
 const distRoot = fileURLToPath(new URL('./dist/', import.meta.url))
@@ -73,10 +74,25 @@ function webviewCsp(): Plugin {
   }
 }
 
+function productionSourceIsolation(): Plugin {
+  return {
+    name: 'inner-webui-production-source-isolation',
+    apply: 'build',
+    enforce: 'pre',
+    load(id) {
+      const forbiddenModule = findForbiddenSourceModule(id)
+      if (forbiddenModule) {
+        throw new Error(`Production WebUI cannot import test-only module ${forbiddenModule}.`)
+      }
+      return null
+    }
+  }
+}
+
 export default defineConfig(({ mode }) => ({
   root: appRoot,
   base: './',
-  plugins: [vue(), webviewCsp(), releaseMetadata()],
+  plugins: [productionSourceIsolation(), vue(), webviewCsp(), releaseMetadata()],
   define: {
     __WEBUI_VERSION__: JSON.stringify(webVersion),
     __BUILD_COMMIT__: JSON.stringify(buildCommit),

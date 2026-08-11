@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
-import { buildInfo } from '../../buildInfo'
 import { useMugen, type MugenController } from '../../composables/useMugen'
 import { useThemePreferences, type ThemePreferencesController } from '../../composables/useThemePreferences'
 import type { DesktopPlatform, RuntimeName } from '../../types/mugen'
@@ -16,7 +15,7 @@ const props = defineProps<{
   desktopPlatform: DesktopPlatform
   showWindowControls?: boolean
   controller?: MugenController
-  version?: string
+  version: string
   diagnosticExportAvailable?: boolean
   photoshopIntegrationAvailable?: boolean
   themeController?: ThemePreferencesController
@@ -117,7 +116,7 @@ const previewDialogStyle = computed(() => {
       : `min(calc(100vw - 28px), calc((100vh - 96px) * ${ratio.toFixed(5)}))`
   }
 })
-const activeVersion = computed(() => props.version || buildInfo.version)
+const activeVersion = computed(() => props.version)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
     return `无幻 v${activeVersion.value}`

@@ -9,6 +9,8 @@
 - 根 `package.json` 的 Electron `0.3.x` 版本被冻结。正常 vNext 开发不得增加 Electron 版本、恢复桌面入口或生成新的桌面发行说明。
 - Electron UI 源码可在迁移完成前保留，但只作为 WebUI vNext 的代码平移来源，不得作为活动 runtime 依赖。
 - 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、兼容信息、构建元数据和 CCX 内嵌版本一致。
+- 本地 `verify:uxp` 接受干净或脏工作树，但 Inner WebUI `0.2.0` 的源码构建与 CCX 内嵌副本必须绑定当前 HEAD，且两份 `release.json` 的 `dirty` 必须与实际工作树状态一致；内容哈希和逐字节目录比较仍须通过。
+- 正式 `package:uxp` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/uxp-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
 - 修改 CCX 版本时，确认 `plugin/manifest.json`、构建后的 `dist/ps-uxp/manifest.json`、CCX 文件名、`.sha256` 与 `dist/uxp-release.json` 一致。
 - `standalone-uxp-plugin/manifest.json` 不再参与活动 CCX 版本链；该目录属于历史原型。

@@ -203,7 +203,7 @@ describe('BYOK credential binding', () => {
       baseUrl: 'http://127.0.0.1:38322'
     })
 
-    await expect(getCredential(fixture)).resolves.toBe('mock-good-apimart')
+    await expect(getCredential(fixture)).resolves.toBe('mock-apimart-good')
     await expect(getCredential({ ...fixture, id: 'another-config' })).resolves.toBe('')
     await expect(getCredential({ ...fixture, baseUrl: 'https://api.apimart.ai' })).resolves.toBe('')
     expect(runtime.credentials.size).toBe(0)

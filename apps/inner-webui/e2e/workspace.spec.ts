@@ -17,7 +17,7 @@ test.afterAll(async () => {
 test.beforeEach(async ({ page }) => {
   apimartFixture.reset()
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey })
-  await page.goto('/?host=uxp')
+  await page.goto('/')
   await expect(page.getByText('Photoshop 已连接')).toBeVisible()
 })
 

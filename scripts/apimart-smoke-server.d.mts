@@ -8,6 +8,7 @@ export type ApimartSmokeRequestTrace = {
 }
 
 export type ApimartSmokeState = {
+  abortedRequests: number
   modelChecks: number
   uploads: number
   generations: number
@@ -24,6 +25,8 @@ export type ApimartFixtureServer = {
   state: ApimartSmokeState
   server: unknown
   reset(): void
+  failNextGeneration(options?: { status?: number; message?: string }): void
+  delayNextPoll(delayMs?: number): void
   start(): Promise<string>
   stop(): Promise<void>
 }
@@ -32,6 +35,7 @@ export function createApimartFixtureServer(options?: {
   host?: string
   port?: number
   fixturePath?: string
+  requestBodyLimitBytes?: number
 }): ApimartFixtureServer
 
 export const expectedApiKey: string

@@ -4,11 +4,11 @@ import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { isDisallowedProductionHostname, resolveReleaseUrl } from './scripts/production-origin-policy.mjs'
+import { resolveUxpMugenEnvironment } from './scripts/uxp-environment-policy.mjs'
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
 const uxpOutDir = path.resolve(projectRoot, 'dist/ps-uxp')
 
-type MugenEnvironment = 'development' | 'test' | 'production'
 type SourceManifest = {
   version?: unknown
   requiredPermissions?: {
@@ -16,8 +16,6 @@ type SourceManifest = {
     webview?: { domains?: string[]; allowLocalRendering?: string; enableMessageBridge?: string }
   }
 }
-
-const environmentValues = new Set<MugenEnvironment>(['development', 'test', 'production'])
 
 const fallbackDevelopmentWebUiUrl = 'http://localhost:4173/'
 const productionInnerWebUiUrl = 'https://mugen.catrefuse.com/webui/'
@@ -75,17 +73,6 @@ function resolveInnerWebUiUrl(mode: string) {
     throw new Error('Production INNER_WEBUI_URL must use the approved deployment domain.')
   }
   return url
-}
-
-function resolveMugenEnvironment(mode: string): MugenEnvironment {
-  const env = loadEnv(mode, projectRoot, '')
-  const rawEnvironment = env.VITE_MUGEN_ENV ?? env.MUGEN_ENV
-
-  if (environmentValues.has(rawEnvironment as MugenEnvironment)) {
-    return rawEnvironment as MugenEnvironment
-  }
-
-  return mode === 'production' ? 'production' : 'development'
 }
 
 function copyDirectorySync(source: string, target: string) {
@@ -158,12 +145,16 @@ function uxpPostBuildPlugin(innerWebUiUrl: URL): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  const mugenEnvironment = resolveMugenEnvironment(mode)
+  const viteEnvironment = loadEnv(mode, projectRoot, '')
+  const mugenEnvironment = resolveUxpMugenEnvironment(mode, {
+    VITE_MUGEN_ENV: process.env.VITE_MUGEN_ENV ?? viteEnvironment.VITE_MUGEN_ENV,
+    MUGEN_ENV: process.env.MUGEN_ENV ?? viteEnvironment.MUGEN_ENV
+  })
   const innerWebUiUrl = resolveInnerWebUiUrl(mode)
   const releaseUrl = resolveReleaseUrl({
     processEnvironment: process.env,
     keyEnvironment: readKeyEnv(),
-    viteEnvironment: loadEnv(mode, projectRoot, ''),
+    viteEnvironment,
     webviewOrigin: innerWebUiUrl.origin,
     production: mode === 'production'
   })

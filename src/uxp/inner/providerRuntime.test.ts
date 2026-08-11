@@ -105,7 +105,9 @@ describe('Provider preview materialization', () => {
       .mockResolvedValueOnce(mockResponse(200, { 'content-type': 'image/png', 'content-length': '3' }))
     const signal = new AbortController().signal
 
-    const result = await materializeProviderPreviewUrl('https://api.vendor.dev/start', 'openai', signal, fetcher)
+    const result = await materializeProviderPreviewUrl('https://api.vendor.dev/start', 'openai', signal, {
+      fetchImplementation: fetcher
+    })
 
     expect(result).toBe('data:image/png;base64,AQID')
     expect(fetcher).toHaveBeenCalledTimes(2)
@@ -121,7 +123,7 @@ describe('Provider preview materialization', () => {
       'https://api.vendor.dev/start',
       'openai',
       new AbortController().signal,
-      fetcher
+      { fetchImplementation: fetcher }
     )).rejects.toThrow()
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
@@ -133,7 +135,7 @@ describe('Provider preview materialization', () => {
       'https://api.vendor.dev/start',
       'openai',
       new AbortController().signal,
-      fetcher
+      { fetchImplementation: fetcher }
     )).rejects.toThrow('跳转次数过多')
     expect(fetcher).toHaveBeenCalledTimes(6)
   })
@@ -144,7 +146,7 @@ describe('Provider preview materialization', () => {
       'https://api.vendor.dev/output',
       'openai',
       new AbortController().signal,
-      textFetcher
+      { fetchImplementation: textFetcher }
     )).rejects.toThrow('不是图片')
 
     const oversized = mockResponse(200, {
@@ -157,7 +159,7 @@ describe('Provider preview materialization', () => {
       'https://api.vendor.dev/output',
       'openai',
       new AbortController().signal,
-      largeFetcher
+      { fetchImplementation: largeFetcher }
     )).rejects.toThrow('超过大小限制')
     expect(read).not.toHaveBeenCalled()
   })
@@ -171,8 +173,44 @@ describe('Provider preview materialization', () => {
       'https://api.vendor.dev/output',
       'openai',
       controller.signal,
-      fetcher
+      { fetchImplementation: fetcher }
     )).rejects.toMatchObject({ name: 'AbortError' })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('materializes a same-origin loopback APIMart fixture result in test mode', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(mockResponse(200, {
+      'content-type': 'image/jpeg',
+      'content-length': '3'
+    }))
+    const config = {
+      provider: 'apimart' as const,
+      apiKey: 'mock-apimart-good',
+      baseUrl: 'http://127.0.0.1:38323'
+    }
+
+    await expect(materializeProviderPreviewUrl(
+      'http://127.0.0.1:38323/fixtures/cat.jpg',
+      'apimart',
+      new AbortController().signal,
+      { config, environment: 'test', fetchImplementation: fetcher }
+    )).resolves.toBe('data:image/jpeg;base64,AQID')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['production environment', { provider: 'apimart' as const, apiKey: 'mock-apimart-good', baseUrl: 'http://127.0.0.1:38323' }, 'production' as const, 'http://127.0.0.1:38323/fixtures/cat.jpg'],
+    ['real API key', { provider: 'apimart' as const, apiKey: 'live-apimart-key', baseUrl: 'http://127.0.0.1:38323' }, 'test' as const, 'http://127.0.0.1:38323/fixtures/cat.jpg'],
+    ['different loopback origin', { provider: 'apimart' as const, apiKey: 'mock-apimart-good', baseUrl: 'http://127.0.0.1:38323' }, 'test' as const, 'http://127.0.0.1:38324/fixtures/cat.jpg'],
+    ['non-APIMart Provider', { provider: 'openai' as const, apiKey: 'mock-apimart-good', baseUrl: 'http://127.0.0.1:38323' }, 'test' as const, 'http://127.0.0.1:38323/fixtures/cat.jpg']
+  ])('rejects a loopback result for %s before fetching', async (_case, config, environment, previewUrl) => {
+    const fetcher = vi.fn<typeof fetch>()
+    await expect(materializeProviderPreviewUrl(
+      previewUrl,
+      config.provider,
+      new AbortController().signal,
+      { config, environment, fetchImplementation: fetcher }
+    )).rejects.toThrow()
     expect(fetcher).not.toHaveBeenCalled()
   })
 })

@@ -8,24 +8,33 @@ function runGit(projectRoot, args) {
   })
 }
 
-export function resolveReleaseProvenance(projectRoot, executeGit = runGit) {
+export function inspectGitProvenance(projectRoot, executeGit = runGit) {
   const sourceCommit = executeGit(projectRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim().toLowerCase()
   if (!/^[0-9a-f]{40,64}$/.test(sourceCommit)) {
-    throw new Error('CCX packaging requires a valid Git HEAD commit.')
+    throw new Error('Build provenance requires a valid Git HEAD commit.')
   }
 
   const worktreeStatus = executeGit(projectRoot, [
     'status',
     '--porcelain=v1',
     '--untracked-files=all'
-  ]).trim()
-  if (worktreeStatus) {
-    const preview = worktreeStatus.split(/\r?\n/).slice(0, 20).join('\n')
+  ]).trimEnd()
+  return {
+    sourceCommit,
+    dirty: Boolean(worktreeStatus),
+    worktreeStatus
+  }
+}
+
+export function resolveReleaseProvenance(projectRoot, executeGit = runGit) {
+  const provenance = inspectGitProvenance(projectRoot, executeGit)
+  if (provenance.dirty) {
+    const preview = provenance.worktreeStatus.split(/\r?\n/).slice(0, 20).join('\n')
     throw new Error(
       'CCX packaging requires a clean Git worktree, including tracked and untracked source files.\n' +
       preview
     )
   }
 
-  return { sourceCommit, dirty: false }
+  return { sourceCommit: provenance.sourceCommit, dirty: false }
 }

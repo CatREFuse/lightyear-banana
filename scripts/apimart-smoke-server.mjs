@@ -11,6 +11,7 @@ const expectedApiKey = 'mock-apimart-good'
 
 function createSmokeState() {
   return {
+    abortedRequests: 0,
     modelChecks: 0,
     uploads: 0,
     generations: 0,
@@ -52,17 +53,33 @@ function readRequestBody(request, limit = 25 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = []
     let size = 0
+    let settled = false
     request.on('data', (chunk) => {
+      if (settled) return
       size += chunk.length
       if (size > limit) {
+        settled = true
         reject(new Error('REQUEST_TOO_LARGE'))
-        request.destroy()
+        request.resume()
         return
       }
       chunks.push(chunk)
     })
-    request.on('end', () => resolve(Buffer.concat(chunks)))
-    request.on('error', reject)
+    request.on('end', () => {
+      if (settled) return
+      settled = true
+      resolve(Buffer.concat(chunks))
+    })
+    request.on('error', (error) => {
+      if (settled) return
+      settled = true
+      reject(error)
+    })
+    request.on('aborted', () => {
+      if (settled) return
+      settled = true
+      reject(new Error('REQUEST_ABORTED'))
+    })
   })
 }
 
@@ -70,16 +87,64 @@ function requestOrigin(request, host, port) {
   return `http://${request.headers.host || `${host}:${port}`}`
 }
 
+function requestUrlForError(request, host, port) {
+  try {
+    return new URL(request.url || '/', requestOrigin(request, host, port))
+  } catch {
+    return new URL('/', 'http://127.0.0.1')
+  }
+}
+
 function isAuthorized(request) {
   return request.headers.authorization === `Bearer ${expectedApiKey}`
 }
 
-export function createApimartFixtureServer({ host = '127.0.0.1', port = 38323, fixturePath = defaultFixturePath } = {}) {
+export function createApimartFixtureServer({
+  host = '127.0.0.1',
+  port = 38323,
+  fixturePath = defaultFixturePath,
+  requestBodyLimitBytes = 25 * 1024 * 1024
+} = {}) {
+  if (!Number.isSafeInteger(requestBodyLimitBytes) || requestBodyLimitBytes < 1) {
+    throw new TypeError('requestBodyLimitBytes must be a positive safe integer')
+  }
   const catImage = readFileSync(fixturePath)
   const tasks = new Map()
+  const generationFailures = []
+  const delayedPolls = new Set()
   const state = createSmokeState()
+  let nextPollDelayMs = 0
 
-  const server = createServer(async (request, response) => {
+  function cancelDelayedPolls() {
+    for (const pending of delayedPolls) {
+      pending.settled = true
+      clearTimeout(pending.timer)
+      pending.response.off('close', pending.handleClose)
+      pending.response.destroy()
+    }
+    delayedPolls.clear()
+  }
+
+  function completePoll(request, response, url, taskId, task) {
+    const completed = Math.floor(Date.now() / 1000)
+    recordRequest(state, request, url, 'generation.poll', 200, { taskId, result: 'cat' })
+    sendJson(response, 200, {
+      code: 200,
+      data: {
+        id: taskId,
+        status: 'completed',
+        progress: 100,
+        result: { images: [{ url: [`${task.origin}/fixtures/cat.jpg`], expires_at: completed + 86400 }] },
+        created: task.created,
+        completed,
+        estimated_time: 1,
+        actual_time: Math.max(1, completed - task.created)
+      }
+    })
+  }
+
+  const server = createServer((request, response) => {
+    const handleRequest = async () => {
     const url = new URL(request.url || '/', requestOrigin(request, host, port))
     if (request.method === 'OPTIONS') {
       response.writeHead(204, {
@@ -100,7 +165,10 @@ export function createApimartFixtureServer({ host = '127.0.0.1', port = 38323, f
       return
     }
     if (request.method === 'POST' && url.pathname === '/__smoke/reset') {
+      cancelDelayedPolls()
       tasks.clear()
+      generationFailures.length = 0
+      nextPollDelayMs = 0
       resetSmokeState(state)
       sendJson(response, 200, { ok: true })
       return
@@ -140,7 +208,7 @@ export function createApimartFixtureServer({ host = '127.0.0.1', port = 38323, f
     }
 
     if (request.method === 'POST' && url.pathname === '/v1/uploads/images') {
-      const body = await readRequestBody(request)
+      const body = await readRequestBody(request, requestBodyLimitBytes)
       const contentType = String(request.headers['content-type'] || '')
       if (!contentType.startsWith('multipart/form-data;') || !body.includes(Buffer.from('name="file"'))) {
         recordRequest(state, request, url, 'reference.upload', 400)
@@ -183,6 +251,19 @@ export function createApimartFixtureServer({ host = '127.0.0.1', port = 38323, f
         sendJson(response, 400, { code: 400, message: 'image_urls must be an array of URLs' })
         return
       }
+      const generationFailure = generationFailures.shift()
+      if (generationFailure) {
+        recordRequest(state, request, url, 'generation.submit', generationFailure.status, {
+          model: payload.model,
+          prompt: payload.prompt,
+          result: 'fixture-error'
+        })
+        sendJson(response, generationFailure.status, {
+          code: generationFailure.status,
+          message: generationFailure.message
+        })
+        return
+      }
       const taskId = `task_${randomUUID().replaceAll('-', '')}`
       state.generations += 1
       state.lastGeneration = payload
@@ -208,25 +289,55 @@ export function createApimartFixtureServer({ host = '127.0.0.1', port = 38323, f
         return
       }
       state.polls += 1
-      const completed = Math.floor(Date.now() / 1000)
-      recordRequest(state, request, url, 'generation.poll', 200, { taskId, result: 'cat' })
-      sendJson(response, 200, {
-        code: 200,
-        data: {
-          id: taskId,
-          status: 'completed',
-          progress: 100,
-          result: { images: [{ url: [`${task.origin}/fixtures/cat.jpg`], expires_at: completed + 86400 }] },
-          created: task.created,
-          completed,
-          estimated_time: 1,
-          actual_time: Math.max(1, completed - task.created)
+      const delayMs = nextPollDelayMs
+      nextPollDelayMs = 0
+      if (delayMs > 0) {
+        const pending = {
+          handleClose: undefined,
+          response,
+          settled: false,
+          timer: undefined
         }
-      })
+        pending.handleClose = () => {
+          if (pending.settled || response.writableEnded) return
+          pending.settled = true
+          clearTimeout(pending.timer)
+          delayedPolls.delete(pending)
+          state.abortedRequests += 1
+          recordRequest(state, request, url, 'generation.poll', 499, { taskId, result: 'aborted' })
+        }
+        pending.timer = setTimeout(() => {
+          if (pending.settled) return
+          pending.settled = true
+          delayedPolls.delete(pending)
+          response.off('close', pending.handleClose)
+          completePoll(request, response, url, taskId, task)
+        }, delayMs)
+        delayedPolls.add(pending)
+        response.once('close', pending.handleClose)
+        return
+      }
+      completePoll(request, response, url, taskId, task)
       return
     }
 
     sendJson(response, 404, { code: 404, message: 'Not found' })
+    }
+
+    void handleRequest().catch((error) => {
+      const url = requestUrlForError(request, host, port)
+      const tooLarge = error instanceof Error && error.message === 'REQUEST_TOO_LARGE'
+      const aborted = request.aborted || request.destroyed || response.destroyed
+      const status = tooLarge ? 413 : aborted ? 499 : 400
+      recordRequest(state, request, url, 'request.error', status, {
+        result: tooLarge ? 'request-too-large' : aborted ? 'aborted' : 'invalid-request'
+      })
+      if (response.writableEnded || response.destroyed) return
+      sendJson(response, status, {
+        code: status,
+        message: tooLarge ? 'Request body too large' : 'Invalid request body'
+      })
+    })
   })
 
   return {
@@ -235,8 +346,23 @@ export function createApimartFixtureServer({ host = '127.0.0.1', port = 38323, f
     state,
     server,
     reset() {
+      cancelDelayedPolls()
       tasks.clear()
+      generationFailures.length = 0
+      nextPollDelayMs = 0
       resetSmokeState(state)
+    },
+    failNextGeneration({ status = 422, message = 'Fixture generation rejected' } = {}) {
+      if (!Number.isInteger(status) || status < 400 || status > 599) {
+        throw new TypeError('Generation failure status must be an HTTP error status')
+      }
+      generationFailures.push({ status, message: String(message) })
+    },
+    delayNextPoll(delayMs = 30_000) {
+      if (!Number.isFinite(delayMs) || delayMs <= 0) {
+        throw new TypeError('Poll delay must be a positive number')
+      }
+      nextPollDelayMs = Math.round(delayMs)
     },
     start() {
       return new Promise((resolve, reject) => {
@@ -250,6 +376,7 @@ export function createApimartFixtureServer({ host = '127.0.0.1', port = 38323, f
       })
     },
     stop() {
+      cancelDelayedPolls()
       return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
     }
   }

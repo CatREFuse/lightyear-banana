@@ -2,14 +2,10 @@ import type { DiagnosticExport, Handshake, HandshakeResult, HostAssetRef, HostCl
 import { HostClientError } from '@mugen/inner-protocol'
 import { WebViewHostClient, hasUxpHost } from './webviewHost'
 
-export function expectsUxpHost(search: string): boolean {
-  return new URLSearchParams(search).get('host') === 'uxp'
-}
-
 export type WebUiRuntime = 'browser' | 'embedded'
 
 export function resolveWebUiRuntime(value: Window = window): WebUiRuntime {
-  return hasUxpHost(value) || expectsUxpHost(value.location.search) ? 'embedded' : 'browser'
+  return hasUxpHost(value) ? 'embedded' : 'browser'
 }
 
 class UnavailableHostClient implements HostClient {
