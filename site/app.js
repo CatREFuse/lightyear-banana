@@ -1,5 +1,15 @@
 const releaseUrl = './releases/latest.json'
 
+export function installWordmarkFallback(image, brand) {
+  if (!image?.addEventListener || !brand?.classList) return () => {}
+
+  const showFallback = () => brand.classList.add('wordmark-unavailable')
+  image.addEventListener('error', showFallback, { once: true })
+  if (image.complete && image.naturalWidth === 0) showFallback()
+
+  return () => image.removeEventListener?.('error', showFallback)
+}
+
 export function resolveCcxReleaseUpdate(release, baseHref) {
   const ccx = release?.downloads?.ccx
   const filenameMatch = /^mugen-(\d+\.\d+\.\d+)\.ccx$/.exec(ccx?.filename || '')
@@ -135,8 +145,12 @@ export function createPrismLifecycle({ stage, loadScene }) {
 }
 
 if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+  const wordmark = document.querySelector('[data-wordmark]')
+  const brand = document.querySelector('[data-wordmark-brand]')
   const canvas = document.querySelector('[data-prism-canvas]')
   const stage = document.querySelector('[data-optical-stage]')
+
+  installWordmarkFallback(wordmark, brand)
 
   if (canvas instanceof HTMLCanvasElement && stage instanceof HTMLElement) {
     const lifecycle = createPrismLifecycle({

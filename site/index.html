@@ -12,8 +12,9 @@
     <main class="landing" aria-labelledby="brand-name">
       <div class="grain" aria-hidden="true"></div>
       <section class="hero">
-        <h1 id="brand-name" class="brand">
+        <h1 id="brand-name" class="brand" data-wordmark-brand>
           <img
+            data-wordmark
             src="./assets/mugen-wordmark-4k.png"
             alt="Mugen"
             width="4096"
@@ -21,6 +22,7 @@
             decoding="async"
             fetchpriority="high"
           />
+          <span class="wordmark-fallback">Mugen</span>
         </h1>
 
         <div class="optical-stage" data-optical-stage aria-hidden="true">

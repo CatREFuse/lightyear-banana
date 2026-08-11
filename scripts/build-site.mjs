@@ -2,6 +2,13 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { verifyReleaseSite } from "./verify-release-bundle.mjs"
+import {
+  createSiteManifest,
+  createSiteReleaseMetadata,
+  readGitSiteProvenance,
+  siteManifestFileName,
+  siteReleaseFileName
+} from "./site-release-provenance.mjs"
 
 const root = dirname(fileURLToPath(new URL("../package.json", import.meta.url)))
 const siteDir = join(root, "site")
@@ -31,4 +38,10 @@ await mkdir(releaseDir, { recursive: true })
 await cp(ccx.path, join(releaseDir, ccx.filename))
 await writeFile(join(releaseDir, "SHA256SUMS.txt"), `${ccx.sha256}  ${ccx.filename}\n`)
 
-console.log(`Built site for ${manifest.name} ${bundle.version} at ${outDir}`)
+const git = readGitSiteProvenance(root)
+const siteRelease = createSiteReleaseMetadata({ directory: outDir, ...git })
+await writeFile(join(outDir, siteReleaseFileName), `${JSON.stringify(siteRelease, null, 2)}\n`)
+const siteManifest = createSiteManifest(outDir, siteRelease)
+await writeFile(join(outDir, siteManifestFileName), `${JSON.stringify(siteManifest, null, 2)}\n`)
+
+console.log(`Built site for ${manifest.name} ${bundle.version} (${siteRelease.buildId}) at ${outDir}`)

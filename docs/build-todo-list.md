@@ -2,7 +2,7 @@
 
 本清单用于修改版本号、准备 CCX、发布 WebUI 或切换正式官网前的强制检查。当前活动产品是 WebUI vNext、Photoshop CCX 和单屏官网。Electron、旧官网、Inner WebUI 0.1 与 Standalone UXP 已归档。
 
-当前阶段只进行本地开发、构建与测试，不部署正式官网，也不更新线上 `latest.json`。macOS 与 Windows 包属于历史兼容发行工件，不在官网展示且不属于活动产品；只有将来真正执行正式官网发布时，仍需按完整发行包门禁备齐，否则只记录 TODO。
+当前阶段允许部署 WebUI vNext、单屏官网与不可变的 CCX 版本文件。完整 macOS、Windows、CCX 与 `SHA256SUMS.txt` 尚未齐备时，必须保留线上 `latest.json`，不得把局部产物声明为完整正式发行；缺失项继续记录 TODO。macOS 与 Windows 包属于历史兼容发行工件，不在官网展示且不属于活动产品。
 
 ## 生命周期与版本规则
 

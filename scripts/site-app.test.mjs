@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   createPrismLifecycle,
+  installWordmarkFallback,
   resolveCcxReleaseUpdate
 } from '../site/app.js'
 
@@ -25,6 +26,36 @@ function fakeScene() {
     resume: () => { calls.resume += 1 }
   }
 }
+
+test('shows a readable Mugen fallback when the generated wordmark cannot load', () => {
+  let onError
+  const removed = []
+  const classes = new Set()
+  const image = {
+    complete: false,
+    naturalWidth: 0,
+    addEventListener: (type, listener) => {
+      assert.equal(type, 'error')
+      onError = listener
+    },
+    removeEventListener: (type, listener) => removed.push([type, listener])
+  }
+  const brand = { classList: { add: (value) => classes.add(value) } }
+
+  const dispose = installWordmarkFallback(image, brand)
+  assert.equal(classes.has('wordmark-unavailable'), false)
+  onError()
+  assert.equal(classes.has('wordmark-unavailable'), true)
+  dispose()
+  assert.deepEqual(removed, [['error', onError]])
+
+  const alreadyBroken = { ...image, complete: true }
+  const immediateClasses = new Set()
+  installWordmarkFallback(alreadyBroken, {
+    classList: { add: (value) => immediateClasses.add(value) }
+  })
+  assert.equal(immediateClasses.has('wordmark-unavailable'), true)
+})
 
 test('validates one coherent CCX release update before changing the page', () => {
   const release = {

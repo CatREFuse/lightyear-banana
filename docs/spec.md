@@ -169,7 +169,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 
 ## 发布边界
 
-- 当前阶段只提供本地官网预览，不切换正式站点或线上 `latest.json`。
+- 当前阶段允许在 WebUI、单屏官网和不可变 CCX 各自门禁通过后部署正式入口。完整 macOS、Windows、CCX 与 `SHA256SUMS.txt` 四件套未齐时，线上 `latest.json` 保持原版本；站点部署必须继承并逐字节验证该文件。
 - 旧官网、Electron 桌面端、Inner WebUI 0.1 和独立 UXP 原型只保留历史记录，不进入新首页、WebUI 入口或活动发布说明。
 - CCX 包必须内含与浏览器版同源构建的 WebUI，且不依赖公网 WebUI 才能启动。
 - 浏览器 WebUI 和 CCX WebUI 可以独立部署，但必须记录可追溯的提交、版本和兼容信息。
