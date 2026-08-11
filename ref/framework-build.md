@@ -1,108 +1,117 @@
 # 开发框架与构建参考
 
-## 技术路线
+日期：2026-08-11
 
-当前项目继续使用：
+## 当前技术路线
 
-- Vue 3
-- Composition API
-- `<script setup lang="ts">`
-- Vite
-- TypeScript
-- Manifest v5
-- 静态 IIFE bundle
-- `globalThis.require("uxp")`
-- `globalThis.require("photoshop")`
+Mugen vNext 有两个前端交付物和一个 Photoshop Host：
 
-这个组合已经跑通构建、UDT 加载、command 调用、panel 挂载和画布交互验证。
+| 交付物 | 技术 | 作用 |
+| --- | --- | --- |
+| Inner WebUI vNext | Vue 3、Composition API、TypeScript、Vite、Pinia | 浏览器与 CCX 共用工作台 |
+| 官方单屏站点 | HTML/CSS/JavaScript、Three.js | 品牌、CCX 下载和 WebUI 入口 |
+| CCX Host 壳 | Photoshop UXP Manifest v5、classic IIFE bundle | WebView、消息桥、画布、置入和 SecureStorage |
 
-## 推荐目录职责
+原 Electron UI 是 WebUI 的源码平移来源。Electron runtime、preload、IPC、本地 Bridge 和桌面窗口不进入 vNext 生产构建。
+
+## 目录职责
 
 ```text
-src/
-  uxp/
-    main.ts
-    photoshopHost.ts
-    canvasPrimitives.ts
-    canvasPrimitiveService.ts
-  composables/
-    useCanvasProbe.ts
-  components/
-    CanvasProbePanel.vue
-  App.vue
+apps/inner-webui/          WebUI vNext 工程与静态构建
+packages/inner-protocol/  Host 合同、schema 和兼容信息
+src/components/mugen/     原 Electron UI 组件与迁移来源
+src/composables/          原工作台行为与迁移来源
+src/providers/            Provider 合同、能力、注册和 wire 语义
+src/uxp/main.ts           CCX entrypoint、会话与 WebView Host
+src/uxp/inner/            消息桥、资产、存储、Provider 与确认
+src/uxp/canvasPrimitives.ts       Photoshop 原子能力
+src/uxp/canvasPrimitiveService.ts 画布业务服务层
+site/                     官方单屏站点
+plugin/                   当前 CCX Manifest 和图标
 ```
 
-职责：
+`standalone-uxp-plugin/` 是归档技术原型，不参与活动构建、版本链或产品功能。
 
-- `src/uxp/main.ts`：entrypoints、panel mount、command 注册。
-- `src/uxp/photoshopHost.ts`：host runtime、Photoshop require、通用宿主方法。
-- `src/uxp/canvasPrimitives.ts`：底层 Photoshop 原语。
-- `src/uxp/canvasPrimitiveService.ts`：业务可调用服务层。
-- `src/composables/`：状态、异步流程、错误信息。
-- `src/components/`：展示控件和用户操作入口。
-- `App.vue`：组合 feature，不承载大量 Photoshop 业务逻辑。
+## WebUI 构建规则
 
-## Vite UXP 构建规则
+- WebUI 使用相对资源路径，确保普通静态部署和 `plugin:/webui/index.html` 都能加载。
+- Browser adapter 与 CCX Host adapter 从同一源码构建。
+- 运行时能力通过受信任 Host 探测选择，不使用 URL 参数伪造。
+- Browser adapter 不注入 Mock Host，也不实现假的 Photoshop API。
+- 生产 bundle 不包含 Electron runtime、preload、IPC 或 Bridge 模块。
+- CCX 构建把完整 `apps/inner-webui/dist/` 复制到 `dist/ps-uxp/webui/`。
+- CCX 启动依赖本地内嵌 WebUI，不依赖公网 WebUI。
 
-UXP 面板加载本地静态文件。`vite.uxp.config.ts` 负责把 Vite 产物调整成 UXP 可加载形态：
+## CCX Host 构建规则
 
-- `base: "./"` 保持相对路径。
-- `publicDir: false` 避免无关 public 资源进入 UXP 产物。
-- `modulePreload.polyfill: false` 避免浏览器预加载 polyfill。
-- Rollup `format: "iife"` 避免 ESM 运行时依赖。
-- 构建后移除 HTML 里的 `type="module"` 和 `crossorigin`。
-- 构建后把 `<script>` 移到 `#app` 之后。
-- 构建后复制 `plugin/manifest.json` 和 `plugin/icons/`。
+`vite.uxp.config.ts` 负责生成 UXP 可加载的 Host 壳：
 
-## 静态校验
-
-`scripts/verify-uxp-build.mjs` 校验这些条件：
-
-- `dist/ps-uxp/manifest.json` 存在。
-- `dist/ps-uxp/uxp-panel.html` 存在。
-- UXP icon 文件齐全。
-- manifest 是 v5。
-- host 是 Photoshop。
-- minVersion 是 `27.3.0`。
-- entrypoints 包含 `panel` 和 `createLayer`。
-- `uxp-panel.html` 使用 classic script。
-- bundle 中没有 Vite modulepreload polyfill。
-- bundle 中没有 `eval`、`new Function`、动态 `import()`、`import.meta`。
+- `base: "./"` 保持 Host 资源相对路径。
+- Rollup 使用 IIFE，Host 入口不保留 ESM runtime。
+- Host HTML 使用 classic script。
+- 构建后复制 `plugin/manifest.json`、icons 和 WebUI 静态目录。
+- 生产 WebView 入口为 `plugin:/webui/index.html`。
+- 本地 WebView 使用 `allowLocalRendering: "yes"` 与 `enableMessageBridge: "localOnly"`。
+- WebUI 与 Host 的协议和兼容元数据进入静态校验。
 
 ## Manifest 基线
 
-当前 manifest 要点：
+- `manifestVersion: 5`。
+- `id: "com.tanshow.mugen"`。
+- `name: "Mugen"`。
+- host 为 Photoshop，版本要求与当前发布策略一致。
+- panel 与 command ID 和 `src/uxp/main.ts` 的 `entrypoints.setup()` 一致。
+- WebView 只允许本地打包页面通过 local-only bridge 通信。
+- 修改 ID、entrypoint、icon、权限或 WebView 配置后重新构建，并在 UXP Developer Tools 中 Unload/Load。
 
-```json
-{
-  "manifestVersion": 5,
-  "id": "com.tanshow.mugen",
-  "name": "Mugen",
-  "version": "0.1.0",
-  "main": "uxp-panel.html",
-  "host": {
-    "app": "PS",
-    "minVersion": "27.3.0",
-    "data": {
-      "apiVersion": 2
-    }
-  }
-}
-```
+版本号以 `plugin/manifest.json` 和 `docs/build-todo-list.md` 的活动发布链为准，不从历史示例复制。
 
-panel 和 command 的 id 必须和 `src/uxp/main.ts` 中的 `entrypoints.setup()` 对齐。
+## 静态校验
+
+`scripts/verify-uxp-build.mjs` 至少校验：
+
+- `dist/ps-uxp/manifest.json`、Host HTML、icons 和 `webui/index.html` 存在。
+- Manifest v5、插件 ID、host、entrypoint 和 WebView 权限正确。
+- Host HTML 使用 classic script。
+- WebUI 资源完整且使用可在 `plugin:/` 下加载的相对路径。
+- Host bundle 不包含 `eval`、`new Function`、动态 `import()` 或 `import.meta`。
+- WebUI bundle 不包含 Electron runtime 或生产 Mock Host 注入。
+- 协议与版本兼容信息一致。
+
+静态校验不能替代真实 Photoshop 的抓取、请求、取图和置入闭环。
 
 ## UI 写法
 
-- 组件使用 `<script setup lang="ts">`。
-- 派生状态使用 `computed`。
-- 大图像、Photoshop handle、文件对象使用局部变量或 `shallowRef`。
-- Photoshop API 细节放在 `src/uxp/`，组件不直接拼 batchPlay descriptor。
-- 面板最小宽度控制在 UXP 可停靠范围内。
+- WebUI 组件使用 `<script setup lang="ts">` 和明确类型。
+- 派生状态使用 `computed`；大型 RGBA、Photoshop handle 和文件对象避免深层响应式。
+- 组件只消费 runtime capability contract，不直接访问 Electron IPC、UXP `require()` 或复杂 `batchPlay`。
+- Photoshop API 细节保留在 `src/uxp/`。
+- CCX Host 壳使用 UXP 稳定控件；WebView 工作台与普通浏览器共享原 Electron UI 平移后的浏览器组件。
+- 浏览器中不渲染 Photoshop 抓取和置入入口。
 
-## 可评估的后续方向
+## 常用命令
 
-- 简单 Photoshop 风格控件可以引入 Spectrum UXP widgets。
-- 更完整 Spectrum 组件可以评估 Spectrum Web Components。
-- 复杂 Web UI 或需要完整浏览器能力时再评估 Bolt UXP WebView UI。
+```bash
+npm run dev:inner-webui
+npm run build:inner-webui
+npm run verify:inner-webui:release
+npm run smoke:apimart-server
+npm run build:uxp
+npm run verify:uxp
+npm run package:uxp
+npm run build:site
+```
 
+在 vNext 脚本更新完成前，旧 `verify:inner-webui:release` 的绿色结果可能只覆盖 0.1 行为。是否达到发布标准必须对照 `docs/mugen-prototype-requirements.md` 和 `docs/build-todo-list.md` 的双运行时门禁。
+
+## 开发循环
+
+修改 WebUI 的 Vue、TypeScript 或 CSS 后，构建 WebUI、运行相关测试、执行 `npm run build:uxp`，再在 UXP Developer Tools 中 Reload。
+
+修改 Manifest、entrypoint、icon、权限或 WebView 配置后，执行 `npm run verify:uxp`，在 UXP Developer Tools 中 Unload，再重新 Load `dist/ps-uxp/manifest.json`，最后在真实 Photoshop 中回归受影响能力。
+
+正式完成仍需 APIMart 浏览器冒烟和 Photoshop CCX 完整冒烟。
+
+## 历史说明
+
+早期技术原型曾把 Vue 直接挂载到 UXP panel，并通过 IIFE 和浏览器 fallback 验证画布原语。该方式的构建事实保留在 Git 历史与归档文档中。当前产品使用 UXP Host 壳承载本地 WebView；不得用旧直挂原型替代 vNext WebUI。

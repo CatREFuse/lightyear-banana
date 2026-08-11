@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [vue()],
     define: {
+      __MUGEN_LEGACY_DESKTOP__: 'true',
       __MUGEN_APP_ENV__: JSON.stringify(mugenEnvironment),
       __MUGEN_VERSION__: JSON.stringify(packageJson.version)
     }

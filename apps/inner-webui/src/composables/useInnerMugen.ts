@@ -7,7 +7,6 @@ import {
 import type { MugenController } from '../../../../src/composables/useMugen'
 import type {
   AppView,
-  AppUpdateCheckState,
   CanvasOperationState,
   ChatTurn,
   DiagnosticExportState,
@@ -24,7 +23,6 @@ import type {
   ResolutionInputMode,
   SettingsTestState,
   SettingsView,
-  WindowDeployState
 } from '../../../../src/types/mugen'
 import type { CapturedCanvasImage } from '../../../../src/uxp/canvasPrimitives'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../../../../src/utils/promptPresets'
@@ -216,9 +214,6 @@ export function useInnerMugen(): MugenController {
   const canvasOperation = shallowRef<CanvasOperationState>({ type: 'idle', label: '' })
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
   const diagnosticExportState = shallowRef<DiagnosticExportState>({ status: 'idle', message: '最近 24 小时' })
-  const crxLogExportState = shallowRef<DiagnosticExportState>({ status: 'idle', message: '最近 24 小时插件连接记录' })
-  const appUpdateState = shallowRef<AppUpdateCheckState>({ status: 'idle', message: '通过官网获取新版插件' })
-  const windowDeployState = shallowRef<WindowDeployState>({ status: 'idle', message: '' })
   const settingsDraft = reactive<ModelConfig>(makeEmptyConfig())
   let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -599,19 +594,6 @@ export function useInnerMugen(): MugenController {
     }
   }
 
-  async function exportCrxLogs() {
-    crxLogExportState.value = { status: 'exporting', message: '正在整理插件连接记录' }
-    try {
-      const result = await store.host.exportDiagnostics()
-      crxLogExportState.value = result.saved ? { status: 'success', message: '日志已保存' } : { status: 'idle', message: '最近 24 小时插件连接记录' }
-    } catch (reason) {
-      crxLogExportState.value = { status: 'error', message: reason instanceof Error ? reason.message : '日志下载失败' }
-    }
-  }
-
-  async function checkForUpdates() { await store.openReleasePage() }
-  function openMacPermissionSettings() { showToast('请在系统设置中管理 Photoshop 权限') }
-  function deployWindows() { showToast('当前已在 Photoshop 中运行') }
   function refreshDocument() { return store.host.getContext().then((context) => { store.context = context }) }
 
   return {
@@ -646,13 +628,8 @@ export function useInnerMugen(): MugenController {
     enabledConfigs,
     generationLoading,
     installPluginUrl: shallowRef(''),
-    appUpdateState,
-    checkForUpdates,
     diagnosticExportState,
     exportDiagnostics,
-    crxLogExportState,
-    exportCrxLogs,
-    openMacPermissionSettings,
     openPromptPresets,
     openSettings,
     placeImage,
@@ -682,11 +659,9 @@ export function useInnerMugen(): MugenController {
     toggleConfigEnabled,
     turns,
     addReference,
-    deployWindows,
     upscaleImage,
     updateSettingsDraft,
     updatePromptPresets,
-    windowDeployState,
     useResultAsReference
   } as unknown as MugenController
 }

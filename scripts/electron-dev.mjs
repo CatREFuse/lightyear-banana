@@ -20,7 +20,7 @@ function run(command, args, options = {}) {
   return child
 }
 
-const vite = run('npm', ['run', 'dev', '--', '--host', '127.0.0.1'], { env })
+const vite = run('npm', ['run', 'legacy:dev:web', '--', '--host', '127.0.0.1'], { env })
 let electron
 
 function startElectron() {

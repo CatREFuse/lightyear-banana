@@ -4,9 +4,7 @@ import type {
   ColorMode,
   DesktopPlatform,
   ResolvedColorMode,
-  VisualTheme,
-  WindowDeploySide,
-  WindowDeployState
+  VisualTheme
 } from '../../types/mugen'
 import BoxIcon from './BoxIcon.vue'
 
@@ -20,17 +18,13 @@ const props = defineProps<{
   visualTheme: VisualTheme
   title: string
   desktopPlatform: DesktopPlatform
-  windowDeployState: WindowDeployState
   titlebarInset?: boolean
   showWindowControls?: boolean
 }>()
 
-const deployMenuOpen = shallowRef(false)
 const themeMenuOpen = shallowRef(false)
-const deployMenuWrap = useTemplateRef<HTMLElement>('deployMenuWrap')
 const themeMenuWrap = useTemplateRef<HTMLElement>('themeMenuWrap')
 const connectionTone = computed(() => (props.status.includes('已连接') ? 'connected' : 'waiting'))
-const deployDisabled = computed(() => props.windowDeployState.status === 'deploying')
 const showInstallPlugin = computed(() => Boolean(props.installPluginUrl) && props.status.includes('未连接'))
 const showContentTitle = computed(() => props.desktopPlatform !== 'win32' || props.inSettings || !props.showWindowControls)
 const showTitlebarBack = computed(() => props.desktopPlatform === 'win32' && props.inSettings && props.showWindowControls)
@@ -39,27 +33,11 @@ const colorModeOptions: ColorMode[] = ['system', 'dark', 'light']
 
 const emit = defineEmits<{
   back: []
-  deployWindow: [side: WindowDeploySide]
   menuOpen: [owner: string]
   openSettings: []
   setColorMode: [mode: ColorMode]
   setVisualTheme: [theme: VisualTheme]
 }>()
-
-function toggleDeployMenu() {
-  if (deployDisabled.value) {
-    return
-  }
-
-  deployMenuOpen.value = !deployMenuOpen.value
-  emit('menuOpen', deployMenuOpen.value ? 'header:deploy' : '')
-}
-
-function selectDeploySide(side: WindowDeploySide) {
-  deployMenuOpen.value = false
-  emit('menuOpen', '')
-  emit('deployWindow', side)
-}
 
 function toggleThemeMenu() {
   themeMenuOpen.value = !themeMenuOpen.value
@@ -75,19 +53,18 @@ function selectVisualTheme(theme: VisualTheme) {
 }
 
 function handleDocumentPointerDown(event: PointerEvent) {
-  if (!deployMenuOpen.value && !themeMenuOpen.value) {
+  if (!themeMenuOpen.value) {
     return
   }
 
   const target = event.target
   if (
     target instanceof Node &&
-    (deployMenuWrap.value?.contains(target) || themeMenuWrap.value?.contains(target))
+    themeMenuWrap.value?.contains(target)
   ) {
     return
   }
 
-  deployMenuOpen.value = false
   themeMenuOpen.value = false
   emit('menuOpen', '')
 }
@@ -103,17 +80,10 @@ onUnmounted(() => {
 watch(
   () => props.activeMenuOwner,
   (owner) => {
-    if (owner === 'header:deploy') {
-      themeMenuOpen.value = false
-      return
-    }
-
     if (owner === 'header:theme') {
-      deployMenuOpen.value = false
       return
     }
 
-    deployMenuOpen.value = false
     themeMenuOpen.value = false
   }
 )
@@ -175,31 +145,6 @@ watch(
         <span>{{ status }}</span>
         <a v-if="showInstallPlugin" class="install-plugin-link" :href="installPluginUrl" download>安装插件</a>
       </span>
-      <div v-if="!inSettings" ref="deployMenuWrap" class="deploy-menu-wrap">
-        <button
-          class="icon-button icon-only"
-          type="button"
-          title="部署窗口"
-          aria-label="部署窗口"
-          :aria-expanded="deployMenuOpen"
-          :disabled="deployDisabled"
-          @click="toggleDeployMenu"
-        >
-          <BoxIcon name="expand-alt" size="16" />
-        </button>
-        <Transition name="deploy-menu">
-          <div v-if="deployMenuOpen" class="deploy-menu" role="menu" aria-label="部署窗口">
-            <button type="button" role="menuitem" @click="selectDeploySide('left')">
-              <BoxIcon name="arrow-back" size="14" />
-              <span>左侧</span>
-            </button>
-            <button type="button" role="menuitem" @click="selectDeploySide('right')">
-              <span>右侧</span>
-              <BoxIcon name="chevron-right" size="14" />
-            </button>
-          </div>
-        </Transition>
-      </div>
       <button v-if="!inSettings" class="icon-button icon-only" type="button" title="设置" aria-label="设置" @click="emit('openSettings')">
         <BoxIcon name="cog" size="16" />
       </button>

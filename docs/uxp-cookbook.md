@@ -1,5 +1,7 @@
 # Photoshop UXP + Vue 3 + Vite Cookbook
 
+> 历史技术参考：本文记录早期 Vue 直挂 UXP panel 的验证。Mugen vNext 使用 CCX Host 壳承载本地 WebView，普通浏览器为独立运行时；当前构建边界以 `ref/framework-build.md` 为准。
+
 ## 当前结论
 
 本项目已经跑通 Photoshop 2026 `27.3.0` 上的最小 UXP 插件闭环：

@@ -1,728 +1,226 @@
-# Mugen 技术原型功能需求
+# Mugen vNext 功能需求
 
-版本：0.1  
-日期：2026-04-28  
-范围：当前技术原型已标定和已暴露的功能
+版本：vNext 需求基线
+日期：2026-08-11
+状态：实施中
 
-## 产品定位
+## 1. 产品范围
 
-Mugen 是面向 Photoshop 的 UXP 生图插件原型。它把 Photoshop 当前画布、选区、图层和外部生图模型连接起来，让用户可以从画布取参考图，调用图像生成 API，再把生成结果置入 Photoshop 文档。
+Mugen vNext 由三个活动交付物组成：
 
-当前原型同时承担两类任务：验证 Photoshop UXP 画布交互能力，验证多模型生图工作台的核心交互闭环。
-
-## 用户和场景
-
-主要用户是熟悉 Photoshop 的设计师、插画师、视觉运营和 AI 图像工作流使用者。
-
-核心场景：
-
-- 从当前 Photoshop 文档取可见图层、选区或选中图层作为参考图。
-- 输入提示词并选择模型、尺寸、质量、数量、比例。
-- 发送生成请求，等待模型返回图片。
-- 查看生成历史，把结果作为新参考图、超分输入或置入 Photoshop。
-- 配置不同模型供应商的 API Key、模型和 Base URL。
-- 用 Mock Server 验证成功、错误、限流、超时等路径。
-
-## 当前功能总览
-
-| 功能域 | 当前状态 | 主要入口 |
+| 交付物 | 用途 | 当前决策 |
 | --- | --- | --- |
-| UXP 插件入口 | 已实现 | `plugin/manifest.json`、`src/uxp/main.ts` |
-| Vue 面板挂载 | 已实现 | `src/uxp/main.ts`、`src/App.vue` |
-| Photoshop 创建图层命令 | 已实现 | `createLayer` command |
-| 主工作台 | 已实现 | `MugenPanel.vue`、`ComposerDock.vue`、`MessageThread.vue` |
-| 参考图采集 | 部分实现 | `useMugen.ts`、`canvasPrimitiveService.ts` |
-| 生图请求 | 已实现原型 | `imageApiClient.ts` |
-| 结果展示 | 已实现 | `MessageThread.vue` |
-| 结果置入 Photoshop | 已实现原型 | `canvasPrimitives.ts` |
-| 结果作为参考图 | 已实现 | `useResultAsReference()` |
-| 超分参数填充 | 已实现 | `upscaleImage()` |
-| 模型配置管理 | 已实现原型 | `SettingsPanel.vue`、`ConfigEditorForm.vue` |
-| Mock Server | 已实现 | `scripts/mock-image-api-server.mjs` |
-| 浏览器预览 | 已实现 | `vite.uxp.config.ts` 生成 `browser-preview.html` |
-| UXP 构建校验 | 已实现 | `scripts/verify-uxp-build.mjs` |
-
-## 已标定功能需求
-
-### FR-001 UXP 插件加载与入口
-
-用户可以把插件加载到 Photoshop UXP Developer Tools，并打开 Mugen 面板。
-
-验收标准：
-
-- manifest 使用 v5。
-- host 为 Photoshop。
-- main 指向 `uxp-panel.html`。
-- 插件包含 `panel` entrypoint。
-- 插件包含 `createLayer` command。
-- `npm run verify:uxp` 能生成并校验 `dist/ps-uxp`。
-- 产物 HTML 使用 classic script，不保留 `type="module"`。
-
-来源：
-
-- `plugin/manifest.json`
-- `vite.uxp.config.ts`
-- `scripts/verify-uxp-build.mjs`
-
-### FR-002 Photoshop 创建图层命令
-
-用户可以从 Photoshop 菜单执行创建图层命令，在当前文档中新建名为 `Mugen` 的图层。
-
-验收标准：
-
-- command id 为 `createLayer`。
-- 执行时调用 Photoshop API。
-- 修改文档状态的操作进入 `core.executeAsModal()`。
-- 没有 UXP runtime 时返回明确错误。
-
-来源：
-
-- `src/uxp/main.ts`
-- `src/uxp/photoshopHost.ts`
-
-### FR-003 面板启动与运行时识别
-
-面板可以在 Photoshop UXP runtime 中挂载 Vue 应用，也可以在浏览器预览中进入 fallback 状态。
-
-验收标准：
-
-- UXP 中通过 `require("uxp").entrypoints.setup()` 注册面板。
-- 面板 `create` 和 `show` 均可触发挂载。
-- 浏览器预览时传入 `runtime: "browser"`。
-- Photoshop UXP 中传入 `runtime: "photoshop-uxp"`。
-- 启动失败时显示可读错误。
-
-来源：
-
-- `src/uxp/main.ts`
-- `src/App.vue`
-
-### FR-004 主工作台导航
-
-用户可以在工作台和设置页之间切换，并查看顶部状态。
-
-验收标准：
-
-- 顶部显示当前标题和状态。
-- 工作台标题为 `Mugen v0.1`。
-- 设置页显示 `设置`、`新建配置` 或当前配置名称。
-- 用户可以打开设置。
-- 用户可以从配置详情返回配置列表，也可以返回工作台。
-- 用户可以切换浅色和深色主题。
-
-来源：
-
-- `MugenPanel.vue`
-- `PanelHeader.vue`
-
-### FR-005 添加参考图
-
-用户可以从多个来源添加参考图，参考图数量受当前模型能力限制。
-
-参考图来源：
-
-| 来源 | 当前状态 | 说明 |
-| --- | --- | --- |
-| 可见图层 | 已接 Photoshop | 抓取当前文档可见合成图 |
-| 选区 | 已接 Photoshop | 抓取当前选区内所有可见图层的合成图和选区 bounds |
-| 当前选中图层 | 已接 Photoshop | 抓取当前 active layer 像素 |
-| 上传文件 | 占位 | 当前使用 mock 图像 |
-| 剪贴板 | 占位 | 当前使用 mock 图像 |
-| 生成结果 | 已实现 | 用户可把生成结果加入参考图 |
-
-验收标准：
-
-- 面板显示 `参考图 当前数量 / 当前模型上限`。
-- 达到上限后不能继续添加。
-- 可见图层、选区、选中图层在 Photoshop UXP 中调用 `canvasPrimitiveService`。
-- 选区参考图必须来自所有可见图层的合成结果，不能只读取当前选中图层的像素。
-- 浏览器预览中使用 mock 图像。
-- 用户可以删除单张参考图。
-- 用户可以清空全部参考图。
-- 没有有效选区时显示可读错误。
-- 没有选中图层时显示可读错误。
-
-来源：
-
-- `ComposerDock.vue`
-- `ReferenceThumb.vue`
-- `useMugen.ts`
-- `canvasPrimitiveService.ts`
-- `canvasPrimitives.ts`
-
-### FR-006 提示词输入与发送
-
-用户可以输入提示词，按发送按钮或 Enter 发起生成。
-
-验收标准：
-
-- 提示词和参考图至少存在一项时允许发送。
-- 没有提示词但有参考图时，使用默认提示词 `根据参考图生成`。
-- Enter 发送。
-- Shift + Enter 换行。
-- 输入法组合状态不触发发送。
-- 生成中禁用发送。
-- 发送前校验 API Key。
-- 自定义 Base URL 配置在真实 API 模式下必须填写 Base URL。
-- 发送后清空输入框和当前参考图。
-
-来源：
-
-- `ComposerDock.vue`
-- `useMugen.ts`
-
-### FR-007 生图参数选择
-
-用户可以选择模型配置、尺寸、质量、数量和比例。
-
-验收标准：
-
-- 模型配置列表只显示启用配置。
-- 切换模型配置时，同步更新尺寸、质量、数量、比例的可用选项。
-- 选项来自当前 provider 的能力声明。
-- 比例支持 `原图比例`、`1:1`、`4:3`、`3:4`、`16:9`、`9:16`。
-- 图生图使用 `原图比例` 时，以参考图 1 的稳定宽高为比例来源。Gemini 输入比例可识别为模型支持的比例枚举时，APIMart Gemini 明确发送 `size`，Google Gemini 明确发送 `aspectRatio`；输入比例无法映射到支持枚举时，APIMart Gemini 使用 `size: "auto"`，Google Gemini 省略 `aspectRatio`。APIMart GPT Image 2 明确发送输入图支持的比例值或合法的近似等比例像素尺寸，OpenAI GPT Image 2 对常见比例优先发送满足约束的精确像素尺寸。
-- 数量受 provider 能力限制。
-- 尺寸和质量受 provider 能力限制。
-- APIMart `gpt-image-2-official` 支持 1-4 张输出和质量参数；普通 `gpt-image-2` 固定单图且不显示质量选项。
-- Kling 基础 V3 只开放 1 张参考图和 `1k`、`2k`；V3 Omni 可使用多参考图和 `4k`。
-
-来源：
-
-- `ComposerDock.vue`
-- `ControlSelect.vue`
-- `RatioPicker.vue`
-- `providerCapabilities.ts`
-- `useMugen.ts`
-
-### FR-008 多供应商图像生成
-
-系统可以根据当前配置调用对应供应商的生图 API，并统一读取返回图片。
-
-支持供应商：
-
-| Provider | 默认模型 | 当前接入方式 |
-| --- | --- | --- |
-| OpenAI | `gpt-image-2` | `/v1/images/generations`、`/v1/images/edits` |
-| Google Gemini | `gemini-3-pro-image-preview` | `models/{model}:generateContent` |
-| ByteDance Seedream | `seedream-4-0-250828` | `/api/v3/images/generations` |
-| Alibaba Qwen | `qwen-image-2.0-pro` | DashScope multimodal generation |
-| Kuaishou Kling | `kling/kling-v3-omni-image-generation` | DashScope task create + task result |
-| OpenAI compatible | `custom-image-model` | 自定义 Base URL + OpenAI 风格接口 |
-
-验收标准：
-
-- 每个 provider 有独立请求构造函数。
-- OpenAI 风格接口读取 `data[].url` 或 `data[].b64_json`。
-- Gemini 读取 `candidates[].content.parts[].inlineData`。
-- Qwen 读取 `output.choices[].message.content[].image`。
-- Kling 创建任务后读取 `task_id`，再请求任务结果。
-- API 无图片返回时显示 `API 未返回图片`。
-- 网络失败时显示 `无法连接 API`。
-
-来源：
-
-- `providerCapabilities.ts`
-- `imageApiClient.ts`
-- `image-model-api-specs.md`
-
-### FR-009 生成过程反馈
-
-用户发送请求后可以看到生成中的状态和耗时。
-
-验收标准：
-
-- 生成开始时展示用户提示词和已发送参考图。
-- 生成中展示 `正在生成中... Ns`。
-- 每 250ms 更新内部计时，展示秒级耗时。
-- 请求完成后停止 loading。
-- 请求失败后停止 loading 并显示错误状态。
-- 只有网络中断、限流和服务端临时错误自动重试，最多重试 2 次。
-- 参数、鉴权、权限等确定性错误立即停止并显示具体原因。
-- Electron 诊断日志记录脱敏后的请求状态、尝试次数和错误原因。
-
-来源：
-
-- `useMugen.ts`
-- `MessageThread.vue`
-
-### FR-010 生成结果展示
-
-用户可以在对话流中查看每轮生成结果。
-
-验收标准：
-
-- 每轮结果包含提示词、参考图、耗时、模型生成文案和图片列表。
-- 图片以卡片方式展示。
-- 每张结果图提供 `置入`、`超分`、`参考` 三个操作。
-- 新结果出现后对话区滚动到底部。
-- 空状态显示 `暂无生成结果`。
-
-来源：
-
-- `MessageThread.vue`
-- `useMugen.ts`
-
-### FR-011 结果置入 Photoshop
-
-用户可以把生成结果写入 Photoshop 文档。
-
-置入目标：
-
-- 全画布。
-- 当前选区。
-- 本轮参考图中的选区位置。
-
-验收标准：
-
-- 浏览器预览中不执行 Photoshop 写入，并提示无法置入。
-- 全画布置入读取当前文档尺寸。
-- 当前选区置入读取当前 Photoshop 选区 bounds。
-- 参考图选区置入使用该参考图的 `sourceBounds`。
-- 写入前把结果图 RGBA 缩放到目标尺寸。
-- 写入 Photoshop 时创建新像素图层。
-- 写入调用 `imaging.putPixels()`。
-- 写入完成后更新状态。
-
-来源：
-
-- `MessageThread.vue`
-- `useMugen.ts`
-- `canvasPrimitiveService.ts`
-- `canvasPrimitives.ts`
-- `imagePixels.ts`
-
-### FR-012 结果作为参考图
-
-用户可以把任一生成结果加入参考图列表，用于下一轮生成。
-
-验收标准：
-
-- 点击 `参考` 后新增来源为 `generated` 的参考图。
-- 新参考图使用生成结果的预览、像素、尺寸和 bounds。
-- 仍受当前模型参考图上限约束。
-- 添加成功后更新状态。
-
-来源：
-
-- `MessageThread.vue`
-- `useMugen.ts`
-
-### FR-013 超分参数填充
-
-用户可以对任一生成结果点击 `超分`，快速填充下一轮请求参数。
-
-验收标准：
-
-- 当前模型切换为结果所属模型配置。
-- 参考图替换为当前结果图。
-- 提示词填入 `提升分辨率`。
-- 数量设置为 1。
-- 尺寸选择当前模型支持的高分辨率选项。
-- 质量选择当前模型支持的最高质量选项。
-- 比例优先使用 `原图比例`。
-- 状态提示该图片已填入超分参数。
-
-来源：
-
-- `MessageThread.vue`
-- `useMugen.ts`
-
-### FR-014 模型配置列表
-
-用户可以在设置页查看所有模型配置和可用状态。
-
-验收标准：
-
-- 配置列表展示配置名称、provider 名称、模型 ID。
-- 配置状态显示 `启用`、`未启用` 或 `API 不可用`。
-- 没有 API Key 的启用配置在真实 API 模式下显示不可用。
-- 自定义 Base URL 配置缺少 Base URL 时显示不可用。
-- 用户可以进入任一配置详情。
-- 用户可以新建配置。
-
-来源：
-
-- `SettingsPanel.vue`
-- `providerCapabilities.ts`
-
-### FR-015 模型配置编辑
-
-用户可以创建、编辑、保存、删除模型配置。
-
-字段：
-
-- 配置名称。
-- 启用状态。
-- 供应商。
-- 模型。
-- Base URL。
-- API Key。
-
-验收标准：
-
-- 新建配置默认使用 OpenAI compatible。
-- provider 改变时更新默认模型。
-- 不支持 Base URL 的 provider 禁用 Base URL 输入。
-- 支持 Base URL 的 provider 允许自定义模型名和 Base URL。
-- 保存后配置可在输入区选择。
-- 删除配置后回到配置列表。
-- 至少保留一个配置。
-- 新建配置未保存时点击删除执行取消。
-
-来源：
-
-- `ConfigEditorForm.vue`
-- `useMugen.ts`
-
-### FR-016 API 配置测试
-
-用户可以在配置详情中测试 API 配置。
-
-验收标准：
-
-- 缺少 API Key 时返回缺少 Key 状态。
-- 支持 Base URL 的配置缺少 Base URL 时返回缺少 Base URL 状态。
-- Mock Server 开启时发起真实 mock 请求。
-- Mock Server 关闭时当前原型用短等待和 key 文本规则模拟测试结果。
-- 测试中按钮显示 `测试中`。
-- 成功显示 `API 可用`。
-- 失败显示 `API 不可用` 或具体错误。
-
-来源：
-
-- `ConfigEditorForm.vue`
-- `useMugen.ts`
-- `imageApiClient.ts`
-
-### FR-017 设置持久化
-
-用户配置需要保存在本地，下次打开面板恢复。
-
-持久化内容：
-
-- 当前激活配置 ID。
-- 模型配置数组。
-- Mock Server 开关。
-- Mock Server Base URL。
-
-验收标准：
-
-- 使用 `localStorage` key `mugen.settings.v1`。
-- 读取失败时回退默认配置。
-- 写入失败时不阻断主流程。
-- 默认配置升级时合并本地已存配置。
-- 自定义配置保留。
-
-来源：
-
-- `useMugen.ts`
-
-### FR-018 Mock Server 开关
-
-用户可以在设置页打开 Mock Server，用本地服务验证接口和错误路径。
-
-验收标准：
-
-- Mock Server 默认关闭。
-- 开启后所有 provider 请求发往本地 Base URL。
-- 本地地址可编辑。
-- 设置页展示可用 mock key。
-- 没有填 mock key 时自动使用 `mock-good`。
-- 关闭后请求真实 provider。
-
-来源：
-
-- `SettingsPanel.vue`
-- `useMugen.ts`
-- `imageApiClient.ts`
-- `mock-image-api-server.mjs`
-
-### FR-019 Mock Server API
-
-开发者可以启动本地 Mock Server，获得稳定的成功和失败响应。
-
-验收标准：
-
-- 默认监听 `127.0.0.1:38322`。
-- 支持通过环境变量修改端口和延迟范围。
-- 支持 `/mock/manual` 查看能力。
-- 支持 `/mock-images/cats/*.jpg` 返回 fixture。
-- 支持 OpenAI、Gemini、Qwen、Kling、Seedream、OpenAI compatible 的 mock endpoint。
-- 支持 `mock-good` 和 provider 专属 good key。
-- 支持 invalid、expired、permission、rate、quota、server、timeout 错误。
-- Kling 创建任务后可以通过 task id 获取同一组结果。
-
-来源：
-
-- `scripts/mock-image-api-server.mjs`
-- `docs/mock-image-api-server.md`
-
-### FR-020 Photoshop 画布原语
-
-系统提供一组可复用的 Photoshop 画布交互原语，供生图工作流调用。
-
-能力：
-
-- 抓取可见图像。
-- 抓取选区图像。
-- 抓取选中图层图像。
-- 读取画布尺寸。
-- 读取选区位置。
-- 插入图像到指定位置。
-- 插入图像到全画布。
-- 插入图像到当前选区。
-- 创建 sample 图像。
-
-验收标准：
-
-- 读取图像统一输出 `CapturedCanvasImage`。
-- 输出包含 `id`、`label`、`width`、`height`、`sourceBounds`、`previewUrl`、`rgba`。
-- 只处理 8-bit 图像。
-- 图像数据使用后释放 Photoshop imageData。
-- 修改文档状态进入 `executeAsModal()`。
-- 无文档、无选区、无选中图层时返回可读错误。
-
-来源：
-
-- `canvasPrimitiveService.ts`
-- `canvasPrimitives.ts`
-- `canvas-primitives-reference.md`
-
-### FR-021 浏览器预览
-
-开发者可以在浏览器中预览 Vue UI 和 mock 状态。
-
-验收标准：
-
-- `npm run dev` 可启动浏览器预览。
-- UXP 构建时生成 `browser-preview.html`。
-- 浏览器预览注入 mock `window.require("uxp")`。
-- 浏览器预览不调用 Photoshop API。
-- 画布相关操作在浏览器中返回 mock 图像或提示无法置入。
-
-来源：
-
-- `vite.uxp.config.ts`
-- `useMugen.ts`
-
-### FR-022 UXP 构建与打包
-
-开发者可以生成、校验和打包 UXP 插件产物。
-
-验收标准：
-
-- `npm run build:uxp` 生成 `dist/ps-uxp`。
-- `npm run verify:uxp` 构建并执行静态校验。
-- `npm run package:uxp` 生成 `.ccx`。
-- 构建产物复制 manifest 和 icons。
-- 校验失败时输出明确错误。
-
-来源：
-
-- `package.json`
-- `vite.uxp.config.ts`
-- `scripts/verify-uxp-build.mjs`
-
-### FR-023 Photoshop 插件连接日志
-
-用户可以保留桌面 App 与 Photoshop 插件最近 24 小时的连接记录，并从设置页导出日志。
-
-验收标准：
-
-- 每次 `/uxp/*` 请求都记录请求方法、路径、结果、状态码和耗时。
-- 记录插件注册、长轮询、命令下发、命令响应、诊断上报、鉴权失败和连接中断。
-- 插件暂时无法连接桌面 App 时，保留失败记录，并在恢复连接后补传。
-- 日志不记录 Bridge token、API Key、图片内容、提示词或其他敏感载荷。
-- 日志只保留最近 24 小时。
-- Electron 设置页提供 `CRX 日志` 导出入口，导出 JSONL 文件。
-
-来源：
-
-- `electron/main.js`
-- `electron/diagnosticLogger.js`
-- `src/uxp/main.ts`
-- `SettingsPanel.vue`
-
-### FR-024 Nothing 主题
-
-用户可以在保留工作台主流程的前提下使用 Nothing 视觉主题，并在浅色和深色环境中获得一致的操作体验。
-
-验收标准：
-
-- Nothing 为首次使用的默认主题，经典主题可随时恢复。
-- Doto、Space Grotesk、Space Mono 以本地资源进入构建产物。
-- 深色使用 OLED 黑，浅色使用暖白。
-- 不使用渐变、阴影、发光、动画和过渡。
-- 使用开放分组、细分隔线、技术标签和 1.5px 线性图标。
-- 主题只覆盖视觉 token 与控件外观，不覆盖组件尺寸、间距、布局和响应式断点。
-- 主题菜单点击外部区域后收起。
-- 260px 宽度下不产生水平溢出或内容裁切。
-- 主题偏好保存在 `mugen.theme.v1`。
-- UXP 中转面板使用相同视觉语言，并保留 Spectrum 控件与桥接行为。
-
-来源：
-
-- `src/styles/nothing-theme.css`
-- `src/styles/fonts.css`
-- `src/composables/useThemePreferences.ts`
-- `src/components/mugen/PanelHeader.vue`
-- `src/components/mugen/BoxIcon.vue`
-- `src/uxp/main.ts`
-
-### FR-025 预设提示词
-
-用户可以在设置页管理常用提示词，并在输入框中使用 `/名称` 调用。
-
-验收标准：
-
-- 支持新增、编辑和删除，最多 100 条。
-- 名称长度为 1–24 个字符，只支持中文、英文字母、数字、`_` 和 `-`。
+| 官方单屏站点 | 品牌、CCX 下载、浏览器 WebUI 入口 | 重构 |
+| Inner WebUI vNext | 生图工作台，在浏览器和 CCX 内运行 | 重构 |
+| Photoshop CCX | 提供 Photoshop 画布能力并承载同源 WebUI | 保留并适配 |
+
+以下实现进入归档状态：
+
+| 归档对象 | 处理方式 |
+| --- | --- |
+| Electron 桌面端 | 停止开发与发布；UI 源码在迁移完成前作为平移来源 |
+| 旧官网 | 停止作为设计和内容基线；线上替换必须通过新站门禁 |
+| Inner WebUI 0.1 | 停止维护，不要求 vNext 保持其简化 UI 或 Mock Host 行为 |
+| Standalone UXP 插件原型 | 停止产品功能开发，仅保留历史验证材料 |
+
+“UXP 原型已归档”不代表 CCX Host 被移除。Photoshop CCX 仍使用 UXP runtime 提供画布读取、文档写入、SecureStorage 和原生权限能力。
+
+## 2. 官方站点需求
+
+### WEB-FR-001 单屏结构
+
+- 官网在单个视口中完成全部主要交互。
+- 页面无导航栏、介绍段落、功能列表、案例、价格、页脚和第二屏内容。
+- 用户可见主体只有 `Mugen`、`下载 CCX`、`进入 WebUI` 和 CCX 标本号。
+- 桌面与移动视口均不依赖纵向滚动完成主要操作。
+- 刘海、安全区和浏览器工具栏变化不会遮挡按钮。
+
+### WEB-FR-002 毛笔书法品牌字
+
+- `Mugen` 使用 ImageGen 生成并经过超分的毛笔书法图像。
+- 高分辨率母版与网站优化资源均可追溯。
+- 资源为独立原创生成内容，不直接复制参考封面的字形或排版。
+- 书法图像加载失败时显示 `Mugen` 文字兜底。
+- 图片具有可访问名称，生产页面不展示生成提示词或制作说明。
+
+### WEB-FR-003 三棱镜折射背景
+
+- 场景包含一束入射白光、一个透明三棱镜和从出射面展开的彩色光谱。
+- 三棱镜可通过指针或触摸交互旋转。
+- 棱镜旋转时光束、出射方向和遮挡关系同步更新。
+- 背景不阻断按钮点击、键盘焦点或页面文字阅读。
+- WebGL 不可用、资源加载失败或用户偏好减少动态时显示可用静态画面。
+- 首屏不存在持续增长的 GPU 资源、重复 animation loop 或明显输入延迟。
+
+### WEB-FR-004 液态玻璃按钮与标本号
+
+- 下载和 WebUI 入口使用统一的 CSS 液态玻璃材质。
+- 默认、悬停、键盘聚焦、按下和禁用状态清楚。
+- 不支持 `backdrop-filter` 时仍有可读的半透明兜底。
+- `下载 CCX` 指向完成发布校验的 CCX 文件。
+- `进入 WebUI` 指向独立浏览器运行时。
+- 标本号从 CCX 发布元数据读取，并与下载文件、Manifest 和 SHA256 记录对应。
+- 数据不可用时不显示伪造版本或硬编码占位值。
+
+## 3. WebUI vNext 迁移需求
+
+### UI-FR-001 源码平移
+
+- WebUI vNext 必须从原 Electron UI 源码平移，并针对 Web 与 CCX 环境适配。
+- 工作台、消息流、输入 Dock、设置、Provider、预设、结果卡片和主题均有源代码级迁移对应。
+- 迁移以移动、复用或抽取 Vue、TypeScript 和 CSS 模块为主，不以截图或视觉观察重新实现。
+- 评审材料包含旧模块到 vNext 模块的映射。
+- 关键交互的自动化测试或行为断言得到保留或迁移。
+- Electron preload、IPC、本地 Bridge、桌面窗口和自动更新代码不进入 vNext 运行依赖。
+- Inner WebUI 0.1 的简化生产入口被替换，不能与 vNext 并存为两个可发布工作台。
+
+### UI-FR-002 共享应用内核
+
+- CCX 和浏览器运行时共享同一套生产 UI、业务状态和 Provider 语义。
+- 提示词、参数、Provider 能力、任务状态、结果解析、历史和错误映射一致。
+- 运行时差异通过明确 adapter 或 capability contract 实现。
+- Vue 组件不直接调用 Electron IPC、Photoshop API 或复杂 `batchPlay` descriptor。
+- 不通过两份分叉组件实现 CCX 与浏览器页面。
+
+### UI-FR-003 运行时识别
+
+- 有受信任 CCX Host 时进入 Photoshop 能力模式。
+- 没有 CCX Host 时进入可独立使用的浏览器模式。
+- 普通 URL 参数不能伪造 Photoshop 能力。
+- 能力探测失败时只影响对应能力，不使设置与网络生图整体不可用。
+- 运行时状态可供自动化测试读取，但不在普通用户界面显示工程调试文案。
+
+### UI-FR-004 工作台与结果流
+
+- 用户可以管理参考图、输入提示词、选择配置和模型参数并发送。
+- 生成中显示本轮输入、参考图、状态和耗时。
+- 每轮结果保留提示词、参考图、模型配置、耗时和图片列表。
+- 每张结果支持继续作为参考和进入超分流程。
+- 错误不会清空仍可重试的输入和参考图。
+- 界面在常见浏览器宽度和 Photoshop 停靠、浮动面板尺寸下可用。
+
+### UI-FR-005 Provider 配置与网络
+
+- 两种运行时都支持配置新建、编辑、启停、测试、删除和重载恢复。
+- 配置至少包含名称、Provider、模型、API Key 和适用时的 Base URL。
+- Provider 能力决定参考图上限、尺寸、比例、质量和数量选项。
+- Browser adapter 可以直接执行浏览器允许的 Provider 请求，并正确报告 CORS、网络、鉴权和限流错误。
+- CCX adapter 按 Host 安全边界执行网络和凭据操作。
+- 生产运行时不会自动开启本地 Mock Server。
+
+### UI-FR-006 预设提示词
+
+- 支持新增、编辑、删除和重载恢复，最多 100 条。
+- 名称长度为 1–24 个 Unicode 字符，只支持中文、英文字母、数字、`_` 和 `-`。
 - 名称按 NFKC 和 ASCII 小写规则判重。
 - 输入 `/` 或 `/片段` 显示最多 6 条匹配结果。
-- 支持方向键、Enter、Escape、鼠标选择和点击外部关闭。
-- 菜单键盘事件只处理提示词输入框。
-- 精确 `/名称` 在发送时也能解析；未知命令显示错误并保留输入。
-- `//正文` 发送字面量 `/正文`。
-- 预设正文只展开一次。
-- 预设随设置持久化并在重载后恢复。
+- 支持键盘与鼠标选择、`Escape` 关闭和 `//` 字面量转义。
+- 两种运行时行为一致。
 
-来源：
+### UI-FR-007 浏览器独立运行
 
-- `src/utils/promptPresets.ts`
-- `src/components/mugen/PromptPresetMenu.vue`
-- `src/components/mugen/PromptPresetSettings.vue`
-- `src/composables/useMugen.ts`
-- `scripts/prompt-presets-smoke.mjs`
+- 浏览器模式可以完成配置、配置测试、网络生成、任务轮询、取消和结果展示。
+- Photoshop 可见画布、选区、当前图层抓取入口不存在。
+- 结果置入 Photoshop 的按钮、菜单项、快捷键和无障碍节点不存在。
+- 不使用小猫或其他 Mock 图像替代 Photoshop 画布。
+- 不要求安装 CCX、Electron、Bridge Server 或浏览器扩展。
+- 浏览器刷新后可以恢复允许持久化的配置；凭据只保存在当前浏览器适配层。
 
-### FR-026 Provider 注册架构
+### UI-FR-008 CCX Photoshop 能力
 
-开发者可以在明确的合同、定义、注册、wire 边界内维护 Provider，同时保持现有公开 import 和配置数据兼容。
+- 可以抓取当前文档可见合成图、当前选区的可见合成内容与边界，以及当前选中图层。
+- 图像数据使用统一结构保存预览、宽高、像素和 `sourceBounds`。
+- 可以把生成结果置入全画布、当前选区或本轮参考图记录的选区位置。
+- 修改 Photoshop 文档的操作全部进入 `core.executeAsModal()`。
+- WebUI 不直接构造复杂 `batchPlay` descriptor；能力先由 `canvasPrimitives.ts` 提供最小原子函数，再由 `canvasPrimitiveService.ts` 暴露。
+- API Key 存入 UXP SecureStorage，不通过 WebView 消息回传明文。
 
-验收标准：
+### UI-FR-009 运行时能力可见性
 
-- 11 个 Provider ID 静态注册，能力定义和注册表一一对应。
-- 旧 `providerCapabilities.ts` 和 `imageApiClient.ts` 只承担兼容导出。
-- 注册层拒绝未知 Provider 和适配器不匹配。
-- iMini、ComfyUI、Codex Image Server 保留默认 Base URL fallback。
-- 自定义 OpenAI 配置要求 Base URL。
-- Provider 模块不存在循环依赖。
+- 浏览器模式完全移除 Photoshop 专属入口及其菜单分隔、占位和快捷键说明。
+- CCX 连接暂时中断时显示恢复操作，并防止发起会丢失数据的 Photoshop 命令。
+- 共同功能在两种运行时中的位置和文案保持一致。
+- 自动化测试覆盖能力切换，避免只靠 CSS 隐藏仍可触发的命令。
 
-来源：
+## 4. APIMart 测试夹具
 
-- `src/providers/contracts.ts`
-- `src/providers/definitions.ts`
-- `src/providers/registry.ts`
-- `src/providers/legacyRuntime.ts`
-- `scripts/regression-smoke.mjs`
+### TEST-FR-001 固定小猫成功结果
 
+- 服务只监听 loopback 地址，端口可配置。
+- 支持模型列表、参考图上传、生成提交、任务查询和图片获取。
+- 同一个固定小猫文件用于所有成功结果，不随机选择图片。
+- 同一任务在创建、轮询和最终下载中保持相同结果标识与内容。
+- 返回图片具有稳定 MIME、尺寸和 SHA256，便于断言。
+- 支持 `GET /__smoke/state` 和 `POST /__smoke/reset`。
+- 支持鉴权失败、权限、限流、额度、服务错误、超时和取消测试。
 
-## 非功能需求
+### TEST-FR-002 浏览器网络冒烟
 
-### UXP 兼容性
+- 在普通浏览器启动 vNext，不注入 Mock Host。
+- 新建 APIMart 配置，填写本地 Base URL 与测试 Key并保存。
+- 配置测试成功，页面重载后配置仍存在。
+- 发起生成并取得固定小猫结果。
+- 请求记录证明需要的 APIMart endpoint 被真实调用。
+- 断言 DOM、焦点顺序和快捷键中均不存在 Photoshop 读取与置入入口。
+- 至少验证一次可恢复错误与一次取消或超时路径。
 
-- 插件必须在 Photoshop UXP runtime 下加载。
-- 面板入口必须使用 classic script。
-- 不允许在产物中保留 `eval()`、`new Function`、动态 `import()`、`import.meta`。
-- Photoshop 文档修改必须进入 modal scope。
-- UXP UI 后续要按 `ref/uxp-ui-runtime-rules.md` 收敛到 Spectrum UXP Widgets 或 SWC wrapper。
+### TEST-FR-003 CCX Photoshop 完整冒烟
 
-### 性能
+- 在真实 Photoshop 和正式 CCX 构建中执行，不能只使用浏览器或 UXP 静态 Mock。
+- 打开已知测试文档并抓取画布内容；采集结果像素与边界有效。
+- 参考图通过 APIMart 上传或随生成请求发送。
+- 生成提交、任务查询和固定小猫获取全部成功。
+- 把小猫结果置入当前文档并生成新图层。
+- 新图层的尺寸、位置和内容与选定目标一致。
+- APIMart 请求记录与 Photoshop 文档状态共同构成通过证据。
 
-- 大型 RGBA 数据使用 `shallowRef` 或普通对象保存，避免深层响应式代理。
-- 生成中状态只保留必要的参考图、提示词和计时。
-- 图像写入前按目标区域缩放。
-- 长任务必须展示 busy 或 loading 状态。
+## 5. 非功能需求
 
-### 可用性
+### 性能与兼容
 
-- 面板要适配 docked size 和 floating size。
-- 所有错误文案面向普通用户。
-- 生成、测试、置入等异步操作需要明确状态。
-- 参考图和结果图都需要可识别标签。
+- 官网 Three.js 加载不阻塞按钮，并在卸载时释放 GPU 资源、事件和动画帧。
+- 大型 RGBA 数据不进入深层响应式代理，不通过 WebView 重复传输完整副本。
+- CCX 满足 Photoshop UXP Manifest v5 和目标 Photoshop 版本要求。
+- 两种运行时使用相同的 Provider 合同和结果数据结构。
 
-### 安全和隐私
+### 可访问性
 
-- API Key 当前保存在 `localStorage`，后续稳定版本应迁移到 `secureStorage`。
-- 自定义 Base URL 在 UXP 中受 manifest 网络域名限制，正式版本需要明确可用域名策略。
-- Mock Server 只用于本地开发和验证。
-- 上传文件和剪贴板入口当前未接真实文件系统或剪贴板。
+- 官网按钮有可见焦点、可访问名称和足够对比度。
+- 书法位图具有文字等价内容。
+- 减少动态偏好下停止非必要旋转和视差。
+- WebUI 的隐藏能力不会留下不可见的可聚焦控件。
 
-## 当前限制
+### 安全与隐私
 
-| 限制 | 影响 | 后续要求 |
-| --- | --- | --- |
-| 上传文件入口为占位 | 用户不能从本地文件添加参考图 | 接入 UXP `localFileSystem` |
-| 剪贴板入口为占位 | 用户不能直接从剪贴板添加参考图 | 接入 UXP clipboard 能力并做权限声明 |
-| API Key 存在 `localStorage` | 不适合正式存储敏感信息 | 改为 `secureStorage` |
-| 自定义 Base URL 受 manifest 限制 | 任意域名无法直接请求 | 明确白名单、代理或配置策略 |
-| OpenAI edit 的 reference Blob 仍需修正 | 多参考图真实请求可能失败 | 把 data URL 转成二进制 Blob |
-| 远程图片转 RGBA 依赖 canvas | UXP runtime 下需要实机验证 | 增加 UXP 兼容图像读取方案 |
-| UI 大量使用普通 HTML/CSS 动效 | UXP 稳定性风险 | 迁移 Spectrum UXP Widgets 或 SWC wrapper |
-| 当前只处理 8-bit 图像 | 16-bit、32-bit 文档不可用 | 扩展像素转换 |
-| Flux provider 仅声明能力 | 当前请求层未实现 Flux API | 增加 BFL 请求和 polling |
+- CCX API Key 只进入 UXP SecureStorage。
+- 浏览器凭据不得发送到除用户配置 Provider 以外的服务，也不得写入日志。
+- 日志不记录 API Key、图片正文或完整提示词。
+- 自定义 Base URL 必须拒绝带嵌入凭据的 URL，并清楚处理非安全网络限制。
+- 本地 APIMart 夹具只监听 loopback，测试 Key 不进入正式默认配置。
 
-## 里程碑建议
+## 6. 发布验收
 
-### M1 UXP 稳定化
+- 官网有桌面与移动视口截图或录屏，证明单屏、书法字、可旋转棱镜、折射光线、液态玻璃按钮和 CCX 标本号。
+- 迁移映射证明 UI-FR-001，代码搜索证明没有 Electron runtime 依赖进入 WebUI bundle。
+- WebUI 单元、Provider、协议和浏览器 E2E 通过。
+- `npm run verify:uxp` 通过；修改 Manifest、entrypoint、icon 或权限后在 UDT 执行 Unload/Load。
+- 修改 Vue、TypeScript 或 CSS 后重新构建 UXP，并在 UDT Reload。
+- TEST-FR-002 浏览器冒烟通过。
+- TEST-FR-003 Photoshop 完整冒烟通过。
+- 官网、WebUI 和 CCX 的版本、来源和 SHA256 满足 `docs/build-todo-list.md`。
 
-目标：让当前原型在 Photoshop UXP runtime 中稳定加载、操作和回归。
+## 7. 当前阶段顺序
 
-交付内容：
+1. 冻结 Electron、旧官网、Inner WebUI 0.1 和 Standalone UXP 的产品开发。
+2. 建立 Electron UI 到 WebUI vNext 的模块迁移映射。
+3. 平移共享 UI 与业务模块，去除 Electron runtime 依赖。
+4. 建立 Browser adapter 与 CCX Host adapter，并按能力裁剪入口。
+5. 固化 APIMart 单猫 fixture，完成浏览器冒烟。
+6. 打包 CCX，在真实 Photoshop 完成抓取、请求、取图和置入闭环。
+7. 完成单屏官网和发布门禁，再切换正式入口。
 
-- UI 控件迁移到 Spectrum UXP Widgets 或 SWC wrapper。
-- 移除关键路径 CSS transition、animation 和未验证 grid 布局。
-- 完成 Photoshop 实机回归。
-- 补充 UXP UI 静态校验。
+## 8. 历史归档
 
-### M2 参考图真实输入
+2026-04-28 至 2026-08-11 的技术原型曾标定 UXP 面板、画布原语、多 Provider、结果流、设置、Mock Server、Nothing 主题和预设提示词等能力。Inner WebUI `0.1.0` 曾以 `inner-host/v1` 与 CCX Host 连接，旧官网与公开 WebUI 也曾完成构建和公网校验。Electron `0.3.x` 曾提供桌面窗口、Bridge、诊断与安装包。
 
-目标：把所有参考图入口接入真实数据源。
-
-交付内容：
-
-- 上传文件读取。
-- 剪贴板读取。
-- 参考图压缩和尺寸限制。
-- 文件、剪贴板权限声明。
-
-### M3 API 接入完善
-
-目标：让多 provider 请求在真实 API 下稳定工作。
-
-交付内容：
-
-- 修复 OpenAI edit reference 上传。
-- 完成 Flux provider。
-- 明确自定义 Base URL 策略。
-- API Key 使用 secureStorage。
-- 增加 provider 级错误展示。
-
-### M4 Photoshop 工作流增强
-
-目标：让生成结果更自然地进入 Photoshop 编辑流程。
-
-交付内容：
-
-- 置入到指定图层或新组。
-- 支持画板范围。
-- 支持 16-bit、32-bit 文档。
-- 支持从结果创建版本组或命名图层。
-
-## 验证清单
-
-- `npm run verify:uxp` 通过。
-- UXP Developer Tools 可加载 `dist/ps-uxp/manifest.json`。
-- Photoshop 菜单命令可创建图层。
-- 面板可打开并显示工作台。
-- 可见图层、选区、选中图层可添加为参考图。
-- Mock Server 成功路径可返回图片。
-- Mock Server 错误 key 可返回对应错误。
-- 生成结果可显示在对话流。
-- 生成结果可作为参考图。
-- 超分按钮可填入下一轮参数。
-- 生成结果可置入全画布。
-- 生成结果可置入当前选区。
-- 设置页可新建、编辑、启用、删除配置。
-- 配置保存后重开面板可恢复。
-- 浏览器预览不阻断 UI 开发。
+这些记录仍可用于追溯代码和回归行为。它们属于历史实现，不能用来证明 vNext 的浏览器独立运行、源码平移、单屏官网或 Photoshop 完整冒烟已经完成。

@@ -1,4 +1,4 @@
-name: Package Windows
+name: Legacy Package Windows
 
 on:
   workflow_dispatch:
@@ -44,13 +44,13 @@ jobs:
           }
 
       - name: Run diagnostics tests
-        run: npm run test:diagnostics
+        run: npm run legacy:test:diagnostics
 
       - name: Package verified CCX
         run: npm run package:uxp
 
       - name: Package Windows app
-        run: npm run package:electron:win:prepared
+        run: npm run legacy:package:electron:win:prepared
 
       - name: Verify Windows archive
         shell: pwsh

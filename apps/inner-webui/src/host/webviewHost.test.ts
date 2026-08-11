@@ -38,7 +38,7 @@ function createHarness() {
 }
 
 async function connect(harness: ReturnType<typeof createHarness>) {
-  const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.1.0', clientNonce: 'client-1' })
+  const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.2.0', clientNonce: 'client-1' })
   expect(harness.sent).toHaveLength(0)
   harness.dispatch(envelope({ kind: 'event', command: 'host.ready', payload: { protocolVersion: PROTOCOL_VERSION, hostNonce: 'host-1' } }))
   await vi.waitFor(() => expect(harness.sent).toHaveLength(1))
@@ -62,7 +62,7 @@ describe('WebViewHostClient', () => {
 
   it('accepts messages only from the exact UXP bridge object', async () => {
     const harness = createHarness()
-    const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.1.0', clientNonce: 'client-1' })
+    const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.2.0', clientNonce: 'client-1' })
     const ready = envelope({ kind: 'event', command: 'host.ready', payload: { protocolVersion: PROTOCOL_VERSION, hostNonce: 'host-1' } })
     harness.dispatch(ready, null)
     harness.dispatch(ready, { postMessage() {} })

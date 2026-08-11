@@ -1,60 +1,92 @@
 # Build TODO List
 
-本清单用于每次修改版本号、准备 GitHub Release 或准备官网发布前的构建检查。Electron 桌面端、CCX Host 和 Inner WebUI 从 1.0 架构开始独立版本化。
+本清单用于修改版本号、准备 CCX、发布 WebUI 或切换正式官网前的强制检查。当前活动产品是 WebUI vNext、Photoshop CCX 和单屏官网。Electron、旧官网、Inner WebUI 0.1 与 Standalone UXP 已归档。
 
-## 版本提交前必做
+当前阶段只进行本地开发、构建与测试，不部署正式官网，也不更新线上 `latest.json`。macOS 与 Windows 包属于历史兼容发行工件，不在官网展示且不属于活动产品；只有将来真正执行正式官网发布时，仍需按完整发行包门禁备齐，否则只记录 TODO。
 
-- 修改根 `package.json` 的 Electron 版本时，确认 `package.json`、`package-lock.json`、`electron/main.js`、`README.md`、`site/releases/latest.json`、`site/index.html` 的桌面端版本一致。
-- 修改 CCX 版本时，确认 `plugin/manifest.json`、`standalone-uxp-plugin/manifest.json` 与构建后的 `dist/ps-uxp/manifest.json` 一致；CCX 产物名从构建后的 Manifest 读取版本。
-- 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、`compatibility.json` 和构建元数据一致。
-- 提交根 `package.json` 的 Electron 版本号前，必须先打包当前运行平台的桌面端产物；只修改独立 CCX 或 Inner WebUI 版本时，执行下方对应门禁。
-- 在 Windows 上提交 Electron 版本时，必须产出并验证 `dist/mugen-$VERSION-win.zip`。
-- 在 macOS 上提交 Electron 版本时，必须产出并验证 `dist/mugen-$VERSION-mac.zip`。
-- 不允许用 Windows 交叉生成的 macOS 包或 macOS 交叉生成的 Windows 包作为正式官网发行物。
-- Electron 当前平台产物缺失或版本不一致时，不得提交 Electron 版本号、不得打 tag、不得更新桌面端官网发行信息。
+## 生命周期与版本规则
 
-## 跨平台派发判断
+- 根 `package.json` 的 Electron `0.3.x` 版本被冻结。正常 vNext 开发不得增加 Electron 版本、恢复桌面入口或生成新的桌面发行说明。
+- Electron UI 源码可在迁移完成前保留，但只作为 WebUI vNext 的代码平移来源，不得作为活动 runtime 依赖。
+- 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、兼容信息、构建元数据和 CCX 内嵌版本一致。
+- Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
+- 修改 CCX 版本时，确认 `plugin/manifest.json`、构建后的 `dist/ps-uxp/manifest.json`、CCX 文件名、`.sha256` 与 `dist/uxp-release.json` 一致。
+- `standalone-uxp-plugin/manifest.json` 不再参与活动 CCX 版本链；该目录属于历史原型。
+- 插件 ID 必须保持 `com.tanshow.mugen`。
 
-- Windows 打包完成后，检查 `dist/release-$VERSION/mugen-$VERSION-mac.zip` 是否存在且版本正确。
-- 如果 macOS 包缺失、版本不一致或 SHA256 不在 `SHA256SUMS.txt` 中，必须派发 macOS 打包任务。
-- macOS 打包完成后，检查 `dist/release-$VERSION/mugen-$VERSION-win.zip` 是否存在且版本正确。
-- 如果 Windows 包缺失、版本不一致或 SHA256 不在 `SHA256SUMS.txt` 中，必须派发 Windows 打包任务。
-- 派发任务必须写明版本号、目标文件名、需要上传回来的文件、SHA256 校验要求和是否需要重新生成 `SHA256SUMS.txt`。
+## Electron 历史重建门禁
 
-## 官网发布门禁
+Electron 已废弃，以下规则只在明确要求重建历史桌面版本或修改根 Electron 版本时启用：
 
-- 官网只发布 Photoshop CCX，桌面端安装包继续保留在历史 Release，不进入首页和 `latest.json`。
-- 官网发布必须存在 `dist/mugen-$CCX_VERSION.ccx`、同名 `.sha256` 和 `dist/uxp-release.json`，三者的版本、文件名、大小和 SHA256 必须一致。
-- 正式版本目录 `releases/$CCX_VERSION/` 只包含 `mugen-$CCX_VERSION.ccx` 与覆盖该文件的 `SHA256SUMS.txt`。
-- `site/releases/latest.json` 的下载地址必须全部指向 `key.env` 配置的新正式 Origin；仓库和正式产物不得包含已废弃域名。
-- `site/index.html` 的静态兜底链接必须和 `latest.json` 同步。
-- `npm run build:site` 通过后才允许部署官网。
-- `site/releases/latest.json` 的 `downloads` 只能包含 `ccx`；出现 macOS 或 Windows 下载项时不得部署官网。
+- 修改或提交根 `package.json` 版本号前必须重新读取本文件。
+- Windows 环境必须产出 `dist/mugen-$VERSION-win.zip`；macOS 环境必须产出 `dist/mugen-$VERSION-mac.zip`。
+- 不允许使用跨平台临时包替代正式平台包。
+- Windows 构建后检查 macOS 包；macOS 构建后检查 Windows 包。缺少另一平台正式包时必须派发对应原生环境任务。
+- 派发任务写明版本、文件名、上传文件、SHA256 和是否重建 `SHA256SUMS.txt`。
+- 当前平台产物缺失或版本不一致时，不得提交根版本号或创建该桌面版本 tag。
 
-## Inner WebUI 0.1 / CCX 1.0 发布门禁
+## WebUI vNext 迁移门禁
 
-- `apps/inner-webui/package.json` 必须为 `0.1.0`，两个 UXP Manifest 必须为 `1.0.0`，根 Electron 版本保持独立。
-- `npm run verify:inner-webui:release`、`npm run verify:uxp` 和 `npm run package:uxp` 必须全部通过。
-- 生产 CCX 必须把 `apps/inner-webui/dist/` 完整打包到 `webui/`，插件入口固定为 `plugin:/webui/index.html`。
-- Manifest 必须使用 `allowLocalRendering: "yes"`、`enableMessageBridge: "localOnly"` 和空 `domains`；生产 WebUI 不允许直连模型 API。
-- 公网 `https://mugen.catrefuse.com/webui/` 是独立发布镜像，不是插件启动依赖，保持 `frame-ancestors 'none'`。
-- CCX 包名必须为 `dist/mugen-1.0.0.ccx`，包内 Manifest、本地 WebUI、Host 协议和发布元数据必须通过静态检查。
-- 发布前必须在真实 Photoshop 中完成握手、画布抓取、参考图、BYOK、生成、取消、落图、保存、历史和诊断导出的回归。
-- 真实 Photoshop 回归通过前，Electron 只进入维护状态，不删除旧实现和既有安装包。
+- 提供 Electron UI 旧模块到 vNext 模块的迁移映射，证明工作台、消息流、输入 Dock、设置、Provider、预设、结果卡片和主题来自源码平移。
+- WebUI bundle 不得依赖 Electron preload、IPC、本地 Bridge、桌面窗口或自动更新模块。
+- CCX 与浏览器从同一 WebUI 源码构建，运行时差异通过 adapter 或 capability contract 实现。
+- 普通浏览器必须能完成配置、配置测试、真实网络生成、任务轮询、取消和结果查看。
+- 普通浏览器的 DOM、焦点顺序、菜单和快捷键中不得存在 Photoshop 画布、选区、图层读取或置入入口。
+- CCX 必须保留画布读取和结果置入；Photoshop 文档修改必须进入 `core.executeAsModal()`。
+- 生产 bundle 不得自动启用 Mock Host 或 APIMart 测试配置。
 
-## 当前 Mugen / Inner WebUI 0.1 / CCX 1.0 状态
+## APIMart 双运行时测试门禁
 
-- Vue 3、TypeScript、Tailwind CSS WebUI 与 UXP Host 已按 `inner-host/v1` 接入，BYOK 明文仅保存在 UXP SecureStorage。
-- 项目技术名为 `mugen`，中文产品名为“无幻”，插件 ID 为 `com.tanshow.mugen`，WebUI 正式入口为 `https://mugen.catrefuse.com/webui/`。
-- 旧站 `https://webui.catrefuse.com/` 已退役：历史 `/inner/v1/` 跳转到新 `/webui/`，历史 `/releases/` 跳转到新发行目录，其余请求跳转到新官网。
-- `https://mugen.catrefuse.com/` 与 `https://mugen.catrefuse.com/webui/` 使用有效 TLS；首页 CSS 和两个入口均已完成公网 200 读回。
-- 当前线上 WebUI 为通过完整本地门禁的冒烟构建，`release.json` 保留 dirty 来源标记；正式 Mugen CCX 发布前仍需从干净提交重新生成 WebUI、CCX、SHA256 sidecar 与来源元数据。
-- 插件已改为本地打包 WebUI，并直接复用原 Electron `MugenPanel`、组件和主题样式；生产入口不加载 Mock Host。
-- 协议 13 项、WebUI 26 项和 UXP Host 62 项测试已通过，`verify:uxp` 已验证 `dist/ps-uxp/webui/` 与本地桥配置；Playwright 与 Photoshop 实机回归仍待完成。
-- APIMart 冒烟服务完整提供图片上传、生成提交、任务查询和猫图下载；最终回归必须验证图层抓取、APIMart 请求、猫图返回和画布落图四步均成功。
-- 真实 Photoshop 回归尚未执行；在握手、画布、BYOK、生成、取消、落图、保存、历史和诊断导出全部通过前，不把官网 `latest.json` 切换到 CCX `1.0.0`，也不删除 Electron 旧实现。
+- APIMart 本地夹具提供模型列表、参考图上传、生成提交、任务查询、图片获取、状态重置和请求记录。
+- 所有成功图片响应固定返回同一张小猫 fixture；不得随机选择不同猫图。
+- 浏览器冒烟验证配置新建、测试、保存、重载、网络生成、小猫结果、错误或取消路径，以及 Photoshop 入口完全不存在。
+- CCX 冒烟在真实 Photoshop 中完成画布抓取、APIMart 请求、小猫图片获取、置入当前文档和新图层断言。
+- 单元测试、浏览器 Mock、静态 `verify:uxp` 或只观察界面不能替代 Photoshop 完整闭环。
 
-## 当前 0.3.19 状态
+## 官方单屏站点门禁
+
+- 旧官网结构和文案不得重新进入生产首页。
+- 页面只有一屏，用户可见主体限于毛笔书法 `Mugen`、`下载 CCX`、`进入 WebUI` 和 CCX 标本号。
+- 书法资源来自 ImageGen 并完成超分，保留母版和网站优化版本；加载失败时显示文字兜底。
+- Three.js 背景显示一束白光进入三棱镜并折射为彩色光谱，棱镜可由指针或触摸旋转。
+- WebGL 不可用和 `prefers-reduced-motion` 有稳定兜底。
+- 两个按钮使用 CSS 液态玻璃材质，键盘焦点、触摸、对比度和不支持 `backdrop-filter` 的环境均可用。
+- CCX 标本号、下载 URL、Manifest、文件大小和 SHA256 来自一致的发布元数据。
+- `npm run build:site` 和站点自动化通过后才允许部署。
+- 桌面与移动视口都完成视觉和交互检查，且主要操作不依赖滚动。
+
+## 正式官网发布门禁
+
+- 发布前确认 `dist/release-$VERSION/` 同时包含 macOS、Windows、CCX 和 `SHA256SUMS.txt`；任一文件缺失时只记录待办，不更新线上 `latest.json`。
+- macOS 包必须由 macOS 环境打包，Windows 包必须由 Windows 环境打包；不接受跨平台临时包。
+- 桌面端已废弃，因此新首页与用户可见 `latest.json` 下载项只提供 CCX。macOS 与 Windows 产物仅用于满足现行完整发行包门禁和保存历史，不恢复桌面端入口。
+- `下载 CCX` 只指向已校验文件；`进入 WebUI` 只指向通过浏览器门禁的 vNext 地址。
+- `site/releases/latest.json` 的地址使用 `key.env` 中的正式域名，仓库与生产产物不得恢复已废弃域名。
+- 正式构建来自已提交的干净工作区，并记录提交、构建时间、版本、文件大小与 SHA256。
+- 公网发布后逐字节验证入口 HTML、关键资源、CCX 文件和元数据，并检查 TLS、MIME、CSP、HSTS 与 `nosniff`。
+
+## vNext 发布证据清单
+
+- [ ] Electron UI 到 WebUI vNext 的源码迁移映射已评审。
+- [ ] WebUI 单元、Provider、协议、浏览器 E2E 和生产构建通过。
+- [ ] 浏览器 APIMart 冒烟通过，固定小猫与无 Photoshop 入口断言通过。
+- [ ] `npm run verify:uxp` 通过。
+- [ ] CCX 已在真实 Photoshop 完成抓取、请求、取图、置入完整闭环。
+- [ ] 官网单屏视觉、交互、性能、可访问性与静态兜底通过。
+- [ ] `dist/release-$VERSION/` 的 macOS、Windows、CCX 与 `SHA256SUMS.txt` 齐全且匹配。
+- [ ] 公网读回和安全响应头检查通过，最后才更新 `latest.json`。
+
+## 旧 Inner WebUI 0.1 / CCX 1.0 状态（归档）
+
+- Inner WebUI `0.1.0` 曾通过 `inner-host/v1` 与 UXP Host 接入，并使用本地打包 WebUI。
+- 旧基线曾通过协议、WebUI、UXP Host 和部分发布校验，也曾生成 `dist/mugen-1.0.0.ccx`。
+- 旧公网 WebUI 和官网曾返回 200，旧域名也曾配置跳转。
+- 真实 Photoshop 的旧 Inner WebUI 完整业务回归未形成正式通过证据。
+- 上述结果只能用于历史追溯，不计入 vNext 发布证据。
+
+## Electron 历史发行记录
+
+### Electron 0.3.19（归档）
 
 - 本次修复将生图请求从“所有异常自动重试 99 次”收敛为只对网络中断、限流和服务端临时错误最多重试 2 次；参数、鉴权和权限错误立即结束。Electron 诊断导出同步增加脱敏后的生图请求状态、尝试次数和错误原因。
 - 诊断日志测试 8/8、重试策略与既有回归、TypeScript 检查、Web 构建、UXP 构建和 `verify:uxp` 均已通过。
@@ -62,7 +94,7 @@
 - CCX 已在 Windows 环境构建并验证根包与内嵌 manifest：`lightyear-banana-0.3.19.ccx`，SHA256：`42c1209d922f896af65e143bb5e37cb1a1620ff3f1bf8f558e6f5b7ee7541b37`。
 - macOS 原生包尚未构建。完整发布前必须从包含本次改动的远端 ref 派发 `Package macOS`，取得 `lightyear-banana-0.3.19-mac.zip` 及 SHA256；当前不创建完整 `dist/release-0.3.19/`，不更新官网 `latest.json` 和静态下载链接。
 
-## 当前 0.3.18 状态
+### Electron 0.3.18（归档）
 
 - 本次修复针对 Gemini 图生图偶发未跟随参考图比例：参考图比例匹配 Gemini 支持枚举时，Google Gemini 明确发送 `aspectRatio`，APIMart Gemini 明确发送 `size`；非常规比例继续使用原有自动跟随语义。
 - 附件日志确认 `9504 × 6336` 的 3:2 参考图曾返回 `5504 × 3072` 的近 16:9 结果，同源后续结果恢复为近 3:2；客户端抓图宽高稳定，问题落在 Gemini 自动跟随的软约束。
@@ -73,7 +105,7 @@
 - macOS 包由 GitHub Actions 原生 macOS runner 从提交 `82aa7f4a45114e92a58f9fc7d789709afc15e425` 构建，诊断测试、比例回归、版本校验、归档校验和 artifact 上传均已通过：`lightyear-banana-0.3.18-mac.zip`，SHA256：`8fc8a3428e814246c23fad15a30accc34236781ee324634d5e717a5613002d02`，Actions run：`30635533484`。
 - `dist/release-0.3.18/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`，本地 release bundle 校验已通过；官网 `latest.json` 需在完整站点门禁、GitHub Release 和正式资产部署完成后最后切换。
 
-## 当前 0.3.17 状态
+### Electron 0.3.17（归档）
 
 - 本次修复让可见合成图读取绑定 Photoshop 当前活动历史状态，避免直接打开的 Camera Raw／ARW 文档在图层操作后继续使用首次打开时的旧状态；诊断日志同步增加图层数量、历史状态 ID 和名称。
 - 诊断日志测试 8/8、ARW／智能对象历史状态回归、TypeScript 构建、UXP 构建和 `verify:uxp` 均已通过。

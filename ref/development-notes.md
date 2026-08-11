@@ -1,13 +1,21 @@
 # 开发注意事项
 
+## 2026-08-11 vNext 边界
+
+- Electron 桌面端、Inner WebUI 0.1、旧官网和 Standalone UXP 已归档。
+- WebUI vNext 从 Electron UI 源码平移，并在 Browser adapter 与 CCX Host adapter 中运行。
+- 普通浏览器具备真实网络和配置能力，不显示 Photoshop 读取或置入入口。
+- CCX 继续使用 UXP Host 提供画布、置入和 SecureStorage。
+- APIMart 冒烟固定返回同一张小猫；浏览器验证网络与配置，CCX 在真实 Photoshop 验证抓取到置入的完整闭环。
+
 ## 重要版本标记
 
-### 2026-04-27 技术原型实现
+### 2026-04-27 技术原型实现（归档）
 
 - flag：技术原型实现
 - git tag：`v0.1.0-tech-prototype`
 - 用途：作为生图 API mock server、多 provider 配置、mock 模式、模型请求链路、消息 loading、参考图缓存、设置持久化和键盘发送交互的回溯点。
-- 状态：浏览器预览链路已完成技术原型验证，UXP 构建校验通过；真实 Photoshop 运行时仍需按 UXP 验证顺序回归。
+- 状态：旧浏览器预览链路曾完成技术原型验证，UXP 构建校验通过；这些结果不计入 vNext 双运行时验收。
 - 回溯建议：后续大改模型配置、mock server 协议、图片返回结构、消息区交互或设置持久化时，优先对比这个标记版本。
 
 ## 开发循环
@@ -35,13 +43,14 @@ npm run verify:uxp
 1. `npm run verify:uxp`
 2. UXP Developer Tools 加载 `dist/ps-uxp/manifest.json`
 3. Photoshop 菜单 command 可执行
-4. panel 可以打开并挂载 Vue
-5. 目标 Photoshop 能力在真实文档里执行
-6. Photoshop UXP log 没有 fatal error
+4. panel 可以打开 Host 壳并加载内嵌 WebUI
+5. Host 握手与 runtime capability 正确
+6. 目标 Photoshop 能力在真实文档里执行
+7. Photoshop UXP log 没有 fatal error
 
-## 浏览器预览边界
+## 双运行时边界
 
-`npm run dev` 只验证 Vue UI 和 fallback 状态。所有 Photoshop 文档、选区、图层、像素、文件 token 能力都必须在 UXP runtime 中验证。
+`npm run dev:inner-webui` 启动普通浏览器运行时。它需要验证 Provider 配置、真实网络、持久化和结果流程；不得注入 Mock Host 或返回 Mock 画布。所有 Photoshop 文档、选区、图层、像素、文件 token 与置入能力只在 CCX 中出现，并必须在真实 Photoshop 验证。
 
 ## 错误处理
 
@@ -91,7 +100,7 @@ npm run verify:uxp
 npm run package:uxp
 ```
 
-打包前会先执行 `verify:uxp`。产物写入 `dist/${npm_package_name}-${npm_package_version}.ccx`。
+打包前会先执行 `verify:uxp`。产物文件名和版本从当前 CCX Manifest 读取，并满足 `docs/build-todo-list.md` 的版本、SHA256 与发布元数据门禁。
 
 ## Windows Codex 插件索引修复
 

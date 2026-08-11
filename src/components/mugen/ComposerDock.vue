@@ -39,6 +39,7 @@ const props = defineProps<{
   customWidth: number
   prompt: string
   promptPresets: PromptPreset[]
+  photoshopIntegrationAvailable: boolean
   quality: string
   ratio: string
   references: ReferenceImage[]
@@ -73,13 +74,17 @@ const expandedPresetContent = shallowRef<string | null>(null)
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
 const customSizeValue = '__mugen_custom_resolution__'
 
-const referenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; label: string }> = [
+const allReferenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; label: string }> = [
   { icon: 'image', source: 'visible', label: '可见图层' },
   { icon: 'selection', source: 'selection', label: '选区' },
   { icon: 'layer', source: 'layer', label: '当前选中图层' },
   { icon: 'upload', source: 'upload', label: '上传文件' },
   { icon: 'clipboard', source: 'clipboard', label: '剪贴板' }
 ]
+const photoshopReferenceSources = new Set<ReferenceSource>(['visible', 'selection', 'layer'])
+const referenceActions = computed(() => allReferenceActions.filter((action) => (
+  props.photoshopIntegrationAvailable || !photoshopReferenceSources.has(action.source)
+)))
 
 const referenceCountText = computed(() => `${props.references.length} / ${props.activeCapability.referenceLimit}`)
 const hasReferences = computed(() => props.references.length > 0)

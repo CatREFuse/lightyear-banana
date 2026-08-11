@@ -1,5 +1,7 @@
 # Inner WebUI 0.1 与 CCX 1.0 部署指南
 
+> 归档文档：Inner WebUI 0.1、旧官网和本部署流程已废弃。不要用本文件发布 WebUI vNext 或新官网。vNext 发布以 `docs/build-todo-list.md`、`docs/spec.md` 和更新后的实际脚本为准；本文只保留旧版本的部署事实与回滚方法。
+
 Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.1.0`，CCX 使用 `1.0.0`，根目录的 Electron 版本继续按原发行线维护。
 
 ## 部署配置

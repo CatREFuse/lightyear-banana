@@ -27,7 +27,6 @@ function fixture(t) {
   const releaseUrl = `${origin}/releases/1.0.0/SHA256SUMS.txt`
 
   json(root, 'plugin/manifest.json', { version: '1.0.0' })
-  json(root, 'standalone-uxp-plugin/manifest.json', { version: '1.0.0' })
   write(root, `dist/${filename}`, contents)
   write(root, `dist/${filename}.sha256`, `${sha256}  ${filename}\n`)
   json(root, 'dist/uxp-release.json', {
@@ -61,7 +60,7 @@ function fixture(t) {
       }
     }
   })
-  write(root, 'site/index.html', `<a data-download="ccx" href="${origin}/releases/1.0.0/${filename}"><span class="download-file">${filename}</span><span class="download-size">${contents.length} B</span></a><a data-release-url href="${releaseUrl}">SHA256SUMS</a>`)
+  write(root, 'site/index.html', `<a data-download="ccx" href="${origin}/releases/1.0.0/${filename}"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>1.0.0</span></p>`)
   const llms = `# Mugen\n\nCurrent version: 1.0.0\nMinimum supported version: 1.0.0\nPublished at: ${publishedAt}\n\nVersion check:\nGET ${origin}/releases/latest.json\n\nManifest:\n${origin}/releases/latest.json\n\nRelease checksums:\n${releaseUrl}\n\nAdobe Photoshop plugin:\n${origin}/releases/1.0.0/${filename}\nsha256: ${sha256}\nsize: ${contents.length} bytes\n`
   write(root, 'site/llms.txt', llms)
   write(root, 'site/LLM.TXT', llms)

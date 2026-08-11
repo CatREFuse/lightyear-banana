@@ -232,14 +232,15 @@ function readLocalBuild() {
     throw new Error('Local WebUI files do not match release.json contentHash.')
   }
   if (
-    webUiPackage.version !== '0.1.0' ||
+    !/^\d+\.\d+\.\d+$/.test(webUiPackage.version) ||
+    webUiPackage.version === '0.1.0' ||
     compatibility.schemaVersion !== 1 ||
     compatibility.webVersion !== webUiPackage.version ||
     localRelease.webVersion !== webUiPackage.version ||
     compatibility.protocolVersion !== localRelease.protocolVersion ||
     JSON.stringify(compatibility.compatibleHostProtocolVersions) !== JSON.stringify(localRelease.compatibleHostProtocolVersions)
   ) {
-    throw new Error('WebUI package and compatibility metadata must both be version 0.1.0.')
+    throw new Error('WebUI package and compatibility metadata must use the same active version; WebUI 0.1.0 is retired.')
   }
   return { compatibility, localRelease }
 }
@@ -454,7 +455,7 @@ async function verifyPublicAssets(url, expectedDirectory) {
   for (const [directive, expectedTokens] of [
     ['script-src', ["'self'"]],
     ['style-src', ["'self'"]],
-    ['connect-src', ["'none'"]],
+    ['connect-src', ["'self'", 'http:', 'https:']],
     ['frame-ancestors', ["'none'"]]
   ]) {
     const actualTokens = csp.get(directive)

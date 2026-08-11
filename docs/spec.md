@@ -1,69 +1,120 @@
 # Mugen 当前功能规格
 
-版本：1.0
+版本：vNext
 日期：2026-08-11
+状态：当前开发基线
 
-## 产品标识与线上入口
+## 产品决策
 
-- 项目技术名统一为 `mugen`，英文品牌名为 `Mugen`，中文产品名为“无幻”。
-- Photoshop 插件 ID 为 `com.tanshow.mugen`，独立插件 ID 为 `com.tanshow.mugen.standalone`，工作区 package scope 为 `@mugen/*`。
-- 正式站点为 `https://mugen.catrefuse.com/`，公开 WebUI 镜像为 `https://mugen.catrefuse.com/webui/`，发行清单位于 `https://mugen.catrefuse.com/releases/`。
-- 当前 CCX 版本为 `1.0.0`，Inner WebUI 版本为 `0.1.0`；Electron 桌面端继续独立版本化。
-- 新配置写入 `mugen.settings.v1` 与 `mugen.theme.v1`；读取时兼容旧版 `lightyear-banana.*` key，成功迁移后只写入新 key。
-- `mugen.catrefuse.com` 使用独立 Let’s Encrypt 证书；官网从 `/` 提供，公开 WebUI 镜像从 `/webui/` 提供。
-- Photoshop 插件从 CCX 内的 `plugin:/webui/index.html` 打开工作台，不依赖公网 WebUI；桥接只允许本地 WebView。
-- 旧域名 `webui.catrefuse.com` 只提供到新域名的 HTTPS 308 跳转。
-- 官网只提供 `mugen-1.0.0.ccx`，不展示 macOS 或 Windows 桌面端下载。
-- 官网静态资源使用相对路径，必须同时支持从域名根路径和本地静态预览加载。
+- 对外品牌名只使用 `Mugen`。
+- Electron 桌面端已废弃，不再开发、打包或作为用户入口。其 Vue 工作台源码只在 vNext 迁移完成前作为代码平移来源保留。
+- 旧官网实现与旧官网内容已废弃。正式站点重构为单屏 Mugen 品牌页。
+- Inner WebUI `0.1.x` 已废弃，不作为 vNext 的兼容目标或发布基线。
+- Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.0`，可在 CCX 内和普通浏览器中运行。
+- `standalone-uxp-plugin/` 代表的独立 UXP 技术原型已归档，不再承载产品功能。
+- Photoshop CCX 与其 UXP Host 仍是当前正式运行层。CCX 负责 Photoshop 画布读取、结果置入和需要 UXP 权限的本地能力。
+- 当前 CCX 版本为 `1.0.0`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
 
-## 本次范围
+## 官方单屏站点
 
-本规格覆盖 Nothing 视觉主题、Provider 注册架构、预设提示词，以及 Electron 工作台到 Photoshop 内置 WebUI 的迁移。WebUI 直接复用原工作台组件、交互和样式，参考图、模型参数、生成结果与 Photoshop 画布流程保持原有信息架构。
+### 页面内容
 
-## Photoshop 内置 WebUI
+官网只有一个视口高度的主画面，不提供导航、功能介绍、长文案、页脚或第二屏。用户可见内容限于：
 
-- `apps/inner-webui` 的生产入口直接渲染共享 `src/components/mugen/MugenPanel.vue`，不保留另一套生产 UI。
-- WebUI 通过 `inner-host/v1` 调用 UXP Host；模型 API、文件、凭据、画布和历史操作都在 Host 中执行。
-- 生产入口只能使用 `WebViewHostClient`；无宿主时显示不可用状态，URL 参数不得启用 Mock Host。
-- Mock Host 只允许在单元测试和 Playwright 测试夹具中使用，不得进入生产 bundle。
-- CCX 必须包含 WebUI 的 HTML、JavaScript、CSS 和本地字体，资源路径必须相对 `webui/index.html`。
-- UXP 宿主根节点必须占满面板可视区，并在面板尺寸变化时把实际像素宽高同步给 WebView；WebUI 不得退化为顶部固定高度区域。
-- 主题、模型配置和预设提示词通过 UXP 数据目录保存；API Key 只保存在 UXP SecureStorage。
+- 品牌主文字 `Mugen`。
+- `下载 CCX` 按钮。
+- `进入 WebUI` 按钮。
+- 当前 CCX 标本号。
 
-## Nothing 主题
+标本号必须来自同一份 CCX 发布元数据，不能在 HTML 中维护第二份独立版本值。下载按钮必须指向该标本号对应、完成校验的 CCX 文件；WebUI 按钮进入浏览器运行时的正式入口。
 
-### 主题和模式
+### 书法主文字
 
-- 界面主题支持 `Nothing` 和 `经典`，默认使用 `Nothing`。
+- `Mugen` 使用 ImageGen 生成的毛笔书法位图作为主视觉。
+- 生成后必须进行超分，保留高分辨率源文件和网站优化版本。
+- 页面只渲染最终选定版本，不在生产站点展示提示词、制作说明或候选稿。
+- 图片需要提供可访问名称 `Mugen`；书法资源未加载时仍显示文字兜底。
+- 不使用未经授权的字体、封面图或品牌资产复刻参考作品。
+
+### Three.js 背景
+
+- 背景由 Three.js 实时渲染透明三棱镜、一束入射白光和折射后的彩色光谱。
+- 构图可以参考深色空间、单体棱镜和克制光线的封面氛围，不复制现有封面的具体图形或排版。
+- 三棱镜支持指针拖动或移动产生的旋转，并在触摸设备上保留可操作方式。
+- 光束起点、棱镜和光谱必须保持清楚的因果关系；彩色光线从棱镜出射面开始。
+- 旋转只改变三维视角和光线方向，不遮挡主文字与主要按钮。
+- `prefers-reduced-motion`、WebGL 不可用和低性能设备必须有稳定静态兜底。
+
+### 液态玻璃按钮
+
+- 两个按钮使用 CSS 实现的半透明液态玻璃材质，共用同一视觉系统。
+- 材质至少包含透明层、边缘高光、背景模糊和清楚的交互状态。
+- 按钮文字在明暗背景、悬停、聚焦和按下状态下均满足可读性要求。
+- 支持键盘焦点与触摸，不以动效作为唯一状态反馈。
+- 页面在常见桌面与移动视口中保持单屏；允许安全区内自适应，不产生正文滚动。
+
+## Inner WebUI vNext
+
+### 代码平移原则
+
+- vNext 以原 Electron UI 的实际 Vue、TypeScript、状态管理、Provider、提示词、结果流和主题代码为迁移源。
+- 迁移必须保留源代码级结构与行为对应关系，并针对 WebUI 运行环境做适配。
+- 不允许根据截图重新搭建一套相似界面，也不允许保留简化版 0.1 UI 作为生产入口。
+- 可拆出共享模块或移动文件，但每个核心模块都应能追溯到 Electron UI 原实现或有明确的运行时适配原因。
+- Electron runtime、preload、IPC、本地 Bridge 和桌面窗口代码不得成为 vNext 的运行依赖。
+
+### 共同功能
+
+CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，至少保留原 Electron 工作台的以下能力：
+
+- 工作台、消息流、结果卡片和设置页。
+- Provider 配置、API Key、Base URL、模型和能力约束。
+- 预设提示词、参考图、生成参数、生成状态和错误反馈。
+- 图片生成、任务轮询、取消、历史、结果作为参考和超分入口。
+- Nothing 与经典主题，以及既有响应式布局规则。
+
+### 运行时能力矩阵
+
+| 能力 | CCX 内 WebUI | 普通浏览器 WebUI |
+| --- | --- | --- |
+| Provider 配置与测试 | 支持 | 支持 |
+| 真实网络生成流程 | 支持 | 支持 |
+| 提示词、参数、结果流 | 支持 | 支持 |
+| 上传运行时可访问的参考图 | 按 CCX 能力实现 | 支持 |
+| 读取 Photoshop 可见画布 | 支持 | 不显示入口 |
+| 读取 Photoshop 选区 | 支持 | 不显示入口 |
+| 读取 Photoshop 当前图层 | 支持 | 不显示入口 |
+| 把结果置入 Photoshop | 支持 | 不显示入口 |
+| UXP SecureStorage | 支持 | 不可用，使用浏览器适配层 |
+
+普通浏览器是可独立使用的生产运行时，不再是 Mock Host 预览。没有 Photoshop Host 时，画布读取和置入控件必须从界面和键盘导航中移除，不能用禁用按钮、模拟图片或错误提示占位。网络生成、配置保存、配置测试和结果查看仍需完整可用。
+
+### 运行时适配
+
+- WebUI 启动时通过能力探测选择 CCX Host adapter 或 Browser adapter，不依赖 URL 参数伪造运行时。
+- 应用组件只消费明确的能力合同，不直接访问 Electron IPC、UXP `require()` 或全局 Host 对象。
+- CCX 中所有 Photoshop 文档修改继续由 UXP Host 在 `core.executeAsModal()` 内执行。
+- CCX 中 API Key 保存在 UXP SecureStorage；浏览器中的凭据由浏览器适配层保存，并明确仅留在当前浏览器配置中。
+- 两种运行时共享 Provider 请求语义和错误映射。因跨域策略无法使用的自定义服务必须给出可操作错误。
+- 生产 bundle 不自动启用 Mock Server，不包含自动注入的 Mock Host。
+
+## 保留的工作台规格
+
+### Nothing 主题
+
+- 界面主题支持 `Nothing` 和 `经典`，首次使用默认 `Nothing`。
 - 明暗模式支持 `跟随系统`、`深色`、`浅色`，首次使用默认深色。
-- Electron 主题偏好写入 `localStorage` key `mugen.theme.v1`；Photoshop 内置 WebUI 通过 UXP 设置文件保存主题偏好。
+- 浏览器偏好写入 `mugen.theme.v1`；CCX 通过 Host 设置存储保存同一语义。
 - Nothing 使用本地打包的 Doto、Space Grotesk 和 Space Mono 字体，不依赖远程字体服务。
-- 经典主题保留原有字体和主体样式。
-- Nothing 与经典主题共用组件尺寸、间距、布局和响应式规则，切换主题不会改变界面几何结构。
-
-### 视觉规则
-
-- 深色使用 OLED 黑背景，浅色使用暖白背景。
+- 深色使用 OLED 黑，浅色使用暖白；经典主题保留原有字体和主体样式。
 - 状态、参数和命令使用等宽字体，主标题和正文使用 Space Grotesk，数字式空状态使用 Doto。
 - 控件使用 4px 技术圆角，菜单可使用 8px 圆角。
-- 不使用渐变、阴影、发光、动画和过渡。
-- 红色只承担错误、删除和少量选中标记。
-- Nothing 模式使用 1.5px、无填充的线性图标。
-- 最小面板宽度为 260px，不产生水平滚动或内容裁切。
-- 运行状态采用括号文本；短时操作结果显示在输入区上方的行内状态条。
+- 不使用渐变、阴影、发光、动画和过渡；红色只承担错误、删除和少量选中标记。
+- Nothing 与经典主题共用组件尺寸、间距、布局和响应式规则，260px 宽度下不产生水平滚动或内容裁切。
 
-### UXP 中转面板
+### Provider 注册架构
 
-- 使用 Photoshop host token，并提供黑色和暖白 fallback。
-- 状态使用 `[CONNECTED]`、`[WAITING]`、`[ERROR]`。
-- 保留 Spectrum UXP Widgets 按钮与分隔线。
-- 桥接轮询、重连和 Photoshop 命令行为不变。
-
-## Provider 架构
-
-### 分层
-
-| 层 | 文件 | 职责 |
+| 层 | 主要入口 | 职责 |
 | --- | --- | --- |
 | 合同 | `src/providers/contracts.ts` | 请求、结果、适配器、定义和校验类型 |
 | 定义 | `src/providers/definitions.ts` | Provider 能力、必填字段、模型差异和默认配置 |
@@ -71,47 +122,75 @@
 | Wire 兼容层 | `src/providers/legacyRuntime.ts` | 已验证的请求构造、轮询、响应解析和错误映射 |
 | 兼容 facade | `src/data/providerCapabilities.ts`、`src/services/imageApiClient.ts` | 保持旧 import 和公开导出稳定 |
 
-### 注册和校验
-
 - 11 个 Provider ID 必须同时出现在能力定义和静态注册表中。
-- 未注册 Provider、Provider 不匹配、缺少模型、缺少必填 API Key 或 Base URL 时，不进入 wire 层。
-- `supportsBaseUrl` 只表示配置界面允许编辑地址；`requiresBaseUrl` 单独决定地址是否必填。
+- 未注册 Provider、Provider 不匹配、缺少模型、必填 API Key 或 Base URL 时不进入 wire 层。
+- `supportsBaseUrl` 只表示界面允许编辑地址；`requiresBaseUrl` 单独决定地址是否必填。
 - iMini、ComfyUI 和 Codex Image Server 可以使用 wire 层默认地址；自定义 OpenAI 配置必须填写 Base URL。
-- 配置存储结构、Provider ID 和旧公开函数保持兼容。
+- 配置结构、Provider ID、请求语义和旧公开函数在源码平移中保持兼容，运行时存储由 adapter 接管。
 
-## 预设提示词
+### 预设提示词
 
-### 管理
+- 设置页提供预设列表以及新增、编辑和删除入口，最多保存 100 条。
+- 名称长度为 1–24 个 Unicode 字符，只支持中文、英文字母、数字、`_` 和 `-`。
+- 名称使用 NFKC 和 ASCII 小写规则检查冲突；提示词内容不能为空并支持多行。
+- 在提示词框输入 `/` 或 `/名称片段` 打开最多 6 条的过滤菜单。
+- `ArrowUp`、`ArrowDown`、`Enter`、`Escape` 和鼠标操作可用，点击菜单外区域关闭。
+- 发送精确 `/名称` 时解析为预设正文；`//正文` 发送字面量 `/正文`。
+- 未知精确命令保留输入和参考图并显示错误；`/名称 其他内容` 按普通正文发送。
+- 预设正文只展开一次，并随两种运行时各自的设置存储恢复。
 
-- 设置页提供预设提示词列表和新增、编辑、删除入口。
-- 最多保存 100 条。
-- 名称长度为 1–24 个 Unicode 字符，只支持中文、英文字母、数字、`_`、`-`。
-- 名称使用 NFKC 和 ASCII 小写规则检查冲突。
-- 提示词内容不能为空，可以包含多行和任意正文。
-- Electron 中预设与模型配置写入 `localStorage` key `mugen.settings.v1`；Photoshop 内置 WebUI 通过 UXP 设置文件保存相同数据。
+## APIMart 测试夹具
 
-### 调用
+- 本地测试服务按 APIMart 接口格式提供模型列表、参考图上传、生图提交、任务查询和图片获取。
+- 成功响应中的所有图片固定使用同一张小猫 fixture，确保断言稳定；同一任务在提交、轮询和下载阶段必须引用同一内容。
+- 服务提供状态重置和请求记录，使测试可以断言上传、生成、轮询和图片下载的调用次数与关键参数。
+- 测试 Key、Base URL 和返回内容只用于本地验证，不进入正式默认配置。
 
-- 在提示词框输入 `/` 或 `/名称片段` 打开过滤菜单，最多显示 6 条。
-- `ArrowUp`、`ArrowDown` 移动选择，`Enter` 展开预设，`Escape` 关闭菜单。
-- 点击菜单外区域关闭菜单；键盘操作只在提示词输入框聚焦时生效。
-- 发送精确命令 `/名称` 时直接解析为预设正文。
-- 输入 `//正文` 时发送字面量 `/正文`。
-- 输入未知的精确命令时保留当前输入和参考图，并显示 `未找到预设“名称”`。
-- 输入 `/名称 其他内容` 时按普通正文发送。
-- 预设正文即使等于另一个斜杠命令，也只展开一次。
+### 浏览器冒烟
 
-## 验收
+- 新建、编辑、测试、保存并重载 APIMart 配置。
+- 发送生成请求，完成上传或生成、轮询和图片获取，并显示固定小猫结果。
+- 错误、超时和取消路径不会破坏下一次请求。
+- 页面不存在 Photoshop 画布读取、选区读取、图层读取和结果置入入口。
+- 浏览器不会调用 CCX Host 或伪造 Photoshop 资产。
 
-- `npm run test:diagnostics`
-- `npm run test:prompt-presets`
-- `npm run test:regressions`
-- `node scripts/custom-gemini-provider-smoke.mjs`
-- `node scripts/imini-provider-smoke.mjs`
-- `npm run build:web`
-- `npm run verify:uxp`
-- `npm run smoke:apimart-server`
-- 浏览器检查 390px 深色、390px 浅色、主题菜单、预设管理、斜杠菜单和 260px 窄面板。
-- Photoshop 中执行 UXP Developer Tools Reload 后检查中转面板的实际字体、明暗模式、连接状态和重连按钮。
-- 安装最终 CCX 后，在 Photoshop 中选择图层，通过插件创建 APIMart 配置并填写本地 Base URL 与测试 Key，抓取图层作为参考图，生成猫图并将结果置入当前文档。
-- `/__smoke/state` 必须显示上传、生成和任务查询均被调用，Photoshop 文档必须出现新生成结果图层。
+### CCX 冒烟
+
+CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
+
+1. 打开具有可辨识内容的测试文档。
+2. 从 Photoshop 读取可见画布、选区或当前图层作为参考图，并确认像素与边界信息有效。
+3. 使用 APIMart 本地配置发送请求。
+4. 完成参考图上传、生成提交、任务查询和固定小猫图片获取。
+5. 把返回图片置入当前 Photoshop 文档。
+6. 证明新图层存在、尺寸与目标区域正确，并能继续参与下一轮工作流。
+
+`/__smoke/state` 或等价请求记录必须证明网络阶段真实发生。仅通过单元测试、静态构建、浏览器 Mock 或人工观察界面，不能替代 Photoshop 完整闭环。
+
+## 发布边界
+
+- 当前阶段只提供本地官网预览，不切换正式站点或线上 `latest.json`。
+- 旧官网、Electron 桌面端、Inner WebUI 0.1 和独立 UXP 原型只保留历史记录，不进入新首页、WebUI 入口或活动发布说明。
+- CCX 包必须内含与浏览器版同源构建的 WebUI，且不依赖公网 WebUI 才能启动。
+- 浏览器 WebUI 和 CCX WebUI 可以独立部署，但必须记录可追溯的提交、版本和兼容信息。
+- 任何版本号与官网发布仍受 `docs/build-todo-list.md` 门禁约束。
+
+## 非目标
+
+- 本阶段不恢复 Electron 桌面端。
+- 本阶段不扩展官网介绍、教程、价格、案例或账号系统。
+- 本阶段不把浏览器运行时伪装成 Photoshop。
+- 本阶段不继续维护 Inner WebUI 0.1 的视觉或协议兼容。
+- 本阶段不把 `standalone-uxp-plugin/` 升级为第二套产品实现。
+
+## 验收证据
+
+- 官网桌面与移动视口截图及交互录屏，证明单屏、书法字、可旋转棱镜、折射光线、两个液态玻璃按钮和 CCX 标本号均成立。
+- 代码差异或迁移清单，证明 vNext 从 Electron UI 源码平移且已去除 Electron 运行依赖。
+- 浏览器自动化测试，证明真实网络与配置流程可用且无 Photoshop 操作入口。
+- `npm run verify:uxp` 与 CCX 打包校验通过。
+- Photoshop 实机完整闭环记录，证明画布抓取、APIMart 请求、小猫图片获取和新图层置入均成功。
+
+## 历史归档
+
+截至 2026-08-11，Inner WebUI `0.1.0`、CCX `1.0.0`、`inner-host/v1` 和旧官网曾完成部分构建、协议、静态发布与自动化验证。这些结果只说明旧基线曾可运行，不证明 vNext 已通过验收。Electron `0.3.x` 的安装包、构建记录和 Bridge 文档继续作为历史证据保留，但不再定义当前产品方向。

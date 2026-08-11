@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
   parseEnv,
@@ -6,6 +7,14 @@ import {
   validatePublicLatestJson,
   verifyPublicReleaseIndex
 } from './deploy-inner-webui.mjs'
+
+const nginxTemplate = readFileSync(new URL('../deploy/nginx/inner-webui.conf.template', import.meta.url), 'utf8')
+
+test('keeps the public WebUI CSP aligned with standalone Provider networking', () => {
+  assert.match(nginxTemplate, /img-src 'self' data: blob: http: https:/)
+  assert.match(nginxTemplate, /connect-src 'self' http: https:/)
+  assert.doesNotMatch(nginxTemplate, /connect-src 'none'/)
+})
 
 test('ignores legacy lowercase deployment keys while keeping application settings strict', () => {
   assert.deepEqual(parseEnv([

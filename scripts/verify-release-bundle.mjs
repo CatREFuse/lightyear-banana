@@ -110,9 +110,7 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
   requireEqual(packageJson.version, electronVersion, "package.json version")
 
   const pluginManifest = JSON.parse(await readFile(join(root, "plugin", "manifest.json"), "utf8"))
-  const standaloneManifest = JSON.parse(await readFile(join(root, "standalone-uxp-plugin", "manifest.json"), "utf8"))
   const ccxVersion = requireSemver(pluginManifest.version, "plugin manifest version")
-  requireEqual(standaloneManifest.version, ccxVersion, "standalone manifest version")
 
   const uxpMetadataPath = join(root, "dist", "uxp-release.json")
   let uxpMetadata
@@ -188,9 +186,7 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
 
 export async function verifyCcxRelease({ root = rootFromScript } = {}) {
   const pluginManifest = JSON.parse(await readFile(join(root, "plugin", "manifest.json"), "utf8"))
-  const standaloneManifest = JSON.parse(await readFile(join(root, "standalone-uxp-plugin", "manifest.json"), "utf8"))
   const ccxVersion = requireSemver(pluginManifest.version, "plugin manifest version")
-  requireEqual(standaloneManifest.version, ccxVersion, "standalone manifest version")
 
   const uxpMetadataPath = join(root, "dist", "uxp-release.json")
   let uxpMetadata
@@ -277,27 +273,14 @@ function readHref(anchor, label) {
   return match[1]
 }
 
-function readClassText(anchor, className, label) {
+function readElementText(html, attribute, label) {
+  const expectedAttribute = `${escapeRegExp(attribute)}(?:=["'][^"']*["'])?`
   const match = new RegExp(
-    `<[^>]+class=["'][^"']*\\b${escapeRegExp(className)}\\b[^"']*["'][^>]*>([\\s\\S]*?)<\\/[^>]+>`,
+    `<[^>]+(?=[^>]*\\b${expectedAttribute})[^>]*>([\\s\\S]*?)<\\/[^>]+>`,
     "i"
-  ).exec(anchor)
-  if (!match) {
-    fail(`${label} is missing .${className}`)
-  }
+  ).exec(html)
+  if (!match) fail(`${label} is missing ${attribute}`)
   return match[1].replace(/<[^>]*>/g, "").trim()
-}
-
-function formatBytes(size) {
-  const units = ["B", "KB", "MB", "GB"]
-  let value = size
-  let unitIndex = 0
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024
-    unitIndex += 1
-  }
-  const precision = value >= 10 || unitIndex === 0 ? 0 : 1
-  return `${value.toFixed(precision)} ${units[unitIndex]}`
 }
 
 function readLabeledValue(text, label) {
@@ -361,16 +344,14 @@ export async function verifySiteMetadata({
   }
 
   const html = materializeReleaseOrigin(await readFile(join(siteDir, "index.html"), "utf8"), releaseOrigin)
-  for (const [key, dataDownload] of [["ccx", "ccx"]]) {
-    const artifact = artifacts[key]
-    const expectedUrl = `${releaseBaseUrl}/${artifact.filename}`
-    const anchor = findAnchor(html, "data-download", dataDownload)
-    requireEqual(readHref(anchor, `site/index.html ${dataDownload} download`), expectedUrl, `site/index.html ${dataDownload} href`)
-    requireEqual(readClassText(anchor, "download-file", `site/index.html ${dataDownload} download`), artifact.filename, `site/index.html ${dataDownload} filename`)
-    requireEqual(readClassText(anchor, "download-size", `site/index.html ${dataDownload} download`), formatBytes(artifact.size), `site/index.html ${dataDownload} size`)
-  }
-  const releaseAnchor = findAnchor(html, "data-release-url")
-  requireEqual(readHref(releaseAnchor, "site/index.html release link"), expectedReleaseUrl, "site/index.html release href")
+  const ccx = artifacts.ccx
+  const ccxAnchor = findAnchor(html, "data-download", "ccx")
+  requireEqual(readHref(ccxAnchor, "site/index.html CCX download"), `${releaseBaseUrl}/${ccx.filename}`, "site/index.html CCX href")
+  requireEqual(ccxAnchor.replace(/<[^>]*>/g, "").trim(), "Download CCX", "site/index.html CCX label")
+  const webUiAnchor = findAnchor(html, "data-open-webui")
+  requireEqual(readHref(webUiAnchor, "site/index.html WebUI link"), "./webui/", "site/index.html WebUI href")
+  requireEqual(webUiAnchor.replace(/<[^>]*>/g, "").trim(), "Open WebUI", "site/index.html WebUI label")
+  requireEqual(readElementText(html, "data-ccx-version", "site/index.html specimen version"), version, "site/index.html specimen version")
 
   const llmsLowerRaw = materializeReleaseOrigin(await readFile(join(siteDir, "llms.txt"), "utf8"), releaseOrigin)
   const llmsUpperRaw = materializeReleaseOrigin(await readFile(join(siteDir, "LLM.TXT"), "utf8"), releaseOrigin)

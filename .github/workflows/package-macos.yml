@@ -1,4 +1,4 @@
-name: Package macOS
+name: Legacy Package macOS
 
 on:
   workflow_dispatch:
@@ -57,7 +57,7 @@ jobs:
         run: /usr/bin/python3 -m pip install --user --disable-pip-version-check Pillow
 
       - name: Run diagnostics tests
-        run: npm run test:diagnostics
+        run: npm run legacy:test:diagnostics
 
       - name: Run regression tests
         run: npm run test:regressions
@@ -70,7 +70,7 @@ jobs:
           --build-number "$REQUESTED_BUILD_NUMBER"
 
       - name: Package macOS app
-        run: npm run package:electron:mac:prepared
+        run: npm run legacy:package:electron:mac:prepared
 
       - name: Verify macOS archive
         shell: bash

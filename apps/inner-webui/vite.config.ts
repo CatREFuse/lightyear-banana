@@ -2,7 +2,6 @@ import { fileURLToPath, URL } from 'node:url'
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig, type Plugin } from 'vite'
 import { PROTOCOL_VERSION } from '../../packages/inner-protocol/src/index'
@@ -59,7 +58,7 @@ function webviewCsp(): Plugin {
       productionBuild = config.command === 'build'
     },
     transformIndexHtml(html, context) {
-      const connectSource = context.server ? "'self' ws://127.0.0.1:4173" : "'none'"
+      const connectSource = context.server ? "'self' http: https: ws:" : "'self' http: https:"
       const inlineStyleSource = context.server ? "'unsafe-inline'" : ''
       return html
         .replace('__CONNECT_SOURCE__', connectSource)
@@ -68,21 +67,23 @@ function webviewCsp(): Plugin {
     closeBundle() {
       if (!productionBuild) return
       const html = readFileSync(`${distRoot}/index.html`, 'utf8')
-      if (!html.includes("connect-src 'none'")) throw new Error('Production CSP must disable direct WebUI network access')
+      if (!html.includes("connect-src 'self' http: https:")) throw new Error('Production CSP must allow standalone Provider requests')
       if (/<script(?![^>]*\bsrc=)[^>]*>/i.test(html)) throw new Error('Production WebUI must not contain inline scripts')
     }
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: appRoot,
   base: './',
-  plugins: [vue(), tailwindcss(), webviewCsp(), releaseMetadata()],
+  plugins: [vue(), webviewCsp(), releaseMetadata()],
   define: {
     __WEBUI_VERSION__: JSON.stringify(webVersion),
-    __BUILD_COMMIT__: JSON.stringify(buildCommit)
+    __BUILD_COMMIT__: JSON.stringify(buildCommit),
+    __MUGEN_LEGACY_DESKTOP__: 'false',
+    __MUGEN_APP_ENV__: JSON.stringify(mode === 'production' ? 'production' : mode === 'test' ? 'test' : 'development')
   },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)), '@mugen/inner-protocol': fileURLToPath(new URL('../../packages/inner-protocol/src/index.ts', import.meta.url)) } },
   server: { host: '127.0.0.1', port: 4173, strictPort: true },
   build: { outDir: 'dist', assetsDir: 'assets', sourcemap: false, target: 'es2022' }
-})
+}))

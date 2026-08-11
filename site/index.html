@@ -1,132 +1,49 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="无幻 Mugen 是面向 Adobe Photoshop 的 AI 生图插件，可把画布、选区和图层作为参考图连接到图像模型。"
-    />
-    <meta property="og:title" content="无幻 Mugen" />
-    <meta
-      property="og:description"
-      content="在 Adobe Photoshop 里连接 AI 生图模型，把画布、选区和图层变成参考图。"
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="./assets/mugen-hero-imagegen.png" />
-    <title>无幻 Mugen</title>
-    <link rel="icon" href="./assets/mugen-app-icon.png" type="image/png" />
-    <link rel="apple-touch-icon" href="./assets/mugen-app-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#030303" />
+    <meta name="description" content="Mugen" />
+    <title>Mugen</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header class="site-header" aria-label="顶部导航">
-      <a class="brand" href="#top" aria-label="无幻首页">
-        <span class="brand-mark" aria-hidden="true">
-          <img src="./assets/mugen-app-icon.png" alt="" />
-        </span>
-        <span>无幻 Mugen</span>
-      </a>
-      <nav class="nav-links" aria-label="页面导航">
-        <a href="#downloads">下载</a>
-        <a href="#workflow">工作流</a>
-        <a href="#models">模型</a>
-        <a href="https://github.com/CatREFuse/lightyear-banana">GitHub</a>
-      </nav>
-    </header>
+    <main class="landing" aria-labelledby="brand-name">
+      <div class="grain" aria-hidden="true"></div>
+      <section class="hero">
+        <h1 id="brand-name" class="brand">
+          <img
+            src="./assets/mugen-wordmark-4k.png"
+            alt="Mugen"
+            width="4096"
+            height="2048"
+            decoding="async"
+            fetchpriority="high"
+          />
+        </h1>
 
-    <main id="top">
-      <section id="downloads" class="downloads hero" aria-labelledby="hero-title">
-        <div class="hero-layout">
-          <div class="hero-copy reveal">
-            <p class="eyebrow">Creative AI Workspace</p>
-            <h1 id="hero-title">无幻 Mugen</h1>
-            <p class="hero-lede">Adobe Photoshop 里的 AI 生图工作台</p>
-          </div>
+        <div class="optical-stage" data-optical-stage aria-hidden="true">
+          <canvas class="prism-canvas" data-prism-canvas></canvas>
+          <div class="prism-fallback"></div>
         </div>
 
-        <div class="download-grid">
+        <div class="release-actions" aria-label="Mugen releases">
           <a
-            class="download-item reveal"
+            class="liquid-button"
             data-download="ccx"
             href="__MUGEN_RELEASE_ORIGIN__/releases/1.0.0/mugen-1.0.0.ccx"
           >
-            <span class="download-logo-surface" aria-hidden="true">
-              <span class="platform-logo photoshop-wordmark">Adobe Photoshop</span>
-            </span>
-            <span class="download-kicker">Adobe Photoshop</span>
-            <strong>Adobe Photoshop 插件</strong>
-            <span class="download-file">mugen-1.0.0.ccx</span>
-            <span class="download-note">双击安装 · Photoshop 27.3+</span>
-            <span class="download-size" data-download-size="ccx">--</span>
+            <span>Download CCX</span>
+          </a>
+          <a class="liquid-button" data-open-webui href="./webui/">
+            <span>Open WebUI</span>
           </a>
         </div>
 
-        <div class="release-links reveal">
-          <a data-release-url href="__MUGEN_RELEASE_ORIGIN__/releases/1.0.0/SHA256SUMS.txt">SHA256SUMS</a>
-          <a href="./llms.txt">llms.txt</a>
-          <a data-github-url href="https://github.com/CatREFuse/lightyear-banana">GitHub 仓库</a>
-        </div>
-      </section>
-
-      <section id="workflow" class="workflow" aria-labelledby="workflow-title">
-        <div class="workflow-copy reveal">
-          <p class="eyebrow">Workflow</p>
-          <h2 id="workflow-title">从画布到结果</h2>
-          <p>参考图、提示词、模型配置和置入操作集中在一个工作台里完成。</p>
-        </div>
-        <div class="workflow-steps" aria-label="工作流">
-          <div class="step reveal">
-            <span>01</span>
-            <strong>捕捉参考</strong>
-            <p>读取当前画布、选区、图层、文件和剪贴板。</p>
-          </div>
-          <div class="step reveal">
-            <span>02</span>
-            <strong>调用模型</strong>
-            <p>切换云端模型、本地 ComfyUI 和自定义接口。</p>
-          </div>
-          <div class="step reveal">
-            <span>03</span>
-            <strong>置入文档</strong>
-            <p>把结果放回全画布、当前选区或参考图位置。</p>
-          </div>
-        </div>
-        <div class="showcase-grid">
-          <figure class="media-panel media-panel-large reveal">
-            <img src="./assets/mugen-workspace.png" alt="无幻工作台界面" />
-            <figcaption>工作台</figcaption>
-          </figure>
-          <figure class="media-panel reveal">
-            <img src="./assets/mugen-result-flow.png" alt="无幻结果流界面" />
-            <figcaption>结果流</figcaption>
-          </figure>
-        </div>
-      </section>
-
-      <section id="models" class="models" aria-labelledby="models-title">
-        <div class="section-heading reveal">
-          <p class="eyebrow">Models</p>
-          <h2 id="models-title">接入你的图像模型</h2>
-          <p>OpenAI、Gemini、APIMart、Seedream、Qwen、Kling、Flux、本地 ComfyUI 和 Codex Image Server 都能进入同一个工作台。</p>
-        </div>
-        <div class="model-line reveal" aria-label="模型供应商">
-          <span>OpenAI</span>
-          <span>Gemini</span>
-          <span>APIMart</span>
-          <span>ComfyUI</span>
-          <span>Codex Image Server</span>
-        </div>
+        <p class="specimen">CCX · Specimen No. <span data-ccx-version>1.0.0</span></p>
       </section>
     </main>
-
-    <footer class="site-footer">
-      <span>无幻 Mugen</span>
-      <span>GitHub Stars <strong data-github-stars>--</strong></span>
-      <a href="https://github.com/CatREFuse/lightyear-banana">GitHub</a>
-      <span>微信 decopycat</span>
-    </footer>
-
-    <script src="./app.js" type="module"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

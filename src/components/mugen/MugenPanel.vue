@@ -3,7 +3,6 @@ import { computed, shallowRef } from 'vue'
 import { buildInfo } from '../../buildInfo'
 import { useMugen, type MugenController } from '../../composables/useMugen'
 import { useThemePreferences, type ThemePreferencesController } from '../../composables/useThemePreferences'
-import { hasElectronBridge, openElectronPreviewImage } from '../../services/electronBridge'
 import type { DesktopPlatform, RuntimeName } from '../../types/mugen'
 import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
 import ComposerDock from './ComposerDock.vue'
@@ -18,9 +17,8 @@ const props = defineProps<{
   showWindowControls?: boolean
   controller?: MugenController
   version?: string
-  appUpdateCheckAvailable?: boolean
   diagnosticExportAvailable?: boolean
-  macPermissionSettingsAvailable?: boolean
+  photoshopIntegrationAvailable?: boolean
   themeController?: ThemePreferencesController
 }>()
 
@@ -47,22 +45,16 @@ const {
   customHeight,
   customWidth,
   deleteConfig,
-  deployWindows,
   diagnosticExportState,
-  crxLogExportState,
   duplicateConfig,
   editConfig,
   editGenerationRequest,
   exportDiagnostics,
-  exportCrxLogs,
   editingCapability,
   editingConfigId,
   enabledConfigs,
   generationLoading,
   installPluginUrl,
-  appUpdateState,
-  checkForUpdates,
-  openMacPermissionSettings,
   openPromptPresets,
   openSettings,
   placeImage,
@@ -93,7 +85,6 @@ const {
   upscaleImage,
   updateSettingsDraft,
   updatePromptPresets,
-  windowDeployState,
   useResultAsReference
 } = props.controller ?? localController!
 
@@ -106,6 +97,9 @@ const {
 } = props.themeController ?? localThemeController!
 const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
+const photoshopIntegrationAvailable = computed(() => (
+  props.photoshopIntegrationAvailable ?? props.runtime !== 'browser'
+))
 const previewDialogStyle = computed(() => {
   const image = previewImage.value
   if (!image) {
@@ -123,9 +117,10 @@ const previewDialogStyle = computed(() => {
       : `min(calc(100vw - 28px), calc((100vh - 96px) * ${ratio.toFixed(5)}))`
   }
 })
+const activeVersion = computed(() => props.version || buildInfo.version)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return `无幻 v${props.version || buildInfo.version}`
+    return `无幻 v${activeVersion.value}`
   }
 
   if (settingsView.value === 'list') {
@@ -149,14 +144,6 @@ function setWorkspaceMenu(owner: string) {
 
 async function openPreview(image: CapturedCanvasImage) {
   activeWorkspaceMenu.value = ''
-  if (props.runtime === 'electron' && hasElectronBridge()) {
-    try {
-      await openElectronPreviewImage(image)
-      return
-    } catch {
-    }
-  }
-
   previewImage.value = image
 }
 
@@ -233,16 +220,14 @@ function handleManageModels() {
       :in-settings="activeView === 'settings'"
       :install-plugin-url="installPluginUrl"
       :status="connectionStatus"
-      :titlebar-inset="props.runtime === 'electron' || props.showWindowControls"
+      :titlebar-inset="props.showWindowControls"
       :desktop-platform="props.desktopPlatform"
       :show-window-controls="props.showWindowControls"
       :color-mode="colorMode"
       :resolved-color-mode="resolvedColorMode"
       :visual-theme="visualTheme"
       :title="navigationTitle"
-      :window-deploy-state="windowDeployState"
       @back="handleHeaderBack"
-      @deploy-window="deployWindows"
       @menu-open="setWorkspaceMenu"
       @open-settings="handleOpenSettings"
       @set-color-mode="setColorMode"
@@ -258,29 +243,23 @@ function handleManageModels() {
         :configs="configs"
         :editing-capability="editingCapability"
         :editing-config-id="editingConfigId"
-        :mac-permission-settings-available="props.macPermissionSettingsAvailable ?? (props.runtime === 'electron' && props.desktopPlatform === 'darwin')"
-        :app-update-check-available="props.appUpdateCheckAvailable ?? props.runtime === 'electron'"
-        :diagnostic-export-available="props.diagnosticExportAvailable ?? props.runtime === 'electron'"
+        :diagnostic-export-available="props.diagnosticExportAvailable ?? false"
         :diagnostic-export-state="diagnosticExportState"
-        :crx-log-export-state="crxLogExportState"
         :provider-capabilities="providerCapabilities"
         :prompt-presets="promptPresets"
-        :app-update-state="appUpdateState"
         :settings-draft-is-new="settingsDraftIsNew"
         :settings-draft="settingsDraft"
         :settings-test-state="settingsTestState"
         :settings-view="settingsView"
+        :version="activeVersion"
         @close-detail="closeSettingsDetail"
         @clear-conversation-data="clearConversationData"
         @create="createConfig"
         @delete="deleteConfig"
         @duplicate="duplicateConfig"
         @download-diagnostics="exportDiagnostics"
-        @download-crx-logs="exportCrxLogs"
         @edit="editConfig"
-        @open-mac-permission-settings="openMacPermissionSettings"
         @open-prompt-presets="openPromptPresets"
-        @check-for-updates="checkForUpdates"
         @save="saveConfig"
         @test="testConfig"
         @toggle-enabled="toggleConfigEnabled"
@@ -299,6 +278,7 @@ function handleManageModels() {
           :active-menu-owner="activeWorkspaceMenu"
           :canvas-operation="canvasOperation"
           :loading="generationLoading"
+          :photoshop-integration-available="photoshopIntegrationAvailable"
           :turns="turns"
           @append="appendGeneration"
           @cancel="cancelGeneration"
@@ -331,6 +311,7 @@ function handleManageModels() {
           :custom-width="customWidth"
           :prompt="prompt"
           :prompt-presets="promptPresets"
+          :photoshop-integration-available="photoshopIntegrationAvailable"
           :quality="quality"
           :ratio="ratio"
           :references="references"

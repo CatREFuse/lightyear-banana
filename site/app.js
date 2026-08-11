@@ -1,120 +1,43 @@
-const releaseUrl = "./releases/latest.json"
-const githubRepoApiUrl = "https://api.github.com/repos/CatREFuse/lightyear-banana"
+import { createPrismScene } from './prism-scene.js'
 
-function setText(selector, value) {
-  document.querySelectorAll(selector).forEach((node) => {
-    node.textContent = value
-  })
-}
+const releaseUrl = './releases/latest.json'
 
-function setHref(selector, value) {
-  if (!value) {
-    return
+function updateRelease(release) {
+  const ccx = release?.downloads?.ccx
+  const download = document.querySelector('[data-download="ccx"]')
+  const version = document.querySelector('[data-ccx-version]')
+  const specimenVersion = typeof release?.ccxVersion === 'string'
+    ? release.ccxVersion
+    : /^mugen-(\d+\.\d+\.\d+)\.ccx$/.exec(ccx?.filename || '')?.[1]
+
+  if (specimenVersion && ccx?.url && download instanceof HTMLAnchorElement) {
+    download.href = ccx.url
   }
 
-  document.querySelectorAll(selector).forEach((node) => {
-    node.setAttribute("href", value)
-  })
-}
-
-function formatBytes(size) {
-  if (!Number.isFinite(size) || size <= 0) {
-    return ""
-  }
-
-  const units = ["B", "KB", "MB", "GB"]
-  let value = size
-  let unitIndex = 0
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024
-    unitIndex += 1
-  }
-
-  const precision = value >= 10 || unitIndex === 0 ? 0 : 1
-  return `${value.toFixed(precision)} ${units[unitIndex]}`
-}
-
-function formatCount(value) {
-  if (!Number.isFinite(value) || value < 0) {
-    return "--"
-  }
-
-  return new Intl.NumberFormat("en-US").format(value)
-}
-
-function updateDownloadLink(key, asset) {
-  const link = document.querySelector(`[data-download="${key}"]`)
-  if (!link || !asset) {
-    return
-  }
-
-  const fileLabel = link.querySelector(".download-file")
-  const sizeLabel = link.querySelector(".download-size")
-  link.setAttribute("href", asset.url)
-  if (fileLabel) {
-    fileLabel.textContent = asset.filename
-  }
-  if (sizeLabel) {
-    const formatted = formatBytes(asset.size)
-    if (formatted) {
-      sizeLabel.textContent = formatted
-    }
+  if (typeof specimenVersion === 'string' && version) {
+    version.textContent = specimenVersion
   }
 }
 
-async function hydrateRelease() {
+async function loadRelease() {
   try {
-    const response = await fetch(releaseUrl, { cache: "no-store" })
-    if (!response.ok) {
-      return
-    }
-
-    const release = await response.json()
-    setText("[data-release-version]", release.version)
-    setHref("[data-release-url]", release.releaseUrl)
-    setHref("[data-github-url]", release.githubUrl)
-    updateDownloadLink("ccx", release.downloads?.ccx)
+    const response = await fetch(releaseUrl, { cache: 'no-store' })
+    if (!response.ok) return
+    updateRelease(await response.json())
   } catch {
-    return
+    // Keep the static CCX fallback available when release metadata cannot be loaded.
   }
 }
 
-async function hydrateGithubStars() {
+const canvas = document.querySelector('[data-prism-canvas]')
+const stage = document.querySelector('[data-optical-stage]')
+
+if (canvas instanceof HTMLCanvasElement && stage instanceof HTMLElement) {
   try {
-    const response = await fetch(githubRepoApiUrl, {
-      headers: {
-        Accept: "application/vnd.github+json"
-      }
-    })
-    if (!response.ok) {
-      return
-    }
-
-    const repo = await response.json()
-    setText("[data-github-stars]", formatCount(repo.stargazers_count))
+    createPrismScene(canvas, stage)
   } catch {
-    return
+    stage.classList.add('webgl-unavailable')
   }
 }
 
-function mountReveal() {
-  const items = document.querySelectorAll(".reveal")
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("is-visible")
-          observer.unobserve(entry.target)
-        }
-      })
-    },
-    { threshold: 0.18 }
-  )
-
-  items.forEach((item) => observer.observe(item))
-}
-
-hydrateRelease()
-hydrateGithubStars()
-mountReveal()
+loadRelease()

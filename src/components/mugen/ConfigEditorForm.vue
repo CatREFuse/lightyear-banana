@@ -2,6 +2,7 @@
 import { computed, shallowRef } from 'vue'
 import { normalizeComfyUiSettings } from '../../data/comfyUiDefaults'
 import { normalizeCustomModelFormat, providerRequiresApiKey, providerSupportsQuality } from '../../data/providerCapabilities'
+import { canConfigureDevelopmentApimartBaseUrl } from '../../utils/apimartDevelopmentConfig'
 import type {
   ComfyUiNodeMapping,
   ComfyUiNodeMappingType,
@@ -80,15 +81,16 @@ const isComfyUi = computed(() => props.settingsDraft.provider === 'comfyui')
 const isCodexImageServer = computed(() => props.settingsDraft.provider === 'codex-image-server')
 const isCustomProvider = computed(() => props.settingsDraft.provider === 'custom-openai')
 const customFormat = computed<CustomModelFormat>(() => normalizeCustomModelFormat(props.settingsDraft.customFormat))
-const showsBaseUrlField = computed(() => props.editingCapability.supportsBaseUrl)
-const baseUrlIsDisabled = computed(() => !props.editingCapability.supportsBaseUrl)
+const allowsDevelopmentApimartBaseUrl = computed(() => canConfigureDevelopmentApimartBaseUrl(props.settingsDraft))
+const showsBaseUrlField = computed(() => props.editingCapability.supportsBaseUrl || allowsDevelopmentApimartBaseUrl.value)
+const baseUrlIsDisabled = computed(() => !showsBaseUrlField.value)
 const showApiKeyField = computed(() =>
   props.settingsDraft.provider === 'comfyui' ||
   props.settingsDraft.provider === 'codex-image-server' ||
   providerRequiresApiKey(props.settingsDraft.provider)
 )
 const baseUrlPlaceholder = computed(() => {
-  return props.editingCapability.supportsBaseUrl ? '请输入 URL' : '官方默认'
+  return showsBaseUrlField.value ? '请输入 URL' : '官方默认'
 })
 const customModelPlaceholder = computed(() => {
   if (customFormat.value === 'gemini') {

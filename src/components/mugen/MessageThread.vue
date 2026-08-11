@@ -16,6 +16,7 @@ const props = defineProps<{
   activeMenuOwner?: string
   canvasOperation: CanvasOperationState
   loading: GenerationLoadingState[]
+  photoshopIntegrationAvailable: boolean
   turns: ChatTurn[]
 }>()
 
@@ -422,7 +423,7 @@ watch(
       <div v-if="turns.length === 0 && loading.length === 0" class="empty-state">
         <BoxIcon name="image" size="15" />
         <span>READY</span>
-        <small>输入提示词，或从 Photoshop 添加参考图</small>
+        <small>{{ photoshopIntegrationAvailable ? '输入提示词，或从 Photoshop 添加参考图' : '输入提示词，或添加参考图' }}</small>
       </div>
     </Transition>
 
@@ -520,8 +521,8 @@ watch(
                   @load="handleResultImageLoad($event, image)"
                 />
               </button>
-              <div class="result-actions">
-                <div class="place-control">
+              <div class="result-actions" :class="{ 'without-placement': !photoshopIntegrationAvailable }">
+                <div v-if="photoshopIntegrationAvailable" class="place-control">
                   <button
                     class="place-primary action-tooltip"
                     type="button"
@@ -1038,6 +1039,10 @@ watch(
   border-radius: 0 0 7px 7px;
   background: var(--mugen-thread-card-deep);
   overflow: visible;
+}
+
+.result-actions.without-placement {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .result-actions button {

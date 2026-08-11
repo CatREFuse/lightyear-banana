@@ -109,7 +109,7 @@ function copyDist(uxpRelease) {
 }
 
 if (!existsSync(path.join(projectRoot, 'dist', 'index.html'))) {
-  console.error('Web build not found. Run npm run build:web first.')
+  console.error('Legacy desktop web build not found. Run npm run legacy:build:web first.')
   process.exit(1)
 }
 

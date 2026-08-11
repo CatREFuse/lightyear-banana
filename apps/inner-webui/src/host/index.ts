@@ -6,6 +6,12 @@ export function expectsUxpHost(search: string): boolean {
   return new URLSearchParams(search).get('host') === 'uxp'
 }
 
+export type WebUiRuntime = 'browser' | 'embedded'
+
+export function resolveWebUiRuntime(value: Window = window): WebUiRuntime {
+  return hasUxpHost(value) || expectsUxpHost(value.location.search) ? 'embedded' : 'browser'
+}
+
 class UnavailableHostClient implements HostClient {
   readonly mode = 'unavailable' as const
   private reject<T>(): Promise<T> { return Promise.reject(new HostClientError({ code: 'HOST_UNAVAILABLE', message: '请在 Photoshop 的无幻插件中打开', recoverable: false })) }

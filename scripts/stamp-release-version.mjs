@@ -33,12 +33,8 @@ const targetFiles = {
   packageJson: 'package.json',
   packageLock: 'package-lock.json',
   pluginManifest: 'plugin/manifest.json',
-  standaloneManifest: 'standalone-uxp-plugin/manifest.json',
   electronMain: 'electron/main.js',
   buildInfo: 'src/buildInfo.ts',
-  standaloneIndex: 'standalone-uxp-plugin/index.html',
-  standaloneMain: 'standalone-uxp-plugin/main.js',
-  standalonePackage: 'standalone-uxp-plugin/package.mjs',
   readme: 'README.md'
 }
 
@@ -87,12 +83,10 @@ function stageText(stagedFiles, relativePath, update) {
 function stageReleaseVersion() {
   const stagedFiles = new Map()
   const pluginManifest = JSON.parse(readText(targetFiles.pluginManifest))
-  const standaloneManifest = JSON.parse(readText(targetFiles.standaloneManifest))
 
   if (typeof pluginManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(pluginManifest.version)) {
     throw new Error('plugin manifest version must use x.y.z format')
   }
-  assertEqual(standaloneManifest.version, pluginManifest.version, 'standalone manifest version')
   const ccxVersion = pluginManifest.version
 
   stageJson(stagedFiles, targetFiles.packageJson, (packageJson) => {
@@ -129,33 +123,6 @@ function stageReleaseVersion() {
     )
   })
 
-  stageText(stagedFiles, targetFiles.standaloneIndex, (source) =>
-    replaceExactlyOnce(
-      source,
-      /Mugen v\d+\.\d+\.\d+/,
-      `Mugen v${version}`,
-      'standalone index version'
-    )
-  )
-
-  stageText(stagedFiles, targetFiles.standaloneMain, (source) =>
-    replaceExactlyOnce(
-      source,
-      /const APP_TITLE = 'Mugen v\d+\.\d+\.\d+'/,
-      `const APP_TITLE = 'Mugen v${version}'`,
-      'standalone app title version'
-    )
-  )
-
-  stageText(stagedFiles, targetFiles.standalonePackage, (source) =>
-    replaceExactlyOnce(
-      source,
-      /mugen-standalone-\d+\.\d+\.\d+\.zip/,
-      `mugen-standalone-${version}.zip`,
-      'standalone archive version'
-    )
-  )
-
   stageText(stagedFiles, targetFiles.readme, (source) => {
     let updated = replaceAllMatches(
       source,
@@ -191,7 +158,6 @@ function verifyReleaseVersion(read = readText) {
   const packageJson = readTargetJson(targetFiles.packageJson)
   const packageLock = readTargetJson(targetFiles.packageLock)
   const pluginManifest = readTargetJson(targetFiles.pluginManifest)
-  const standaloneManifest = readTargetJson(targetFiles.standaloneManifest)
 
   assertEqual(packageJson.version, version, 'package.json version')
   assertEqual(packageLock.version, version, 'package-lock.json version')
@@ -199,7 +165,6 @@ function verifyReleaseVersion(read = readText) {
   if (typeof pluginManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(pluginManifest.version)) {
     throw new Error('plugin manifest version must use x.y.z format')
   }
-  assertEqual(standaloneManifest.version, pluginManifest.version, 'standalone manifest version')
   const ccxVersion = pluginManifest.version
   const assertTargetContains = (relativePath, expected, label) => {
     if (!read(relativePath).includes(expected)) {
@@ -213,17 +178,6 @@ function verifyReleaseVersion(read = readText) {
     targetFiles.buildInfo,
     `displayVersion: 'v${version}+${buildNumber}'`,
     'buildInfo display version'
-  )
-  assertTargetContains(targetFiles.standaloneIndex, `Mugen v${version}`, 'standalone index version')
-  assertTargetContains(
-    targetFiles.standaloneMain,
-    `const APP_TITLE = 'Mugen v${version}'`,
-    'standalone app title version'
-  )
-  assertTargetContains(
-    targetFiles.standalonePackage,
-    `mugen-standalone-${version}.zip`,
-    'standalone archive version'
   )
   assertTargetContains(targetFiles.readme, `mugen-${version}-mac.zip`, 'README macOS archive version')
   assertTargetContains(targetFiles.readme, `mugen-${version}-win.zip`, 'README Windows archive version')

@@ -1,44 +1,75 @@
 # 生图 API Mock Server 手册
 
-更新时间：2026-04-27
+更新时间：2026-08-11
 
-## 启动
+Mugen vNext 的正式冒烟只使用 APIMart 格式固定猫图夹具。本文后半部分记录的多 Provider 随机猫图模式保留用于历史回归，不计入 vNext 双运行时验收。
+
+## vNext APIMart 固定猫图夹具
 
 ```bash
-node scripts/mock-image-api-server.mjs
+npm run smoke:apimart-server
 ```
 
 默认地址：
 
 ```text
-http://127.0.0.1:38322
+http://127.0.0.1:38323
 ```
 
-成功生图响应默认会随机等待 3 到 5 秒。可以用环境变量调整：
+测试 Key：
+
+```text
+mock-apimart-good
+```
+
+可以使用环境变量设置 loopback host 和端口：
 
 ```bash
-MUGEN_MOCK_IMAGE_API_DELAY_MIN_MS=3000 \
-MUGEN_MOCK_IMAGE_API_DELAY_MAX_MS=5000 \
+MUGEN_APIMART_SMOKE_HOST=127.0.0.1 MUGEN_APIMART_SMOKE_PORT=38323 npm run smoke:apimart-server
+```
+
+固定图片为 `public/mock-images/cats/cat-01.jpg`。模型、数量和请求路径无论如何变化，所有成功图片都返回该文件。同一任务在创建、轮询和图片获取阶段保持相同内容。
+
+可观测接口：
+
+- `GET /__smoke/state`：读取模型检查、上传、生成、轮询、图片下载和请求序列。
+- `POST /__smoke/reset`：清空任务和请求状态。
+- `GET /fixtures/cat.jpg`：获取固定图片。
+
+APIMart endpoint：
+
+- `GET /v1/models`
+- `POST /v1/uploads/images`
+- `POST /v1/images/generations`
+- `GET /v1/tasks/{task_id}`
+
+vNext 工作台不会在生产首次启动时自动启用该夹具。
+
+### vNext 双运行时验收
+
+普通浏览器中通过标准 APIMart 配置填写 loopback Base URL 和测试 Key，完成配置测试、保存、页面重载、生成提交、任务查询和固定小猫结果展示。浏览器测试同时断言界面中没有 Photoshop 读取或置入入口。
+
+Photoshop CCX 中使用同一 APIMart 配置，先抓取真实画布内容，再完成参考图上传、生成、轮询和固定小猫获取，最后把结果置入当前文档并验证新图层。
+
+夹具请求记录必须证明上传、生成、轮询与图片获取真实发生。只看到小猫图片不能替代请求记录断言。
+
+## 历史通用 Mock Server
+
+通用多 Provider Mock Server 保留用于旧回归：
+
+```bash
 node scripts/mock-image-api-server.mjs
 ```
 
-也可以指定端口：
+默认地址为 `http://127.0.0.1:38322`。成功响应默认随机等待 3 到 5 秒，可用 `MUGEN_MOCK_IMAGE_API_DELAY_MIN_MS`、`MUGEN_MOCK_IMAGE_API_DELAY_MAX_MS` 和 `MUGEN_MOCK_IMAGE_API_PORT` 调整。
 
-```bash
-MUGEN_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
-```
-
-前端设置页打开 `Mock Server` 后，OpenAI、Google Gemini、Qwen-Image、Kling、Seedream、自定义 OpenAI 兼容配置都会请求这个本地地址。
-
-关闭 `Mock Server` 时，前端会按 Provider 直接请求真实 API。自定义 OpenAI 兼容配置使用配置里的 Base URL。
-
-### APIMart 固定猫图夹具
+旧 APIMart profile 仍可启动：
 
 ```bash
 npm run mock:apimart
 ```
 
-该模式使用 `mock-good-apimart`，固定返回 `public/mock-images/cats/cat-01.jpg`，并提供 APIMart 的模型列表、参考图上传、任务创建和任务轮询接口。成功结果以内联图片返回，适合在 Photoshop Host 中完成本地端到端测试。
+该 profile 使用 `mock-good-apimart` 并固定 `cat-01.jpg`。vNext 双运行时门禁以独立的 `apimart-smoke-server.mjs`、`/__smoke/state` 和 `mock-apimart-good` 为准。
 
 APIMart 配置使用 `mock-*` Key 且 Base URL 为 `127.0.0.1`、`localhost` 或 `::1` 时，请求会发往该本地地址。真实 Key 继续使用官方地址。
 
@@ -85,7 +116,7 @@ Bad case：
 
 ## 返回结构
 
-Mock Server 使用项目内 20 张 CC0 猫咪照片作为返回结果。每次成功请求都会随机抽样，Kling 的创建任务和任务结果会保持同一组随机图片：
+通用历史模式使用项目内 20 张 CC0 猫咪照片并随机抽样。APIMart vNext 模式不使用该随机逻辑，始终选择 `cat-01.jpg`。通用模式中的 Kling 创建任务和任务结果会保持同一组随机图片：
 
 ```text
 public/mock-images/cats/cat-01.jpg

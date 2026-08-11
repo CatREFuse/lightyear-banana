@@ -1,16 +1,18 @@
 # UXP UI Runtime 强制规则
 
-本项目运行在 Photoshop UXP runtime 中。面板 UI 只能使用经过 UXP 验证的 HTML、CSS、JavaScript 和 Spectrum 组件。所有前端改动都按本文执行。
+本文只约束 Photoshop UXP Host 壳及其原生控件。Mugen WebUI vNext 运行在 CCX 本地 WebView 与普通浏览器中，使用从 Electron UI 源码平移的浏览器组件；WebUI 不按本文改写为 Spectrum 工作台。
+
+Host 壳中的按钮、状态、占位与恢复控件只能使用经过 UXP 验证的 HTML、CSS、JavaScript 和 Spectrum 组件。WebUI 仍需在 Photoshop WebView 中实测，但其规则以 `docs/inner-webui-prd.md`、`docs/mugen-interaction-spec.md` 和 `ref/framework-build.md` 为准。
 
 ## 基本原则
 
-- 默认使用 Vue 3 + Vite + TypeScript 输出静态 IIFE bundle。
+- Host 壳使用 Vite + TypeScript 输出静态 IIFE bundle。
 - 默认使用普通 HTML 容器加 UXP 支持的 CSS 做布局。
 - 所有交互控件优先使用 Spectrum UXP Widgets。
 - 需要新增 Spectrum Web Components 时，必须使用 Adobe UXP 文档推荐的 SWC wrapper 方案。
 - 不直接引入浏览器网页里的通用 UI 组件库。
 - 不依赖完整 Chromium、完整 DOM、完整 CSS 或完整 HTML5 表单能力。
-- 改 UI 后必须运行 `npm run build:uxp`。
+- 改 Host 壳或 WebUI 后必须运行 `npm run build:uxp`。
 - 改 manifest、权限、entrypoint、SWC 开关后必须运行 `npm run verify:uxp`，并在 UXP Developer Tools 中 `Unload` / `Load`。
 
 ## 控件选型规则
@@ -193,29 +195,27 @@ Spectrum UXP Widgets 是当前项目的默认控件方案。新增控件时先�
 - 复杂 `z-index` 覆盖输入控件
 - `window.devicePixelRatio` 精确判断
 - `baseline` 对齐作为关键布局依据
-- 只在浏览器预览中表现正常的 CSS trick
+- 只在普通浏览器测试、尚未在 Photoshop Host 壳实测的 CSS trick
 
 ## WebView 使用边界
 
-WebView 只用于原生 UXP UI 无法稳定实现的复杂界面，例如富文本编辑器、大型组件库、复杂动画或完整浏览器布局需求。
+Mugen vNext 的完整工作台运行在 CCX 本地 WebView 中，并与普通浏览器使用同源构建。UXP 原生 UI 只承担 Host 壳、连接状态和无法进入 WebView 时的恢复入口。
 
-启用 WebView 前必须补充单独设计文档，写清楚：
-
-- WebView 负责的页面范围。
-- UXP panel 与 WebView 的通信协议。
-- 文件、网络、剪贴板、宿主 Photoshop API 的调用边界。
-- 打包方式。
-- 安全限制。
-- UXP Developer Tools 验证步骤。
+- WebView 入口使用 CCX 内嵌的 `plugin:/webui/index.html`，不依赖公网页面才能启动。
+- Photoshop API、文件 token、SecureStorage、imaging 与 modal execution 只由 Host 执行。
+- WebView 通过受信任 local-only bridge 和版本化协议调用 Host。
+- 普通浏览器选择 Browser adapter，不提供 Photoshop 能力。
+- 大图通过 asset ID 或受控传输处理，不在消息桥反复复制完整 RGBA。
+- 打包、安全、协议和双运行时门禁以 `docs/inner-webui-prd.md` 为准。
 
 ## 代码实现要求
 
-- Vue 组件只写 UI、交互状态和用户操作入口。
-- Photoshop API、batchPlay、文件系统、网络适配放到 `src/uxp/` 或 composable。
+- WebUI Vue 组件只写 UI、交互状态和用户操作入口，并消费 runtime capability contract。
+- Photoshop API、batchPlay、UXP 文件系统和 SecureStorage 放到 `src/uxp/` Host 层。
 - 组件中不拼复杂 batchPlay descriptor。
 - 错误信息面向普通用户，避免出现 descriptor、manifest、bundle、runtime 等工程词。
 - 所有长任务都需要 busy 状态和可见进度或状态。
-- 面板最小宽度按 `plugin/manifest.json` 的 `minimumSize.width` 验证。
+- Host 壳和 WebView 都按 `plugin/manifest.json` 的 `minimumSize.width` 验证。
 
 ## 验证清单
 
@@ -227,6 +227,8 @@ WebView 只用于原生 UXP UI 无法稳定实现的复杂界面，例如富文�
 - 改 manifest 或 SWC 后执行 `Unload` / `Load`。
 - Photoshop 中 `light`、`dark` 主题可读。
 - 停靠尺寸和浮动尺寸都不溢出。
+- 普通浏览器中共同功能可用，Photoshop 专属入口不存在。
+- 真实 Photoshop 中 WebView、Host 握手、画布抓取和结果置入可用。
 - 所有按钮、输入、下拉、滑块可以操作。
 - 控件文案没有工程说明。
 - console 没有 fatal error。

@@ -1,5 +1,4 @@
 import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
-import { buildInfo } from '../buildInfo'
 import { createDefaultComfyUiSettings, normalizeComfyUiSettings } from '../data/comfyUiDefaults'
 import {
   defaultModelConfigs,
@@ -20,8 +19,6 @@ import {
 } from '../services/imageApiClient'
 import {
   type AppView,
-  type AppUpdateCheckResult,
-  type AppUpdateCheckState,
   type CanvasOperationState,
   type ChatTurn,
   type DiagnosticExportState,
@@ -30,7 +27,6 @@ import {
   type GenerationRequestSnapshot,
   type GenerationLoadingState,
   type ImageRequestLogEntry,
-  type MacPermissionPane,
   type ModelConfig,
   type PlacementTarget,
   type PromptPreset,
@@ -40,9 +36,6 @@ import {
   type RuntimeName,
   type SettingsTestState,
   type SettingsView,
-  type WindowDeployResult,
-  type WindowDeploySide,
-  type WindowDeployState
 } from '../types/mugen'
 import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
 import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
@@ -58,7 +51,6 @@ import {
 import {
   deserializeCanvasImage,
   exportElectronDiagnostics,
-  exportElectronCrxLogs,
   getElectronBridgeStatus,
   hasElectronBridge,
   invokeElectronBridge,
@@ -70,6 +62,7 @@ import {
   writeElectronStoredSettings
 } from '../services/electronBridge'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
+import { canUseDevelopmentApimartBaseUrl } from '../utils/apimartDevelopmentConfig'
 
 const referenceLabels: Record<ReferenceSource, string> = {
   visible: '可见图层',
@@ -295,7 +288,7 @@ function cloneModelConfig(config: ModelConfig): ModelConfig {
     provider,
     model,
     models,
-    baseUrl: capability.supportsBaseUrl ? config.baseUrl : '',
+    baseUrl: capability.supportsBaseUrl || canUseDevelopmentApimartBaseUrl({ ...config, provider }) ? config.baseUrl : '',
     usesOfficialBaseUrl: false,
     customFormat,
     comfyUi: provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
@@ -574,24 +567,29 @@ function readStoredSettings(): StoredSettings {
     promptPresets: []
   }
 
-  try {
-    const electronStoredSettings = readElectronStoredSettings()
-    if (electronStoredSettings) {
-      const parsed = electronStoredSettings as Partial<StoredSettings>
-      const configs = normalizeConfigs(parsed.configs)
-      const activeConfigId =
-        typeof parsed.activeConfigId === 'string' && configs.some((config) => config.id === parsed.activeConfigId)
-          ? parsed.activeConfigId
-          : configs[0]?.id ?? ''
+  if (__MUGEN_LEGACY_DESKTOP__) {
+    try {
+      const electronStoredSettings = readElectronStoredSettings()
+      if (electronStoredSettings) {
+        const parsed = electronStoredSettings as Partial<StoredSettings>
+        const configs = normalizeConfigs(parsed.configs)
+        const activeConfigId =
+          typeof parsed.activeConfigId === 'string' && configs.some((config) => config.id === parsed.activeConfigId)
+            ? parsed.activeConfigId
+            : configs[0]?.id ?? ''
 
-      return {
-        activeConfigId,
-        configs,
-        generationHistory: normalizeStoredTurns(parsed.generationHistory),
-        promptPresets: normalizePromptPresets(parsed.promptPresets)
+        return {
+          activeConfigId,
+          configs,
+          generationHistory: normalizeStoredTurns(parsed.generationHistory),
+          promptPresets: normalizePromptPresets(parsed.promptPresets)
+        }
       }
+    } catch {
     }
+  }
 
+  try {
     const raw = localStorage.getItem(settingsStorageKey) ?? localStorage.getItem(legacySettingsStorageKey)
     if (!raw) {
       return fallback
@@ -621,12 +619,14 @@ function writeStoredSettings(settings: StoredSettings) {
   } catch {
   }
 
-  void writeElectronStoredSettings(settings)
+  if (__MUGEN_LEGACY_DESKTOP__) {
+    void writeElectronStoredSettings(settings)
+  }
 }
 
 export function useMugen(runtime: RuntimeName) {
   const storedSettings = readStoredSettings()
-  const isElectronRuntime = runtime === 'electron'
+  const isElectronRuntime = __MUGEN_LEGACY_DESKTOP__ && runtime === 'electron'
   const initialConfig =
     storedSettings.configs.find((config) => config.id === storedSettings.activeConfigId) ??
     storedSettings.configs[0] ??
@@ -635,8 +635,8 @@ export function useMugen(runtime: RuntimeName) {
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Mugen App' : '浏览器预览')
-  const connectionStatus = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Photoshop 未连接' : '浏览器预览')
+  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Mugen App' : 'Mugen WebUI')
+  const connectionStatus = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Photoshop 未连接' : '浏览器模式')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
   const prompt = shallowRef('')
@@ -655,19 +655,9 @@ export function useMugen(runtime: RuntimeName) {
   const installPluginUrl = shallowRef('')
   const editingConfigId = shallowRef(activeConfigId.value)
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
-  const windowDeployState = shallowRef<WindowDeployState>({ status: 'idle', message: '' })
-  const appUpdateState = shallowRef<AppUpdateCheckState>({
-    status: 'idle',
-    message: `当前版本 v${buildInfo.version}`,
-    currentVersion: buildInfo.version
-  })
   const diagnosticExportState = shallowRef<DiagnosticExportState>({
     status: 'idle',
     message: '最近 24 小时'
-  })
-  const crxLogExportState = shallowRef<DiagnosticExportState>({
-    status: 'idle',
-    message: '最近 24 小时插件连接记录'
   })
   const toastMessage = shallowRef('')
   const generationLoading = shallowRef<GenerationLoadingState[]>([])
@@ -908,7 +898,7 @@ function readHighestQuality(options: string[]): string {
   function recordGenerationRequestLog(taskId: string, requestLogs: ImageRequestLogEntry[], entry: ImageRequestLogEntry) {
     requestLogs.push(entry)
     appendGenerationRequestLog(taskId, entry)
-    if (isElectronRuntime) {
+    if (__MUGEN_LEGACY_DESKTOP__ && isElectronRuntime) {
       recordElectronGenerationRequest(entry)
     }
   }
@@ -942,13 +932,13 @@ function readHighestQuality(options: string[]): string {
   }
 
   function refreshDocument() {
-    if (isElectronRuntime) {
+    if (__MUGEN_LEGACY_DESKTOP__ && isElectronRuntime) {
       connectionStatus.value = hasElectronBridge() ? 'Photoshop 未连接' : 'Photoshop 未连接'
       return
     }
 
     documentLabel.value = readActiveDocumentLabel()
-    connectionStatus.value = canUsePhotoshop.value ? 'Photoshop 已连接' : runtime === 'browser' ? '浏览器预览' : 'Photoshop 未连接'
+    connectionStatus.value = canUsePhotoshop.value ? 'Photoshop 已连接' : runtime === 'browser' ? '浏览器模式' : 'Photoshop 未连接'
   }
 
   async function refreshElectronDocument() {
@@ -973,7 +963,7 @@ function readHighestQuality(options: string[]): string {
     const startedAt = performance.now()
     try {
       await action()
-      if (isElectronRuntime) {
+      if (__MUGEN_LEGACY_DESKTOP__ && isElectronRuntime) {
         await refreshElectronDocument()
       } else {
         refreshDocument()
@@ -1026,13 +1016,13 @@ function readHighestQuality(options: string[]): string {
         return
       }
 
-      if (!canUseElectronBridge.value && !canUsePhotoshop.value) {
+      if (!(__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) && !canUsePhotoshop.value) {
         status.value = '请在 Mugen App 或 Photoshop 面板中添加参考'
         return
       }
 
       if (source === 'visible') {
-        const image = canUseElectronBridge.value
+        const image = __MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureVisible'))
           : await canvasPrimitiveService.captureVisibleReferenceImage()
         addReferenceImage(source, image)
@@ -1040,7 +1030,7 @@ function readHighestQuality(options: string[]): string {
       }
 
       if (source === 'selection') {
-        const image = canUseElectronBridge.value
+        const image = __MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureSelection'))
           : await canvasPrimitiveService.captureSelectionReferenceImage()
         addReferenceImage(source, image)
@@ -1048,7 +1038,7 @@ function readHighestQuality(options: string[]): string {
       }
 
       if (source === 'layer') {
-        const image = canUseElectronBridge.value
+        const image = __MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value
           ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureLayer'))
           : await canvasPrimitiveService.captureSelectedLayerReferenceImage()
         addReferenceImage(source, image)
@@ -1060,7 +1050,7 @@ function readHighestQuality(options: string[]): string {
   }
 
   async function pickUploadReferenceImage() {
-    if (canUseElectronBridge.value) {
+    if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
       const image = await invokeElectronBridge<ReturnType<typeof serializeCanvasImage> | null>('reference.pickUpload')
 
       return image ? deserializeCanvasImage(image) : null
@@ -1074,7 +1064,7 @@ function readHighestQuality(options: string[]): string {
   }
 
   async function readClipboardReferenceImage() {
-    if (canUseElectronBridge.value) {
+    if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
       return deserializeCanvasImage(await invokeElectronBridge('reference.readClipboard'))
     }
 
@@ -1268,7 +1258,7 @@ function readHighestQuality(options: string[]): string {
       return undefined
     }
 
-    if (canUseElectronBridge.value) {
+    if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
       return invokeElectronBridge<{ width: number; height: number }>('canvas.readSize')
     }
 
@@ -1773,7 +1763,7 @@ function readHighestQuality(options: string[]): string {
     await runCanvasAction({ type: 'place', label: '正在置入', imageId: image.id }, async () => {
       const placeableImage = image
 
-      if (canUseElectronBridge.value) {
+      if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
         await invokeElectronBridge('canvas.placeImage', {
           image: serializeCanvasImage(placeableImage),
           target: serializePlacementTarget(target, placeableImage)
@@ -1825,7 +1815,7 @@ function readHighestQuality(options: string[]): string {
     status.value = '正在保存图片'
 
     try {
-      if (canUseElectronBridge.value) {
+      if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
         const result = await invokeElectronBridge<{ saved: boolean }>('result.saveImage', {
           fileName: readGeneratedImageFileName(image),
           height: image.height,
@@ -2075,136 +2065,8 @@ function readHighestQuality(options: string[]): string {
     status.value = 'API 配置可用'
   }
 
-  async function deployWindows(side: WindowDeploySide) {
-    if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Mugen App 中使用'
-      windowDeployState.value = { status: 'error', message }
-      status.value = message
-      return
-    }
-
-    windowDeployState.value = { status: 'deploying', message: '正在部署窗口' }
-    status.value = '正在部署窗口'
-
-    try {
-      const result = await withTimeout(
-        invokeElectronBridge<WindowDeployResult>('app.deployWindows', { side }),
-        10000,
-        '窗口部署超时'
-      )
-      const message = result.photoshopAdjusted ? result.message : `App 已部署，${result.message}`
-      windowDeployState.value = {
-        status: result.photoshopAdjusted ? 'success' : 'error',
-        message
-      }
-      status.value = message
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '窗口部署失败'
-      windowDeployState.value = { status: 'error', message }
-      status.value = message
-    }
-  }
-
-  async function openMacPermissionSettings(pane: MacPermissionPane) {
-    if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Mugen App 中使用'
-      status.value = message
-      return
-    }
-
-    try {
-      const result = await invokeElectronBridge<{ message: string }>('app.openMacPermissionSettings', { pane })
-      status.value = result.message
-      showToast(result.message)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '无法打开系统设置'
-      status.value = message
-      showToast(message)
-    }
-  }
-
-  async function checkForUpdates() {
-    if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Mugen App 中使用'
-      appUpdateState.value = {
-        status: 'error',
-        message,
-        currentVersion: buildInfo.version
-      }
-      status.value = message
-      showToast(message)
-      return
-    }
-
-    appUpdateState.value = {
-      status: 'checking',
-      message: '正在检查更新',
-      currentVersion: appUpdateState.value.currentVersion ?? buildInfo.version,
-      latestVersion: appUpdateState.value.latestVersion,
-      checkedAt: appUpdateState.value.checkedAt
-    }
-    status.value = '正在检查更新'
-
-    try {
-      const result = await withTimeout(
-        invokeElectronBridge<AppUpdateCheckResult>('app.checkForUpdates'),
-        15000,
-        '更新检测超时'
-      )
-
-      if (result.status === 'available') {
-        const message = `v${result.latestVersion} 可下载`
-        appUpdateState.value = {
-          status: 'available',
-          message,
-          currentVersion: result.currentVersion,
-          latestVersion: result.latestVersion,
-          checkedAt: result.checkedAt
-        }
-        status.value = message
-        showToast(message)
-        return
-      }
-
-      if (result.status === 'current') {
-        const message = '已是最新版本'
-        appUpdateState.value = {
-          status: 'current',
-          message,
-          currentVersion: result.currentVersion,
-          latestVersion: result.latestVersion,
-          checkedAt: result.checkedAt
-        }
-        status.value = message
-        showToast(message)
-        return
-      }
-
-      const message = result.message || '更新检测失败'
-      appUpdateState.value = {
-        status: 'error',
-        message,
-        currentVersion: result.currentVersion || buildInfo.version,
-        latestVersion: result.latestVersion,
-        checkedAt: result.checkedAt
-      }
-      status.value = message
-      showToast(message)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '更新检测失败'
-      appUpdateState.value = {
-        status: 'error',
-        message,
-        currentVersion: buildInfo.version,
-        checkedAt: new Date().toISOString()
-      }
-      status.value = message
-      showToast(message)
-    }
-  }
-
   async function exportDiagnostics() {
-    if (!isElectronRuntime || !canUseElectronBridge.value) {
+    if (!__MUGEN_LEGACY_DESKTOP__ || !isElectronRuntime || !canUseElectronBridge.value) {
       const message = '请在 Mugen App 中使用'
       diagnosticExportState.value = { status: 'error', message }
       status.value = message
@@ -2231,39 +2093,6 @@ function readHighestQuality(options: string[]): string {
     } catch (error) {
       const message = error instanceof Error ? error.message : '日志下载失败'
       diagnosticExportState.value = { status: 'error', message }
-      status.value = message
-      showToast(message)
-    }
-  }
-
-  async function exportCrxLogs() {
-    if (!isElectronRuntime || !canUseElectronBridge.value) {
-      const message = '请在 Mugen App 中使用'
-      crxLogExportState.value = { status: 'error', message }
-      status.value = message
-      showToast(message)
-      return
-    }
-
-    crxLogExportState.value = {
-      status: 'exporting',
-      message: '正在整理最近 24 小时的连接记录'
-    }
-
-    try {
-      const result = await withTimeout(exportElectronCrxLogs(), 30000, '日志整理超时')
-      if (!result.saved) {
-        crxLogExportState.value = { status: 'idle', message: '最近 24 小时插件连接记录' }
-        return
-      }
-
-      const message = result.recordCount === undefined ? '日志已保存' : `已保存 ${result.recordCount} 条记录`
-      crxLogExportState.value = { status: 'success', message }
-      status.value = message
-      showToast(message)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '日志下载失败'
-      crxLogExportState.value = { status: 'error', message }
       status.value = message
       showToast(message)
     }
@@ -2303,7 +2132,7 @@ function readHighestQuality(options: string[]): string {
     }
   }
 
-  if (isElectronRuntime) {
+  if (__MUGEN_LEGACY_DESKTOP__ && isElectronRuntime) {
     refreshElectronDocument()
     bridgeStatusTimer = setInterval(() => {
       void refreshElectronDocument()
@@ -2359,13 +2188,8 @@ function readHighestQuality(options: string[]): string {
     enabledConfigs,
     generationLoading,
     installPluginUrl,
-    appUpdateState,
-    checkForUpdates,
     diagnosticExportState,
     exportDiagnostics,
-    crxLogExportState,
-    exportCrxLogs,
-    openMacPermissionSettings,
     openPromptPresets,
     openSettings,
     placeImage,
@@ -2395,11 +2219,9 @@ function readHighestQuality(options: string[]): string {
     toggleConfigEnabled,
     turns,
     addReference,
-    deployWindows,
     upscaleImage,
     updateSettingsDraft,
     updatePromptPresets,
-    windowDeployState,
     useResultAsReference
   }
 }

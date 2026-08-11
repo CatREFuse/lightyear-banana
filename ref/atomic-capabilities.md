@@ -11,29 +11,24 @@
 
 `entrypoints.setup()` 中的 key 必须和 `plugin/manifest.json` 里的 `id` 完全一致。修改 command、panel、id、权限、图标后，需要重新构建并在 UXP Developer Tools 里 `Unload` / `Load`。
 
-## Vue panel 挂载
+## CCX Host 壳与 WebView
 
-Vue 只在 panel `create()` 或 `show()` 中挂载。当前入口会先补齐 UXP 中缺失的 `SVGElement`：
+`src/uxp/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和本地 WebView。工作台 Vue 应用来自 CCX 内嵌的 `plugin:/webui/index.html`，并与普通浏览器使用同源 WebUI 构建。
 
-```ts
-if (typeof uxpGlobal.SVGElement === 'undefined' && typeof uxpGlobal.Element !== 'undefined') {
-  uxpGlobal.SVGElement = uxpGlobal.Element as typeof SVGElement
-}
-```
+Host 壳负责：
 
-这是 Vue 3 在 UXP 中运行的关键兼容处理。
+- 创建和销毁 WebView 会话。
+- 校验 `inner-host` 消息信封、会话和命令白名单。
+- 把 Photoshop、资产、Provider、存储与确认能力暴露给受信任本地 WebView。
+- 在断连时释放会话与资产。
+
+早期把 Vue 直接挂载到 UXP DOM 的方案已归档，不作为 vNext 工作台架构。
 
 ## Photoshop runtime
 
 Photoshop API 通过 `globalThis.require("photoshop")` 获取。不要把 `photoshop` 当作普通 ESM 包 import。
 
-当前 runtime 封装在 `src/uxp/photoshopHost.ts`：
-
-- `getHostRequire()`
-- `readActiveDocumentLabel()`
-- `createNamedLayer()`
-
-浏览器预览中 `getHostRequire()` 返回 `null`。
+低层 runtime 封装仍集中在 `src/uxp/`。普通浏览器 WebUI 不加载这些模块，也不提供假的 `getHostRequire()` 或 Photoshop adapter。只有 CCX Host 可以访问 `globalThis.require("photoshop")`。
 
 ## Modal execution
 

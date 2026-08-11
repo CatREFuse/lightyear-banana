@@ -1,5 +1,7 @@
 # Mugen 运维手册
 
+> 归档文档：本文记录 Electron `0.3.x`、旧官网和旧三平台发行流程。Electron 与旧官网已废弃，不要按本文执行 vNext 发布。当前门禁以 `docs/build-todo-list.md` 为准；历史发行事实和回滚信息继续保留。
+
 ## 发行流程
 
 本手册中的 `RELEASE_ORIGIN` 和 `RELEASE_HOST` 取自正式 `key.env` 的 `INNER_RELEASE_URL`。Inner WebUI 与 CCX 的独立发布流程以 `docs/inner-webui-deployment.md` 为准。

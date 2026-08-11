@@ -12,7 +12,6 @@ const assetsDir = path.join(pluginDir, 'assets')
 const iconsDir = path.join(pluginDir, 'icons')
 const webUiDir = path.join(pluginDir, 'webui')
 const sourceManifestPath = path.join(projectRoot, 'plugin', 'manifest.json')
-const standaloneManifestPath = path.join(projectRoot, 'standalone-uxp-plugin', 'manifest.json')
 const forbiddenProductionText = ['cake.catrefuse.com', 'webui.catrefuse.com', 'inner-webui.invalid']
 
 async function assertFile(filePath, label) {
@@ -24,7 +23,6 @@ async function assertFile(filePath, label) {
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
 const sourceManifest = JSON.parse(await readFile(sourceManifestPath, 'utf8'))
-const standaloneManifest = JSON.parse(await readFile(standaloneManifestPath, 'utf8'))
 await assertFile(panelPath, 'uxp-panel.html')
 await assertFile(path.join(iconsDir, 'dark@1x.png'), 'panel dark 1x icon')
 await assertFile(path.join(iconsDir, 'dark@2x.png'), 'panel dark 2x icon')
@@ -51,8 +49,8 @@ if (manifest.version !== '1.0.0') {
   throw new Error(`CCX manifest version must be 1.0.0, received ${JSON.stringify(manifest.version)}.`)
 }
 
-if (sourceManifest.version !== manifest.version || standaloneManifest.version !== manifest.version) {
-  throw new Error('Source, standalone, and built UXP manifests must use the same CCX version.')
+if (sourceManifest.version !== manifest.version) {
+  throw new Error('Source and built CCX manifests must use the same version.')
 }
 
 if (

@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { computed, onUnmounted, shallowRef } from 'vue'
-import { buildInfo } from '../../buildInfo'
 import type {
-  AppUpdateCheckState,
   DiagnosticExportState,
   ImageProviderId,
-  MacPermissionPane,
   ModelConfig,
   PromptPreset,
   ProviderCapability,
@@ -28,18 +25,15 @@ const props = defineProps<{
   configs: ModelConfig[]
   editingCapability: ProviderCapability
   editingConfigId: string
-  macPermissionSettingsAvailable: boolean
-  appUpdateCheckAvailable: boolean
-  appUpdateState: AppUpdateCheckState
   diagnosticExportAvailable: boolean
   diagnosticExportState: DiagnosticExportState
-  crxLogExportState: DiagnosticExportState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   promptPresets: PromptPreset[]
   settingsDraftIsNew: boolean
   settingsDraft: ModelConfig
   settingsTestState: SettingsTestState
   settingsView: SettingsView
+  version: string
 }>()
 
 const emit = defineEmits<{
@@ -49,10 +43,7 @@ const emit = defineEmits<{
   delete: []
   duplicate: []
   edit: [id: string]
-  checkForUpdates: []
   downloadDiagnostics: []
-  downloadCrxLogs: []
-  openMacPermissionSettings: [pane: MacPermissionPane]
   openPromptPresets: []
   save: []
   test: []
@@ -72,37 +63,6 @@ const configRows = computed(() =>
 )
 const transitionName = computed(() => (props.settingsView === 'detail' ? 'settings-forward' : 'settings-back'))
 const clearConversationLabel = computed(() => (clearConversationArmed.value ? '再次清空' : '清空'))
-const updateButtonLabel = computed(() => (props.appUpdateState.status === 'checking' ? '检查中' : '检查更新'))
-const updateCardTone = computed(() => {
-  if (props.appUpdateState.status === 'available') {
-    return 'available'
-  }
-
-  if (props.appUpdateState.status === 'error') {
-    return 'error'
-  }
-
-  return 'neutral'
-})
-const updateStatusText = computed(() => {
-  if (props.appUpdateState.status === 'checking') {
-    return '正在检查更新'
-  }
-
-  if (props.appUpdateState.status === 'current') {
-    return '已是最新版本'
-  }
-
-  if (props.appUpdateState.status === 'available' && props.appUpdateState.latestVersion) {
-    return `v${props.appUpdateState.latestVersion} 可下载`
-  }
-
-  if (props.appUpdateState.status === 'error' && props.appUpdateState.message) {
-    return props.appUpdateState.message
-  }
-
-  return '已是最新版本'
-})
 
 function readConfigStatus(config: ModelConfig): ConfigStatus {
   if (!config.enabled) {
@@ -157,22 +117,6 @@ onUnmounted(() => {
   <main class="settings-panel">
     <Transition :name="transitionName" mode="out-in">
       <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
-        <section v-if="macPermissionSettingsAvailable" class="permission-card" aria-label="macOS 权限">
-          <div class="permission-heading">
-            <strong>
-              <BoxIcon name="selection" size="14" />
-              macOS 权限
-            </strong>
-            <small>允许 App 调整 Photoshop 窗口</small>
-          </div>
-
-          <div class="permission-actions">
-            <button type="button" @click="emit('openMacPermissionSettings', 'accessibility')">辅助功能</button>
-            <button type="button" @click="emit('openMacPermissionSettings', 'automation')">自动化</button>
-            <button type="button" @click="emit('openMacPermissionSettings', 'screenCapture')">屏幕录制</button>
-          </div>
-        </section>
-
         <section class="data-card" aria-label="对话记录">
           <div>
             <strong>
@@ -190,14 +134,6 @@ onUnmounted(() => {
           v-if="diagnosticExportAvailable"
           :state="diagnosticExportState"
           @download="emit('downloadDiagnostics')"
-        />
-
-        <DiagnosticLogCard
-          v-if="diagnosticExportAvailable"
-          label="CRX 日志"
-          description="最近 24 小时插件连接记录"
-          :state="crxLogExportState"
-          @download="emit('downloadCrxLogs')"
         />
 
         <section class="data-card preset-entry" aria-label="预设提示词">
@@ -242,18 +178,7 @@ onUnmounted(() => {
         </div>
 
         <footer class="settings-meta" aria-label="版本信息">
-          <span>v{{ buildInfo.version }}</span>
-          <span>Build {{ buildInfo.buildNumber }}</span>
-          <template v-if="appUpdateCheckAvailable">
-            <span :class="`is-${updateCardTone}`">{{ updateStatusText }}</span>
-            <button
-              type="button"
-              :disabled="appUpdateState.status === 'checking'"
-              @click="emit('checkForUpdates')"
-            >
-              {{ updateButtonLabel }}
-            </button>
-          </template>
+          <span>v{{ version }}</span>
         </footer>
       </section>
 

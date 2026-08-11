@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION } from '@mugen/inner-protocol'
 import type { GenerationSnapshot } from '@mugen/inner-protocol'
-import { MockHostClient } from './mockHost'
+import { MockHostClient } from './mockHost.fixture'
 
 const snapshot: GenerationSnapshot = {
   configId: 'openai-default',
@@ -19,7 +19,7 @@ afterEach(() => vi.useRealTimers())
 describe('MockHostClient', () => {
   it('supports handshake, settings, credentials and reference capture', async () => {
     const host = new MockHostClient()
-    const handshake = await host.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.1.0', clientNonce: 'client-1' })
+    const handshake = await host.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.2.0', clientNonce: 'client-1' })
     expect(handshake).toMatchObject({ protocolVersion: PROTOCOL_VERSION, clientNonce: 'client-1', context: { ready: true } })
     expect(handshake.hostNonce).toBeTruthy()
     expect((await host.getConfigs())[0]).toMatchObject({ id: 'openai-default', enabled: true })
@@ -67,7 +67,7 @@ describe('MockHostClient', () => {
     await vi.advanceTimersByTimeAsync(150)
     expect(invalidated).toHaveBeenCalled()
 
-    const incompatible = await new MockHostClient({ scenario: 'incompatible' }).handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.1.0', clientNonce: 'client-2' })
+    const incompatible = await new MockHostClient({ scenario: 'incompatible' }).handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.2.0', clientNonce: 'client-2' })
     expect(incompatible.protocolVersion).toBe(PROTOCOL_VERSION + 1)
   })
 

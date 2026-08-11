@@ -7,14 +7,14 @@
 | 想查什么 | 先看 |
 | --- | --- |
 | 项目在做什么、当前验证到哪里、怎么运行 | `ref/project-baseline.md` |
-| 当前原型标定了哪些功能 | `docs/mugen-prototype-requirements.md` |
-| 工作台、结果流、设置页和 Photoshop 写入怎么交互 | `docs/mugen-interaction-spec.md` |
+| vNext 标定了哪些功能、官网和双运行时怎么验收 | `docs/mugen-prototype-requirements.md` |
+| 工作台、结果流、设置页及浏览器／CCX 怎么交互 | `docs/mugen-interaction-spec.md` |
 | Photoshop 画布抓图、选区、图层、插图等交互原语 | `ref/canvas-primitives.md` |
 | UXP entrypoint、Photoshop host、imaging、modal、文件访问等原子能力 | `ref/atomic-capabilities.md` |
 | Vue 3 + Vite + TypeScript + Manifest v5 的框架和构建方式 | `ref/framework-build.md` |
-| Electron Web App、Bridge Server、UXP Photoshop 中转的桌面应用架构 | `ref/electron-bridge-architecture.md` |
-| UXP UI runtime、HTML/CSS 限制、Spectrum UXP Widgets、SWC wrapper 强制规则 | `ref/uxp-ui-runtime-rules.md` |
-| Electron 退役、CCX WebView、Inner WebUI 功能和工程迁移 | `docs/inner-webui-prd.md` |
+| 已废弃 Electron Web App、Bridge Server 和旧 UXP 中转架构 | `ref/electron-bridge-architecture.md`（归档） |
+| UXP Host 壳的 HTML/CSS 限制、Spectrum Widgets 与 WebView 边界 | `ref/uxp-ui-runtime-rules.md` |
+| Electron UI 源码平移、Browser/CCX adapter 与 WebUI vNext 门禁 | `docs/inner-webui-prd.md` |
 | 开发、调试、加载、验证、扩展时需要注意的事项 | `ref/development-notes.md` |
 | 主流生图模型 API 格式、参考图上限和接入差异 | `ref/image-model-api-specs.md` |
 

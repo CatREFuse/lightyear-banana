@@ -1,5 +1,7 @@
 # Mugen Standalone 与 Web 技术原型对齐审计
 
+> 归档文档：`standalone-uxp-plugin/` 已停止产品开发。当前 Photoshop 产品是承载 WebUI vNext 的 CCX Host；本文只记录 2026-04-28 的技术原型差异，不再提供实施方向。
+
 日期：2026-04-28
 
 ## 检查范围

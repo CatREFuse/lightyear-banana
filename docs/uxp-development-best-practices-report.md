@@ -1,5 +1,7 @@
 # Photoshop UXP 开发最佳实践报告
 
+> 历史技术参考：本文的浏览器预览和 Vue 直挂 UXP 结论描述早期原型。Mugen vNext 的活动架构是同源 WebUI 加 CCX Host adapter，当前规则以 `docs/inner-webui-prd.md` 和 `ref/framework-build.md` 为准。
+
 ## 结论
 
 当前项目建议继续采用 `Vue 3 + Vite + TypeScript + Manifest v5`。这个选择已经在本仓库跑通过构建、UDT 加载、面板挂载和 Photoshop command 调用，迁移到 React 暂时没有明显收益。

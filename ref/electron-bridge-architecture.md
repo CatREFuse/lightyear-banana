@@ -1,8 +1,10 @@
 # Electron Web App + UXP Bridge 开发手册
 
+> 归档文档：Electron 桌面端与 Bridge 架构已废弃。WebUI vNext 只把原 Electron UI 源码作为平移来源，不依赖 Electron runtime、preload、IPC 或本地 Bridge。当前架构请查看 `ref/project-baseline.md` 和 `docs/inner-webui-prd.md`。
+
 ## 目标
 
-Mugen 后续采用桌面应用主导的架构：
+该历史方案曾计划采用桌面应用主导的架构：
 
 ```text
 Electron App

@@ -128,10 +128,6 @@ export async function exportElectronDiagnostics() {
   return invokeElectronBridge<DiagnosticExportResult>('diagnostics.export')
 }
 
-export async function exportElectronCrxLogs() {
-  return invokeElectronBridge<DiagnosticExportResult>('crx.logs.export')
-}
-
 export function recordElectronGenerationRequest(entry: ImageRequestLogEntry) {
   window.mugenBridge?.recordGenerationRequest?.(entry)
 }
