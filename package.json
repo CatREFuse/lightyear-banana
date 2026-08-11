@@ -41,6 +41,8 @@
     "build:uxp": "vue-tsc -b && vite build --config vite.uxp.config.ts",
     "build:uxp:watch": "vite build --config vite.uxp.config.ts --watch",
     "mock:image-api": "node scripts/mock-image-api-server.mjs",
+    "mock:apimart": "node scripts/mock-image-api-server.mjs --profile apimart --fixture cats/cat-01.jpg --delay-min-ms 20 --delay-max-ms 50",
+    "test:mock-image-api": "node --test scripts/mock-image-api-server.test.mjs",
     "package:electron:mac": "npm run package:uxp && npm run package:electron:mac:prepared",
     "package:electron:mac:prepared": "npm run build:web && node scripts/package-electron-mac.mjs",
     "package:electron:win": "npm run package:uxp && npm run package:electron:win:prepared",

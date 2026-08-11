@@ -30,6 +30,7 @@ function compileRegressionSources(outDir) {
     '--rootDir',
     '.',
     '--skipLibCheck',
+    'src/env.d.ts',
     'src/services/imageApiClient.ts',
     'src/data/providerCapabilities.ts',
     'packages/inner-protocol/src/providerCapabilityData.ts',
@@ -135,6 +136,50 @@ async function testImageRequestRetryPolicy(imageApi) {
   } finally {
     globalThis.fetch = nativeFetch
     console.info = nativeConsoleInfo
+  }
+}
+
+async function testApimartLoopbackMockOverride(imageApi) {
+  const nativeFetch = globalThis.fetch
+  const requests = []
+  const config = {
+    ...createConfig('apimart', 'gpt-image-2-official'),
+    apiKey: 'mock-good-apimart',
+    baseUrl: 'http://127.0.0.1:38322'
+  }
+
+  try {
+    globalThis.fetch = async (url, init) => {
+      requests.push({ url: String(url), init })
+      return Response.json({ data: [{ b64_json: tinyPng }] })
+    }
+    const images = await imageApi.generateImagesWithProvider({
+      config,
+      count: 1,
+      prompt: 'local APIMart fixture',
+      quality: 'auto',
+      ratio: '1:1',
+      references: [],
+      selectedSize: '1K',
+      size: '1K'
+    })
+    assert.equal(images.length, 1)
+    assert.equal(requests[0]?.url, 'http://127.0.0.1:38322/v1/images/generations')
+
+    requests.length = 0
+    await imageApi.generateImagesWithProvider({
+      config: { ...config, apiKey: 'real-looking-key' },
+      count: 1,
+      prompt: 'official APIMart route',
+      quality: 'auto',
+      ratio: '1:1',
+      references: [],
+      selectedSize: '1K',
+      size: '1K'
+    })
+    assert.equal(requests[0]?.url, 'https://api.apimart.ai/v1/images/generations')
+  } finally {
+    globalThis.fetch = nativeFetch
   }
 }
 
@@ -1041,6 +1086,7 @@ async function main() {
   const requireFromBuild = createRequire(import.meta.url)
 
   try {
+    globalThis.__LIGHTYEAR_APP_ENV__ = 'test'
     const imageApi = requireFromBuild(join(sourceOutDir, 'services', 'imageApiClient.js'))
     const providerCapabilities = requireFromBuild(join(sourceOutDir, 'data', 'providerCapabilities.js'))
     const providerRegistry = requireFromBuild(join(sourceOutDir, 'providers', 'registry.js'))
@@ -1048,6 +1094,7 @@ async function main() {
     await testProviderRegistry(imageApi, providerCapabilities, providerRegistry)
     await testProviderRatios(imageApi)
     await testImageRequestRetryPolicy(imageApi)
+    await testApimartLoopbackMockOverride(imageApi)
     testApimartAliasCapabilities(providerCapabilities)
     await testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives)
     await testSelectionVisibleComposite(canvasPrimitives)
@@ -1055,6 +1102,7 @@ async function main() {
     await testNothingThemePreservesGeometry()
     console.log('Canvas capture, source-ratio, retry, and Nothing theme regressions passed.')
   } finally {
+    delete globalThis.__LIGHTYEAR_APP_ENV__
     rmSync(outDir, { force: true, recursive: true })
   }
 }

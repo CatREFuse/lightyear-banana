@@ -1,5 +1,7 @@
 export const PROTOCOL_VERSION = 1 as const
 export const INNER_HOST_PROTOCOL = 'inner-host/v1' as const
+export const CLIENT_READY_SIGNAL = 'lightyear-banana:client-ready:v1' as const
+export const LOCATION_BRIDGE_QUERY = '__lightyear_bridge' as const
 export const MAX_BRIDGE_MESSAGE_BYTES = 1024 * 1024
 
 export type ThemeMode = 'dark' | 'light' | 'system'
@@ -352,6 +354,27 @@ export function assertMessageSize(value: unknown): void {
   if (serializedMessageSize(value) > MAX_BRIDGE_MESSAGE_BYTES) {
     throw new BridgeValidationError('MESSAGE_TOO_LARGE', '消息超过 1 MB 限制')
   }
+}
+
+export function createLocationBridgeUrl(currentUrl: string, message: unknown): string {
+  assertMessageSize(message)
+  const serialized = JSON.stringify(message)
+  if (serialized === undefined) throw new BridgeValidationError('INVALID_MESSAGE', '消息无法序列化')
+  const url = new URL(currentUrl)
+  const fragment = url.hash.replace(/^#/, '')
+  const queryIndex = fragment.indexOf('?')
+  const path = queryIndex >= 0 ? fragment.slice(0, queryIndex) : fragment
+  const query = new URLSearchParams(queryIndex >= 0 ? fragment.slice(queryIndex + 1) : '')
+  query.set(LOCATION_BRIDGE_QUERY, serialized)
+  url.hash = `${path || '/'}?${query.toString()}`
+  return url.href
+}
+
+export function readLocationBridgeMessage(hash: string): string | undefined {
+  const fragment = hash.replace(/^#/, '')
+  const queryIndex = fragment.indexOf('?')
+  if (queryIndex < 0) return undefined
+  return new URLSearchParams(fragment.slice(queryIndex + 1)).get(LOCATION_BRIDGE_QUERY) ?? undefined
 }
 
 export function parseBridgeEnvelope(value: unknown, expectedKind?: BridgeKind): BridgeEnvelope {

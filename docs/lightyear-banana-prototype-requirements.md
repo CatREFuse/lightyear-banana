@@ -448,7 +448,8 @@ Lightyear Banana 是面向 Photoshop 的 UXP 生图插件原型。它把 Photosh
 - 支持通过环境变量修改端口和延迟范围。
 - 支持 `/mock/manual` 查看能力。
 - 支持 `/mock-images/cats/*.jpg` 返回 fixture。
-- 支持 OpenAI、Gemini、Qwen、Kling、Seedream、OpenAI compatible 的 mock endpoint。
+- 支持 OpenAI、Gemini、APIMart、Qwen、Kling、Seedream、OpenAI compatible 的 mock endpoint。
+- APIMart 测试夹具支持模型列表、参考图上传、任务创建和任务轮询，并可固定返回同一张猫图。
 - 支持 `mock-good` 和 provider 专属 good key。
 - 支持 invalid、expired、permission、rate、quota、server、timeout 错误。
 - Kling 创建任务后可以通过 task id 获取同一组结果。

@@ -5,16 +5,31 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+const args = process.argv.slice(2)
+
+function readOption(name) {
+  const index = args.indexOf(name)
+  return index >= 0 ? args[index + 1] : undefined
+}
+
 const port = Number(process.env.LIGHTYEAR_MOCK_IMAGE_API_PORT ?? 38322)
 const host = process.env.LIGHTYEAR_MOCK_IMAGE_API_HOST ?? '127.0.0.1'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 const fixtureDir = path.join(projectRoot, 'public', 'mock-images')
 const fixtureFiles = Array.from({ length: 20 }, (_, index) => `cats/cat-${String(index + 1).padStart(2, '0')}.jpg`)
-const generationDelayMinMs = Number(process.env.LIGHTYEAR_MOCK_IMAGE_API_DELAY_MIN_MS ?? 3000)
-const generationDelayMaxMs = Number(process.env.LIGHTYEAR_MOCK_IMAGE_API_DELAY_MAX_MS ?? 5000)
+const profile = readOption('--profile') ?? process.env.LIGHTYEAR_MOCK_IMAGE_API_PROFILE ?? 'all'
+const fixedFixtureFile = readOption('--fixture') ?? process.env.LIGHTYEAR_MOCK_IMAGE_API_FIXED_FIXTURE ?? ''
+const generationDelayMinMs = Number(readOption('--delay-min-ms') ?? process.env.LIGHTYEAR_MOCK_IMAGE_API_DELAY_MIN_MS ?? 3000)
+const generationDelayMaxMs = Number(readOption('--delay-max-ms') ?? process.env.LIGHTYEAR_MOCK_IMAGE_API_DELAY_MAX_MS ?? 5000)
+const fixedFixtureIndex = fixedFixtureFile ? fixtureFiles.indexOf(fixedFixtureFile) : -1
+
+if (fixedFixtureFile && fixedFixtureIndex < 0) {
+  throw new Error(`Unknown mock image fixture: ${fixedFixtureFile}`)
+}
 
 const goodKeys = {
+  apimart: new Set(['mock-good', 'mock-good-apimart']),
   gemini: new Set(['mock-good', 'mock-good-gemini']),
   kling: new Set(['mock-good', 'mock-good-kling']),
   openai: new Set(['mock-good', 'mock-good-openai']),
@@ -34,6 +49,7 @@ const badKeyModes = new Map([
 ])
 
 const klingTasks = new Map()
+const apimartTasks = new Map()
 
 function sendJson(response, status, payload) {
   response.writeHead(status, {
@@ -190,8 +206,17 @@ async function readBody(request) {
   }
 }
 
-function inferProvider(pathname, json, raw) {
+function inferProvider(pathname, json, raw, headers) {
   const model = json.model ?? raw.match(/name="model"\r?\n\r?\n([^\r\n]+)/)?.[1] ?? ''
+  const bearer = getBearer(headers)
+  if (
+    pathname.includes('/v1/uploads/images')
+    || pathname.includes('/v1/tasks/')
+    || bearer === 'mock-good-apimart'
+    || profile === 'apimart' && pathname.startsWith('/v1/')
+  ) {
+    return 'apimart'
+  }
   if (pathname.includes('/v1beta/models/')) {
     return 'gemini'
   }
@@ -224,6 +249,7 @@ function readCount(provider, json, raw) {
 
 function clampCount(count, provider) {
   const limits = {
+    apimart: 4,
     gemini: 10,
     kling: 9,
     openai: 1,
@@ -246,6 +272,10 @@ function shuffleIndexes() {
 }
 
 function selectFixtureIndexes(count) {
+  if (fixedFixtureIndex >= 0) {
+    return Array.from({ length: count }, () => fixedFixtureIndex)
+  }
+
   const selected = []
   while (selected.length < count) {
     selected.push(...shuffleIndexes())
@@ -376,16 +406,67 @@ function createKlingResult(requestUrl, taskId) {
   }
 }
 
+function createApimartTask(count) {
+  const taskId = `mock-apimart-${randomUUID()}`
+  apimartTasks.set(taskId, selectFixtureIndexes(count))
+  return {
+    code: 200,
+    data: {
+      task_id: taskId,
+      status: 'pending'
+    }
+  }
+}
+
+function createApimartResult(taskId) {
+  const fixtureIndexes = apimartTasks.get(taskId) ?? selectFixtureIndexes(1)
+  return {
+    code: 200,
+    data: {
+      task_id: taskId,
+      status: 'succeeded',
+      result: {
+        images: fixtureIndexes.map((fixtureIndex) => {
+          const fixture = createFixtureData(fixtureIndex)
+          return { url: `data:${fixture.mimeType};base64,${fixture.data}` }
+        })
+      }
+    }
+  }
+}
+
+function createApimartUploadResponse(requestUrl) {
+  const [fixtureIndex] = selectFixtureIndexes(1)
+  return { url: createFixtureUrl(requestUrl, fixtureIndex) }
+}
+
+function createApimartModelsResponse() {
+  return {
+    data: [
+      { id: 'gemini-3.1-flash-image-preview', object: 'model' },
+      { id: 'gemini-3-pro-image-preview', object: 'model' },
+      { id: 'gpt-image-2', object: 'model' },
+      { id: 'gpt-image-2-official', object: 'model' },
+      { id: 'doubao-seedream-5-0-lite', object: 'model' }
+    ]
+  }
+}
+
 function sendManual(response) {
   sendJson(response, 200, {
     server: 'Lightyear Banana Image API Mock Server',
     port,
+    profile,
+    fixedFixture: fixedFixtureFile || null,
     goodKeys: Object.fromEntries(Object.entries(goodKeys).map(([provider, keys]) => [provider, [...keys]])),
     badKeys: Object.fromEntries(badKeyModes),
     fixtures: fixtureFiles.map((file) => `/mock-images/${file}`),
     endpoints: [
       'POST /v1/images/generations',
       'POST /v1/images/edits',
+      'GET /v1/models',
+      'POST /v1/uploads/images',
+      'GET /v1/tasks/{task_id}',
       'POST /v1beta/models/{model}:generateContent',
       'POST /api/v1/services/aigc/multimodal-generation/generation',
       'GET /api/v1/tasks/{task_id}',
@@ -414,11 +495,26 @@ const server = createServer(async (request, response) => {
   }
 
   const { raw, json } = request.method === 'POST' ? await readBody(request) : { raw: '', json: {} }
-  const provider = inferProvider(pathname, json, raw)
+  const provider = inferProvider(pathname, json, raw, request.headers)
   const authMode = authorize(provider, requestUrl, request.headers)
   if (authMode) {
     const [status, payload] = createProviderError(provider, authMode)
     setTimeout(() => sendJson(response, status, payload), authMode === 'timeout' ? 800 : 0)
+    return
+  }
+
+  if (provider === 'apimart' && request.method === 'GET' && pathname === '/v1/models') {
+    sendJson(response, 200, createApimartModelsResponse())
+    return
+  }
+
+  if (provider === 'apimart' && request.method === 'POST' && pathname === '/v1/uploads/images') {
+    await sendGeneratedJson(response, 200, createApimartUploadResponse(requestUrl))
+    return
+  }
+
+  if (provider === 'apimart' && request.method === 'GET' && pathname.startsWith('/v1/tasks/')) {
+    await sendGeneratedJson(response, 200, createApimartResult(pathname.split('/').at(-1)))
     return
   }
 
@@ -433,6 +529,11 @@ const server = createServer(async (request, response) => {
   }
 
   const count = readCount(provider, json, raw)
+  if (provider === 'apimart') {
+    await sendGeneratedJson(response, 200, createApimartTask(count))
+    return
+  }
+
   if (provider === 'gemini') {
     await sendGeneratedJson(response, 200, createGeminiResponse(pathname.match(/\/models\/(.+):generateContent/)?.[1] ?? '', count))
     return
@@ -458,5 +559,6 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Lightyear Banana Image API Mock Server: http://${host}:${port}`)
+  if (profile === 'apimart') console.log(`APIMart fixture: ${fixedFixtureFile || 'random cat'}`)
   console.log('Manual: GET /mock/manual')
 })

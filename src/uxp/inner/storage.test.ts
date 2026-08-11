@@ -185,6 +185,19 @@ describe('BYOK credential binding', () => {
     expect(runtime.credentials.size).toBe(0)
   })
 
+  it('uses the fixed APIMart credential only for the development loopback fixture', async () => {
+    const fixture = config({
+      id: 'apimart-smoke',
+      provider: 'apimart',
+      baseUrl: 'http://127.0.0.1:38322'
+    })
+
+    await expect(getCredential(fixture)).resolves.toBe('mock-good-apimart')
+    await expect(getCredential({ ...fixture, id: 'another-config' })).resolves.toBe('')
+    await expect(getCredential({ ...fixture, baseUrl: 'https://api.apimart.ai' })).resolves.toBe('')
+    expect(runtime.credentials.size).toBe(0)
+  })
+
   it('deletes every configured credential before removing settings', async () => {
     const first = config()
     const second = config({ id: 'config-2', name: '第二个配置' })

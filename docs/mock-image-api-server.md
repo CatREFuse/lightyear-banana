@@ -32,11 +32,22 @@ LIGHTYEAR_MOCK_IMAGE_API_PORT=38322 node scripts/mock-image-api-server.mjs
 
 关闭 `Mock Server` 时，前端会按 Provider 直接请求真实 API。自定义 OpenAI 兼容配置使用配置里的 Base URL。
 
+### APIMart 固定猫图夹具
+
+```bash
+npm run mock:apimart
+```
+
+该模式使用 `mock-good-apimart`，固定返回 `public/mock-images/cats/cat-01.jpg`，并提供 APIMart 的模型列表、参考图上传、任务创建和任务轮询接口。成功结果以内联图片返回，适合在 Photoshop Host 中完成本地端到端测试。
+
+APIMart 配置使用 `mock-*` Key 且 Base URL 为 `127.0.0.1`、`localhost` 或 `::1` 时，请求会发往该本地地址。真实 Key 继续使用官方地址。
+
 ## 可用模型
 
 | Provider | 前端模型声明 | Mock endpoint |
 | --- | --- | --- |
 | OpenAI | `gpt-image-2` | `POST /v1/images/generations`、`POST /v1/images/edits` |
+| APIMart | `gemini-3.1-flash-image-preview`、`gemini-3-pro-image-preview`、`gpt-image-2`、`gpt-image-2-official`、`doubao-seedream-5-0-lite` | `GET /v1/models`、`POST /v1/uploads/images`、`POST /v1/images/generations`、`GET /v1/tasks/{task_id}` |
 | Google Gemini | `gemini-3-pro-image-preview`、`gemini-2.5-flash-image` | `POST /v1beta/models/{model}:generateContent` |
 | Qwen-Image | `qwen-image-2.0-pro`、`qwen-image-edit-max`、`qwen-image-edit-plus` | `POST /api/v1/services/aigc/multimodal-generation/generation` |
 | Kling | `kling/kling-v3-image-generation`、`kling/kling-v3-omni-image-generation` | `POST /api/v1/services/aigc/multimodal-generation/generation`、`GET /api/v1/tasks/{task_id}` |
@@ -52,6 +63,7 @@ Good case：
 | Provider | API Key |
 | --- | --- |
 | 全部 Provider | `mock-good` |
+| APIMart | `mock-good-apimart` |
 | OpenAI | `mock-good-openai` |
 | Google Gemini | `mock-good-gemini` |
 | Qwen-Image | `mock-good-qwen` |

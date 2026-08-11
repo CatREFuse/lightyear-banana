@@ -1,6 +1,7 @@
 import type { PublicModelConfig, SettingsSnapshot } from '../../../packages/inner-protocol/src/index'
 import { providerCapabilities, providerRequiresApiKey } from '../../data/providerCapabilities'
 import { getHostRequire } from '../photoshopHost'
+import { decodeUtf8, encodeUtf8, utf8ByteLength } from './utf8'
 
 type StoredModelConfig = Omit<PublicModelConfig, 'credentialState' | 'hasCredential'>
 export type CredentialBindingConfig = Pick<StoredModelConfig, 'id' | 'provider' | 'baseUrl'>
@@ -43,7 +44,6 @@ const LOCAL_PROVIDER_DEFAULTS: Partial<Record<PublicModelConfig['provider'], str
   comfyui: 'http://127.0.0.1:8000',
   'codex-image-server': 'http://127.0.0.1:17341'
 }
-
 type CredentialBinding = {
   provider: PublicModelConfig['provider']
   origin: string
@@ -56,7 +56,7 @@ type StoredCredentialRecord = CredentialBinding & {
 }
 
 function serializedBytes(value: unknown) {
-  return new TextEncoder().encode(typeof value === 'string' ? value : JSON.stringify(value)).byteLength
+  return utf8ByteLength(typeof value === 'string' ? value : JSON.stringify(value))
 }
 
 function getStorage() {
@@ -105,15 +105,25 @@ function sameCredentialBinding(left: CredentialBinding | undefined, right: Crede
   return Boolean(left && right && left.provider === right.provider && left.origin === right.origin)
 }
 
+function isDevelopmentApimartFixture(config: CredentialBindingConfig) {
+  if (config.id !== 'apimart-smoke' || config.provider !== 'apimart') return false
+  try {
+    const hostname = new URL(config.baseUrl).hostname.toLowerCase()
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  } catch {
+    return false
+  }
+}
+
 function encodeCredentialRecord(record: StoredCredentialRecord) {
-  return new TextEncoder().encode(JSON.stringify(record))
+  return encodeUtf8(JSON.stringify(record))
 }
 
 function decodeCredentialRecord(value: ArrayBuffer | Uint8Array): StoredCredentialRecord | undefined {
   const bytes = value instanceof Uint8Array ? value : new Uint8Array(value)
   let parsed: Partial<StoredCredentialRecord>
   try {
-    parsed = JSON.parse(new TextDecoder().decode(bytes)) as Partial<StoredCredentialRecord>
+    parsed = JSON.parse(decodeUtf8(bytes)) as Partial<StoredCredentialRecord>
   } catch {
     return undefined
   }
@@ -288,6 +298,7 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
 export async function getCredential(config: CredentialBindingConfig) {
   if (!/^[a-zA-Z0-9_-]{1,96}$/.test(config.id)) throw new Error('配置 ID 无效')
   if (!providerRequiresApiKey(config.provider)) return ''
+  if (__LIGHTYEAR_APP_ENV__ !== 'production' && isDevelopmentApimartFixture(config)) return 'mock-good-apimart'
   const expectedBinding = resolveCredentialBinding(config)
   if (!expectedBinding) return ''
   const value = await readStoredCredential(config.id)

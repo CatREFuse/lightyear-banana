@@ -319,7 +319,30 @@ function emitFetchTimingEntry(
   timing?.onTiming?.(entry)
 }
 
+function isApimartMockBaseUrlOverride(config: ModelConfig) {
+  if (config.provider !== 'apimart' || !config.apiKey.trim().startsWith('mock-') || !config.baseUrl.trim()) {
+    return false
+  }
+
+  try {
+    const url = new URL(config.baseUrl)
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && (hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.'))
+  } catch {
+    return false
+  }
+}
+
 function resolveBaseUrl(config: ModelConfig) {
+  if (
+    typeof __LIGHTYEAR_APP_ENV__ !== 'undefined'
+    && __LIGHTYEAR_APP_ENV__ !== 'production'
+    && isApimartMockBaseUrlOverride(config)
+  ) {
+    return config.baseUrl.trim()
+  }
+
   const capability = providerCapabilities[config.provider]
   if (capability.officialBaseUrl && config.provider !== 'custom-openai' && !capability.supportsBaseUrl) {
     return capability.officialBaseUrl ?? ''

@@ -1,6 +1,7 @@
 import type { CapturedCanvasImage } from '../canvasPrimitives'
 import { getHostRequire } from '../photoshopHost'
 import { AssetStore } from './assetStore'
+import { encodeUtf8 } from './utf8'
 
 type UxpFile = {
   name?: string
@@ -88,7 +89,7 @@ function readDataUrl(value: string) {
   const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(value)
   if (!match) throw new Error('图片数据无效')
   const mimeType = match[1] || 'image/png'
-  const bytes = match[2] ? base64ToBytes(match[3] ?? '') : new TextEncoder().encode(decodeURIComponent(match[3] ?? ''))
+  const bytes = match[2] ? base64ToBytes(match[3] ?? '') : encodeUtf8(decodeURIComponent(match[3] ?? ''))
   return { mimeType, bytes }
 }
 
@@ -121,7 +122,7 @@ export class FileAssetService {
     const file = Array.isArray(selected) ? selected[0] : selected
     if (!file) return null
     const raw = await file.read(storage.formats?.binary ? { format: storage.formats.binary } : undefined)
-    const bytes = raw instanceof Uint8Array ? raw : typeof raw === 'string' ? new TextEncoder().encode(raw) : new Uint8Array(raw)
+    const bytes = raw instanceof Uint8Array ? raw : typeof raw === 'string' ? encodeUtf8(raw) : new Uint8Array(raw)
     const name = file.name || '上传图片.png'
     const extension = readExtension(name)
     const previewUrl = `data:${mimeForExtension(extension)};base64,${bytesToBase64(bytes)}`

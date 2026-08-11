@@ -1,5 +1,6 @@
 import { getHostRequire } from './photoshopHost'
 import type { UxpDiagnosticTrace } from './diagnosticTrace'
+import { utf8ByteLength } from './inner/utf8'
 
 export type PixelBounds = {
   left: number
@@ -772,7 +773,7 @@ export async function createBridgeThumbnail(image: CapturedCanvasImage, maxBytes
     const height = Math.max(1, Math.round(image.height * scale))
     const rgba = scale < 1 ? resizeRgba(image.rgba, image.width, image.height, width, height) : image.rgba
     lastPreview = await encodeRgbaPreview(photoshop, rgba, width, height)
-    if (new TextEncoder().encode(lastPreview).byteLength <= maxBytes) return lastPreview
+    if (utf8ByteLength(lastPreview) <= maxBytes) return lastPreview
     maxEdge = Math.round(maxEdge * 0.72)
   }
 
@@ -810,7 +811,7 @@ export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImag
           } finally {
             result.imageData.dispose()
           }
-          if (new TextEncoder().encode(lastPreview).byteLength <= maxBytes) return lastPreview
+          if (utf8ByteLength(lastPreview) <= maxBytes) return lastPreview
           maxEdge = Math.round(maxEdge * 0.72)
         }
         return lastPreview

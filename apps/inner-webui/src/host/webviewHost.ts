@@ -17,6 +17,7 @@ import type {
 } from '@lightyear-banana/inner-protocol'
 import {
   BridgeValidationError,
+  CLIENT_READY_SIGNAL,
   HostClientError,
   PROTOCOL_VERSION,
   assertMessageSize,
@@ -24,13 +25,20 @@ import {
   createRequestEnvelope,
   isProtocolCompatible,
   parseBridgeEnvelope,
+  readLocationBridgeMessage,
   toModelConfig,
   toWebUiAssetRef,
   validateCommandResult,
   validateHostEventPayload
 } from '@lightyear-banana/inner-protocol'
 
-export type UxpHostBridge = { postMessage(message: unknown): void }
+type UxpHostMessageListener = (event: MessageEvent) => void
+
+export type UxpHostBridge = {
+  postMessage(message: unknown): void
+  addEventListener?(type: 'message', listener: UxpHostMessageListener): void
+  removeEventListener?(type: 'message', listener: UxpHostMessageListener): void
+}
 
 declare global {
   interface Window {
@@ -81,20 +89,26 @@ export class WebViewHostClient implements HostClient {
   private readonly compatibilityListeners = new Set<(event: HostEvent) => void>()
   private readyState?: ReadyState
   private establishedSessionId?: string
+  private readonly readySignalTimer: ReturnType<typeof setInterval>
   private disposed = false
 
   constructor(private readonly host: UxpHostBridge = window.uxpHost as UxpHostBridge) {
     if (!host || typeof host.postMessage !== 'function') throw clientError('HOST_UNAVAILABLE', 'Photoshop 宿主暂时不可用')
     window.addEventListener('message', this.handleMessage)
+    window.addEventListener('hashchange', this.handleLocationMessage)
+    host.addEventListener?.('message', this.handleMessage)
+    host.postMessage(CLIENT_READY_SIGNAL)
+    this.readySignalTimer = setInterval(() => {
+      if (!this.readyState && !this.disposed) host.postMessage(CLIENT_READY_SIGNAL)
+    }, 1_000)
   }
 
-  private handleMessage = (event: MessageEvent) => {
+  private acceptIncoming(data: unknown) {
     if (this.disposed) return
-    if (event.source !== (this.host as unknown as MessageEventSource)) return
 
     let envelope: BridgeEnvelope
     try {
-      envelope = parseBridgeEnvelope(incomingPayload(event.data))
+      envelope = parseBridgeEnvelope(incomingPayload(data))
     } catch {
       return
     }
@@ -107,6 +121,15 @@ export class WebViewHostClient implements HostClient {
     if (!this.readyState || envelope.sessionId !== this.readyState.sessionId) return
     if (envelope.kind === 'response') this.acceptResponse(envelope)
     if (envelope.kind === 'event' && this.establishedSessionId === envelope.sessionId) this.acceptEvent(envelope)
+  }
+
+  private handleMessage = (event: MessageEvent) => {
+    this.acceptIncoming(event.data)
+  }
+
+  private handleLocationMessage = () => {
+    const message = readLocationBridgeMessage(window.location.hash)
+    if (message !== undefined) this.acceptIncoming(message)
   }
 
   private acceptReady(envelope: BridgeEnvelope) {
@@ -123,6 +146,7 @@ export class WebViewHostClient implements HostClient {
       this.establishedSessionId = undefined
     }
     this.readyState = next
+    clearInterval(this.readySignalTimer)
     for (const waiter of this.readyWaiters) {
       clearTimeout(waiter.timeoutId)
       waiter.resolve(next)
@@ -322,7 +346,10 @@ export class WebViewHostClient implements HostClient {
   dispose() {
     if (this.disposed) return
     this.disposed = true
+    clearInterval(this.readySignalTimer)
     window.removeEventListener('message', this.handleMessage)
+    window.removeEventListener('hashchange', this.handleLocationMessage)
+    this.host.removeEventListener?.('message', this.handleMessage)
     this.rejectPending(clientError('CLIENT_DISPOSED', '宿主连接已关闭', false))
     for (const waiter of this.readyWaiters) {
       clearTimeout(waiter.timeoutId)

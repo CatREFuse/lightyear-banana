@@ -1,5 +1,5 @@
 import { CommandRegistry, publicHostError } from './inner/commandRegistry'
-import { createErrorResponse, createEvent, createResponse, BridgeValidationError, parseRequest } from './inner/protocol'
+import { createErrorResponse, createEvent, createResponse, BridgeValidationError, INNER_HOST_PROTOCOL, parseRequest } from './inner/protocol'
 import { SessionManager } from './inner/sessionManager'
 import { createWebViewShell, type WebViewShell } from './inner/webviewShell'
 import { createNamedLayer } from './photoshopHost'
@@ -13,8 +13,17 @@ type PanelRuntime = {
   registry: CommandRegistry
   shell: WebViewShell
 }
+type DevelopmentSmokeEvent = { command: string; payload: unknown }
+type DevelopmentSmokeHarness = {
+  invoke: (command: string, payload?: Record<string, unknown>) => Promise<unknown>
+  events: () => DevelopmentSmokeEvent[]
+  clearEvents: () => void
+}
 
-const uxpGlobal = globalThis as typeof globalThis & { require?: UxpRequire }
+const uxpGlobal = globalThis as typeof globalThis & {
+  require?: UxpRequire
+  __LIGHTYEAR_SMOKE__?: DevelopmentSmokeHarness
+}
 let panelRuntime: PanelRuntime | undefined
 
 function getUxpRequire(): UxpRequire {
@@ -40,6 +49,9 @@ function destroyPanel() {
   panelRuntime?.shell.destroy()
   panelRuntime?.registry.destroy()
   panelRuntime = undefined
+  if (__LIGHTYEAR_APP_ENV__ !== 'production') {
+    delete uxpGlobal.__LIGHTYEAR_SMOKE__
+  }
 }
 
 function mountPanel(rootNode?: unknown) {
@@ -48,8 +60,13 @@ function mountPanel(rootNode?: unknown) {
   destroyPanel()
 
   const session = new SessionManager()
+  const smokeEvents: DevelopmentSmokeEvent[] = []
   let shell: WebViewShell
   const registry = new CommandRegistry(CCX_VERSION, session, (command, payload) => {
+    if (__LIGHTYEAR_APP_ENV__ !== 'production') {
+      smokeEvents.push({ command, payload })
+      if (smokeEvents.length > 100) smokeEvents.splice(0, smokeEvents.length - 100)
+    }
     shell.postMessage(createEvent(session.sessionId, command, payload))
   })
 
@@ -87,6 +104,23 @@ function mountPanel(rootNode?: unknown) {
     }
   })
   panelRuntime = { mountNode, session, registry, shell }
+  if (__LIGHTYEAR_APP_ENV__ !== 'production') {
+    uxpGlobal.__LIGHTYEAR_SMOKE__ = {
+      invoke(command, payload) {
+        return registry.invoke({
+          protocol: INNER_HOST_PROTOCOL,
+          kind: 'request',
+          messageId: `smoke-${Date.now()}`,
+          sessionId: session.sessionId,
+          command,
+          timestamp: new Date().toISOString(),
+          ...(payload === undefined ? {} : { payload })
+        })
+      },
+      events: () => smokeEvents.map((event) => ({ ...event })),
+      clearEvents: () => { smokeEvents.length = 0 }
+    }
+  }
 }
 
 const { entrypoints } = getUxpRequire()('uxp')

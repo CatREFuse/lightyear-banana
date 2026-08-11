@@ -18,6 +18,71 @@ const fallbackSize = {
   height: 1024
 }
 
+function readBase64DataUrlBytes(value: string) {
+  const match = /^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,(.*)$/is.exec(value)
+  if (!match) return undefined
+  try {
+    const binary = atob(match[1]!.replace(/\s/g, ''))
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+    return bytes
+  } catch {
+    return undefined
+  }
+}
+
+function readUint32BigEndian(bytes: Uint8Array, offset: number) {
+  return ((bytes[offset]! << 24) | (bytes[offset + 1]! << 16) | (bytes[offset + 2]! << 8) | bytes[offset + 3]!) >>> 0
+}
+
+function readJpegDimensions(bytes: Uint8Array) {
+  if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return undefined
+  const startOfFrameMarkers = new Set([0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF])
+  let offset = 2
+  while (offset + 8 < bytes.length) {
+    while (offset < bytes.length && bytes[offset] !== 0xFF) offset += 1
+    while (offset < bytes.length && bytes[offset] === 0xFF) offset += 1
+    const marker = bytes[offset++]
+    if (marker === undefined || marker === 0xD9 || marker === 0xDA) break
+    if (marker === 0x01 || marker >= 0xD0 && marker <= 0xD7) continue
+    if (offset + 1 >= bytes.length) break
+    const segmentLength = (bytes[offset]! << 8) | bytes[offset + 1]!
+    if (segmentLength < 2 || offset + segmentLength > bytes.length) break
+    if (startOfFrameMarkers.has(marker)) {
+      const height = (bytes[offset + 3]! << 8) | bytes[offset + 4]!
+      const width = (bytes[offset + 5]! << 8) | bytes[offset + 6]!
+      if (width > 0 && height > 0) return { width, height }
+      break
+    }
+    offset += segmentLength
+  }
+  return undefined
+}
+
+export function readInlineImageDimensions(previewUrl: string) {
+  const bytes = readBase64DataUrlBytes(previewUrl)
+  if (!bytes) return undefined
+  if (
+    bytes.length >= 24
+    && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+    && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A
+  ) {
+    const width = readUint32BigEndian(bytes, 16)
+    const height = readUint32BigEndian(bytes, 20)
+    if (width > 0 && height > 0) return { width, height }
+  }
+  if (
+    bytes.length >= 10
+    && String.fromCharCode(...bytes.subarray(0, 6)) === 'GIF87a'
+    || bytes.length >= 10 && String.fromCharCode(...bytes.subarray(0, 6)) === 'GIF89a'
+  ) {
+    const width = bytes[6]! | (bytes[7]! << 8)
+    const height = bytes[8]! | (bytes[9]! << 8)
+    if (width > 0 && height > 0) return { width, height }
+  }
+  return readJpegDimensions(bytes)
+}
+
 function isRemoteImageUrl(value: string) {
   return /^https?:\/\//i.test(value)
 }
@@ -131,6 +196,25 @@ async function readImagePixels(previewUrl: string, target?: PixelTarget) {
 }
 
 export async function createCanvasImageFromApiAsset(asset: ApiImageAsset) {
+  const inlineDimensions = readInlineImageDimensions(asset.previewUrl)
+  if (inlineDimensions) {
+    return {
+      id: asset.id,
+      label: asset.label,
+      width: inlineDimensions.width,
+      height: inlineDimensions.height,
+      sourceBounds: {
+        left: 0,
+        top: 0,
+        right: inlineDimensions.width,
+        bottom: inlineDimensions.height
+      },
+      previewUrl: asset.previewUrl,
+      rgba: new Uint8Array(),
+      modelConfigId: asset.modelConfigId,
+      modelName: asset.modelName
+    } satisfies CapturedCanvasImage & { modelConfigId: string; modelName: string }
+  }
   try {
     const dimensions = await readImageDimensions(asset.previewUrl)
 

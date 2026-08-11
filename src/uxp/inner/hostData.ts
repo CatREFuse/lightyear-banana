@@ -1,6 +1,7 @@
 import { isGenerationSnapshot, type HistoryEntry, type HistoryUpsertEntry, type HostAssetPointer, type RequestLog } from '../../../packages/inner-protocol/src/index'
 import { getHostRequire } from '../photoshopHost'
 import { AssetStore } from './assetStore'
+import { utf8ByteLength } from './utf8'
 
 type TextFile = {
   read: () => Promise<string>
@@ -60,7 +61,7 @@ const HISTORY_ASSET_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns
 
 function serializedBytes(value: unknown) {
   const serialized = JSON.stringify(value)
-  return new TextEncoder().encode(serialized).byteLength
+  return utf8ByteLength(serialized)
 }
 
 const historySources = new Set<HostAssetPointer['source']>(['visible', 'selection', 'layer', 'upload', 'clipboard', 'generated'])

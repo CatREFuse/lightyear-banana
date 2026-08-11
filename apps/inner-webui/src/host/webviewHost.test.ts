@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BridgeEnvelope, HostContext } from '@lightyear-banana/inner-protocol'
-import { INNER_HOST_PROTOCOL, PROTOCOL_VERSION } from '@lightyear-banana/inner-protocol'
+import { CLIENT_READY_SIGNAL, INNER_HOST_PROTOCOL, LOCATION_BRIDGE_QUERY, PROTOCOL_VERSION } from '@lightyear-banana/inner-protocol'
 import { WebViewHostClient, type UxpHostBridge } from './webviewHost'
 
 const context: HostContext = {
@@ -24,17 +24,33 @@ function envelope(value: Partial<BridgeEnvelope> & Pick<BridgeEnvelope, 'kind' |
 
 function createHarness() {
   const eventTarget = new EventTarget()
+  const hostEventTarget = new EventTarget()
   const sent: BridgeEnvelope[] = []
-  const host: UxpHostBridge = { postMessage(message) { sent.push(message as BridgeEnvelope) } }
-  const fakeWindow = Object.assign(eventTarget, { uxpHost: host, location: { search: '' } }) as unknown as Window
+  const signals: unknown[] = []
+  const host = Object.assign(hostEventTarget, {
+    postMessage(message: unknown) {
+      if (message === CLIENT_READY_SIGNAL) signals.push(message)
+      else sent.push(message as BridgeEnvelope)
+    }
+  }) as UxpHostBridge
+  const location = { search: '', hash: '' }
+  const fakeWindow = Object.assign(eventTarget, { uxpHost: host, location }) as unknown as Window
   vi.stubGlobal('window', fakeWindow)
-  const dispatch = (message: BridgeEnvelope, source: unknown = host) => {
-    const event = new MessageEvent('message', { data: message })
+  const dispatch = (message: BridgeEnvelope, source: unknown = host, origin = '') => {
+    const event = new MessageEvent('message', { data: message, origin })
     Object.defineProperty(event, 'source', { value: source })
     return fakeWindow.dispatchEvent(event)
   }
+  const dispatchHost = (message: BridgeEnvelope, origin = '') => {
+    const event = new MessageEvent('message', { data: message, origin })
+    return hostEventTarget.dispatchEvent(event)
+  }
+  const dispatchLocation = (message: BridgeEnvelope) => {
+    location.hash = `#/workspace?${LOCATION_BRIDGE_QUERY}=${encodeURIComponent(JSON.stringify(message))}`
+    return fakeWindow.dispatchEvent(new Event('hashchange'))
+  }
   const client = new WebViewHostClient(host)
-  return { client, dispatch, sent }
+  return { client, dispatch, dispatchHost, dispatchLocation, sent, signals }
 }
 
 async function connect(harness: ReturnType<typeof createHarness>) {
@@ -54,23 +70,50 @@ afterEach(() => {
 })
 
 describe('WebViewHostClient', () => {
+  it('announces readiness after attaching the message listener', () => {
+    const harness = createHarness()
+    expect(harness.signals).toEqual([CLIENT_READY_SIGNAL])
+    harness.client.dispose()
+  })
+
   it('waits for host.ready and confirms both nonces and the session', async () => {
     const harness = createHarness()
     await expect(connect(harness)).resolves.toMatchObject({ sessionId: 'session-1', clientNonce: 'client-1', hostNonce: 'host-1' })
     harness.client.dispose()
   })
 
-  it('accepts messages only from the exact UXP bridge object', async () => {
+  it('authenticates a wrapped UXP source through the protocol handshake', async () => {
     const harness = createHarness()
     const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.1.0', clientNonce: 'client-1' })
     const ready = envelope({ kind: 'event', command: 'host.ready', payload: { protocolVersion: PROTOCOL_VERSION, hostNonce: 'host-1' } })
-    harness.dispatch(ready, null)
-    harness.dispatch(ready, { postMessage() {} })
+    harness.dispatch({ unexpected: true } as unknown as BridgeEnvelope, null)
     expect(harness.sent).toHaveLength(0)
-    harness.dispatch(ready)
+    harness.dispatch(ready, { postMessage() {} })
     await vi.waitFor(() => expect(harness.sent).toHaveLength(1))
     const request = harness.sent[0]
-    harness.dispatch(envelope({ kind: 'response', command: 'host.handshake', messageId: request.messageId, payload: { sessionId: 'session-1', protocolVersion: PROTOCOL_VERSION, clientNonce: 'client-1', hostNonce: 'host-1', context } }))
+    harness.dispatch(envelope({ kind: 'response', command: 'host.handshake', messageId: request.messageId, payload: { sessionId: 'session-1', protocolVersion: PROTOCOL_VERSION, clientNonce: 'client-1', hostNonce: 'host-1', context } }), { postMessage() {} })
+    await expect(pending).resolves.toMatchObject({ sessionId: 'session-1' })
+    harness.client.dispose()
+  })
+
+  it('accepts host messages dispatched directly on the UXP bridge', async () => {
+    const harness = createHarness()
+    const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.1.0', clientNonce: 'client-1' })
+    harness.dispatchHost(envelope({ kind: 'event', command: 'host.ready', payload: { protocolVersion: PROTOCOL_VERSION, hostNonce: 'host-1' } }))
+    await vi.waitFor(() => expect(harness.sent).toHaveLength(1))
+    const request = harness.sent[0]
+    harness.dispatchHost(envelope({ kind: 'response', command: 'host.handshake', messageId: request.messageId, payload: { sessionId: 'session-1', protocolVersion: PROTOCOL_VERSION, clientNonce: 'client-1', hostNonce: 'host-1', context } }))
+    await expect(pending).resolves.toMatchObject({ sessionId: 'session-1' })
+    harness.client.dispose()
+  })
+
+  it('accepts host messages delivered through the same-document location bridge', async () => {
+    const harness = createHarness()
+    const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.1.0', clientNonce: 'client-1' })
+    harness.dispatchLocation(envelope({ kind: 'event', command: 'host.ready', payload: { protocolVersion: PROTOCOL_VERSION, hostNonce: 'host-1' } }))
+    await vi.waitFor(() => expect(harness.sent).toHaveLength(1))
+    const request = harness.sent[0]
+    harness.dispatchLocation(envelope({ kind: 'response', command: 'host.handshake', messageId: request.messageId, payload: { sessionId: 'session-1', protocolVersion: PROTOCOL_VERSION, clientNonce: 'client-1', hostNonce: 'host-1', context } }))
     await expect(pending).resolves.toMatchObject({ sessionId: 'session-1' })
     harness.client.dispose()
   })

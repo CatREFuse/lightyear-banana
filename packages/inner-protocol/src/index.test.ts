@@ -3,12 +3,14 @@ import {
   INNER_HOST_PROTOCOL,
   MAX_BRIDGE_MESSAGE_BYTES,
   PROTOCOL_VERSION,
+  createLocationBridgeUrl,
   createRequestEnvelope,
   isBridgeEnvelope,
   isHostEvent,
   isGenerationSnapshot,
   isProtocolCompatible,
   parseBridgeEnvelope,
+  readLocationBridgeMessage,
   serializedMessageSize,
   toHostAssetPointer,
   validateCommandPayload,
@@ -81,6 +83,13 @@ describe('inner-host/v1 envelope', () => {
 })
 
 describe('compatibility helpers', () => {
+  it('round-trips an envelope through the same-document location bridge', () => {
+    const message = createRequestEnvelope({ command: 'host.getContext', sessionId: 'session-1', payload: undefined })
+    const url = createLocationBridgeUrl('http://127.0.0.1:4173/?host=uxp#/workspace?tab=main', message)
+    expect(new URL(url).hash).toContain('tab=main')
+    expect(JSON.parse(readLocationBridgeMessage(new URL(url).hash)!)).toEqual(message)
+  })
+
   it('accepts only the current major protocol', () => {
     expect(isProtocolCompatible(PROTOCOL_VERSION)).toBe(true)
     expect(isProtocolCompatible(PROTOCOL_VERSION + 1)).toBe(false)

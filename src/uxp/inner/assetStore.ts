@@ -1,6 +1,7 @@
 import { createBridgeThumbnail, createBridgeThumbnailFromPreview, type CapturedCanvasImage, type PixelBounds } from '../canvasPrimitives'
 import { getHostRequire } from '../photoshopHost'
 import type { HostAssetPointer, HostAssetRef } from '../../../packages/inner-protocol/src/index'
+import { decodeUtf8, encodeUtf8, utf8ByteLength } from './utf8'
 
 type Asset = {
   image: CapturedCanvasImage
@@ -97,7 +98,7 @@ function fallbackThumbnail(label: string) {
 }
 
 function serializedBytes(value: string) {
-  return new TextEncoder().encode(value).byteLength
+  return utf8ByteLength(value)
 }
 
 function bytesToBase64(bytes: Uint8Array) {
@@ -122,7 +123,7 @@ function readDataUrl(value: string) {
   const mimeType = match[1] || 'image/png'
   const bytes = match[2]
     ? base64ToBytes(match[3] ?? '')
-    : new TextEncoder().encode(decodeURIComponent(match[3] ?? ''))
+    : encodeUtf8(decodeURIComponent(match[3] ?? ''))
   return { mimeType, bytes }
 }
 
@@ -139,7 +140,7 @@ async function readPreviewBytes(previewUrl: string) {
 
 function toUint8Array(value: ArrayBuffer | Uint8Array | string) {
   if (value instanceof Uint8Array) return value
-  if (typeof value === 'string') return new TextEncoder().encode(value)
+  if (typeof value === 'string') return encodeUtf8(value)
   return new Uint8Array(value)
 }
 
@@ -559,7 +560,7 @@ export class AssetStore {
       try {
         const file = await folder.getEntry(PERSISTENT_INDEX) as UxpFile
         const raw = await file.read(getUxpStorage().formats?.utf8 ? { format: getUxpStorage().formats?.utf8 } : undefined)
-        const text = typeof raw === 'string' ? raw : new TextDecoder().decode(toUint8Array(raw))
+        const text = typeof raw === 'string' ? raw : decodeUtf8(toUint8Array(raw))
         const parsed = JSON.parse(text) as { schemaVersion?: unknown; items?: unknown }
         if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.items)) return index
         for (const item of parsed.items) if (isPersistentRecord(item)) index.set(item.assetId, item)
