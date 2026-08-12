@@ -102,6 +102,22 @@ test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })
 
+test('adds uploaded and clipboard images as references through the CCX host', async ({ page }, testInfo) => {
+  await page.getByRole('button', { name: '添加参考' }).click()
+  await page.getByRole('button', { name: '上传文件', exact: true }).click()
+  await expect(page.getByRole('img', { name: '上传图片' })).toBeVisible()
+
+  await page.getByRole('button', { name: '添加参考' }).click()
+  await page.getByRole('button', { name: '剪贴板', exact: true }).click()
+  await expect(page.getByRole('img', { name: '剪贴板' })).toBeVisible()
+  await expect(page.locator('.reference-thumb')).toHaveCount(2)
+  await page.screenshot({ path: testInfo.outputPath('ccx-reference-images.png') })
+
+  const commands = (await readTestHostTrace(page)).commands.map((entry) => entry.command)
+  expect(commands).toContain('reference.pickFile')
+  expect(commands).toContain('reference.readClipboard')
+})
+
 test('shows a thumbnail error, advances the timer, and opens the original image', async ({ browser }, testInfo) => {
   const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
   const page = await context.newPage()

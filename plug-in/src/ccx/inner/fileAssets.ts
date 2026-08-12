@@ -14,6 +14,16 @@ type FileSystemProvider = {
   getFileForSaving: (suggestedName: string, options?: Record<string, unknown>) => Promise<AdobeUxpFile | null>
 }
 
+type UxpClipboard = {
+  read?: () => Promise<unknown>
+  getContent?: () => Promise<unknown>
+}
+
+type ClipboardBinary = {
+  arrayBuffer?: () => Promise<ArrayBuffer>
+  type?: string
+}
+
 function getAdobeUxpStorage() {
   const hostRequire = getHostRequire()
   if (!hostRequire) throw new Error('Photoshop UXP runtime is unavailable.')
@@ -114,6 +124,45 @@ function sanitizeFileName(value: string) {
   return value.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120) || 'mugen-image'
 }
 
+function withCause(message: string, cause: unknown) {
+  const error = new Error(message) as Error & { cause?: unknown }
+  error.cause = cause
+  return error
+}
+
+async function readBinary(value: unknown) {
+  if (value instanceof Uint8Array) return value
+  if (value instanceof ArrayBuffer) return new Uint8Array(value)
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+  if (value && typeof value === 'object' && typeof (value as ClipboardBinary).arrayBuffer === 'function') {
+    return new Uint8Array(await (value as Required<Pick<ClipboardBinary, 'arrayBuffer'>>).arrayBuffer())
+  }
+  return undefined
+}
+
+function clipboardEntries(raw: unknown) {
+  return Array.isArray(raw) ? raw : [raw]
+}
+
+async function readClipboardImage(raw: unknown) {
+  for (const item of clipboardEntries(raw)) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown> & {
+      type?: string
+      types?: string[]
+      getType?: (type: string) => Promise<unknown>
+    }
+    const type = record.types?.find((value) => value.startsWith('image/'))
+      ?? Object.keys(record).find((value) => value.startsWith('image/'))
+      ?? (record.type?.startsWith('image/') ? record.type : undefined)
+    if (!type) continue
+    const value = typeof record.getType === 'function' ? await record.getType(type) : (record[type] ?? item)
+    const bytes = await readBinary(value)
+    if (bytes?.length) return { type, bytes }
+  }
+  return undefined
+}
+
 export class FileAssetService {
   private readonly assets: AssetStore
 
@@ -125,10 +174,20 @@ export class FileAssetService {
     const storage = getAdobeUxpStorage()
     const picker = storage.localFileSystem
     if (!picker) throw new Error('文件选择器不可用')
-    const selected = await picker.getFileForOpening({ types: storage.fileTypes?.images ?? ['png', 'jpg', 'jpeg', 'webp', 'gif'] })
+    let selected: AdobeUxpFile | AdobeUxpFile[] | null
+    try {
+      selected = await picker.getFileForOpening({ types: storage.fileTypes?.images ?? ['png', 'jpg', 'jpeg', 'webp', 'gif'] })
+    } catch (error) {
+      throw withCause('文件选择失败，请重试', error)
+    }
     const file = Array.isArray(selected) ? selected[0] : selected
     if (!file) return null
-    const raw = await file.read(storage.formats?.binary ? { format: storage.formats.binary } : undefined)
+    let raw: ArrayBuffer | Uint8Array | string
+    try {
+      raw = await file.read(storage.formats?.binary ? { format: storage.formats.binary } : undefined)
+    } catch (error) {
+      throw withCause('文件读取失败，请重新选择图片', error)
+    }
     const bytes = raw instanceof Uint8Array ? raw : typeof raw === 'string' ? encodeUtf8(raw) : new Uint8Array(raw)
     const name = file.name || '上传图片.png'
     const extension = readExtension(name)
@@ -137,29 +196,19 @@ export class FileAssetService {
   }
 
   async readClipboardReference() {
-    const clipboard = navigator.clipboard as Clipboard & { read?: () => Promise<unknown> }
-    if (!clipboard || typeof clipboard.read !== 'function') throw new Error('当前 Photoshop 版本不支持读取剪贴板图片')
-    const raw = await clipboard.read()
-    const items = Array.isArray(raw) ? raw : [raw]
-    for (const item of items) {
-      if (!item || typeof item !== 'object') continue
-      const record = item as unknown as Record<string, unknown> & { types?: string[]; getType?: (type: string) => Promise<Blob> }
-      const type = record.types?.find((value) => value.startsWith('image/'))
-        ?? Object.keys(record).find((value) => value.startsWith('image/'))
-      if (!type) continue
-      const value = typeof record.getType === 'function' ? await record.getType(type) : record[type]
-      const bytes = typeof Blob !== 'undefined' && value instanceof Blob
-        ? new Uint8Array(await value.arrayBuffer())
-        : value instanceof Uint8Array
-          ? value
-          : value instanceof ArrayBuffer
-            ? new Uint8Array(value)
-            : undefined
-      if (!bytes) continue
-      const previewUrl = `data:${type};base64,${bytesToBase64(bytes)}`
-      return this.assets.add('clipboard', await createImage(previewUrl, '剪贴板图片'))
+    const clipboard = navigator.clipboard as UxpClipboard | undefined
+    const read = clipboard?.read ?? clipboard?.getContent
+    if (!clipboard || typeof read !== 'function') throw new Error('当前 Photoshop 版本不支持读取剪贴板图片')
+    let raw: unknown
+    try {
+      raw = await read.call(clipboard)
+    } catch (error) {
+      throw withCause('剪贴板图片读取失败，请重新复制图片后重试', error)
     }
-    throw new Error('剪贴板里没有图片')
+    const image = await readClipboardImage(raw)
+    if (!image) throw new Error('剪贴板里没有图片')
+    const previewUrl = `data:${image.type};base64,${bytesToBase64(image.bytes)}`
+    return this.assets.add('clipboard', await createImage(previewUrl, '剪贴板图片'))
   }
 
   async save(assetId: string) {
