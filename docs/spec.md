@@ -13,7 +13,7 @@
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.0`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
-- 当前 CCX 版本为 `1.1.0`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
+- 当前 CCX 版本为 `1.1.1`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
 
 ## 官方单屏站点
 
@@ -27,6 +27,8 @@
 - 当前 CCX 标本号。
 
 标本号必须来自同一份 CCX 发布元数据，不能在 HTML 中维护第二份独立版本值。下载按钮必须指向该标本号对应、完成校验的 CCX 文件；WebUI 按钮进入浏览器运行时的正式入口。
+
+每次发布 CCX 后必须同步更新官网的下载 URL、标本号、打包时间、文件大小和 SHA256。站点构建发现首页仍指向旧 CCX、文件名与当前版本不符或哈希不一致时必须停止，公网发布后逐字节读回下载文件并复验 SHA256。
 
 ### 书法主文字
 
@@ -101,6 +103,8 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - CCX 中 API Key 保存在 UXP SecureStorage；浏览器中的凭据由浏览器适配层保存，并明确仅留在当前浏览器配置中。
 - 两种运行时共享 Provider 请求语义和错误映射。因跨域策略无法使用的自定义服务必须给出可操作错误。
 - 生产 bundle 不自动启用 Mock Server，不包含自动注入的 Mock Host。
+- CCX 每次面板启动建立一份仅覆盖启动阶段的内存日志。WebView 资源加载失败、20 秒加载超时或页面加载后 15 秒未完成 Host 握手时，原生失败页显示可读错误、`重试` 与 `下载启动日志`。
+- 启动日志按时间记录 Photoshop、CCX、WebUI 三端的消息方向、命令、消息 ID、响应与错误；完成 Host 握手后停止采集。导出为 JSONL 前必须移除 API Key、Authorization、Cookie、Token、完整提示词、图片正文、URL 查询参数和本地路径。
 
 ### 任务、记录与图片结果
 

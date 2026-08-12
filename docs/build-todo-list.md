@@ -12,6 +12,7 @@
 - 正式 `package:ccx` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
 - 修改 CCX 版本时，确认 `plug-in/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
+- 每次 CCX 发布必须依次完成当前版本打包、官网首页与两份 LLM 文本的版本化下载信息更新、`npm run build:site` 和公网读回。官网 `下载 CCX` 必须指向本次 `dist/ccx-release.json` 的文件名；仍指向任一旧版本时停止站点构建和部署。
 - Windows CCX 由仓库打包脚本生成，归档格式必须对齐 Adobe UXP Developer Tools 的 `Package` 产物特征；不得使用 PowerShell `Compress-Archive` 或系统右键压缩直接充当发行包。资源管理器双击安装及 Photoshop 可用性由分发验收确认，命令行安装不能代替该结果。
 - 代码生成的 CCX 必须在归档根目录直接包含 Manifest 与运行资源，使用 UDT 一致的文件条目、Manifest 首项、Deflate、数据描述符和 Unix `0644` 权限；`manifest.json` 只移除末尾单个换行，其他条目必须与 `dist/ccx-host/` 逐字节一致。完整特征见 `docs/ref/framework-build.md`。
 - 不得恢复 `standalone-uxp-plugin/`、`src/uxp/`、`vite.uxp.config.ts`、`uxp-panel.html` 或旧 `*:uxp` 产品命令。
@@ -53,6 +54,7 @@
 - 发布前确认 CCX 发行物与 `dist/ccx-release.json` 一致；不一致时停止官网构建，不更新 `download/`。
 - 桌面端已删除，新首页只从 `download/` 提供一个版本化 CCX。
 - `下载 CCX` 只指向已校验文件；`进入 WebUI` 只指向通过浏览器门禁的 vNext 地址。
+- 官网源文件中的 CCX 下载 URL、标本号、打包时间、文件大小和 SHA256 全部更新为本次发行元数据后才允许构建；不得沿用上一版本的任一字段。
 - `homesite/site/`、`dist/site/` 和首页运行时不得包含或请求 `releases/latest.json`；仓库与生产产物不得恢复已废弃域名。
 - 正式构建来自已提交的干净工作区，并记录提交、构建时间、版本、文件大小与 SHA256。
 - 公网发布后逐字节验证入口 HTML、关键资源、CCX 文件和元数据，并检查 TLS、MIME、CSP、HSTS 与 `nosniff`。
@@ -67,6 +69,7 @@
 - [ ] CCX 已在真实 Photoshop 完成抓取、请求、取图、置入完整闭环。
 - [ ] 官网单屏视觉、交互、性能、可访问性与静态兜底通过。
 - [ ] `dist/` 的 CCX 与 `SHA256SUMS.txt` 匹配。
+- [ ] 官网 `下载 CCX` 指向本次最新版 CCX，标本号、文件大小与 SHA256 均和 `dist/ccx-release.json` 一致。
 - [ ] 公网逐字节读回 `download/` CCX 和安全响应头检查通过。
 
 ## 旧 Inner WebUI 0.1 / CCX 1.0 状态（归档）

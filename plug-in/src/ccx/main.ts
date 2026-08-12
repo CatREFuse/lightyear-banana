@@ -1,6 +1,7 @@
 import { CommandRegistry, publicHostError } from './inner/commandRegistry'
 import { createErrorResponse, createEvent, createResponse, BridgeValidationError, INNER_HOST_PROTOCOL, parseRequest } from './inner/protocol'
 import { SessionManager } from './inner/sessionManager'
+import { StartupLog, toStartupErrorDetails } from './inner/startupLog'
 import { createWebViewShell, type WebViewShell } from './inner/webviewShell'
 import { createPanelLifecycle } from './panelLifecycle'
 import { createNamedLayer } from './photoshopHost'
@@ -61,6 +62,8 @@ function mountPanel(rootNode?: unknown) {
   destroyPanel()
 
   const session = new SessionManager()
+  const startupLog = new StartupLog(CCX_VERSION, session.sessionId)
+  startupLog.record('photoshop', 'ccx', 'panel.mount')
   const smokeEvents: DevelopmentSmokeEvent[] = []
   let shell: WebViewShell
   const registry = new CommandRegistry(CCX_VERSION, session, (command, payload) => {
@@ -68,6 +71,7 @@ function mountPanel(rootNode?: unknown) {
       smokeEvents.push({ command, payload })
       if (smokeEvents.length > 100) smokeEvents.splice(0, smokeEvents.length - 100)
     }
+    startupLog.record('photoshop', 'ccx', 'host.event', { command, payload })
     shell.postMessage(createEvent(session.sessionId, command, payload))
   })
 
@@ -76,6 +80,7 @@ function mountPanel(rootNode?: unknown) {
     sessionId: session.sessionId,
     hostNonce: session.hostNonce,
     hostVersion: CCX_VERSION,
+    startupLog,
     onMessage: async (event) => {
       const raw = event.data
       let request: ReturnType<typeof parseRequest> | undefined
@@ -83,9 +88,25 @@ function mountPanel(rootNode?: unknown) {
         if (!shell.isTrustedMessage(event)) throw new BridgeValidationError('UNTRUSTED_ORIGIN', '消息来源未获授权')
         request = parseRequest(raw)
         session.validate(request)
+        startupLog.record('ccx', 'photoshop', 'host.command.start', {
+          command: request.command,
+          messageId: request.messageId,
+          payload: request.payload
+        })
         const result = await registry.invoke(request)
+        startupLog.record('photoshop', 'ccx', 'host.command.success', {
+          command: request.command,
+          messageId: request.messageId,
+          result
+        })
         shell.postMessage(createResponse(request, session.sessionId, result))
+        if (request.command === 'host.handshake') shell.markReady()
       } catch (error) {
+        startupLog.record('photoshop', 'ccx', 'host.command.error', {
+          command: request?.command,
+          messageId: request?.messageId,
+          error: toStartupErrorDetails(error)
+        })
         if (error instanceof BridgeValidationError) {
           registry.recordBridgeValidationFailure(error, request?.command)
         }

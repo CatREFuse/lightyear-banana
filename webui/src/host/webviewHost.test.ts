@@ -5,7 +5,7 @@ import { WebViewHostClient, type CcxHostBridge } from './webviewHost'
 
 const context: HostContext = {
   ready: true,
-  hostVersion: '1.1.0',
+  hostVersion: '1.1.1',
   photoshopVersion: '27.0.0',
   platform: 'win32',
   theme: 'dark',

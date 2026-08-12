@@ -47,7 +47,9 @@ form-action 'none';
 
 ## 本地检查
 
-先构建站点，再运行定向测试和只读 dry-run：
+发布新版 CCX 时，先从干净提交生成 `dist/mugen-<version>.ccx`、`.sha256` 和 `dist/ccx-release.json`，再把 `homesite/site/index.html`、`homesite/site/llms.txt`、`homesite/site/LLM.TXT` 中的下载 URL、标本号、打包时间、文件大小和 SHA256 更新为这份发行元数据。任何字段仍属于旧版本时，站点构建必须失败。
+
+完成发行信息更新后构建站点，再运行定向测试和只读 dry-run：
 
 ```powershell
 npm run build:site

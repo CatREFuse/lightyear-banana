@@ -72,3 +72,11 @@ test('rejects dirty CCX provenance and legacy release download links', async (t)
   const bundle = await verifyCcxRelease({ root })
   await assert.rejects(verifySiteMetadata({ root, bundle }), /CCX href/)
 })
+
+test('rejects a homepage that still links to the previous CCX version', async (t) => {
+  const { root } = fixture(t)
+  write(root, 'homesite/site/index.html', '<a data-download="ccx" href="__MUGEN_RELEASE_ORIGIN__/download/mugen-0.9.9.ccx"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>0.9.9</span></p>')
+
+  const bundle = await verifyCcxRelease({ root })
+  await assert.rejects(verifySiteMetadata({ root, bundle }), /CCX href/)
+})
