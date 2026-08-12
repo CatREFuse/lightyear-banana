@@ -95,6 +95,9 @@ const {
 } = props.themeController ?? localThemeController!
 const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
+const previewLoading = shallowRef(false)
+const previewError = shallowRef('')
+let previewRequest = 0
 const photoshopIntegrationAvailable = computed(() => (
   props.photoshopIntegrationAvailable ?? props.runtime !== 'browser'
 ))
@@ -141,12 +144,27 @@ function setWorkspaceMenu(owner: string) {
 }
 
 async function openPreview(image: CapturedCanvasImage) {
+  const request = ++previewRequest
   activeWorkspaceMenu.value = ''
   previewImage.value = image
+  previewError.value = ''
+  if (!props.controller.loadOriginalImage) return
+  previewLoading.value = true
+  try {
+    const loaded = await props.controller.loadOriginalImage(image)
+    if (request === previewRequest) previewImage.value = loaded
+  } catch (reason) {
+    if (request === previewRequest) previewError.value = reason instanceof Error ? reason.message : '原图无法载入'
+  } finally {
+    if (request === previewRequest) previewLoading.value = false
+  }
 }
 
 function closePreview() {
+  previewRequest += 1
   previewImage.value = null
+  previewError.value = ''
+  previewLoading.value = false
 }
 
 function readPreviewFileName(image: CapturedCanvasImage) {
@@ -158,9 +176,14 @@ function readPreviewFileName(image: CapturedCanvasImage) {
   return `${cleanLabel}-${image.width}x${image.height}.png`
 }
 
-function downloadPreviewImage() {
+async function downloadPreviewImage() {
   const image = previewImage.value
   if (!image) {
+    return
+  }
+
+  if (props.runtime === 'photoshop-ccx') {
+    await saveGeneratedImage(image)
     return
   }
 
@@ -172,14 +195,6 @@ function downloadPreviewImage() {
   document.body.appendChild(link)
   link.click()
   link.remove()
-}
-
-async function savePreviewImage() {
-  if (!previewImage.value) {
-    return
-  }
-
-  await saveGeneratedImage(previewImage.value)
 }
 
 function handleHeaderBack() {
@@ -340,15 +355,17 @@ function handleManageModels() {
               <header class="preview-header">
                 <span>{{ previewImage.label }} · {{ previewImage.width }} × {{ previewImage.height }}</span>
                 <div class="preview-actions">
-                  <button type="button" @click="downloadPreviewImage">下载</button>
-                  <button type="button" @click="savePreviewImage">保存</button>
+                  <button v-if="props.runtime === 'browser'" type="button" @click="downloadPreviewImage">下载</button>
+                  <button v-else type="button" @click="downloadPreviewImage">下载</button>
                   <button type="button" aria-label="关闭预览" @click="closePreview">
                     <BoxIcon name="x" size="16" />
                   </button>
                 </div>
               </header>
               <div class="preview-media">
-                <img :src="previewImage.previewUrl" :alt="previewImage.label" />
+                <p v-if="previewLoading" class="preview-state" role="status">正在载入原图</p>
+                <p v-else-if="previewError" class="preview-state is-error" role="alert">{{ previewError }}</p>
+                <img v-else :src="previewImage.previewUrl" :alt="previewImage.label" @error="previewError = '原图无法显示'" />
               </div>
             </div>
           </section>
@@ -528,6 +545,20 @@ function handleManageModels() {
   place-items: center;
   overflow: hidden;
   background: var(--mugen-thread-image-bg);
+}
+
+.preview-state {
+  display: grid;
+  min-height: 240px;
+  place-content: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--mugen-secondary);
+  text-align: center;
+}
+
+.preview-state.is-error {
+  color: var(--mugen-danger-text);
 }
 
 .preview-media img {

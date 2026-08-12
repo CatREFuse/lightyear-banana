@@ -105,6 +105,22 @@ describe('WebViewHostClient', () => {
     harness.client.dispose()
   })
 
+  it('keeps the upload picker alive beyond the default host timeout', async () => {
+    const harness = createHarness()
+    await connect(harness)
+    vi.useFakeTimers()
+    const pending = harness.client.captureReference('upload')
+    const request = harness.sent.at(-1)!
+    await vi.advanceTimersByTimeAsync(13_000)
+    harness.dispatch(envelope({
+      kind: 'response', command: 'reference.pickFile', messageId: request.messageId,
+      payload: { assetId: 'asset-upload-1', label: '上传图片', source: 'upload', width: 512, height: 512, previewUrl: 'data:image/png;base64,AQID', status: 'available' }
+    }))
+
+    await expect(pending).resolves.toMatchObject({ assetId: 'asset-upload-1', source: 'upload' })
+    harness.client.dispose()
+  })
+
   it('keeps a Provider config test alive beyond the default host timeout', async () => {
     const harness = createHarness()
     await connect(harness)
@@ -150,6 +166,26 @@ describe('WebViewHostClient', () => {
     }))
 
     await expect(pending).resolves.toEqual({ ok: true, message: '连接成功' })
+    harness.client.dispose()
+  })
+
+  it('reassembles the original image from ordered host chunks', async () => {
+    const harness = createHarness()
+    await connect(harness)
+    const pending = harness.client.readOriginalAsset('asset-1')
+    const first = harness.sent.at(-1)!
+    harness.dispatch(envelope({
+      kind: 'response', command: 'asset.readOriginal', messageId: first.messageId,
+      payload: { assetId: 'asset-1', chunk: 'data:image/png;', offset: 0, totalLength: 23, done: false }
+    }))
+    await vi.waitFor(() => expect(harness.sent.at(-1)?.payload).toEqual({ assetId: 'asset-1', offset: 15 }))
+    const second = harness.sent.at(-1)!
+    harness.dispatch(envelope({
+      kind: 'response', command: 'asset.readOriginal', messageId: second.messageId,
+      payload: { assetId: 'asset-1', chunk: 'base64,A', offset: 15, totalLength: 23, done: true }
+    }))
+
+    await expect(pending).resolves.toBe('data:image/png;base64,A')
     harness.client.dispose()
   })
 })

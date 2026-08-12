@@ -1,6 +1,6 @@
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { GenerationSnapshot, HistoryEntry, HistoryUpsertEntry, HostAssetRef, HostContext, ModelConfig, PromptPreset, RequestLog, TaskPhase } from '@mugen/inner-protocol'
+import type { GenerationSnapshot, HistoryEntry, HistoryUpsertEntry, HostAssetRef, HostContext, HostEvent, ModelConfig, PromptPreset, RequestLog, TaskPhase } from '@mugen/inner-protocol'
 import { PROTOCOL_VERSION, createMessageId, isGenerationSnapshot, isProtocolCompatible, providerCapabilities, providerUsesApiKey, readProviderCapability, toHostAssetPointer, toModelConfig } from '@mugen/inner-protocol'
 import { createHostClient } from '@/host'
 
@@ -15,6 +15,7 @@ export type ChatTurn = {
   results: HostAssetRef[]
   logs: RequestLog[]
   error?: string
+  startedAt?: number
 }
 
 export const capabilities = Object.values(providerCapabilities)
@@ -88,6 +89,36 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   let activeConfigSave: Promise<void> = Promise.resolve()
   let referenceMutation: Promise<void> = Promise.resolve()
   let themeSave: Promise<void> = Promise.resolve()
+  let elapsedTimer: ReturnType<typeof setInterval> | undefined
+  const pendingTaskEvents = new Map<string, HostEvent[]>()
+
+  function syncElapsedTimer() {
+    const hasRunning = turns.value.some((turn) => turn.status === 'running')
+    if (hasRunning && !elapsedTimer) {
+      elapsedTimer = setInterval(() => {
+        const now = Date.now()
+        for (const turn of turns.value) {
+          if (turn.status !== 'running' || !turn.startedAt) continue
+          turn.elapsed = Math.max(turn.elapsed, Math.floor((now - turn.startedAt) / 1000))
+        }
+      }, 1_000)
+    }
+    if (!hasRunning && elapsedTimer) {
+      clearInterval(elapsedTimer)
+      elapsedTimer = undefined
+    }
+  }
+
+  onScopeDispose(() => {
+    if (elapsedTimer) clearInterval(elapsedTimer)
+  })
+
+  function trimTerminalTurns() {
+    const terminal = turns.value.filter((turn) => turn.status !== 'running')
+    if (terminal.length <= 30) return
+    const keep = new Set(terminal.slice(-30).map((turn) => turn.id))
+    turns.value = turns.value.filter((turn) => turn.status === 'running' || keep.has(turn.id))
+  }
 
   function mutateReferences<T>(operation: () => Promise<T>) {
     const run = referenceMutation.then(operation, operation)
@@ -113,21 +144,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       selectedConfigId.value = pickActiveConfigId(configs.value, settings.activeConfigId)
       if (response.context.capabilities.includes('history.list')) {
         try {
-          const items: HistoryEntry[] = []
-          const seenCursors = new Set<string>()
-          let cursor: string | undefined
-          do {
-            const history = await host.invoke('history.list', { cursor, limit: 50 })
-            items.push(...history.items)
-            cursor = history.nextCursor
-            if (cursor && seenCursors.has(cursor)) break
-            if (cursor) seenCursors.add(cursor)
-          } while (cursor && items.length < 100)
-          turns.value = items
-            .slice(0, 100)
+          const history = await host.invoke('history.list', { limit: 30 })
+          const loaded = history.items
+            .slice(0, 30)
             .map(historyEntryToTurn)
             .filter((turn): turn is ChatTurn => Boolean(turn))
+          const merged = new Map(loaded.map((turn) => [turn.id, turn]))
+          for (const turn of turns.value) {
+            if (!merged.has(turn.id)) merged.set(turn.id, turn)
+          }
+          turns.value = [...merged.values()]
             .sort((left, right) => Date.parse(left.snapshot.submittedAt) - Date.parse(right.snapshot.submittedAt))
+          trimTerminalTurns()
+          syncElapsedTimer()
         } catch (reason) {
           error.value = reason instanceof Error ? `记录未载入：${reason.message}` : '生成记录暂时无法载入'
         }
@@ -234,26 +263,33 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   async function submitSnapshot(snapshot: GenerationSnapshot, submittedReferences: HostAssetRef[] = []) {
+    const taskId = createMessageId('task')
+    const taskSnapshot: GenerationSnapshot = { ...snapshot, clientTaskId: taskId }
     const turn: ChatTurn = {
-      id: createMessageId('turn'),
-      prompt: snapshot.prompt,
+      id: taskId,
+      prompt: taskSnapshot.prompt,
       references: submittedReferences,
-      snapshot,
+      snapshot: taskSnapshot,
       status: 'running',
       phase: 'waiting',
       elapsed: 0,
       results: [],
-      logs: []
+      logs: [],
+      startedAt: Date.now()
     }
     turns.value.push(turn)
+    syncElapsedTimer()
     try {
-      const { taskId } = await host.startGeneration(snapshot)
-      turn.id = taskId
+      const result = await host.startGeneration(taskSnapshot)
+      if (result.taskId !== turn.id) turn.id = result.taskId
+      flushTaskEvents(result.taskId)
     } catch (reason) {
       turn.status = 'failed'
       turn.phase = 'failed'
       turn.error = reason instanceof Error ? reason.message : '无法连接 API'
       await persistTurn(turn)
+      trimTerminalTurns()
+      syncElapsedTimer()
     }
     return turn
   }
@@ -286,6 +322,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       await host.cancelGeneration(turn.id)
       turn.status = 'cancelled'
       turn.phase = 'cancelled'
+      trimTerminalTurns()
+      syncElapsedTimer()
     } catch (reason) {
       error.value = reason instanceof Error ? reason.message : '无法取消任务'
     }
@@ -385,15 +423,32 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     promptPresets.value = saved.promptPresets ?? []
   }
 
-  host.onEvent((event) => {
+  function queueTaskEvent(taskId: string, event: HostEvent) {
+    const queue = pendingTaskEvents.get(taskId) ?? []
+    queue.push(event)
+    pendingTaskEvents.set(taskId, queue.slice(-20))
+  }
+
+  function flushTaskEvents(taskId: string) {
+    const queue = pendingTaskEvents.get(taskId)
+    if (!queue) return
+    pendingTaskEvents.delete(taskId)
+    for (const event of queue) handleHostEvent(event, false)
+  }
+
+  function handleHostEvent(event: HostEvent, allowQueue = true) {
     if (event.type === 'contextChanged') context.value = event.context
     if (event.type === 'taskProgress') {
       const turn = turns.value.find((item) => item.id === event.event.taskId)
       if (turn) {
         turn.phase = event.event.phase
-        turn.elapsed = event.event.elapsedSeconds
+        if (event.event.elapsedSeconds > turn.elapsed) {
+          turn.elapsed = event.event.elapsedSeconds
+          turn.startedAt = Date.now() - turn.elapsed * 1_000
+        }
         if (event.event.phase === 'cancelled') turn.status = 'cancelled'
-      }
+        syncElapsedTimer()
+      } else if (allowQueue) queueTaskEvent(event.event.taskId, event)
     }
     if (event.type === 'generationCompleted') {
       const turn = turns.value.find((item) => item.id === event.result.taskId)
@@ -402,7 +457,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         turn.phase = 'completed'
         turn.results = event.result.assets
         turn.logs = event.result.logs
-      }
+        trimTerminalTurns()
+        syncElapsedTimer()
+      } else if (allowQueue) queueTaskEvent(event.result.taskId, event)
     }
     if (event.type === 'generationFailed') {
       const turn = turns.value.find((item) => item.id === event.taskId)
@@ -410,7 +467,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         turn.status = 'failed'
         turn.phase = 'failed'
         turn.error = event.error.message
-      }
+        trimTerminalTurns()
+        syncElapsedTimer()
+      } else if (allowQueue) queueTaskEvent(event.taskId, event)
     }
     if (event.type === 'assetInvalidated') {
       references.value = references.value.map((asset) => asset.assetId === event.assetId ? { ...asset, status: 'missing' } : asset)
@@ -421,7 +480,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
     }
     if (event.type === 'diagnosticsNotice') error.value = event.message
-  })
+  }
+
+  host.onEvent(handleHostEvent)
 
   return {
     host, status, context, error, configs, enabledConfigs, references, turns, promptPresets, selectedConfigId, colorMode, visualTheme, theme, isPreview,

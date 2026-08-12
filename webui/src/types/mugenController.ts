@@ -53,6 +53,7 @@ export type MugenController = {
   exportDiagnostics: () => ControllerResult
   generationLoading: ReadonlyState<GenerationLoadingState[]>
   installPluginUrl: ReadonlyState<string>
+  loadOriginalImage?: (image: CapturedCanvasImage) => Promise<CapturedCanvasImage>
   openPromptPresets: () => ControllerResult
   openSettings: (configId?: string) => ControllerResult
   placeImage: (image: GeneratedImage, target: PlacementTarget) => ControllerResult

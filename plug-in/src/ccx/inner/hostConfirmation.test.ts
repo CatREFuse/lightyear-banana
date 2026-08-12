@@ -29,20 +29,20 @@ class ManualDialogAdapter implements HostConfirmationDialogAdapter {
 }
 
 describe('HostConfirmationGate', () => {
-  it('does not execute an automatic request before a host click and executes once after confirmation', async () => {
+  it('does not save before a host click and executes once after confirmation', async () => {
     const adapter = new ManualDialogAdapter()
     const gate = new HostConfirmationGate(adapter)
-    const operation = vi.fn(async () => ({ placed: true }))
+    const operation = vi.fn(async () => ({ saved: true }))
 
-    const result = gate.run('canvas.placeAsset', operation)
+    const result = gate.run('asset.save', operation)
 
     expect(adapter.descriptors).toHaveLength(1)
-    expect(adapter.descriptors[0]?.confirmLabel).toBe('置入')
+    expect(adapter.descriptors[0]?.confirmLabel).toBe('继续')
     expect(operation).not.toHaveBeenCalled()
 
     adapter.respond('confirmed')
 
-    await expect(result).resolves.toEqual({ placed: true })
+    await expect(result).resolves.toEqual({ saved: true })
     expect(operation).toHaveBeenCalledTimes(1)
   })
 
@@ -83,15 +83,15 @@ describe('HostConfirmationGate', () => {
     const firstOperation = vi.fn(async () => 'first')
     const secondOperation = vi.fn(async () => 'second')
 
-    const first = gate.run('canvas.placeAsset', firstOperation)
+    const first = gate.run('asset.save', firstOperation)
     const second = gate.run('diagnostics.export', secondOperation)
 
-    expect(adapter.descriptors.map(({ command }) => command)).toEqual(['canvas.placeAsset'])
+    expect(adapter.descriptors.map(({ command }) => command)).toEqual(['asset.save'])
     expect(secondOperation).not.toHaveBeenCalled()
 
     adapter.respond('confirmed')
     await expect(first).resolves.toBe('first')
-    expect(adapter.descriptors.map(({ command }) => command)).toEqual(['canvas.placeAsset', 'diagnostics.export'])
+    expect(adapter.descriptors.map(({ command }) => command)).toEqual(['asset.save', 'diagnostics.export'])
     expect(secondOperation).not.toHaveBeenCalled()
 
     adapter.respond('confirmed')
@@ -111,7 +111,7 @@ describe('HostConfirmationGate', () => {
 
     await expect(first).rejects.toMatchObject({ code: 'HOST_CONFIRMATION_DESTROYED' })
     await expect(second).rejects.toMatchObject({ code: 'HOST_CONFIRMATION_DESTROYED' })
-    await expect(gate.run('canvas.placeAsset', vi.fn())).rejects.toMatchObject({ code: 'HOST_CONFIRMATION_DESTROYED' })
+    await expect(gate.run('storage.clearAll', vi.fn())).rejects.toMatchObject({ code: 'HOST_CONFIRMATION_DESTROYED' })
     expect(firstOperation).not.toHaveBeenCalled()
     expect(secondOperation).not.toHaveBeenCalled()
     expect(adapter.destroy).toHaveBeenCalledTimes(1)

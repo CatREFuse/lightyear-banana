@@ -55,9 +55,9 @@ async function deleteDataFile(name: string) {
 }
 
 const HISTORY_FILE = 'mugen-inner-history.v1.json'
-const MAX_HISTORY_ITEMS = 100
+const HISTORY_BACKUP_FILE = 'mugen-inner-history.v1.backup.json'
+const MAX_HISTORY_ITEMS = 30
 const MAX_HISTORY_RESPONSE_BYTES = 700 * 1024
-const HISTORY_ASSET_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240"%3E%3Crect width="320" height="240" fill="%231a2028"/%3E%3Cpath d="M80 164l54-58 38 38 28-28 40 48H80z" fill="%238b5cf6" opacity=".45"/%3E%3C/svg%3E'
 
 function serializedBytes(value: unknown) {
   const serialized = JSON.stringify(value)
@@ -118,7 +118,8 @@ function sanitizedHistoryEntry(entry: HistoryUpsertEntry): HistoryUpsertEntry {
         quality: typeof rawSnapshot.quality === 'string' ? rawSnapshot.quality.slice(0, 128) : '',
         count: Number.isInteger(rawSnapshot.count) ? Number(rawSnapshot.count) : 1,
         ratio: typeof rawSnapshot.ratio === 'string' ? rawSnapshot.ratio.slice(0, 128) : '',
-        submittedAt: typeof rawSnapshot.submittedAt === 'string' ? rawSnapshot.submittedAt.slice(0, 64) : new Date().toISOString()
+        submittedAt: typeof rawSnapshot.submittedAt === 'string' ? rawSnapshot.submittedAt.slice(0, 64) : new Date().toISOString(),
+        ...(typeof rawSnapshot.clientTaskId === 'string' ? { clientTaskId: rawSnapshot.clientTaskId.slice(0, 256) } : {})
       }
     : undefined
   const safeSnapshot = snapshot && isGenerationSnapshot(snapshot) ? snapshot : undefined
@@ -189,8 +190,10 @@ function compactHistoryEntry(entry: HistoryEntry) {
     .sort((left, right) => (right.previewUrl?.length ?? 0) - (left.previewUrl?.length ?? 0))
   for (const asset of previews) {
     if (serializedBytes(candidate) <= MAX_HISTORY_RESPONSE_BYTES) break
-    asset.previewUrl = HISTORY_ASSET_PLACEHOLDER
-    asset.thumbnailUrl = HISTORY_ASSET_PLACEHOLDER
+    asset.previewUrl = ''
+    asset.thumbnailUrl = ''
+    asset.previewStatus = 'unavailable'
+    asset.previewError = '缩略图暂不可用'
   }
   return candidate
 }
@@ -206,7 +209,25 @@ export class HistoryStore {
 
   private async load() {
     if (!this.entries) {
-      const stored = await readJsonFile<unknown>(HISTORY_FILE, [])
+      let stored: unknown
+      try {
+        stored = await this.readHistoryEntries(HISTORY_FILE)
+      } catch {
+        try {
+          stored = await this.readHistoryEntries(HISTORY_BACKUP_FILE)
+          if (stored === undefined) throw new Error('生成记录备份不存在')
+        } catch {
+          throw new Error('生成记录损坏，已停止写入以保护现有记录')
+        }
+      }
+      if (stored === undefined) {
+        try {
+          stored = await this.readHistoryEntries(HISTORY_BACKUP_FILE)
+        } catch {
+          throw new Error('生成记录损坏，已停止写入以保护现有记录')
+        }
+      }
+      stored ??= []
       this.entries = Array.isArray(stored)
         ? stored
             .filter((item): item is HistoryUpsertEntry => Boolean(item && typeof item === 'object' && typeof (item as HistoryUpsertEntry).id === 'string'))
@@ -248,7 +269,7 @@ export class HistoryStore {
       await this.assets.retain(addedIds, owner)
       try {
         await this.assets.persist([...persistentAssetIds(next)])
-        await writeJsonFile(HISTORY_FILE, next)
+        await this.writeHistory(next, entries)
       } catch (error) {
         for (const assetId of addedIds) this.assets.releaseAssetOwner(assetId, owner, true)
         throw error
@@ -269,7 +290,7 @@ export class HistoryStore {
   clear() {
     return this.mutate(async () => {
       const entries = await this.load()
-      await writeJsonFile(HISTORY_FILE, [])
+      await this.writeHistory([], [])
       this.entries = []
       await this.assets.removePersistent([...persistentAssetIds(entries)])
       for (const entry of entries) this.assets.releaseOwner(historyOwner(entry.id), true)
@@ -281,6 +302,7 @@ export class HistoryStore {
     return this.mutate(async () => {
       await this.assets.clearPersistent()
       await deleteDataFile(HISTORY_FILE)
+      await deleteDataFile(HISTORY_BACKUP_FILE)
       this.entries = []
       return { cleared: true }
     })
@@ -290,6 +312,32 @@ export class HistoryStore {
     const run = this.mutationQueue.then(operation, operation)
     this.mutationQueue = run.then(() => undefined, () => undefined)
     return run
+  }
+
+  private async readHistoryFile(name: string) {
+    const fileSystem = getLocalFileSystem()
+    if (!fileSystem?.getDataFolder) throw new Error('本地存储不可用')
+    const folder = await fileSystem.getDataFolder()
+    let file: TextFile
+    try {
+      file = await folder.getEntry(name)
+    } catch {
+      return undefined
+    }
+    return JSON.parse(await file.read()) as unknown
+  }
+
+  private async readHistoryEntries(name: string) {
+    const value = await this.readHistoryFile(name)
+    if (value !== undefined && !Array.isArray(value)) throw new Error('生成记录结构无效')
+    return value
+  }
+
+  private async writeHistory(next: HistoryUpsertEntry[], previous: HistoryUpsertEntry[]) {
+    await writeJsonFile(HISTORY_BACKUP_FILE, previous.slice(0, MAX_HISTORY_ITEMS))
+    await writeJsonFile(HISTORY_FILE, next)
+    const written = await this.readHistoryFile(HISTORY_FILE)
+    if (!Array.isArray(written)) throw new Error('生成记录写入校验失败')
   }
 
   private async hydrate(entry: HistoryUpsertEntry): Promise<HistoryEntry> {

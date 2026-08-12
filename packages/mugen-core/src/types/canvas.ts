@@ -12,5 +12,8 @@ export type CapturedCanvasImage = {
   height: number
   sourceBounds: PixelBounds
   previewUrl: string
+  previewStatus?: 'ready' | 'unavailable'
+  previewError?: string
+  originalAvailable?: boolean
   rgba: Uint8Array
 }

@@ -7,8 +7,8 @@ export type TestHostTrace = {
   placements: Array<{ assetId: string; target: unknown; previewUrl: string; layerName: string }>
 }
 
-export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string } = {}) {
-  await page.addInitScript(({ apimartBaseUrl, apiKey }) => {
+export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; generationDelayMs?: number; thumbnailUnavailable?: boolean } = {}) {
+  await page.addInitScript(({ apimartBaseUrl, apiKey, generationDelayMs, thumbnailUnavailable }) => {
     const protocol = 'inner-host/v1'
     const sessionId = 'e2e-session'
     const hostNonce = 'e2e-host-nonce'
@@ -27,7 +27,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         'credential.set', 'credential.remove', 'canvas.captureVisible', 'canvas.captureSelection',
         'canvas.captureLayer', 'canvas.readSize', 'reference.pickFile', 'reference.readClipboard',
         'generation.start', 'generation.cancel', 'generation.testConfig', 'canvas.placeAsset',
-        'asset.save', 'asset.retain', 'asset.release', 'diagnostics.export', 'storage.clearAll'
+        'asset.save', 'asset.readOriginal', 'asset.retain', 'asset.release', 'diagnostics.export', 'storage.clearAll'
       ]
     }
     let settings = {
@@ -45,6 +45,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
       promptPresets: []
     }
     const assets = new Map<string, Record<string, any>>()
+    const originals = new Map<string, string>()
     const bridge = window as Window & { uxpHost?: { postMessage(message: unknown): void } }
     const nativePostMessage = window.postMessage.bind(window)
     let taskSequence = 0
@@ -56,6 +57,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
       window.dispatchEvent(new MessageEvent('message', { data: envelope(kind, command, payload, messageId), source: window }))
     }
     function asset(assetId: string, source: string, label: string, previewUrl = canvasImage) {
+      originals.set(assetId, previewUrl)
       const value = {
         assetId,
         source,
@@ -66,6 +68,9 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         previewUrl,
         status: 'available',
         documentId: 'e2e-document'
+      }
+      if (thumbnailUnavailable && source === 'generated') {
+        Object.assign(value, { previewUrl: '', thumbnailUrl: '', previewStatus: 'unavailable', previewError: '缩略图超过传输限制', originalAvailable: true })
       }
       assets.set(assetId, value)
       return value
@@ -155,6 +160,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
       if (!remoteTaskId) throw new Error('APIMart fixture did not return a task id')
 
       emit('event', 'generation.progress', { taskId, phase: 'polling', elapsedSeconds: 0 }, `${taskId}-polling`)
+      if (generationDelayMs) await new Promise((resolve) => window.setTimeout(resolve, generationDelayMs))
       const completed = await requestJson('generation.poll', `${apimartBaseUrl}/v1/tasks/${encodeURIComponent(remoteTaskId)}?language=zh`, {
         method: 'GET', headers: authHeaders()
       })
@@ -215,7 +221,8 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         case 'asset.retain': respond(request, assets.get(request.payload.assetId)); return
         case 'asset.release': respond(request, { assetId: request.payload.assetId, released: true }); return
         case 'generation.start': {
-          const taskId = `e2e-task-${++taskSequence}`
+          taskSequence += 1
+          const taskId = request.payload.clientTaskId || `e2e-task-${taskSequence}`
           respond(request, { taskId })
           window.setTimeout(() => {
             void runGeneration(request, taskId).catch((reason) => emit('event', 'generation.failed', {
@@ -240,6 +247,13 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
           return
         }
         case 'asset.save': respond(request, { saved: true, fileName: 'mugen-result.png' }); return
+        case 'asset.readOriginal': {
+          const original = originals.get(request.payload.assetId) || ''
+          const offset = request.payload.offset
+          const chunk = original.slice(offset, offset + 192 * 1024)
+          respond(request, { assetId: request.payload.assetId, chunk, offset, totalLength: original.length, done: offset + chunk.length >= original.length })
+          return
+        }
         case 'credential.set': respond(request, { configId: request.payload.configId, credentialState: 'stored' }); return
         case 'credential.remove': respond(request, { configId: request.payload.configId, credentialState: 'missing' }); return
         case 'diagnostics.export': respond(request, { saved: true, fileName: 'mugen-diagnostics.json' }); return
@@ -265,7 +279,9 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     window.setTimeout(() => window.clearInterval(readyTimer), 3_000)
   }, {
     apimartBaseUrl: options.apimartBaseUrl ?? 'http://127.0.0.1:38323',
-    apiKey: options.apiKey ?? 'mock-apimart-good'
+    apiKey: options.apiKey ?? 'mock-apimart-good',
+    generationDelayMs: options.generationDelayMs ?? 0,
+    thumbnailUnavailable: options.thumbnailUnavailable ?? false
   })
 }
 

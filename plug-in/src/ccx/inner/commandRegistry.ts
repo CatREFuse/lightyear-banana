@@ -202,14 +202,12 @@ export class CommandRegistry {
       'generation.start': async (payload) => this.provider.start(payload as never),
       'generation.cancel': async (payload) => this.provider.cancel(String(payload?.taskId ?? '')),
       'generation.testConfig': async (payload) => this.provider.testConfig(String(payload?.configId ?? '')),
-      'canvas.placeAsset': async (payload) => this.confirmations.run(
-        'canvas.placeAsset',
-        () => this.placeAsset(String(payload?.assetId ?? ''), payload?.target as PlacementTarget)
-      ),
+      'canvas.placeAsset': async (payload) => this.placeAsset(String(payload?.assetId ?? ''), payload?.target as PlacementTarget),
       'asset.save': async (payload) => this.confirmations.run(
         'asset.save',
         () => this.files.save(String(payload?.assetId ?? ''))
       ),
+      'asset.readOriginal': async (payload) => this.assets.readOriginal(String(payload?.assetId ?? ''), Number(payload?.offset ?? 0)),
       'asset.retain': async (payload) => this.assets.retainWorkspace(payload?.assetId),
       'asset.release': async (payload) => this.assets.release(payload?.assetId),
       'diagnostics.export': async () => this.confirmations.run('diagnostics.export', () => this.diagnostics.export()),

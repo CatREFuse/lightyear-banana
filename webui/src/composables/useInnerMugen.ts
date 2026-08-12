@@ -125,6 +125,9 @@ function assetToCanvasImage(asset: HostAssetRef): CapturedCanvasImage {
     height: asset.height,
     sourceBounds: sourceBounds(asset),
     previewUrl: asset.previewUrl,
+    previewStatus: asset.previewStatus,
+    previewError: asset.previewError,
+    originalAvailable: asset.originalAvailable,
     rgba: new Uint8Array()
   }
 }
@@ -424,6 +427,12 @@ export function useInnerMugen(): MugenController {
     }
   }
 
+  async function loadOriginalImage(image: CapturedCanvasImage) {
+    if (image.originalAvailable === false) throw new Error('原图已失效')
+    const previewUrl = await store.host.readOriginalAsset(image.id)
+    return { ...image, previewUrl, previewStatus: 'ready' as const, previewError: undefined }
+  }
+
   async function useResultAsReference(image: GeneratedImage) {
     const asset = findAsset(image.id)
     if (asset) await store.addResultAsReference(asset)
@@ -628,6 +637,7 @@ export function useInnerMugen(): MugenController {
     enabledConfigs,
     generationLoading,
     installPluginUrl: shallowRef(''),
+    loadOriginalImage,
     diagnosticExportState,
     exportDiagnostics,
     openPromptPresets,

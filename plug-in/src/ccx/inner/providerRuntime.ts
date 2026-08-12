@@ -390,7 +390,7 @@ export class ProviderRuntime {
 
   async start(snapshot: GenerationSnapshot) {
     if (this.destroyed || !this.accepting) throw new Error('生成服务正在清理，请稍后重试')
-    const taskId = createTaskId()
+    const taskId = snapshot.clientTaskId || createTaskId()
     const retainTask = this.options.assets.retain(snapshot.references.map((reference) => reference.assetId), `task:${taskId}`)
     this.pendingStarts.add(retainTask)
     try {

@@ -46,7 +46,8 @@ class MemoryFolder {
 }
 
 const runtime = vi.hoisted(() => ({
-  dataFolder: undefined as MemoryFolder | undefined
+  dataFolder: undefined as MemoryFolder | undefined,
+  thumbnailError: false
 }))
 
 vi.mock('../photoshopHost', () => ({
@@ -62,8 +63,14 @@ vi.mock('../photoshopHost', () => ({
 }))
 
 vi.mock('../canvasPrimitives', () => ({
-  createBridgeThumbnail: async () => 'data:image/png;base64,dGh1bWI=',
-  createBridgeThumbnailFromPreview: async () => 'data:image/png;base64,dGh1bWI='
+  createBridgeThumbnail: async () => {
+    if (runtime.thumbnailError) throw new Error('缩略图编码失败')
+    return 'data:image/png;base64,dGh1bWI='
+  },
+  createBridgeThumbnailFromPreview: async () => {
+    if (runtime.thumbnailError) throw new Error('缩略图编码失败')
+    return 'data:image/png;base64,dGh1bWI='
+  }
 }))
 
 import { AssetStore } from './assetStore'
@@ -92,6 +99,17 @@ function historyEntry(id: string) {
 describe('persistent Host assets', () => {
   beforeEach(() => {
     runtime.dataFolder = new MemoryFolder()
+    runtime.thumbnailError = false
+  })
+
+  it('reports a thumbnail error without returning a placeholder image', async () => {
+    runtime.thumbnailError = true
+    const assets = new AssetStore()
+    const ref = await assets.add('generated', { ...image, previewUrl: `data:image/png;base64,${'a'.repeat(20_000)}` })
+
+    expect(ref).toMatchObject({ previewUrl: '', thumbnailUrl: '', previewStatus: 'unavailable', originalAvailable: true })
+    expect(ref.previewError).toContain('缩略图编码失败')
+    expect((await assets.readOriginal(ref.assetId, 0)).chunk).toContain('data:image/png;base64,')
   })
 
   it('restores a generated asset in a new Host session and deletes it with history', async () => {
@@ -233,8 +251,9 @@ describe('persistent Host assets', () => {
       })
     }
 
-    expect((await assets.getOrRestore(assetIds[0]!)).ref.status).toBe('available')
-    expect((await history.list(undefined, 50)).items).toHaveLength(50)
+    expect((await assets.resolvePointer({ assetId: assetIds[0]!, label: '生成结果 1', source: 'generated', width: 16, height: 16 })).status).toBe('missing')
+    expect((await assets.getOrRestore(assetIds[64]!)).ref.status).toBe('available')
+    expect((await history.list(undefined, 50)).items).toHaveLength(30)
   })
 
   it('treats session-history references as soft owners under the memory limit', async () => {
@@ -261,6 +280,31 @@ describe('persistent Host assets', () => {
     ])
 
     expect((await history.list(undefined, 10)).items.map((entry) => entry.id)).toEqual(['turn-2', 'turn-1'])
+  })
+
+  it('restores the previous history file when the current file is corrupted', async () => {
+    const history = new HistoryStore(new AssetStore())
+    await history.upsert(historyEntry('turn-1'))
+    await history.upsert(historyEntry('turn-2'))
+    const current = await runtime.dataFolder!.getEntry('mugen-inner-history.v1.json') as MemoryFile
+    current.value = '{broken'
+
+    const restored = new HistoryStore(new AssetStore())
+    expect((await restored.list(undefined, 30)).items.map((entry) => entry.id)).toEqual(['turn-1'])
+  })
+
+  it('protects damaged history when no valid backup exists', async () => {
+    const current = await runtime.dataFolder!.createFile('mugen-inner-history.v1.json')
+    await current.write('{broken')
+
+    await expect(new HistoryStore(new AssetStore()).list(undefined, 30)).rejects.toThrow('已停止写入')
+  })
+
+  it('does not treat a structurally invalid history file as an empty history', async () => {
+    const current = await runtime.dataFolder!.createFile('mugen-inner-history.v1.json')
+    await current.write(JSON.stringify({ entries: [] }))
+
+    await expect(new HistoryStore(new AssetStore()).list(undefined, 30)).rejects.toThrow('已停止写入')
   })
 
   it('applies clear and upsert mutations in invocation order', async () => {

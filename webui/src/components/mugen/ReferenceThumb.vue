@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shallowRef } from 'vue'
 import type { ReferenceImage } from '@mugen/core'
 import BoxIcon from './BoxIcon.vue'
 
@@ -13,6 +14,8 @@ const emit = defineEmits<{
   preview: [image: ReferenceImage['image']]
   remove: [id: string]
 }>()
+
+const thumbnailFailed = shallowRef(false)
 </script>
 
 <template>
@@ -25,7 +28,13 @@ const emit = defineEmits<{
       @keydown.enter.prevent="emit('preview', reference.image)"
       @keydown.space.prevent="emit('preview', reference.image)"
     >
-      <img :src="reference.image.previewUrl" :alt="reference.label" />
+      <img
+        v-if="reference.image.previewStatus !== 'unavailable' && reference.image.previewUrl && !thumbnailFailed"
+        :src="reference.image.previewUrl"
+        :alt="reference.label"
+        @error="thumbnailFailed = true"
+      />
+      <span v-else class="preview-error">预览不可用</span>
       <span class="badge">{{ index }}</span>
       <button v-if="removable" class="remove-button" type="button" @click.stop="emit('remove', reference.id)">
         <BoxIcon name="x" size="13" />
@@ -69,6 +78,17 @@ img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.preview-error {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-content: center;
+  padding: 4px;
+  color: var(--mugen-muted);
+  font-size: 9px;
+  line-height: 1.3;
 }
 
 .badge {

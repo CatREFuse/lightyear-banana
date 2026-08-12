@@ -53,6 +53,15 @@ const placementOptionIds = shallowRef<Record<string, string>>({})
 const visibleRequestLogs = shallowRef<Record<string, boolean>>({})
 const elapsedClickState = shallowRef<Record<string, { count: number; lastAt: number }>>({})
 const renderedImageRatios = shallowRef<Record<string, string>>({})
+const failedThumbnails = shallowRef<Record<string, boolean>>({})
+
+function hasResultThumbnail(image: GeneratedImage) {
+  return image.previewStatus !== 'unavailable' && Boolean(image.previewUrl) && !failedThumbnails.value[image.id]
+}
+
+function markThumbnailFailed(imageId: string) {
+  failedThumbnails.value = { ...failedThumbnails.value, [imageId]: true }
+}
 
 function readResultAspectRatio(image: GeneratedImage) {
   return renderedImageRatios.value[image.id] ?? `${image.width} / ${image.height}`
@@ -511,15 +520,22 @@ watch(
               <button
                 class="thumbnail-button"
                 type="button"
+                :disabled="image.originalAvailable === false"
                 @click="emit('preview', image)"
                 @contextmenu.prevent.stop="openImageContextMenu($event, image)"
               >
                 <img
+                  v-if="hasResultThumbnail(image)"
                   :src="image.previewUrl"
                   :alt="image.label"
                   :style="{ aspectRatio: readResultAspectRatio(image) }"
                   @load="handleResultImageLoad($event, image)"
+                  @error="markThumbnailFailed(image.id)"
                 />
+                <span v-else class="thumbnail-error" role="status">
+                  <strong>预览不可用</strong>
+                  <small>{{ image.originalAvailable === false ? '原图已失效' : '点击查看原图' }}</small>
+                </span>
               </button>
               <div class="result-actions" :class="{ 'without-placement': !photoshopIntegrationAvailable }">
                 <div v-if="photoshopIntegrationAvailable" class="place-control">
@@ -1029,6 +1045,29 @@ watch(
   border-radius: 7px 7px 0 0;
   object-fit: contain;
   background: transparent;
+}
+
+.thumbnail-error {
+  display: grid;
+  width: 100%;
+  min-height: 156px;
+  place-content: center;
+  gap: 6px;
+  padding: 16px;
+  background: var(--mugen-elevated);
+  color: var(--mugen-secondary);
+  text-align: center;
+}
+
+.thumbnail-error strong {
+  color: var(--mugen-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.thumbnail-error small {
+  color: var(--mugen-muted);
+  font-size: 11px;
 }
 
 .result-actions {

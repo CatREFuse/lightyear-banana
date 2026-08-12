@@ -63,11 +63,18 @@ function extensionForMime(mimeType: string) {
 async function readImageDimensions(previewUrl: string) {
   return new Promise<{ width: number; height: number }>((resolve, reject) => {
     const image = new Image()
-    image.addEventListener('load', () => resolve({
-      width: Math.max(1, Math.round(image.naturalWidth || image.width || 1)),
-      height: Math.max(1, Math.round(image.naturalHeight || image.height || 1))
-    }), { once: true })
-    image.addEventListener('error', () => reject(new Error('无法读取图片尺寸')), { once: true })
+    const timeout = setTimeout(() => reject(new Error('图片解析超时')), 60_000)
+    image.addEventListener('load', () => {
+      clearTimeout(timeout)
+      resolve({
+        width: Math.max(1, Math.round(image.naturalWidth || image.width || 1)),
+        height: Math.max(1, Math.round(image.naturalHeight || image.height || 1))
+      })
+    }, { once: true })
+    image.addEventListener('error', () => {
+      clearTimeout(timeout)
+      reject(new Error('无法读取图片尺寸'))
+    }, { once: true })
     image.src = previewUrl
   })
 }
@@ -130,14 +137,26 @@ export class FileAssetService {
   }
 
   async readClipboardReference() {
-    const clipboard = navigator.clipboard as Clipboard & { read?: () => Promise<ClipboardItem[]> }
-    if (typeof clipboard.read !== 'function') throw new Error('当前 Photoshop 版本不支持读取剪贴板图片')
-    const items = await clipboard.read()
-    for (const item of items ?? []) {
-      const type = item.types?.find((value) => value.startsWith('image/'))
-      if (!type || typeof item.getType !== 'function') continue
-      const blob = await item.getType(type)
-      const previewUrl = `data:${type};base64,${bytesToBase64(new Uint8Array(await blob.arrayBuffer()))}`
+    const clipboard = navigator.clipboard as Clipboard & { read?: () => Promise<unknown> }
+    if (!clipboard || typeof clipboard.read !== 'function') throw new Error('当前 Photoshop 版本不支持读取剪贴板图片')
+    const raw = await clipboard.read()
+    const items = Array.isArray(raw) ? raw : [raw]
+    for (const item of items) {
+      if (!item || typeof item !== 'object') continue
+      const record = item as unknown as Record<string, unknown> & { types?: string[]; getType?: (type: string) => Promise<Blob> }
+      const type = record.types?.find((value) => value.startsWith('image/'))
+        ?? Object.keys(record).find((value) => value.startsWith('image/'))
+      if (!type) continue
+      const value = typeof record.getType === 'function' ? await record.getType(type) : record[type]
+      const bytes = typeof Blob !== 'undefined' && value instanceof Blob
+        ? new Uint8Array(await value.arrayBuffer())
+        : value instanceof Uint8Array
+          ? value
+          : value instanceof ArrayBuffer
+            ? new Uint8Array(value)
+            : undefined
+      if (!bytes) continue
+      const previewUrl = `data:${type};base64,${bytesToBase64(bytes)}`
       return this.assets.add('clipboard', await createImage(previewUrl, '剪贴板图片'))
     }
     throw new Error('剪贴板里没有图片')

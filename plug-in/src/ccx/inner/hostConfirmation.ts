@@ -1,4 +1,4 @@
-export type SensitiveHostCommand = 'canvas.placeAsset' | 'asset.save' | 'diagnostics.export' | 'storage.clearAll'
+export type SensitiveHostCommand = 'asset.save' | 'diagnostics.export' | 'storage.clearAll'
 
 export type HostConfirmationDescriptor = {
   command: SensitiveHostCommand
@@ -37,12 +37,6 @@ type AdobeUxpDialogElement = HTMLDialogElement & {
 }
 
 const confirmationDescriptors: Record<SensitiveHostCommand, HostConfirmationDescriptor> = {
-  'canvas.placeAsset': {
-    command: 'canvas.placeAsset',
-    title: '置入 Photoshop？',
-    message: '将生成结果写入当前文档。',
-    confirmLabel: '置入'
-  },
   'asset.save': {
     command: 'asset.save',
     title: '保存图片？',

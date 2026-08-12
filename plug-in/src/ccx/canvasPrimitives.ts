@@ -753,7 +753,7 @@ export async function createBridgeThumbnail(image: CapturedCanvasImage, maxBytes
   let maxEdge = 800
   let lastPreview = image.previewUrl
 
-  while (maxEdge >= 320) {
+  while (maxEdge >= 96) {
     const scale = Math.min(1, maxEdge / Math.max(image.width, image.height))
     const width = Math.max(1, Math.round(image.width * scale))
     const height = Math.max(1, Math.round(image.height * scale))
@@ -763,6 +763,7 @@ export async function createBridgeThumbnail(image: CapturedCanvasImage, maxBytes
     maxEdge = Math.round(maxEdge * 0.72)
   }
 
+  if (utf8ByteLength(lastPreview) > maxBytes) throw new Error('缩略图超过传输限制')
   return lastPreview
 }
 
@@ -779,7 +780,7 @@ export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImag
         const sourceHeight = bounds.bottom - bounds.top
         let maxEdge = 800
         let lastPreview = ''
-        while (maxEdge >= 320) {
+        while (maxEdge >= 96) {
           const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight))
           const result = await photoshop.imaging.getPixels({
             documentID: document.id,
@@ -800,6 +801,7 @@ export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImag
           if (utf8ByteLength(lastPreview) <= maxBytes) return lastPreview
           maxEdge = Math.round(maxEdge * 0.72)
         }
+        if (utf8ByteLength(lastPreview) > maxBytes) throw new Error('缩略图超过传输限制')
         return lastPreview
       } finally {
         await closeTemporaryDocument(photoshop, document)

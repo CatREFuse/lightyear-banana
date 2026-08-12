@@ -20,6 +20,7 @@ class UnavailableHostClient implements HostClient {
   cancelGeneration(_taskId: string): Promise<void> { return this.reject() }
   placeAsset(_assetId: string, _target: PlacementTarget): Promise<PlacementResult> { return this.reject() }
   saveAsset(_assetId: string): Promise<{ saved: boolean; fileName?: string }> { return this.reject() }
+  readOriginalAsset(_assetId: string): Promise<string> { return this.reject() }
   getConfigs(): Promise<ModelConfig[]> { return this.reject() }
   saveConfig(_config: ModelConfig, _apiKey?: string): Promise<ModelConfig> { return this.reject() }
   deleteConfig(_configId: string): Promise<void> { return this.reject() }

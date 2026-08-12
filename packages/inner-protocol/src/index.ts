@@ -9,6 +9,7 @@ export type ThemeMode = 'dark' | 'light' | 'system'
 export type HostTheme = 'dark' | 'light'
 export type ReferenceSource = 'visible' | 'selection' | 'layer' | 'upload' | 'clipboard' | 'generated'
 export type AssetStatus = 'available' | 'missing'
+export type AssetPreviewStatus = 'ready' | 'unavailable'
 export type TaskPhase = 'waiting' | 'uploading' | 'requesting' | 'polling' | 'downloading' | 'retrying' | 'completed' | 'failed' | 'cancelled'
 export type ProviderId = 'openai' | 'iMini' | 'gemini' | 'apimart' | 'seedream' | 'qwen' | 'kling' | 'flux' | 'comfyui' | 'custom-openai' | 'codex-image-server'
 
@@ -31,6 +32,9 @@ export type HostAssetRef = {
   previewUrl: string
   /** Compatibility alias used by the initial WebUI components. */
   thumbnailUrl?: string
+  previewStatus?: AssetPreviewStatus
+  previewError?: string
+  originalAvailable?: boolean
   status?: AssetStatus
   sourceBounds?: Bounds
   documentId?: string
@@ -138,6 +142,15 @@ export type GenerationSnapshot = {
   count: number
   ratio: string
   submittedAt: string
+  clientTaskId?: string
+}
+
+export type AssetOriginalChunk = {
+  assetId: string
+  chunk: string
+  offset: number
+  totalLength: number
+  done: boolean
 }
 
 export type TaskEvent = {
@@ -227,6 +240,7 @@ export interface HostCommandMap {
   'generation.testConfig': { payload: { configId: string }; result: { ok: boolean; message: string } }
   'canvas.placeAsset': { payload: { assetId: string; target: PlacementTarget }; result: PlacementResult }
   'asset.save': { payload: { assetId: string }; result: { saved: boolean; fileName?: string } }
+  'asset.readOriginal': { payload: { assetId: string; offset: number }; result: AssetOriginalChunk }
   'asset.retain': { payload: { assetId: string }; result: HostAssetRef }
   'asset.release': { payload: { assetId: string }; result: { assetId: string; released: boolean } }
   'diagnostics.export': { payload: undefined; result: DiagnosticExport }
@@ -272,6 +286,7 @@ export interface HostClient {
   cancelGeneration(taskId: string): Promise<void>
   placeAsset(assetId: string, target: PlacementTarget): Promise<PlacementResult>
   saveAsset(assetId: string): Promise<{ saved: boolean; fileName?: string }>
+  readOriginalAsset(assetId: string): Promise<string>
   getConfigs(): Promise<ModelConfig[]>
   saveConfig(config: ModelConfig, apiKey?: string): Promise<ModelConfig>
   deleteConfig(configId: string): Promise<void>
@@ -309,6 +324,7 @@ export class BridgeValidationError extends Error {
 const taskPhases = new Set<TaskPhase>(['waiting', 'uploading', 'requesting', 'polling', 'downloading', 'retrying', 'completed', 'failed', 'cancelled'])
 const referenceSources = new Set<ReferenceSource>(['visible', 'selection', 'layer', 'upload', 'clipboard', 'generated'])
 const assetStatuses = new Set<AssetStatus>(['available', 'missing'])
+const assetPreviewStatuses = new Set<AssetPreviewStatus>(['ready', 'unavailable'])
 const platforms = new Set<HostContext['platform']>(['win32', 'darwin', 'mock'])
 const hostThemes = new Set<HostTheme>(['dark', 'light'])
 const providerIds = new Set<ProviderId>(['openai', 'iMini', 'gemini', 'apimart', 'seedream', 'qwen', 'kling', 'flux', 'comfyui', 'custom-openai', 'codex-image-server'])
@@ -318,7 +334,7 @@ const hostCommands = new Set<string>([
   'history.list', 'history.upsert', 'history.clear', 'credential.set', 'credential.remove',
   'canvas.captureVisible', 'canvas.captureSelection', 'canvas.captureLayer', 'canvas.readSize',
   'reference.pickFile', 'reference.readClipboard', 'generation.start', 'generation.cancel',
-  'generation.testConfig', 'canvas.placeAsset', 'asset.save', 'asset.retain', 'asset.release', 'diagnostics.export',
+  'generation.testConfig', 'canvas.placeAsset', 'asset.save', 'asset.readOriginal', 'asset.retain', 'asset.release', 'diagnostics.export',
   'storage.clearAll'
 ])
 const hostEvents = new Set<string>([
@@ -441,9 +457,14 @@ export function createRequestEnvelope<TCommand extends HostCommand>(options: {
 function isHostAssetRef(value: unknown): value is HostAssetRef {
   if (!isRecord(value) || !nonEmptyText(value.assetId) || !nonEmptyText(value.label) || !referenceSources.has(value.source as ReferenceSource) || !finiteNumber(value.width) || value.width <= 0 || !finiteNumber(value.height) || value.height <= 0) return false
   const preview = value.previewUrl ?? value.thumbnailUrl
-  if (!nonEmptyText(preview, MAX_BRIDGE_MESSAGE_BYTES)) return false
+  if (value.previewStatus === 'unavailable') {
+    if (typeof preview !== 'string' || preview.length > MAX_BRIDGE_MESSAGE_BYTES) return false
+  } else if (!nonEmptyText(preview, MAX_BRIDGE_MESSAGE_BYTES)) return false
   if (value.mimeType !== undefined && typeof value.mimeType !== 'string') return false
   if (value.status !== undefined && !assetStatuses.has(value.status as AssetStatus)) return false
+  if (value.previewStatus !== undefined && !assetPreviewStatuses.has(value.previewStatus as AssetPreviewStatus)) return false
+  if (value.previewError !== undefined && (typeof value.previewError !== 'string' || value.previewError.length > 256)) return false
+  if (value.originalAvailable !== undefined && typeof value.originalAvailable !== 'boolean') return false
   if (value.sourceBounds !== undefined && !isBounds(value.sourceBounds)) return false
   return optionalString(value.documentId) && optionalString(value.expiresAt)
 }
@@ -538,7 +559,7 @@ function isSettingsSnapshot(value: unknown): value is SettingsSnapshot {
 export function isGenerationSnapshot(value: unknown): value is GenerationSnapshot {
   if (!isRecord(value) || !nonEmptyText(value.configId) || typeof value.prompt !== 'string' || value.prompt.length > 100_000 || !Array.isArray(value.references) || !value.references.every(isHostAssetPointer)) return false
   if (!nonEmptyText(value.size) || typeof value.quality !== 'string' || !nonEmptyText(value.ratio) || !Number.isInteger(value.count) || Number(value.count) < 1 || Number(value.count) > 16) return false
-  return nonEmptyText(value.submittedAt, 64) && !Number.isNaN(Date.parse(value.submittedAt))
+  return nonEmptyText(value.submittedAt, 64) && !Number.isNaN(Date.parse(value.submittedAt)) && optionalString(value.clientTaskId)
 }
 
 function isRequestLog(value: unknown): value is RequestLog {
@@ -602,6 +623,11 @@ export function validateCommandPayload<TCommand extends HostCommand>(command: TC
     case 'credential.remove': case 'asset.save': case 'asset.retain': case 'asset.release': {
       const value = requireRecord(payload, command)
       if (!nonEmptyText(value.configId ?? value.assetId)) throw new BridgeValidationError('INVALID_PAYLOAD', `${command}参数无效`)
+      return
+    }
+    case 'asset.readOriginal': {
+      const value = requireRecord(payload, command)
+      if (!nonEmptyText(value.assetId) || !Number.isInteger(value.offset) || Number(value.offset) < 0) throw new BridgeValidationError('INVALID_PAYLOAD', '原图参数无效')
       return
     }
     case 'generation.cancel': {
@@ -706,6 +732,11 @@ export function validateCommandResult<TCommand extends HostCommand>(command: TCo
       if (typeof value.saved !== 'boolean' || !optionalString(value.fileName)) throw new BridgeValidationError('INVALID_PAYLOAD', '保存响应无效')
       return
     }
+    case 'asset.readOriginal': {
+      const value = requireRecord(payload, command)
+      if (!nonEmptyText(value.assetId) || typeof value.chunk !== 'string' || value.chunk.length > 256 * 1024 || !Number.isInteger(value.offset) || Number(value.offset) < 0 || !Number.isInteger(value.totalLength) || Number(value.totalLength) < 1 || typeof value.done !== 'boolean') throw new BridgeValidationError('INVALID_PAYLOAD', '原图响应无效')
+      return
+    }
     case 'asset.retain': {
       if (!isHostAssetRef(payload)) throw new BridgeValidationError('INVALID_PAYLOAD', '资产持有响应无效')
       return
@@ -793,7 +824,15 @@ export function isHostEvent(value: unknown): value is HostEvent {
 
 export function toWebUiAssetRef(value: HostAssetRef): HostAssetRef {
   const preview = value.thumbnailUrl || value.previewUrl
-  return { ...value, previewUrl: value.previewUrl || preview, thumbnailUrl: preview, status: value.status || 'available' }
+  const previewStatus = value.previewStatus || 'ready'
+  return {
+    ...value,
+    previewUrl: previewStatus === 'unavailable' ? '' : (value.previewUrl || preview),
+    thumbnailUrl: previewStatus === 'unavailable' ? '' : preview,
+    previewStatus,
+    originalAvailable: value.originalAvailable ?? value.status !== 'missing',
+    status: value.status || 'available'
+  }
 }
 
 export function toModelConfig(value: PublicModelConfig): ModelConfig {

@@ -74,7 +74,7 @@ const defaultContext: HostContext = {
     'credential.set', 'credential.remove', 'canvas.captureVisible', 'canvas.captureSelection',
     'canvas.captureLayer', 'canvas.readSize', 'reference.pickFile', 'reference.readClipboard',
     'generation.start', 'generation.cancel', 'generation.testConfig', 'canvas.placeAsset',
-    'asset.save', 'asset.retain', 'asset.release', 'diagnostics.export', 'storage.clearAll'
+    'asset.save', 'asset.readOriginal', 'asset.retain', 'asset.release', 'diagnostics.export', 'storage.clearAll'
   ]
 }
 
@@ -241,6 +241,12 @@ export class MockHostClient implements HostClient {
         this.requireAsset(request.assetId)
         return { saved: true, fileName: `${request.assetId}.png` } as HostCommandResult<TCommand>
       }
+      case 'asset.readOriginal': {
+        const request = payload as HostCommandPayload<'asset.readOriginal'>
+        const asset = this.requireAsset(request.assetId)
+        const chunk = asset.previewUrl.slice(request.offset, request.offset + 192 * 1024)
+        return { assetId: request.assetId, chunk, offset: request.offset, totalLength: asset.previewUrl.length, done: request.offset + chunk.length >= asset.previewUrl.length } as HostCommandResult<TCommand>
+      }
       case 'asset.retain': {
         const request = payload as HostCommandPayload<'asset.retain'>
         return { ...this.requireAsset(request.assetId) } as HostCommandResult<TCommand>
@@ -288,7 +294,7 @@ export class MockHostClient implements HostClient {
   }
 
   private beginGeneration(snapshot: GenerationSnapshot) {
-    const taskId = createMessageId('task')
+    const taskId = snapshot.clientTaskId || createMessageId('task')
     this.taskSnapshots.set(taskId, snapshot)
     const phases: Array<TaskEvent['phase']> = ['waiting', 'uploading', 'requesting', 'polling', 'downloading']
     const timers = phases.map((phase, index) => setTimeout(() => {
@@ -402,6 +408,10 @@ export class MockHostClient implements HostClient {
   async cancelGeneration(taskId: string) { await this.invoke('generation.cancel', { taskId }) }
   async placeAsset(assetId: string, target: PlacementTarget): Promise<PlacementResult> { return this.invoke('canvas.placeAsset', { assetId, target }) }
   saveAsset(assetId: string) { return this.invoke('asset.save', { assetId }) }
+  async readOriginalAsset(assetId: string) {
+    const result = await this.invoke('asset.readOriginal', { assetId, offset: 0 })
+    return result.chunk
+  }
   async getConfigs() { const settings = await this.invoke('settings.get', undefined); return settings.configs.map(toModelConfig) }
   async saveConfig(config: ModelConfig, apiKey?: string) {
     const settings = await this.invoke('settings.get', undefined)

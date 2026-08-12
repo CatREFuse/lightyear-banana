@@ -279,6 +279,20 @@ describe('Provider task ownership', () => {
     expect(assets.releaseOwner).toHaveBeenCalledWith(`task:${taskId}`, true)
   })
 
+  it('uses the client-provided task id before any progress event is emitted', async () => {
+    const events: string[] = []
+    const runtime = new ProviderRuntime({
+      assets: fakeAssets(),
+      persistHistory: vi.fn(async () => undefined),
+      emit: (_event, payload) => events.push((payload as { taskId: string }).taskId)
+    })
+
+    await expect(runtime.start({ ...snapshot, clientTaskId: 'task-client-1' })).resolves.toEqual({ taskId: 'task-client-1' })
+    await runtime.waitForIdle()
+    expect(events).not.toHaveLength(0)
+    expect(events.every((taskId) => taskId === 'task-client-1')).toBe(true)
+  })
+
   it('drains a start that is still retaining assets and rejects it before any Provider work', async () => {
     let resolveRetain!: () => void
     const retain = vi.fn(() => new Promise<void>((resolve) => { resolveRetain = resolve }))

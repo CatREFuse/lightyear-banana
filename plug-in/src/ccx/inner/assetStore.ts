@@ -51,7 +51,8 @@ type AdobeUxpStorage = {
 const ASSET_TTL_MS = 60 * 60 * 1000
 const MAX_ASSET_COUNT = 64
 const MAX_ASSET_BYTES = 512 * 1024 * 1024
-const MAX_THUMBNAIL_BYTES = 48 * 1024
+const MAX_THUMBNAIL_BYTES = 16 * 1024
+const ORIGINAL_CHUNK_LENGTH = 192 * 1024
 const MAX_PERSISTENT_ASSET_COUNT = 256
 const MAX_PERSISTENT_ASSET_BYTES = 512 * 1024 * 1024
 const MAX_PERSISTENT_FILE_BYTES = 128 * 1024 * 1024
@@ -90,11 +91,6 @@ function extensionForMimeType(mimeType: string) {
   if (normalized === 'image/webp') return 'webp'
   if (normalized === 'image/gif') return 'gif'
   return 'png'
-}
-
-function fallbackThumbnail(label: string) {
-  const safeLabel = label.replace(/[<>&"']/g, '').slice(0, 80)
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480"><rect width="640" height="480" fill="#1a2028"/><circle cx="320" cy="210" r="72" fill="#8b5cf6" opacity=".28"/><text x="320" y="350" text-anchor="middle" fill="#f5f7fb" font-family="Arial" font-size="24">${safeLabel}</text></svg>`)}`
 }
 
 function serializedBytes(value: string) {
@@ -182,21 +178,27 @@ export class AssetStore {
     const now = Date.now()
     const expiresAt = new Date(now + ASSET_TTL_MS).toISOString()
     let thumbnail = image.previewUrl
+    let previewError = ''
 
     if (image.rgba.byteLength > 0) {
       try {
         thumbnail = await createBridgeThumbnail(image, MAX_THUMBNAIL_BYTES)
-      } catch {
-        thumbnail = fallbackThumbnail(image.label)
+      } catch (error) {
+        thumbnail = ''
+        previewError = error instanceof Error ? error.message : '缩略图生成失败'
       }
     } else if (/^https?:/i.test(thumbnail) || serializedBytes(thumbnail) > MAX_THUMBNAIL_BYTES) {
       try {
         thumbnail = await createBridgeThumbnailFromPreview(image, MAX_THUMBNAIL_BYTES)
-      } catch {
-        thumbnail = fallbackThumbnail(image.label)
+      } catch (error) {
+        thumbnail = ''
+        previewError = error instanceof Error ? error.message : '缩略图生成失败'
       }
     }
-    if (serializedBytes(thumbnail) > MAX_THUMBNAIL_BYTES) thumbnail = fallbackThumbnail(image.label)
+    if (serializedBytes(thumbnail) > MAX_THUMBNAIL_BYTES) {
+      thumbnail = ''
+      previewError = '缩略图超过传输限制'
+    }
 
     const assetBytes = image.rgba.byteLength + serializedBytes(image.previewUrl)
     if (assetBytes > MAX_ASSET_BYTES) throw new Error('图片过大，无法在 Photoshop 中暂存')
@@ -210,6 +212,9 @@ export class AssetStore {
       height: image.height,
       previewUrl: thumbnail,
       thumbnailUrl: thumbnail,
+      previewStatus: thumbnail ? 'ready' : 'unavailable',
+      ...(previewError ? { previewError: previewError.slice(0, 256) } : {}),
+      originalAvailable: true,
       status: 'available',
       sourceBounds: image.sourceBounds,
       ...(options.documentId ? { documentId: options.documentId } : {}),
@@ -323,13 +328,29 @@ export class AssetStore {
     try {
       return { ...(await this.getOrRestore(pointer.assetId)).ref }
     } catch {
-      const previewUrl = fallbackThumbnail(pointer.label)
       return {
         ...pointer,
-        previewUrl,
-        thumbnailUrl: previewUrl,
+        previewUrl: '',
+        thumbnailUrl: '',
+        previewStatus: 'unavailable',
+        previewError: '原图已失效',
+        originalAvailable: false,
         status: 'missing'
       }
+    }
+  }
+
+  async readOriginal(assetId: string, offset: number) {
+    const asset = await this.getOrRestore(assetId)
+    const previewUrl = asset.image.previewUrl
+    if (!Number.isInteger(offset) || offset < 0 || offset > previewUrl.length) throw new Error('原图读取位置无效')
+    const chunk = previewUrl.slice(offset, offset + ORIGINAL_CHUNK_LENGTH)
+    return {
+      assetId,
+      chunk,
+      offset,
+      totalLength: previewUrl.length,
+      done: offset + chunk.length >= previewUrl.length
     }
   }
 
@@ -638,11 +659,16 @@ export class AssetStore {
         previewUrl,
         rgba: new Uint8Array()
       }
-      let thumbnail = fallbackThumbnail(record.label)
+      let thumbnail = ''
+      let previewError = ''
       try {
         thumbnail = await createBridgeThumbnailFromPreview(image, MAX_THUMBNAIL_BYTES)
-      } catch {
-        // The original bytes stay available for save/place even if thumbnail decoding fails.
+        if (serializedBytes(thumbnail) > MAX_THUMBNAIL_BYTES) {
+          thumbnail = ''
+          previewError = '缩略图超过传输限制'
+        }
+      } catch (error) {
+        previewError = error instanceof Error ? error.message : '缩略图生成失败'
       }
       const now = Date.now()
       record.lastAccessedAt = now
@@ -655,6 +681,9 @@ export class AssetStore {
         height: record.height,
         previewUrl: thumbnail,
         thumbnailUrl: thumbnail,
+        previewStatus: thumbnail ? 'ready' : 'unavailable',
+        ...(previewError ? { previewError: previewError.slice(0, 256) } : {}),
+        originalAvailable: true,
         status: 'available',
         sourceBounds: record.sourceBounds,
         ...(record.documentId ? { documentId: record.documentId } : {})

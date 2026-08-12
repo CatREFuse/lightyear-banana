@@ -33,6 +33,11 @@ test('CCX bridge completes canvas capture, APIMart generation, cat download, and
   await preview.click()
   const previewRegion = page.getByRole('region', { name: '图片预览' })
   await expect(previewRegion).toBeVisible()
+  await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(true)
+  await expect(previewRegion.getByRole('img', { name: '生成结果 1' })).toBeVisible()
+  await previewRegion.getByRole('button', { name: '下载' }).click()
+  await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.save')).toBe(true)
+  await expect(previewRegion).toBeVisible()
   await page.getByRole('button', { name: '关闭预览' }).click()
   await expect(previewRegion).toBeHidden()
 
@@ -95,4 +100,45 @@ test('CCX bridge completes canvas capture, APIMart generation, cat download, and
 test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await page.getByRole('button', { name: '设置' }).click()
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
+})
+
+test('shows a thumbnail error, advances the timer, and opens the original image', async ({ browser }, testInfo) => {
+  const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
+  const page = await context.newPage()
+  await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 3_500, thumbnailUnavailable: true })
+  await page.goto('/')
+  await expect(page.getByText('Photoshop 已连接')).toBeVisible()
+
+  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).fill('异常缩略图验证')
+  await page.getByRole('button', { name: '发送', exact: true }).click()
+  const loading = page.locator('.loading-turn')
+  await expect(loading).toBeVisible()
+  await expect.poll(async () => Number((await loading.textContent())?.match(/(\d+)s/)?.[1] ?? 0), { timeout: 3_500 }).toBeGreaterThan(0)
+
+  const unavailable = page.getByRole('status').filter({ hasText: '预览不可用' })
+  await expect(unavailable).toBeVisible({ timeout: 10_000 })
+  await page.screenshot({ path: testInfo.outputPath('thumbnail-unavailable.png') })
+  await page.locator('.thumbnail-button').click()
+  const previewRegion = page.getByRole('region', { name: '图片预览' })
+  await expect(previewRegion.getByRole('img', { name: '生成结果 1' })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('original-preview.png') })
+  await context.close()
+})
+
+test('keeps concurrent generation tasks visible until both complete', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
+  const page = await context.newPage()
+  await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 1_000 })
+  await page.goto('/')
+  const composer = page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' })
+  await composer.fill('并发任务一')
+  await page.getByRole('button', { name: '发送', exact: true }).click()
+  await composer.fill('并发任务二')
+  await page.getByRole('button', { name: '发送', exact: true }).click()
+
+  await expect(page.locator('.loading-turn')).toHaveCount(2)
+  await expect(page.locator('.result-card')).toHaveCount(2, { timeout: 10_000 })
+  await expect(page.getByText('并发任务一', { exact: true })).toBeVisible()
+  await expect(page.getByText('并发任务二', { exact: true })).toBeVisible()
+  await context.close()
 })

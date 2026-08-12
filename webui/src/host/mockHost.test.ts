@@ -49,6 +49,15 @@ describe('MockHostClient', () => {
     host.dispose()
   })
 
+  it('uses the client task id and returns the original asset data', async () => {
+    const host = new MockHostClient()
+    const reference = await host.captureReference('upload')
+    expect(reference).not.toBeNull()
+    await expect(host.readOriginalAsset(reference!.assetId)).resolves.toBe(reference!.previewUrl)
+    await expect(host.startGeneration({ ...snapshot, clientTaskId: 'task-client-1' })).resolves.toEqual({ taskId: 'task-client-1' })
+    host.dispose()
+  })
+
   it('covers no selection, provider failure, invalidation and protocol incompatibility', async () => {
     vi.useFakeTimers()
     expect(await new MockHostClient({ scenario: 'no-selection' }).captureReference('selection')).toBeNull()

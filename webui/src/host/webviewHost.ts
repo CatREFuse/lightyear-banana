@@ -52,6 +52,9 @@ type ReadyWaiter = { resolve(value: ReadyState): void; reject(reason: Error): vo
 const DEFAULT_TIMEOUT_MS = 12_000
 const READY_TIMEOUT_MS = 12_000
 const CONFIG_TEST_TIMEOUT_MS = 610_000
+const INTERACTIVE_TIMEOUT_MS = 30 * 60_000
+const ORIGINAL_READ_TIMEOUT_MS = 180_000
+const MAX_ORIGINAL_DATA_URL_LENGTH = 96 * 1024 * 1024
 
 function clientError(code: string, message: string, recoverable = true) {
   return new HostClientError({ code, message, recoverable })
@@ -285,15 +288,30 @@ export class WebViewHostClient implements HostClient {
 
   getContext() { return this.invoke('host.getContext', undefined) }
   captureReference(source: Parameters<HostClient['captureReference']>[0]) {
-    if (source === 'upload') return this.invoke('reference.pickFile', undefined)
-    if (source === 'clipboard') return this.invoke('reference.readClipboard', undefined)
+    if (source === 'upload') return this.invoke('reference.pickFile', undefined, { timeoutMs: INTERACTIVE_TIMEOUT_MS })
+    if (source === 'clipboard') return this.invoke('reference.readClipboard', undefined, { timeoutMs: INTERACTIVE_TIMEOUT_MS })
     const command = `canvas.capture${source[0].toUpperCase()}${source.slice(1)}` as 'canvas.captureVisible' | 'canvas.captureSelection' | 'canvas.captureLayer'
     return this.invoke(command, undefined)
   }
   startGeneration(snapshot: Parameters<HostClient['startGeneration']>[0]) { return this.invoke('generation.start', snapshot) }
   async cancelGeneration(taskId: string) { await this.invoke('generation.cancel', { taskId }) }
   placeAsset(assetId: string, target: Parameters<HostClient['placeAsset']>[1]) { return this.invoke('canvas.placeAsset', { assetId, target }) }
-  saveAsset(assetId: string) { return this.invoke('asset.save', { assetId }) }
+  saveAsset(assetId: string) { return this.invoke('asset.save', { assetId }, { timeoutMs: INTERACTIVE_TIMEOUT_MS }) }
+  async readOriginalAsset(assetId: string) {
+    let value = ''
+    let offset = 0
+    while (true) {
+      const result = await this.invoke('asset.readOriginal', { assetId, offset }, { timeoutMs: ORIGINAL_READ_TIMEOUT_MS })
+      if (result.assetId !== assetId || result.offset !== offset) throw clientError('INVALID_RESPONSE', '原图响应顺序无效', false)
+      if (result.totalLength > MAX_ORIGINAL_DATA_URL_LENGTH) throw clientError('ASSET_TOO_LARGE', '原图过大，请保存后查看')
+      value += result.chunk
+      offset += result.chunk.length
+      if (result.done) {
+        if (offset !== result.totalLength) throw clientError('INVALID_RESPONSE', '原图响应不完整', false)
+        return value
+      }
+    }
+  }
   async getConfigs() { const settings = await this.invoke('settings.get', undefined); return settings.configs.map(toModelConfig) }
   async saveConfig(config: ModelConfig, apiKey?: string) {
     const settings = await this.invoke('settings.get', undefined)

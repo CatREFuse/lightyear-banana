@@ -86,6 +86,17 @@ describe('inner-host/v1 envelope', () => {
     })).not.toThrow()
   })
 
+  it('accepts an explicit thumbnail error and validates original-image chunks', () => {
+    expect(() => validateCommandResult('asset.retain', {
+      assetId: 'asset-1', label: '生成结果', source: 'generated', width: 2048, height: 2048,
+      previewUrl: '', thumbnailUrl: '', previewStatus: 'unavailable', previewError: '缩略图生成失败', originalAvailable: true, status: 'available'
+    })).not.toThrow()
+    expect(() => validateCommandPayload('asset.readOriginal', { assetId: 'asset-1', offset: 0 })).not.toThrow()
+    expect(() => validateCommandResult('asset.readOriginal', {
+      assetId: 'asset-1', chunk: 'data:image/png;base64,AQID', offset: 0, totalLength: 26, done: true
+    })).not.toThrow()
+  })
+
   it('whitelists clear-all as a parameterless command with a closed result shape', () => {
     expect(() => createRequestEnvelope({ command: 'storage.clearAll', sessionId: 'session-1', payload: undefined })).not.toThrow()
     expect(() => validateCommandPayload('storage.clearAll', { confirm: true })).toThrow('不接受参数')
@@ -131,6 +142,7 @@ describe('generation and provider contracts', () => {
 
   it('validates generation snapshots and structured history metadata', () => {
     expect(isGenerationSnapshot(snapshot)).toBe(true)
+    expect(isGenerationSnapshot({ ...snapshot, clientTaskId: 'task-client-1' })).toBe(true)
     expect(isGenerationSnapshot({ ...snapshot, count: 0 })).toBe(false)
     expect(() => validateCommandPayload('history.upsert', {
       entry: {
