@@ -3,8 +3,7 @@ import test from 'node:test'
 import {
   createConsecutiveActivation,
   createPrismLifecycle,
-  installWordmarkFallback,
-  resolveCcxReleaseUpdate
+  installWordmarkFallback
 } from '../site/app.js'
 
 function fakeStage() {
@@ -56,43 +55,6 @@ test('shows a readable Mugen fallback when the generated wordmark cannot load', 
     classList: { add: (value) => immediateClasses.add(value) }
   })
   assert.equal(immediateClasses.has('wordmark-unavailable'), true)
-})
-
-test('validates one coherent CCX release update before changing the page', () => {
-  const release = {
-    ccxVersion: '1.2.3',
-    downloads: {
-      ccx: {
-        filename: 'mugen-1.2.3.ccx',
-        url: 'https://mugen.example/releases/1.2.3/mugen-1.2.3.ccx'
-      }
-    }
-  }
-
-  assert.deepEqual(
-    resolveCcxReleaseUpdate(release, 'https://mugen.example/'),
-    {
-      href: 'https://mugen.example/releases/1.2.3/mugen-1.2.3.ccx',
-      version: '1.2.3'
-    }
-  )
-  assert.equal(resolveCcxReleaseUpdate({
-    ...release,
-    ccxVersion: '1.2.4'
-  }, 'https://mugen.example/'), null)
-  assert.equal(resolveCcxReleaseUpdate({
-    ...release,
-    downloads: { ccx: { ...release.downloads.ccx, url: '' } }
-  }, 'https://mugen.example/'), null)
-  assert.equal(resolveCcxReleaseUpdate({
-    ...release,
-    downloads: { ccx: { ...release.downloads.ccx, url: 'http://downloads.example/mugen.ccx' } }
-  }, 'https://mugen.example/'), null)
-  assert.equal(resolveCcxReleaseUpdate({
-    ...release,
-    downloads: { ccx: { ...release.downloads.ccx, url: 'https://mugen.example/releases/1.2.3/another.ccx' } }
-  }, 'https://mugen.example/'), null)
-  assert.equal(resolveCcxReleaseUpdate(release, 'not a valid base URL'), null)
 })
 
 test('pauses and resumes one scene across repeated BFCache visits', async () => {

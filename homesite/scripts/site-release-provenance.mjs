@@ -35,12 +35,15 @@ function listFiles(directory, prefix = '') {
 
 export function siteContentRecords(directory, { includeReleaseMetadata = false } = {}) {
   const files = listFiles(directory)
+  const legacyReleaseFile = files.find((relative) => relative === 'releases' || relative.startsWith('releases/'))
+  if (legacyReleaseFile) {
+    throw new Error(`Official site build must use download/ instead of the deprecated releases tree: ${legacyReleaseFile}`)
+  }
   const rollbackArtifact = files.find((relative) => rollbackArtifactPattern.test(relative))
   if (rollbackArtifact) {
     throw new Error(`Official site build must not contain runtime rollback artifact: ${rollbackArtifact}`)
   }
   return files
-    .filter((relative) => relative !== 'releases' && !relative.startsWith('releases/'))
     .filter((relative) => relative !== siteManifestFileName)
     .filter((relative) => includeReleaseMetadata || relative !== siteReleaseFileName)
     .map((relative) => {

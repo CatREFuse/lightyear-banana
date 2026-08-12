@@ -41,7 +41,7 @@ test('binds every deployable site file to commit, content hash, build ID, and fu
   const root = temporarySite(context)
   write(root, 'index.html', '<!doctype html>')
   write(root, 'assets/app.js', 'app')
-  write(root, 'releases/latest.json', '{"protected":true}')
+  write(root, 'download/mugen-1.0.2.ccx', 'ccx')
   const expected = stamp(root)
 
   assert.deepEqual(validateSiteReleaseMetadata({
@@ -53,6 +53,7 @@ test('binds every deployable site file to commit, content hash, build ID, and fu
   assert.equal(expected.release.buildId, `site-${expected.release.contentHash.slice(7, 19)}`)
   assert.deepEqual(expected.manifest.files.map((file) => file.path), [
     'assets/app.js',
+    'download/mugen-1.0.2.ccx',
     'index.html',
     'site-release.json'
   ])
@@ -72,13 +73,15 @@ test('detects changed, missing, or unlisted static assets', (context) => {
   assert.ok(restamped.manifest.files.some((file) => file.path === 'app.js'))
 })
 
-test('release downloads stay outside the content hash while runtime rollback artifacts are rejected', (context) => {
+test('download files stay inside the content hash while legacy releases and rollback artifacts are rejected', (context) => {
   const root = temporarySite(context)
   write(root, 'index.html', 'site')
   const before = calculateSiteContentHash(root)
+  write(root, 'download/mugen-1.0.0.ccx', 'ccx')
+  assert.notEqual(calculateSiteContentHash(root), before)
   write(root, 'releases/latest.json', 'old latest')
-  write(root, 'releases/1.0.0/mugen-1.0.0.ccx', 'ccx')
-  assert.equal(calculateSiteContentHash(root), before)
+  assert.throws(() => calculateSiteContentHash(root), /deprecated releases tree/)
+  rmSync(path.join(root, 'releases'), { recursive: true })
   write(root, 'site-rollback-12345678.sha256.txt', 'legacy proof')
   assert.throws(() => calculateSiteContentHash(root), /must not contain runtime rollback artifact/)
   writeFileSync(path.join(root, 'site-rollback-12345678.sha256.txt'), '')

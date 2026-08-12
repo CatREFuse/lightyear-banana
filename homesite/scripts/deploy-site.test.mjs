@@ -78,8 +78,7 @@ function createSiteFixture(context) {
     'vendor/three.module.min.js'
   ]) write(root, file, `fixture:${file}`)
   write(root, 'vendor/THREE-LICENSE.txt', 'license')
-  write(root, 'releases/latest.json', '{"version":"old"}\n')
-  write(root, 'releases/0.9.0/old.ccx', 'old release')
+  write(root, 'download/mugen-1.0.2.ccx', 'current download')
   const release = createSiteReleaseMetadata({
     builtAt: '2026-08-12T03:04:05.000Z',
     commit: '1'.repeat(40),
@@ -91,25 +90,25 @@ function createSiteFixture(context) {
   return root
 }
 
-test('creates a stable full site snapshot while excluding every local release file', (context) => {
+test('creates a stable full site snapshot with one versioned download', (context) => {
   const source = createSiteFixture(context)
   const destination = path.join(temporaryRoot(context), 'snapshot')
   const result = createSiteSnapshot(source, destination)
 
   assert.ok(result.records.length >= 8)
-  assert.equal(result.records.some((record) => record.path.startsWith('releases/')), false)
+  assert.equal(result.records.some((record) => record.path === 'download/mugen-1.0.2.ccx'), true)
   assert.equal(existsSync(path.join(destination, 'releases')), false)
   assert.equal(readFileSync(path.join(destination, 'index.html'), 'utf8'), 'fixture:index.html')
   assert.equal(result.snapshotHash, calculateSnapshotHash(createFileRecords(destination)))
   assert.match(createSha256Manifest(result.records), /^[a-f0-9]{64}  \.\/assets\/mugen-wordmark-imagegen-v2-4k\.png/m)
 })
 
-test('refuses a build without the protected release index even though that index is never uploaded', (context) => {
+test('refuses a build without the versioned download CCX', (context) => {
   const source = createSiteFixture(context)
-  rmSync(path.join(source, 'releases', 'latest.json'))
+  rmSync(path.join(source, 'download', 'mugen-1.0.2.ccx'))
   assert.throws(
     () => createSiteSnapshot(source, path.join(temporaryRoot(context), 'snapshot')),
-    /missing releases\/latest\.json/
+    /exactly one versioned CCX/
   )
 })
 
@@ -584,7 +583,7 @@ test('public verification compares every snapshot byte and proves latest.json st
       baseUrl: new URL('https://mugen.product.dev/'), ccx, expectedLatestSha: latestSha,
       records: snapshot.records, snapshotDirectory
     }),
-    /CCX has an invalid Content-Type/
+    /\.ccx has an invalid public Content-Type/
   )
 
   overrideHeaders = (relative) => relative.endsWith('SHA256SUMS.txt') ? { 'x-content-type-options': '' } : {}

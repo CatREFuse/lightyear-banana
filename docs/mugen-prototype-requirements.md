@@ -59,7 +59,7 @@ Mugen vNext 由三个活动交付物组成：
 - 不支持 `backdrop-filter` 时仍有可读的半透明兜底。
 - `下载 CCX` 指向完成发布校验的 CCX 文件。
 - `进入 WebUI` 指向独立浏览器运行时。
-- 标本号从 CCX 发布元数据读取，并与下载文件、Manifest 和 SHA256 记录对应。
+- 标本号从 CCX 发布元数据读取，并与 `download/` 中的版本化 CCX、文件大小和 SHA256 对应。
 - 数据不可用时不显示伪造版本或硬编码占位值。
 
 ## 3. WebUI vNext 迁移需求

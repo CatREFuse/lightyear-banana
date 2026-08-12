@@ -15,7 +15,7 @@ const siteDir = join(root, "homesite", "site")
 const outDir = join(root, "dist", "site")
 const releaseOriginPlaceholder = "__MUGEN_RELEASE_ORIGIN__"
 
-const { bundle, latest: manifest } = await verifyReleaseSite({ root, siteDir })
+const { bundle } = await verifyReleaseSite({ root, siteDir })
 
 await rm(outDir, { recursive: true, force: true })
 await mkdir(outDir, { recursive: true })
@@ -24,19 +24,16 @@ await cp(siteDir, outDir, {
   filter: (source) => !source.endsWith(".DS_Store")
 })
 
-const releaseOrigin = new URL(bundle.ccxMetadata.releaseUrl).origin
+const releaseOrigin = new URL(bundle.ccxMetadata.webviewOrigin).origin
 for (const relativePath of ["index.html", "llms.txt", "LLM.TXT"]) {
   const target = join(outDir, relativePath)
   const contents = await readFile(target, "utf8")
   await writeFile(target, contents.replaceAll(releaseOriginPlaceholder, releaseOrigin))
 }
-await writeFile(join(outDir, "releases", "latest.json"), `${JSON.stringify(manifest, null, 2)}\n`)
-
-const releaseDir = join(outDir, "releases", bundle.ccxVersion)
 const ccx = bundle.artifacts.ccx
-await mkdir(releaseDir, { recursive: true })
-await cp(ccx.path, join(releaseDir, ccx.filename))
-await writeFile(join(releaseDir, "SHA256SUMS.txt"), `${ccx.sha256}  ${ccx.filename}\n`)
+const downloadDir = join(outDir, "download")
+await mkdir(downloadDir, { recursive: true })
+await cp(ccx.path, join(downloadDir, ccx.filename))
 
 const git = readGitSiteProvenance(root)
 const siteRelease = createSiteReleaseMetadata({ directory: outDir, ...git })
@@ -44,4 +41,4 @@ await writeFile(join(outDir, siteReleaseFileName), `${JSON.stringify(siteRelease
 const siteManifest = createSiteManifest(outDir, siteRelease)
 await writeFile(join(outDir, siteManifestFileName), `${JSON.stringify(siteManifest, null, 2)}\n`)
 
-console.log(`Built site for ${manifest.name} ${bundle.version} (${siteRelease.buildId}) at ${outDir}`)
+console.log(`Built site for Mugen ${bundle.version} (${siteRelease.buildId}) at ${outDir}`)

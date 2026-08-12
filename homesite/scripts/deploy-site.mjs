@@ -327,13 +327,14 @@ export function validateSiteBuild(directory = defaultSiteDirectory) {
   ]) {
     if (!allFiles.includes(requiredFile)) throw new Error(`Official site build is missing ${requiredFile}.`)
   }
-  if (!allFiles.includes(protectedReleaseIndex)) {
-    throw new Error(`Official site build is missing ${protectedReleaseIndex}; it is validated locally but never uploaded.`)
+  const downloadFiles = allFiles.filter((relative) => /^download\/mugen-\d+\.\d+\.\d+\.ccx$/.test(relative))
+  if (downloadFiles.length !== 1) {
+    throw new Error('Official site build must contain exactly one versioned CCX in download/.')
   }
-  const records = createFileRecords(directory, { excludeReleases: true })
-  if (records.some((record) => record.path === protectedReleaseIndex || record.path.startsWith('releases/'))) {
-    throw new Error('The protected releases tree entered the site deployment snapshot.')
+  if (allFiles.some((relative) => relative === 'releases' || relative.startsWith('releases/'))) {
+    throw new Error('Official site build must not contain the deprecated releases tree.')
   }
+  const records = createFileRecords(directory)
   const provenance = validateSiteReleaseMetadata({ directory })
   return { allFiles, provenance, records, snapshotHash: calculateSnapshotHash(records) }
 }
@@ -347,7 +348,7 @@ export function createSiteSnapshot(sourceDirectory, destinationDirectory) {
     mkdirSync(path.dirname(destinationPath), { recursive: true })
     cpSync(sourcePath, destinationPath, { errorOnExist: true, force: false })
   }
-  const afterSource = createFileRecords(sourceDirectory, { excludeReleases: true })
+  const afterSource = createFileRecords(sourceDirectory)
   const snapshotRecords = createFileRecords(destinationDirectory)
   if (!sameRecords(before.records, afterSource)) {
     throw new Error('Official site output changed while the deployment snapshot was being created.')
@@ -1365,8 +1366,10 @@ function assertContentType(response, fileName) {
         ? /^(application|text)\/javascript\b/
         : fileName.endsWith('.json')
           ? /^application\/json\b/
-          : fileName.endsWith('.png')
+        : fileName.endsWith('.png')
             ? /^image\/png\b/
+            : fileName.endsWith('.ccx')
+              ? /^application\/(?:octet-stream|zip|x-zip-compressed|x-uxp-plugin|vnd\.adobe\.uxp-plugin)\b/
             : fileName.endsWith('.txt') || fileName.endsWith('.TXT')
               ? /^text\/plain\b/
               : undefined

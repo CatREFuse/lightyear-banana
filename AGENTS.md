@@ -57,7 +57,7 @@ WebUI 部署:
 - 修改或提交版本号前，必须先读取 `docs/build-todo-list.md`。
 - 发布门禁按三条线执行：CCX 以 `docs/build-todo-list.md` 为准；WebUI 部署见 `docs/inner-webui-deployment.md`；官网部署见 `docs/site-deployment.md`。
 - Electron 桌面端已移除，不再有 macOS/Windows 桌面打包门禁（历史发行记录见 `docs/build-todo-list.md`）。
-- 正式 `package:ccx` 只接受干净工作树；官网发布前必须确认 CCX 发行物与 `dist/ccx-release.json` 一致，否则只记录待办，不更新线上 `latest.json`。
+- 正式 `package:ccx` 只接受干净工作树；官网发布前必须确认 CCX 发行物与 `dist/ccx-release.json` 一致，构建把版本化 CCX 放入 `download/` 并纳入全站哈希；`releases/latest.json` 已废弃。
 - Nginx 安全策略切换与回滚按 `docs/nginx-security-policy-rollout.md` 执行；WebUI 部署模板在 `utils/deploy/nginx/inner-webui.conf.template`。
 
 ## 文档路由

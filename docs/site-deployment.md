@@ -9,7 +9,7 @@
 └── previous -> releases/<previous-site-id>
 ```
 
-Nginx 从 `current` 提供首页，并把 `/releases/` 映射到 `current/releases/`。每次新站部署会复制当前快照中的整个 `releases/`，逐文件校验后再合入站点文件。仓库构建中的 `dist/site/releases/latest.json` 不会打包、上传或激活。CCX 发行门禁未通过时，线上 `latest.json` 会保持原字节内容。
+Nginx 从 `current` 提供首页。当前 CCX 固定放在 `current/download/mugen-<version>.ccx`，与 HTML、JavaScript 和图片一起进入站点清单、内容哈希、原子切换和回滚。首页不读取版本清单，`releases/latest.json` 已退出构建与用户下载链。部署器在迁移期仍会原字节保留旧快照中的 `releases/`，只用于既有回滚兼容，不作为当前版本来源。
 
 ## 环境
 
@@ -43,7 +43,7 @@ frame-ancestors 'none';
 form-action 'none';
 ```
 
-首页与 `releases/latest.json` 还必须返回有效的正数 `max-age` HSTS 和 `X-Content-Type-Options: nosniff`。CCX 使用受支持的二进制 MIME，`SHA256SUMS.txt` 使用 `text/plain`，两者也必须返回 HSTS 和 `nosniff`。`releases/latest.json` 必须使用 JSON MIME、HSTS、`nosniff` 和 `Cache-Control: no-store`。回滚时生成的唯一 `site-rollback-*.latest.json` 证明必须使用 JSON MIME、HSTS、`nosniff`，并使用 `no-store` 或 `no-cache`，同时拒绝 `public`、`immutable` 与持久缓存时长。部署脚本只验证这些响应头，不修改 Nginx 配置。
+首页与 `download/` CCX 必须返回有效的正数 `max-age` HSTS 和 `X-Content-Type-Options: nosniff`。CCX 使用受支持的二进制 MIME。迁移期回滚仍会校验旧快照的发布证明，但新首页、构建和下载入口不消费该证明。部署脚本只验证响应头，不修改 Nginx 配置。
 
 ## 本地检查
 
@@ -52,31 +52,31 @@ form-action 'none';
 ```powershell
 npm run build:site
 npm run test:site-deploy
-npm run deploy:site -- --dry-run --include-ccx
+npm run deploy:site -- --dry-run
 ```
 
 `test:site-deploy` 包含会实际执行生成命令的状态转换与失败注入测试。Windows 使用 Git Bash、临时目录、测试专用 `flock` 和目录链接兼容层执行。`.github/workflows/site-deploy-linux.yml` 提供只读、无 secrets、仅手动触发的 `ubuntu-24.04` 门禁；获准生产发布前，必须在该工作流或另一隔离 GNU/Linux 环境运行 `REQUIRE_SITE_LINUX_TESTS=1 npm run test:site-deploy`，以原生远端工具完成强制复验。
 
-`--include-ccx` 从 `plug-in/manifest.json` 和 `dist/ccx-release.json` 读取当前 CCX 版本；两者必须一致。站点文件固定为 `dist/site/releases/<ccx-version>/mugen-<ccx-version>.ccx`。脚本会把它与根目录 CCX、根 SHA sidecar、CCX 发布元数据和站点 `SHA256SUMS.txt` 交叉校验。此选项不会改变 `latest.json`。
+`build:site` 从 `plug-in/manifest.json` 和 `dist/ccx-release.json` 读取当前 CCX 版本；两者必须一致。站点文件固定为 `dist/site/download/mugen-<ccx-version>.ccx`，其字节、大小与 SHA256 必须和根目录打包产物一致。`--include-ccx` 属于旧发布树兼容参数，新标准不使用。
 
 `build:site` 会生成 `site-release.json` 和 `site-manifest.json`。前者记录当前完整 Git SHA、dirty 状态、构建时间、全站内容哈希和 build ID；后者列出每个可部署静态文件的路径、大小与 SHA256。部署只接受干净工作树、`dirty: false`、与当前 `HEAD` 一致的构建，并重新计算全站内容哈希和清单。
 
 ## 发布
 
 ```powershell
-npm run deploy:site -- --include-ccx
+npm run deploy:site
 ```
 
 脚本按以下顺序执行：
 
-1. 校验 `site-release.json`、`site-manifest.json`、当前 Git `HEAD` 和干净工作树，再从 `dist/site` 创建稳定快照。快照排除整个本地 `releases/`，拒绝任何 `site-rollback-*` 运行时证明，并为每个文件生成 SHA256。归档完成后和首次上传前都会重新读取 Git 与全站清单；期间发生变化就停止。
-2. 在旧 `current` 写入本次唯一的只读回滚清单，清单覆盖 `releases/` 之外的每个静态资产；从公网逐项读回后才继续。旧站没有发布 marker 时也可形成完整回滚证据。
+1. 校验 `site-release.json`、`site-manifest.json`、当前 Git `HEAD` 和干净工作树，再从 `dist/site` 创建稳定快照。快照必须包含且只包含一个 `download/mugen-<version>.ccx`，拒绝本地 `releases/` 和任何 `site-rollback-*` 运行时证明，并为每个文件生成 SHA256。归档完成后和首次上传前都会重新读取 Git 与全站清单；期间发生变化就停止。
+2. 在旧 `current` 写入本次唯一的只读回滚清单，从公网逐项读回后才继续。旧站没有发布 marker 时也可形成完整回滚证据。
 3. 使用 `tar` 生成本地归档，通过 `scp` 上传到唯一 incoming 目录。
 4. 在 `flock` 内确认 `current` 未被并发部署切换，解包到唯一 stage 并校验所有站点文件。
-5. 复制旧 `current/releases/` 并逐文件校验，确认 `latest.json` SHA256 保持不变。
-6. 可选合入当前 Manifest 与 CCX 发布元数据共同声明的 CCX 及对应 `SHA256SUMS.txt`，再次校验完整 stage。
+5. 迁移期原字节复制旧快照中的 `releases/` 兼容数据，不把它合入新站内容哈希或下载入口。
+6. 校验 stage 中 `download/` CCX 与全站清单一致。
 7. 在同一文件系统把 stage 移入 `releases/<site-id>`。prepare 会先记录发布前的 `previous` 目标或其不存在状态；activation 在切换前再次确认该状态未变，先更新 `previous`，最后用单次 `mv -T` 原子切换 `current`。
-8. 从公网逐字节读回全部站点文件、`latest.json`、可选 CCX 和 checksum，同时检查 MIME 与安全响应头。
+8. 从公网逐字节读回全部站点文件和 `download/` CCX，同时检查 MIME 与安全响应头；迁移期额外确认旧回滚证明未被修改。
 
 公网校验失败时，脚本只会在 `current` 仍指向本次发布且 `previous` 仍指向原版本时回滚。并发发布已经取代本次发布时，条件回滚会停止，避免覆盖更新。
 

@@ -24,7 +24,6 @@ function fixture(t) {
   const filename = 'mugen-1.0.0.ccx'
   const origin = '__MUGEN_RELEASE_ORIGIN__'
   const publishedAt = '2026-08-11T00:00:00.000Z'
-  const releaseUrl = `${origin}/releases/1.0.0/SHA256SUMS.txt`
 
   json(root, 'plug-in/manifest.json', { version: '1.0.0' })
   write(root, `dist/${filename}`, contents)
@@ -40,28 +39,8 @@ function fixture(t) {
     sourceCommit: 'a'.repeat(40),
     dirty: false
   })
-  json(root, 'homesite/site/releases/latest.json', {
-    product: 'mugen',
-    name: '无幻 Mugen',
-    version: '1.0.0',
-    tag: 'v1.0.0',
-    minimumSupportedVersion: '1.0.0',
-    publishedAt,
-    releaseUrl,
-    updateCheckUrl: `${origin}/releases/latest.json`,
-    mandatory: false,
-    downloads: {
-      ccx: {
-        platform: 'photoshop-ccx',
-        filename,
-        url: `${origin}/releases/1.0.0/${filename}`,
-        sha256,
-        size: contents.length
-      }
-    }
-  })
-  write(root, 'homesite/site/index.html', `<a data-download="ccx" href="${origin}/releases/1.0.0/${filename}"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>1.0.0</span></p>`)
-  const llms = `# Mugen\n\nCurrent version: 1.0.0\nMinimum supported version: 1.0.0\nPublished at: ${publishedAt}\n\nVersion check:\nGET ${origin}/releases/latest.json\n\nManifest:\n${origin}/releases/latest.json\n\nRelease checksums:\n${releaseUrl}\n\nAdobe Photoshop plugin:\n${origin}/releases/1.0.0/${filename}\nsha256: ${sha256}\nsize: ${contents.length} bytes\n`
+  write(root, 'homesite/site/index.html', `<a data-download="ccx" href="${origin}/download/${filename}"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>1.0.0</span></p>`)
+  const llms = `# Mugen\n\nCurrent version: 1.0.0\nPackaged at: ${publishedAt}\n\nAdobe Photoshop plugin:\n${origin}/download/${filename}\nsha256: ${sha256}\nsize: ${contents.length} bytes\n`
   write(root, 'homesite/site/llms.txt', llms)
   write(root, 'homesite/site/LLM.TXT', llms)
   return { root }
@@ -78,10 +57,10 @@ test('verifies a CCX-only website against the independent plugin version', async
   assert.equal('uxpMetadata' in bundle, false)
   assert.equal('uxpMetadataPath' in bundle, false)
   assert.deepEqual(Object.keys(bundle.artifacts), ['ccx'])
-  assert.deepEqual(Object.keys(verified.latest.downloads), ['ccx'])
+  assert.equal(verified.download.url, 'https://mugen.catrefuse.com/download/mugen-1.0.0.ccx')
 })
 
-test('rejects dirty CCX provenance and desktop downloads', async (t) => {
+test('rejects dirty CCX provenance and legacy release download links', async (t) => {
   const { root } = fixture(t)
   const metadataPath = path.join(root, 'dist/ccx-release.json')
   const metadata = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(metadataPath, 'utf8')))
@@ -89,9 +68,7 @@ test('rejects dirty CCX provenance and desktop downloads', async (t) => {
   await assert.rejects(verifyCcxRelease({ root }), /dirty/)
 
   json(root, 'dist/ccx-release.json', metadata)
-  const latestPath = path.join(root, 'homesite/site/releases/latest.json')
-  const latest = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(latestPath, 'utf8')))
-  json(root, 'homesite/site/releases/latest.json', { ...latest, downloads: { ...latest.downloads, mac: {} } })
+  write(root, 'homesite/site/index.html', '<a data-download="ccx" href="https://mugen.catrefuse.com/releases/1.0.0/mugen-1.0.0.ccx"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>1.0.0</span></p>')
   const bundle = await verifyCcxRelease({ root })
-  await assert.rejects(verifySiteMetadata({ root, bundle }), /download keys/)
+  await assert.rejects(verifySiteMetadata({ root, bundle }), /CCX href/)
 })

@@ -2,7 +2,7 @@
 
 本清单用于修改版本号、准备 CCX、发布 WebUI 或切换正式官网前的强制检查。当前活动产品是 WebUI vNext、Photoshop CCX 和单屏官网。Electron 桌面端源码已彻底移除（2026-08-12）；旧官网与 Inner WebUI 0.1 已归档；独立 UXP 产品代码已经删除。
 
-当前阶段允许部署 WebUI vNext、单屏官网与不可变的 CCX 版本文件。完整 CCX 发行物未就绪前，必须保留线上 `latest.json`，不得把局部产物声明为完整正式发行；缺失项继续记录 TODO。
+当前阶段允许部署 WebUI vNext、单屏官网与站点内的版本化 CCX 文件。官网从 `download/` 直接提供当前 CCX，文件必须来自干净提交的打包产物并进入全站哈希；`releases/latest.json` 已废弃。
 
 ## 生命周期与版本规则
 
@@ -39,7 +39,7 @@
 - 页面只有一屏，用户可见主体限于毛笔书法 `Mugen`、`下载 CCX`、`进入 WebUI` 和 CCX 标本号。
 - 书法资源来自 ImageGen 并完成超分，保留母版和网站优化版本；加载失败时显示文字兜底。
 - Three.js 背景显示一束白光进入三棱镜并折射为彩色光谱，棱镜可由指针或触摸旋转。
-- 三棱镜使用四面体造型、默认色散偏移为 `5` 并持续自转；连续点击棱镜 5 次后显示不含自转开关的光路参数面板。
+- 三棱镜使用四面体造型，默认色散偏移为 `2.5`、红光折射率为 `1.3`、转速为 `0.55`、入射角为 `8°` 并持续自转；连续点击棱镜 5 次后显示不含自转开关的光路参数面板。
 - WebGL 不可用和 `prefers-reduced-motion` 有稳定兜底。
 - 两个按钮使用 CSS 液态玻璃材质，键盘焦点、触摸、对比度和不支持 `backdrop-filter` 的环境均可用。
 - CCX 标本号、下载 URL、Manifest、文件大小和 SHA256 来自一致的发布元数据。
@@ -48,10 +48,10 @@
 
 ## 正式官网发布门禁
 
-- 发布前确认 CCX 发行物与 `dist/ccx-release.json` 一致；不一致时只记录待办，不更新线上 `latest.json`。
-- 桌面端已删除，新首页与用户可见 `latest.json` 下载项只提供 CCX。
+- 发布前确认 CCX 发行物与 `dist/ccx-release.json` 一致；不一致时停止官网构建，不更新 `download/`。
+- 桌面端已删除，新首页只从 `download/` 提供一个版本化 CCX。
 - `下载 CCX` 只指向已校验文件；`进入 WebUI` 只指向通过浏览器门禁的 vNext 地址。
-- `homesite/site/releases/latest.json` 的地址使用 `key.env` 中的正式域名，仓库与生产产物不得恢复已废弃域名。
+- `homesite/site/`、`dist/site/` 和首页运行时不得包含或请求 `releases/latest.json`；仓库与生产产物不得恢复已废弃域名。
 - 正式构建来自已提交的干净工作区，并记录提交、构建时间、版本、文件大小与 SHA256。
 - 公网发布后逐字节验证入口 HTML、关键资源、CCX 文件和元数据，并检查 TLS、MIME、CSP、HSTS 与 `nosniff`。
 
@@ -64,7 +64,7 @@
 - [ ] CCX 已在真实 Photoshop 完成抓取、请求、取图、置入完整闭环。
 - [ ] 官网单屏视觉、交互、性能、可访问性与静态兜底通过。
 - [ ] `dist/` 的 CCX 与 `SHA256SUMS.txt` 匹配。
-- [ ] 公网读回和安全响应头检查通过，最后才更新 `latest.json`。
+- [ ] 公网逐字节读回 `download/` CCX 和安全响应头检查通过。
 
 ## 旧 Inner WebUI 0.1 / CCX 1.0 状态（归档）
 

@@ -203,14 +203,6 @@ function readLabeledValue(text, label) {
   return match[1].trim()
 }
 
-function readFollowingLine(text, label) {
-  const match = new RegExp(`^${escapeRegExp(label)}[ \\t]*\\n([^\\n]+)$`, "m").exec(text)
-  if (!match) {
-    fail(`llms.txt is missing the value after ${label}`)
-  }
-  return match[1].trim()
-}
-
 function readDownloadBlock(text, heading) {
   const match = new RegExp(
     `^${escapeRegExp(heading)}[ \\t]*\\n([^\\n]+)\\nsha256:[ \\t]*([a-fA-F0-9]{64})\\nsize:[ \\t]*(\\d+)[ \\t]+bytes$`,
@@ -229,36 +221,13 @@ export async function verifySiteMetadata({
 } = {}) {
   const verifiedBundle = bundle ?? await verifyCcxRelease({ root })
   const { version, artifacts, ccxMetadata } = verifiedBundle
-  const latestPath = join(siteDir, "releases", "latest.json")
-  const releaseRootUrl = ccxMetadata.releaseUrl
-  const releaseOrigin = new URL(releaseRootUrl).origin
-  const latest = JSON.parse(materializeReleaseOrigin(await readFile(latestPath, "utf8"), releaseOrigin))
-  const updateCheckUrl = new URL("latest.json", releaseRootUrl).href
-  const releaseBaseUrl = new URL(`${version}/`, releaseRootUrl).href.replace(/\/$/, "")
-  const expectedReleaseUrl = `${releaseBaseUrl}/SHA256SUMS.txt`
-
-  requireObject(latest, "site/releases/latest.json")
-  requireEqual(latest.version, version, "latest.json version")
-  requireEqual(latest.tag, `v${version}`, "latest.json tag")
-  requireEqual(latest.releaseUrl, expectedReleaseUrl, "latest.json releaseUrl")
-  requireEqual(latest.updateCheckUrl, updateCheckUrl, "latest.json updateCheckUrl")
-  requireObject(latest.downloads, "latest.json downloads")
-
-  requireEqual(Object.keys(latest.downloads).sort().join(","), "ccx", "latest.json download keys")
-  for (const key of ["ccx"]) {
-    const artifact = artifacts[key]
-    const download = latest.downloads[key]
-    requireObject(download, `latest.json downloads.${key}`)
-    requireEqual(download.filename, artifact.filename, `latest.json downloads.${key}.filename`)
-    requireEqual(download.url, `${releaseBaseUrl}/${artifact.filename}`, `latest.json downloads.${key}.url`)
-    requireEqual(download.sha256, artifact.sha256, `latest.json downloads.${key}.sha256`)
-    requireEqual(download.size, artifact.size, `latest.json downloads.${key}.size`)
-  }
+  const releaseOrigin = new URL(ccxMetadata.webviewOrigin).origin
+  const ccx = artifacts.ccx
+  const downloadUrl = `${releaseOrigin}/download/${ccx.filename}`
 
   const html = materializeReleaseOrigin(await readFile(join(siteDir, "index.html"), "utf8"), releaseOrigin)
-  const ccx = artifacts.ccx
   const ccxAnchor = findAnchor(html, "data-download", "ccx")
-  requireEqual(readHref(ccxAnchor, "site/index.html CCX download"), `${releaseBaseUrl}/${ccx.filename}`, "site/index.html CCX href")
+  requireEqual(readHref(ccxAnchor, "site/index.html CCX download"), downloadUrl, "site/index.html CCX href")
   requireEqual(ccxAnchor.replace(/<[^>]*>/g, "").trim(), "Download CCX", "site/index.html CCX label")
   const webUiAnchor = findAnchor(html, "data-open-webui")
   requireEqual(readHref(webUiAnchor, "site/index.html WebUI link"), "./webui/", "site/index.html WebUI href")
@@ -271,25 +240,13 @@ export async function verifySiteMetadata({
   const llms = normalizeNewlines(llmsLowerRaw)
 
   requireEqual(readLabeledValue(llms, "Current version:"), version, "llms.txt current version")
-  requireEqual(readLabeledValue(llms, "Minimum supported version:"), latest.minimumSupportedVersion, "llms.txt minimum supported version")
-  requireEqual(readLabeledValue(llms, "Published at:"), latest.publishedAt, "llms.txt published at")
-  requireEqual(readFollowingLine(llms, "Version check:"), `GET ${updateCheckUrl}`, "llms.txt version check URL")
-  requireEqual(readFollowingLine(llms, "Manifest:"), updateCheckUrl, "llms.txt manifest URL")
-  requireEqual(readFollowingLine(llms, "Release checksums:"), expectedReleaseUrl, "llms.txt release checksums URL")
+  requireEqual(readLabeledValue(llms, "Packaged at:"), ccxMetadata.builtAt, "llms.txt packaged timestamp")
+  const block = readDownloadBlock(llms, "Adobe Photoshop plugin:")
+  requireEqual(block.url, downloadUrl, "llms.txt CCX URL")
+  requireEqual(block.sha256, ccx.sha256, "llms.txt CCX SHA256")
+  requireEqual(block.size, ccx.size, "llms.txt CCX size")
 
-  for (const [key, heading] of [["ccx", "Adobe Photoshop plugin:"]]) {
-    const artifact = artifacts[key]
-    const block = readDownloadBlock(llms, heading)
-    requireEqual(block.url, `${releaseBaseUrl}/${artifact.filename}`, `llms.txt ${key} URL`)
-    requireEqual(block.sha256, artifact.sha256, `llms.txt ${key} SHA256`)
-    requireEqual(block.size, artifact.size, `llms.txt ${key} size`)
-  }
-
-  if (latest.githubUrl) {
-    requireEqual(readLabeledValue(llms, "GitHub:"), latest.githubUrl, "llms.txt GitHub URL")
-  }
-
-  return { bundle: verifiedBundle, latest }
+  return { bundle: verifiedBundle, download: { url: downloadUrl, ...ccx } }
 }
 
 export async function verifyReleaseSite(options = {}) {

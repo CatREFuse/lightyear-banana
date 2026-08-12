@@ -1,5 +1,3 @@
-const releaseUrl = './releases/latest.json'
-
 export function installWordmarkFallback(image, brand) {
   if (!image?.addEventListener || !brand?.classList) return () => {}
 
@@ -8,50 +6,6 @@ export function installWordmarkFallback(image, brand) {
   if (image.complete && image.naturalWidth === 0) showFallback()
 
   return () => image.removeEventListener?.('error', showFallback)
-}
-
-export function resolveCcxReleaseUpdate(release, baseHref) {
-  const ccx = release?.downloads?.ccx
-  const filenameMatch = /^mugen-(\d+\.\d+\.\d+)\.ccx$/.exec(ccx?.filename || '')
-  const version = typeof release?.ccxVersion === 'string'
-    ? release.ccxVersion.trim()
-    : filenameMatch?.[1]
-
-  if (!/^\d+\.\d+\.\d+$/.test(version || '') || filenameMatch?.[1] !== version) return null
-  if (typeof ccx?.url !== 'string' || !ccx.url.trim() || ccx.url.includes('__MUGEN_RELEASE_ORIGIN__')) return null
-
-  let baseUrl
-  let url
-  try {
-    baseUrl = new URL(baseHref)
-    url = new URL(ccx.url, baseHref)
-    if (decodeURIComponent(url.pathname.split('/').pop() || '') !== ccx.filename) return null
-  } catch {
-    return null
-  }
-  if (url.protocol !== 'https:' && url.origin !== baseUrl.origin) return null
-
-  return { href: url.href, version }
-}
-
-function updateRelease(release) {
-  const download = document.querySelector('[data-download="ccx"]')
-  const version = document.querySelector('[data-ccx-version]')
-  const update = resolveCcxReleaseUpdate(release, window.location.href)
-  if (!update || !(download instanceof HTMLAnchorElement) || !version) return
-
-  download.href = update.href
-  version.textContent = update.version
-}
-
-async function loadRelease() {
-  try {
-    const response = await fetch(releaseUrl, { cache: 'no-store' })
-    if (!response.ok) return
-    updateRelease(await response.json())
-  } catch {
-    // Keep the static CCX fallback available when release metadata cannot be loaded.
-  }
 }
 
 export function createPrismLifecycle({ stage, loadScene }) {
@@ -246,6 +200,4 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     window.addEventListener('pageshow', lifecycle.handlePageShow)
     void lifecycle.initialize()
   }
-
-  void loadRelease()
 }
