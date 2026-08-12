@@ -41,6 +41,12 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex')
 }
 
+export function normalizeUdtManifestBytes(bytes) {
+  const value = Buffer.from(bytes)
+  if (value.at(-1) !== 0x0a) return value
+  return value.subarray(0, value.at(-2) === 0x0d ? value.length - 2 : value.length - 1)
+}
+
 function directorySnapshot(directory) {
   const files = listFiles(directory).sort()
   const hash = createHash('sha256')
@@ -77,7 +83,12 @@ export function createVerifiedDirectorySnapshot({
   return { fileCount: staged.files.length, digest: staged.digest }
 }
 
-export function verifyArchiveMatchesDirectory({ sourceDirectory, archiveEntries, readArchiveEntry }) {
+export function verifyArchiveMatchesDirectory({
+  sourceDirectory,
+  archiveEntries,
+  readArchiveEntry,
+  normalizeFileBytes = (_file, bytes) => bytes
+}) {
   if (typeof sourceDirectory !== 'string' || !sourceDirectory) {
     throw new Error('sourceDirectory is required for CCX archive verification.')
   }
@@ -107,7 +118,10 @@ export function verifyArchiveMatchesDirectory({ sourceDirectory, archiveEntries,
     if (!Buffer.isBuffer(archivedBytes) && !(archivedBytes instanceof Uint8Array)) {
       throw new Error(`CCX archive reader did not return bytes for ${file}.`)
     }
-    if (sha256(sourceBytes) !== sha256(archivedBytes)) {
+    if (
+      sha256(normalizeFileBytes(file, sourceBytes)) !==
+      sha256(normalizeFileBytes(file, archivedBytes))
+    ) {
       throw new Error(`CCX archive bytes do not match the final staging directory at ${file}.`)
     }
   }

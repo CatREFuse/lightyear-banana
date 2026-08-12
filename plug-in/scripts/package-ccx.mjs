@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertProductionOrigin, resolveReleaseUrl } from '../../utils/production-origin-policy.mjs'
@@ -9,6 +9,7 @@ import { resolveReleaseProvenance } from './release-provenance.mjs'
 import { createCcxReleaseMetadata } from './ccx-release-metadata.mjs'
 import {
   createVerifiedDirectorySnapshot,
+  normalizeUdtManifestBytes,
   verifyArchiveMatchesDirectory
 } from './package-archive-integrity.mjs'
 import {
@@ -73,6 +74,22 @@ const releaseUrl = resolveReleaseUrl({
 }).href
 
 const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${builtManifest.version}.ccx`)
+const udtPackagePathValue = process.env.MUGEN_UDT_CCX_PATH
+if (typeof udtPackagePathValue !== 'string' || udtPackagePathValue.trim() === '') {
+  throw new Error(
+    'MUGEN_UDT_CCX_PATH must point to the CCX created by UXP Developer Tools > Package.'
+  )
+}
+const udtPackagePath = path.resolve(projectRoot, udtPackagePathValue)
+const expectedUdtPackageName = `${builtManifest.id}_PS.ccx`
+if (
+  path.basename(udtPackagePath) !== expectedUdtPackageName ||
+  !existsSync(udtPackagePath)
+) {
+  throw new Error(
+    `MUGEN_UDT_CCX_PATH must point to the UXP Developer Tools package named ${expectedUdtPackageName}.`
+  )
+}
 const archiveChecksumPath = `${archivePath}.sha256`
 const releaseMetadataPath = path.join(projectRoot, 'dist', 'ccx-release.json')
 const temporarySuffix = `${process.pid}-${randomBytes(4).toString('hex')}`
@@ -114,31 +131,7 @@ try {
     requireClean: true
   })
 
-  if (process.platform === 'win32') {
-    execFileSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        '$ErrorActionPreference = "Stop"; ' +
-          'Get-ChildItem -LiteralPath $env:MUGEN_CCX_SOURCE_DIR -Force | ' +
-          'Compress-Archive -DestinationPath $env:MUGEN_CCX_ARCHIVE_PATH -Force'
-      ],
-      {
-        cwd: projectRoot,
-        env: {
-          ...process.env,
-          MUGEN_CCX_ARCHIVE_PATH: temporaryArchivePath,
-          MUGEN_CCX_SOURCE_DIR: stagedSourceDir
-        },
-        stdio: 'inherit'
-      }
-    )
-  } else {
-    execFileSync('zip', ['-r', '-q', temporaryArchivePath, '.'], { cwd: stagedSourceDir, stdio: 'inherit' })
-  }
+  copyFileSync(udtPackagePath, temporaryArchivePath)
 
   if (!existsSync(temporaryArchivePath)) {
     throw new Error(`Temporary CCX archive was not created: ${temporaryArchivePath}`)
@@ -186,6 +179,8 @@ try {
   verifyArchiveMatchesDirectory({
     sourceDirectory: stagedSourceDir,
     archiveEntries: entries,
+    normalizeFileBytes: (file, bytes) =>
+      file === 'manifest.json' ? normalizeUdtManifestBytes(bytes) : bytes,
     readArchiveEntry: (entry) => execFileSync(
       'tar',
       ['-xOf', temporaryArchivePath, entry],

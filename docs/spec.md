@@ -13,7 +13,7 @@
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.0`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
-- 当前 CCX 版本为 `1.0.2`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
+- 当前 CCX 版本为 `1.0.3`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
 
 ## 官方单屏站点
 
@@ -181,6 +181,8 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 - 当前阶段允许在 WebUI、单屏官网和 CCX 各自门禁通过后部署正式入口。官网使用 `download/mugen-<version>.ccx` 直连标准，CCX 随站点快照发布并纳入全站逐字节校验；`releases/latest.json` 已废弃。
 - 旧官网、Electron 桌面端与 Inner WebUI 0.1 只保留历史记录；独立 UXP 原型代码已删除，均不进入新首页、WebUI 入口或活动发布说明。
 - CCX 包必须内含与浏览器版同源构建的 WebUI，且不依赖公网 WebUI 才能启动。
+- CCX 必须由 Adobe UXP Developer Tools 的 `Package` 动作从已验证的 `dist/ccx-host` 生成；发布脚本只校验、改名、计算校验和并登记该 UDT 产物，不得使用 PowerShell、系统 `zip` 或其他通用压缩工具重新创建 CCX。
+- Windows 分发验收必须从资源管理器双击最终 CCX，确认 Creative Cloud 显示第三方插件信任提示、完成安装、在“管理插件”中出现，并在 Photoshop 插件菜单中可用；命令行 `/install` 结果不能替代这条验收。
 - 浏览器 WebUI 和 CCX WebUI 可以独立部署，但必须记录可追溯的提交、版本和兼容信息。
 - 任何版本号与官网发布仍受 `docs/build-todo-list.md` 门禁约束。
 
@@ -197,7 +199,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 - 官网桌面与移动视口截图及交互录屏，证明单屏、书法字、可旋转棱镜、折射光线、两个液态玻璃按钮和 CCX 标本号均成立。
 - 生产 bundle 扫描拒绝 Electron runtime（见 `webui/scripts/bundlePolicy.mjs` 回归防线）。
 - 浏览器自动化测试，证明真实网络与配置流程可用且无 Photoshop 操作入口。
-- `npm run verify:ccx` 与 CCX 打包校验通过。
+- `npm run verify:ccx`、UDT 官方打包校验与 Windows 资源管理器双击安装验收通过。
 - Photoshop 实机完整闭环记录，证明画布抓取、APIMart 请求、小猫图片获取和新图层置入均成功。
 
 ## 历史归档

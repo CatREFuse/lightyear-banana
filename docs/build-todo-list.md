@@ -12,6 +12,7 @@
 - 正式 `package:ccx` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
 - 修改 CCX 版本时，确认 `plug-in/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
+- Windows CCX 必须通过 Adobe UXP Developer Tools 的 `Package` 动作生成；通用压缩工具不得代替 UDT。资源管理器双击安装及 Photoshop 可用性由分发验收确认，命令行安装不能代替该结果。
 - 不得恢复 `standalone-uxp-plugin/`、`src/uxp/`、`vite.uxp.config.ts`、`uxp-panel.html` 或旧 `*:uxp` 产品命令。
 - 插件 ID 必须保持 `com.tanshow.mugen`。
 
@@ -61,6 +62,7 @@
 - [ ] WebUI 单元、Provider、协议、浏览器 E2E 和生产构建通过。
 - [ ] 浏览器 APIMart 冒烟通过，固定小猫与无 Photoshop 入口断言通过。
 - [ ] `npm run verify:ccx` 通过。
+- [ ] UDT 官方 CCX 已在 Windows 资源管理器完成双击安装验收，并在 Photoshop 中可用。
 - [ ] CCX 已在真实 Photoshop 完成抓取、请求、取图、置入完整闭环。
 - [ ] 官网单屏视觉、交互、性能、可访问性与静态兜底通过。
 - [ ] `dist/` 的 CCX 与 `SHA256SUMS.txt` 匹配。

@@ -5,6 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import {
   createVerifiedDirectorySnapshot,
+  normalizeUdtManifestBytes,
   verifyArchiveMatchesDirectory
 } from './package-archive-integrity.mjs'
 
@@ -96,4 +97,35 @@ test('rejects missing, extra, duplicate, and unsafe archive entries', (t) => {
       readArchiveEntry: (entry) => value.bytes.get(entry) ?? Buffer.alloc(0)
     }))
   }
+})
+
+test('accepts only the terminal manifest newline removed by UXP Developer Tools', (t) => {
+  const value = fixture(t)
+  value.bytes.set('./manifest.json', Buffer.from('{"id":"com.tanshow.mugen"}'))
+  const normalizeFileBytes = (file, bytes) =>
+    file === 'manifest.json' ? normalizeUdtManifestBytes(bytes) : bytes
+
+  assert.deepEqual(verifyArchiveMatchesDirectory({
+    sourceDirectory: value.root,
+    archiveEntries: value.entries,
+    normalizeFileBytes,
+    readArchiveEntry: (entry) => value.bytes.get(entry)
+  }), { fileCount: 3 })
+
+  value.bytes.set('./manifest.json', Buffer.from('{"id":"changed"}'))
+  assert.throws(() => verifyArchiveMatchesDirectory({
+    sourceDirectory: value.root,
+    archiveEntries: value.entries,
+    normalizeFileBytes,
+    readArchiveEntry: (entry) => value.bytes.get(entry)
+  }), /archive bytes do not match.*manifest\.json/)
+})
+
+test('release packaging consumes the official UXP Developer Tools package without recreating ZIP bytes', () => {
+  const source = readFileSync(new URL('./package-ccx.mjs', import.meta.url), 'utf8')
+  assert.match(source, /MUGEN_UDT_CCX_PATH/)
+  assert.match(source, /UXP Developer Tools > Package/)
+  assert.match(source, /copyFileSync\(udtPackagePath, temporaryArchivePath\)/)
+  assert.doesNotMatch(source, /Compress-Archive/)
+  assert.doesNotMatch(source, /execFileSync\('zip'/)
 })
