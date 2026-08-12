@@ -1,0 +1,12 @@
+{
+  "name": "@mugen/homesite",
+  "version": "1.0.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-site.mjs",
+    "deploy": "node scripts/deploy-site.mjs",
+    "test:optics": "node --test scripts/prism-optics.test.mjs scripts/prism-scene.test.mjs scripts/site-app.test.mjs",
+    "test:deploy": "node --test scripts/site-release-provenance.test.mjs scripts/deploy-site.test.mjs scripts/deploy-site.linux.test.mjs scripts/ccx-site-release.test.mjs"
+  }
+}

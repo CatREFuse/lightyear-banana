@@ -1,0 +1,28 @@
+{
+  "name": "@mugen/plug-in",
+  "version": "1.0.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --config vite.ccx.config.ts",
+    "build:watch": "vite build --config vite.ccx.config.ts --watch",
+    "typecheck": "vue-tsc -b",
+    "test:unit": "vitest run",
+    "test:policies": "node --test scripts/ccx-environment-policy.test.mjs scripts/ccx-production-artifact-policy.test.mjs scripts/ccx-release-metadata.test.mjs scripts/inner-webui-provenance.test.mjs scripts/release-file-set.test.mjs scripts/release-provenance.test.mjs scripts/package-archive-integrity.test.mjs",
+    "test": "npm run test:unit && npm run test:policies"
+  },
+  "dependencies": {
+    "@mugen/core": "0.1.0",
+    "@mugen/inner-protocol": "1.0.0",
+    "vue": "^3.5.32"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.16",
+    "vitest": "^4.0.0",
+    "vue-tsc": "^3.2.7"
+  }
+}

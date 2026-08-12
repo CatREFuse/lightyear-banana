@@ -1,0 +1,115 @@
+<script setup lang="ts">
+import type { ReferenceImage } from '@mugen/core'
+import BoxIcon from './BoxIcon.vue'
+
+defineProps<{
+  index: number
+  reference: ReferenceImage
+  size?: 'small' | 'normal'
+  removable?: boolean
+}>()
+
+const emit = defineEmits<{
+  preview: [image: ReferenceImage['image']]
+  remove: [id: string]
+}>()
+</script>
+
+<template>
+  <figure class="reference-thumb" :class="[`is-${size ?? 'normal'}`]">
+    <div
+      class="image-wrap"
+      role="button"
+      tabindex="0"
+      @click="emit('preview', reference.image)"
+      @keydown.enter.prevent="emit('preview', reference.image)"
+      @keydown.space.prevent="emit('preview', reference.image)"
+    >
+      <img :src="reference.image.previewUrl" :alt="reference.label" />
+      <span class="badge">{{ index }}</span>
+      <button v-if="removable" class="remove-button" type="button" @click.stop="emit('remove', reference.id)">
+        <BoxIcon name="x" size="13" />
+      </button>
+    </div>
+    <figcaption>{{ reference.label }}</figcaption>
+  </figure>
+</template>
+
+<style scoped>
+.reference-thumb {
+  width: 56px;
+  margin: 0;
+  color: var(--mugen-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.reference-thumb.is-small {
+  width: 44px;
+}
+
+.image-wrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  background: var(--mugen-field);
+  cursor: zoom-in;
+}
+
+.is-small .image-wrap {
+  width: 42px;
+  height: 42px;
+}
+
+img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--mugen-accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.remove-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 17px;
+  min-width: 17px;
+  height: 17px;
+  min-height: 17px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--mugen-card-deep);
+  color: var(--mugen-text);
+  font-size: 13px;
+  line-height: 17px;
+}
+
+figcaption {
+  overflow: hidden;
+  margin-top: 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
