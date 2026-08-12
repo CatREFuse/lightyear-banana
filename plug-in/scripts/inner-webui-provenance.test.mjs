@@ -43,7 +43,7 @@ function fixture(t, { dirty = false } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'mugen-inner-provenance-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const sourceCommit = 'a'.repeat(40)
-  const sourceDirectory = path.join(root, 'apps', 'inner-webui', 'dist')
+  const sourceDirectory = path.join(root, 'webui', 'dist')
   const embeddedDirectory = path.join(root, 'dist', 'ccx-host', 'webui')
   const compatibility = {
     schemaVersion: 1,

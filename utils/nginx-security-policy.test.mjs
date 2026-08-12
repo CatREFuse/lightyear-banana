@@ -440,7 +440,7 @@ function runShellTransaction({
     const counterPrelude = `
 counter_file="$MOCK_STATE/$MOCK_NAME.count"
 count=0
-if test -f "$counter_file"; then count=$(/usr/bin/cat "$counter_file"); fi
+if test -f "$counter_file"; then count=$(cat "$counter_file"); fi
 count=$((count + 1))
 /usr/bin/printf '%s\\n' "$count" > "$counter_file"
 /usr/bin/printf '%s:%s\\n' "$MOCK_NAME" "$count" >> "$MOCK_LOG"
@@ -467,6 +467,28 @@ test "$1" = -n
 test "$2" = 9
 exit 0
 `)
+    if (process.platform === 'darwin') {
+      writeExecutable(path.join(mockBin, 'find'), `#!/bin/sh
+set -eu
+test "$2" = -prune
+test "$3" = -perm
+test "$4" = /022
+test "$5" = -print
+exit 0
+`)
+      writeExecutable(path.join(mockBin, 'stat'), `#!/bin/sh
+set -eu
+test "$1" = -c
+format=$2
+test "$3" = --
+case "$format" in
+  %a) /usr/bin/stat -f %Lp "$4" ;;
+  %u) /usr/bin/stat -f %u "$4" ;;
+  %g) /usr/bin/stat -f %g "$4" ;;
+  *) exit 64 ;;
+esac
+`)
+    }
 
     const result = spawnSync(resolveBash(), [
       toPosixPath(transactionScript),
@@ -490,7 +512,7 @@ exit 0
         MUGEN_NGINX_TEST_TAMPER_FILE: toPosixPath(tamperPath),
         MUGEN_NGINX_TEST_UNSAFE_ACTIVE: unsafeActive ? '1' : '0',
         MUGEN_NGINX_TEST_UNSAFE_CANDIDATE: unsafeCandidate ? '1' : '0',
-        PATH: `${toPosixPath(mockBin)}:/usr/bin:/bin`,
+        PATH: `${toPosixPath(mockBin)}:/usr/bin:/bin:/usr/sbin:/sbin`,
       }
     })
     return {
