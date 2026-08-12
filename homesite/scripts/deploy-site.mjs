@@ -1583,7 +1583,7 @@ async function main() {
     console.log(`Official site deployment target: ${configuration.target}:${remoteRoot}/releases/${siteId}`)
     console.log(`Public URL: ${publicUrl.href}`)
     console.log(`Snapshot: ${snapshot.records.length} files, sha256:${snapshot.snapshotHash}`)
-    console.log(`Protected path: ${protectedReleaseIndex} is inherited from the active release.`)
+    console.log('Legacy releases data is inherited only for rollback compatibility; the active download is bundled in download/.')
     if (ccx) console.log(`Optional CCX: ${ccx.destination} (${ccx.size} bytes, ${ccx.sha256})`)
     if (dryRun) return
 
