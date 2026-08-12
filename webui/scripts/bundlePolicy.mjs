@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 export const forbiddenBundleMarkers = Object.freeze([
+  { id: 'unresolved-font-package-url', expression: /@fontsource(?:-variable)?\// },
   { id: 'desktop-runtime-name', expression: /electron/i },
   { id: 'desktop-global-bridge', expression: /mugenBridge/i },
   { id: 'desktop-window-deploy-command', expression: /deployWindows/i },

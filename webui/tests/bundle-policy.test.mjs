@@ -11,6 +11,7 @@ test('allows browser and embedded protocol contracts without Adobe host implemen
 
 test('detects every retired runtime and test-fixture marker', () => {
   const samples = [
+    '@fontsource-variable/doto/files/doto-latin-wght-normal.woff2',
     'electron',
     'window.mugenBridge',
     'app.deployWindows',
