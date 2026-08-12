@@ -1,4 +1,4 @@
-import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
+import type { CapturedCanvasImage } from '../types/canvas'
 
 export type ApiImageAsset = {
   id: string

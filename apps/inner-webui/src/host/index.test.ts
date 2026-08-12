@@ -7,7 +7,7 @@ describe('browser preview routing', () => {
     expect(createHostClient(value).mode).toBe('unavailable')
   })
 
-  it('uses the shared browser runtime when no trusted UXP bridge is present', () => {
+  it('uses the shared browser runtime when no trusted CCX bridge is present', () => {
     const browser = { location: { search: '' } } as unknown as Window
     const embedded = {
       location: { search: '' },

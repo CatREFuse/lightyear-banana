@@ -34,12 +34,8 @@ test('desktop stamping leaves the CCX manifests and Electron package selection i
   writeJsonFixture(root, 'package.json', { version: '0.3.19' })
   writeJsonFixture(root, 'package-lock.json', { version: '0.3.19', packages: { '': { version: '0.3.19' } } })
   writeJsonFixture(root, 'plugin/manifest.json', { version: '1.0.0' })
-  writeJsonFixture(root, 'standalone-uxp-plugin/manifest.json', { version: '1.0.0' })
-  writeFixture(root, 'electron/main.js', "const UXP_RELEASE_METADATA_FILE = 'uxp-release.json'\n")
+  writeFixture(root, 'electron/main.js', "const CCX_RELEASE_METADATA_FILE = 'ccx-release.json'\n")
   writeFixture(root, 'src/buildInfo.ts', "export const buildInfo = { version: '0.3.19', buildNumber: '202608090001', displayVersion: 'v0.3.19+202608090001' }\n")
-  writeFixture(root, 'standalone-uxp-plugin/index.html', '<title>Mugen v0.3.19</title>\n')
-  writeFixture(root, 'standalone-uxp-plugin/main.js', "const APP_TITLE = 'Mugen v0.3.19'\n")
-  writeFixture(root, 'standalone-uxp-plugin/package.mjs', "const archive = 'mugen-standalone-0.3.19.zip'\n")
   writeFixture(
     root,
     'README.md',
@@ -54,8 +50,7 @@ test('desktop stamping leaves the CCX manifests and Electron package selection i
 
   assert.equal(JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version, '9.8.7')
   assert.equal(JSON.parse(readFileSync(path.join(root, 'plugin/manifest.json'), 'utf8')).version, '1.0.0')
-  assert.equal(JSON.parse(readFileSync(path.join(root, 'standalone-uxp-plugin/manifest.json'), 'utf8')).version, '1.0.0')
-  assert.equal(readFileSync(path.join(root, 'electron/main.js'), 'utf8'), "const UXP_RELEASE_METADATA_FILE = 'uxp-release.json'\n")
+  assert.equal(readFileSync(path.join(root, 'electron/main.js'), 'utf8'), "const CCX_RELEASE_METADATA_FILE = 'ccx-release.json'\n")
   const readme = readFileSync(path.join(root, 'README.md'), 'utf8')
   assert.match(readme, /mugen-9\.8\.7-mac\.zip/)
   assert.match(readme, /mugen-1\.0\.0\.ccx/)
@@ -84,7 +79,6 @@ function createReleaseFixture(t, { metadataVersion = '1.0.0' } = {}) {
 
   writeJsonFixture(root, 'package.json', { version: electronVersion })
   writeJsonFixture(root, 'plugin/manifest.json', { version: ccxVersion })
-  writeJsonFixture(root, 'standalone-uxp-plugin/manifest.json', { version: ccxVersion })
   for (const key of Object.keys(filenames)) {
     writeFixture(root, path.join('dist', `release-${electronVersion}`, filenames[key]), contents[key])
   }
@@ -93,7 +87,7 @@ function createReleaseFixture(t, { metadataVersion = '1.0.0' } = {}) {
     path.join('dist', `release-${electronVersion}`, 'SHA256SUMS.txt'),
     `${Object.keys(filenames).map((key) => `${sha256(contents[key])}  ${filenames[key]}`).join('\n')}\n`
   )
-  writeJsonFixture(root, 'dist/uxp-release.json', {
+  writeJsonFixture(root, 'dist/ccx-release.json', {
     schemaVersion: 1,
     ccxVersion: metadataVersion,
     filename: filenames.ccx,
@@ -113,6 +107,10 @@ test('release bundle uses desktop and CCX versions for their own filenames', asy
   assert.equal(bundle.version, '0.3.19')
   assert.equal(bundle.electronVersion, '0.3.19')
   assert.equal(bundle.ccxVersion, '1.0.0')
+  assert.equal(bundle.ccxMetadataPath, path.join(fixture.root, 'dist', 'ccx-release.json'))
+  assert.equal(bundle.ccxMetadata.ccxVersion, '1.0.0')
+  assert.equal('uxpMetadata' in bundle, false)
+  assert.equal('uxpMetadataPath' in bundle, false)
   assert.equal(bundle.releaseDir, fixture.releaseDir)
   assert.equal(bundle.artifacts.mac.filename, 'mugen-0.3.19-mac.zip')
   assert.equal(bundle.artifacts.windows.filename, 'mugen-0.3.19-win.zip')
@@ -123,16 +121,16 @@ test('release bundle rejects CCX metadata that disagrees with the manifests', as
   const fixture = createReleaseFixture(t, { metadataVersion: '1.0.1' })
   await assert.rejects(
     verifyReleaseBundle({ root: fixture.root }),
-    /uxp-release\.json ccxVersion is "1\.0\.1", expected "1\.0\.0"/
+    /ccx-release\.json ccxVersion is "1\.0\.1", expected "1\.0\.0"/
   )
 })
 
 test('Electron selects the CCX through release metadata and keeps its own version source', () => {
   const source = readFileSync(path.join(projectRoot, 'electron', 'main.js'), 'utf8')
-  assert.match(source, /const UXP_PACKAGE_FILE = readUxpPackageFile\(\)/)
+  assert.match(source, /const CCX_PACKAGE_FILE = readCcxPackageFile\(\)/)
   assert.match(source, /metadata\?\.schemaVersion !== 1/)
   assert.match(source, /metadata\.filename !== `mugen-\$\{metadata\.ccxVersion\}\.ccx`/)
-  assert.match(source, /new URL\('latest\.json', selectedUxpReleaseMetadata\.releaseUrl\)/)
+  assert.match(source, /new URL\('latest\.json', selectedCcxReleaseMetadata\.releaseUrl\)/)
   assert.doesNotMatch(source, /cake\.catrefuse\.com/)
-  assert.doesNotMatch(source, /UXP_PACKAGE_FILE\.match\(/)
+  assert.doesNotMatch(source, /CCX_PACKAGE_FILE\.match\(/)
 })

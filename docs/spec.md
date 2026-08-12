@@ -11,9 +11,9 @@
 - 旧官网实现与旧官网内容已废弃。正式站点重构为单屏 Mugen 品牌页。
 - Inner WebUI `0.1.x` 已废弃，不作为 vNext 的兼容目标或发布基线。
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.0`，可在 CCX 内和普通浏览器中运行。
-- `standalone-uxp-plugin/` 代表的独立 UXP 技术原型已归档，不再承载产品功能。
-- Photoshop CCX 与其 UXP Host 仍是当前正式运行层。CCX 负责 Photoshop 画布读取、结果置入和需要 UXP 权限的本地能力。
-- 当前 CCX 版本为 `1.0.0`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
+- 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
+- Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
+- 当前 CCX 版本为 `1.0.1`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
 
 ## 官方单屏站点
 
@@ -93,7 +93,7 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，至少保
 
 - WebUI 启动时通过能力探测选择 CCX Host adapter 或 Browser adapter，不依赖 URL 参数伪造运行时。
 - 应用组件只消费明确的能力合同，不直接访问 Electron IPC、UXP `require()` 或全局 Host 对象。
-- CCX 中所有 Photoshop 文档修改继续由 UXP Host 在 `core.executeAsModal()` 内执行。
+- CCX 中所有 Photoshop 文档修改继续由 CCX Host 在 `core.executeAsModal()` 内执行。
 - CCX 中 API Key 保存在 UXP SecureStorage；浏览器中的凭据由浏览器适配层保存，并明确仅留在当前浏览器配置中。
 - 两种运行时共享 Provider 请求语义和错误映射。因跨域策略无法使用的自定义服务必须给出可操作错误。
 - 生产 bundle 不自动启用 Mock Server，不包含自动注入的 Mock Host。
@@ -170,7 +170,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 ## 发布边界
 
 - 当前阶段允许在 WebUI、单屏官网和不可变 CCX 各自门禁通过后部署正式入口。完整 macOS、Windows、CCX 与 `SHA256SUMS.txt` 四件套未齐时，线上 `latest.json` 保持原版本；站点部署必须继承并逐字节验证该文件。
-- 旧官网、Electron 桌面端、Inner WebUI 0.1 和独立 UXP 原型只保留历史记录，不进入新首页、WebUI 入口或活动发布说明。
+- 旧官网、Electron 桌面端与 Inner WebUI 0.1 只保留历史记录；独立 UXP 原型代码已删除，均不进入新首页、WebUI 入口或活动发布说明。
 - CCX 包必须内含与浏览器版同源构建的 WebUI，且不依赖公网 WebUI 才能启动。
 - 浏览器 WebUI 和 CCX WebUI 可以独立部署，但必须记录可追溯的提交、版本和兼容信息。
 - 任何版本号与官网发布仍受 `docs/build-todo-list.md` 门禁约束。
@@ -181,14 +181,14 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 - 本阶段不扩展官网介绍、教程、价格、案例或账号系统。
 - 本阶段不把浏览器运行时伪装成 Photoshop。
 - 本阶段不继续维护 Inner WebUI 0.1 的视觉或协议兼容。
-- 本阶段不把 `standalone-uxp-plugin/` 升级为第二套产品实现。
+- 不恢复独立 UXP 产品、构建入口或第二套界面实现。
 
 ## 验收证据
 
 - 官网桌面与移动视口截图及交互录屏，证明单屏、书法字、可旋转棱镜、折射光线、两个液态玻璃按钮和 CCX 标本号均成立。
 - 代码差异或迁移清单，证明 vNext 从 Electron UI 源码平移且已去除 Electron 运行依赖。
 - 浏览器自动化测试，证明真实网络与配置流程可用且无 Photoshop 操作入口。
-- `npm run verify:uxp` 与 CCX 打包校验通过。
+- `npm run verify:ccx` 与 CCX 打包校验通过。
 - Photoshop 实机完整闭环记录，证明画布抓取、APIMart 请求、小猫图片获取和新图层置入均成功。
 
 ## 历史归档

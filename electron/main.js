@@ -21,11 +21,9 @@ const BRIDGE_HOST = '127.0.0.1'
 const DEFAULT_BRIDGE_PORT = 38321
 const requestedBridgePort = Number(process.env.MUGEN_BRIDGE_PORT || DEFAULT_BRIDGE_PORT)
 let bridgePort = Number.isFinite(requestedBridgePort) && requestedBridgePort > 0 ? requestedBridgePort : DEFAULT_BRIDGE_PORT
-const BRIDGE_TOKEN = process.env.MUGEN_BRIDGE_TOKEN || 'mugen-dev-token'
-const UXP_CONNECTED_WINDOW_MS = 60000
 const PANEL_WINDOW_WIDTH = 390
-const UXP_RELEASE_METADATA_FILE = 'uxp-release.json'
-const DEFAULT_UXP_PACKAGE_FILE = 'mugen-1.0.0.ccx'
+const CCX_RELEASE_METADATA_FILE = 'ccx-release.json'
+const DEFAULT_CCX_PACKAGE_FILE = 'mugen-1.0.1.ccx'
 const SETTINGS_FILE = 'mugen-settings.json'
 const DIAGNOSTICS_DIRECTORY = 'diagnostics'
 const APP_UPDATE_TIMEOUT_MS = 10000
@@ -57,10 +55,10 @@ function isNonEmptyFile(filePath) {
   }
 }
 
-let selectedUxpReleaseMetadata
+let selectedCcxReleaseMetadata
 
-function readUxpPackageFile() {
-  const metadataPath = join(DIST_DIR, UXP_RELEASE_METADATA_FILE)
+function readCcxPackageFile() {
+  const metadataPath = join(DIST_DIR, CCX_RELEASE_METADATA_FILE)
 
   try {
     const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'))
@@ -101,21 +99,21 @@ function readUxpPackageFile() {
       throw new Error('referenced CCX archive does not match its SHA256 metadata')
     }
 
-    selectedUxpReleaseMetadata = metadata
+    selectedCcxReleaseMetadata = metadata
     return metadata.filename
   } catch (error) {
-    console.warn(`Cannot use ${UXP_RELEASE_METADATA_FILE}: ${error instanceof Error ? error.message : String(error)}`)
+    console.warn(`Cannot use ${CCX_RELEASE_METADATA_FILE}: ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  if (!isNonEmptyFile(join(DIST_DIR, DEFAULT_UXP_PACKAGE_FILE))) {
-    console.warn(`Fallback CCX archive is missing: ${DEFAULT_UXP_PACKAGE_FILE}`)
+  if (!isNonEmptyFile(join(DIST_DIR, DEFAULT_CCX_PACKAGE_FILE))) {
+    console.warn(`Fallback CCX archive is missing: ${DEFAULT_CCX_PACKAGE_FILE}`)
   }
-  return DEFAULT_UXP_PACKAGE_FILE
+  return DEFAULT_CCX_PACKAGE_FILE
 }
 
-const UXP_PACKAGE_FILE = readUxpPackageFile()
-const APP_UPDATE_MANIFEST_URL = selectedUxpReleaseMetadata
-  ? new URL('latest.json', selectedUxpReleaseMetadata.releaseUrl).href
+const CCX_PACKAGE_FILE = readCcxPackageFile()
+const APP_UPDATE_MANIFEST_URL = selectedCcxReleaseMetadata
+  ? new URL('latest.json', selectedCcxReleaseMetadata.releaseUrl).href
   : ''
 
 const execFileAsync = promisify(execFile)
@@ -129,15 +127,7 @@ const MAC_PERMISSION_URLS = {
 const state = {
   server: null,
   codexImageServer: null,
-  uxpLastSeen: 0,
-  uxpQueue: [],
-  pollWaiters: [],
-  pending: new Map(),
   previewImages: new Map(),
-  expiredRequests: new Map(),
-  diagnosticEventIds: new Map(),
-  crxClientEventIds: new Set(),
-  lastDocumentLabel: '',
   startedAt: Date.now()
 }
 
@@ -194,100 +184,6 @@ function writeDiagnostic(event) {
   return diagnosticLogger.log(event)
 }
 
-function createCrxInteractionTracker(request, response, url) {
-  const interactionId = randomUUID()
-  const startedAt = Date.now()
-  const details = {
-    interactionId,
-    method: request.method || 'GET',
-    path: url.pathname
-  }
-  let failure
-  let settled = false
-
-  function finish(phase, error) {
-    if (settled) {
-      return
-    }
-    settled = true
-    const statusCode = response.statusCode || 0
-    const finalPhase = failure || error
-      ? 'error'
-      : phase || (statusCode >= 400 ? 'error' : 'success')
-    void writeDiagnostic({
-      level: finalPhase === 'error' ? 'error' : finalPhase === 'cancel' ? 'warn' : 'info',
-      requestId: details.requestId,
-      category: 'crx',
-      operation: 'crx.interaction',
-      phase: finalPhase,
-      durationMs: Date.now() - startedAt,
-      details: {
-        ...details,
-        authenticated: details.authenticated !== false,
-        statusCode,
-        queueLength: state.uxpQueue.length,
-        pendingCount: state.pending.size
-      },
-      error: failure || error ? normalizeDiagnosticError(failure || error) : undefined
-    })
-  }
-
-  response.once('finish', () => finish())
-  response.once('close', () => {
-    if (!response.writableFinished) {
-      finish('cancel', new Error('插件连接在响应完成前中断'))
-    }
-  })
-  response.once('error', (error) => finish('error', error))
-
-  return {
-    annotate(patch) {
-      if (patch && typeof patch === 'object') {
-        Object.assign(details, patch)
-      }
-    },
-    fail(error) {
-      failure = error
-    }
-  }
-}
-
-function ingestCrxClientInteractions(records) {
-  if (!Array.isArray(records)) {
-    return 0
-  }
-
-  let accepted = 0
-  for (const record of records.slice(0, 200)) {
-    if (!record || typeof record !== 'object' || !record.eventId || state.crxClientEventIds.has(record.eventId)) {
-      continue
-    }
-
-    state.crxClientEventIds.add(record.eventId)
-    if (state.crxClientEventIds.size > 500) {
-      state.crxClientEventIds.delete(state.crxClientEventIds.values().next().value)
-    }
-    accepted += 1
-    void writeDiagnostic({
-      timestamp: record.timestamp,
-      level: 'error',
-      eventId: record.eventId,
-      category: 'crx',
-      operation: 'crx.client.interaction',
-      phase: 'error',
-      durationMs: record.durationMs,
-      details: {
-        source: 'uxp-replay',
-        method: record.method,
-        path: record.path
-      },
-      error: record.error
-    })
-  }
-
-  return accepted
-}
-
 function readCommandPayloadSummary(command, payload) {
   if (!payload || typeof payload !== 'object') {
     return {}
@@ -299,20 +195,6 @@ function readCommandPayloadSummary(command, payload) {
 
   if (command === 'app.openMacPermissionSettings') {
     return { pane: payload.pane }
-  }
-
-  if (command === 'canvas.placeImage') {
-    return {
-      image: payload.image
-        ? {
-            height: payload.image.height,
-            id: payload.image.id,
-            label: payload.image.label,
-            width: payload.image.width
-          }
-        : null,
-      target: payload.target
-    }
   }
 
   if (command === 'result.saveImage') {
@@ -419,84 +301,12 @@ async function recordGenerationRequestDiagnostic(payload) {
   return { ok: true }
 }
 
-function rememberDiagnosticEvent(requestId, eventId) {
-  if (!requestId || !eventId) {
-    return true
-  }
-
-  let eventIds = state.diagnosticEventIds.get(requestId)
-  if (!eventIds) {
-    eventIds = new Set()
-    state.diagnosticEventIds.set(requestId, eventIds)
-  }
-
-  if (eventIds.has(eventId)) {
-    return false
-  }
-
-  eventIds.add(eventId)
-  if (state.diagnosticEventIds.size > 200) {
-    state.diagnosticEventIds.delete(state.diagnosticEventIds.keys().next().value)
-  }
-  return true
-}
-
-function ingestUxpDiagnostic(requestId, event, source) {
-  if (!event || typeof event !== 'object' || !rememberDiagnosticEvent(requestId, event.eventId)) {
-    return false
-  }
-
-  void writeDiagnostic({
-    timestamp: event.timestamp,
-    level: event.phase === 'error' ? 'error' : event.phase === 'timeout' ? 'warn' : 'info',
-    requestId,
-    eventId: event.eventId,
-    sequence: event.sequence,
-    offsetMs: event.offsetMs,
-    category: 'photoshop',
-    operation: event.operation || 'photoshop.unknown',
-    phase: event.phase || 'progress',
-    durationMs: event.durationMs,
-    details: {
-      source,
-      ...(event.details && typeof event.details === 'object' ? event.details : {})
-    },
-    error: event.error
-  })
-  return true
-}
-
-function ingestUxpTrace(requestId, diagnostics, source) {
-  const events = Array.isArray(diagnostics) ? diagnostics : diagnostics?.events
-  if (!Array.isArray(events)) {
-    return 0
-  }
-
-  return events.reduce((count, event) => count + (ingestUxpDiagnostic(requestId, event, source) ? 1 : 0), 0)
-}
-
-function scheduleDiagnosticEventCleanup(requestId) {
-  const timer = setTimeout(() => {
-    state.diagnosticEventIds.delete(requestId)
-    state.expiredRequests.delete(requestId)
-  }, 10 * 60 * 1000)
-  timer.unref?.()
-}
-
 function readBridgeOrigin() {
   return `http://${BRIDGE_HOST}:${bridgePort}`
 }
 
-function isUxpHttpConnected() {
-  return Date.now() - state.uxpLastSeen < UXP_CONNECTED_WINDOW_MS
-}
-
-function isPhotoshopConnected() {
-  return isUxpHttpConnected()
-}
-
-function readLocalUxpPackage() {
-  const filePath = join(DIST_DIR, UXP_PACKAGE_FILE)
+function readLocalCcxPackage() {
+  const filePath = join(DIST_DIR, CCX_PACKAGE_FILE)
 
   try {
     const fileStat = statSync(filePath)
@@ -505,8 +315,8 @@ function readLocalUxpPackage() {
     }
 
     return {
-      fileName: UXP_PACKAGE_FILE,
-      downloadUrl: `${readBridgeOrigin()}/downloads/${UXP_PACKAGE_FILE}`
+      fileName: CCX_PACKAGE_FILE,
+      downloadUrl: `${readBridgeOrigin()}/downloads/${CCX_PACKAGE_FILE}`
     }
   } catch {
     return undefined
@@ -514,7 +324,6 @@ function readLocalUxpPackage() {
 }
 
 function readBridgeStatus() {
-  const photoshopConnected = isPhotoshopConnected()
   const status = {
     bridge: {
       host: BRIDGE_HOST,
@@ -525,16 +334,12 @@ function readBridgeStatus() {
       host: defaultCodexImageServerHost,
       port: defaultCodexImageServerPort,
       running: Boolean(state.codexImageServer)
-    },
-    photoshop: {
-      connected: photoshopConnected,
-      documentLabel: photoshopConnected && state.lastDocumentLabel ? state.lastDocumentLabel : undefined
     }
   }
 
-  const uxpPackage = readLocalUxpPackage()
-  if (uxpPackage) {
-    status.uxpPackage = uxpPackage
+  const ccxPackage = readLocalCcxPackage()
+  if (ccxPackage) {
+    status.ccxPackage = ccxPackage
   }
 
   return status
@@ -1453,11 +1258,6 @@ function readDiagnosticExportFileName() {
   return `mugen-diagnostics-${timestamp}.jsonl`
 }
 
-function readCrxLogExportFileName() {
-  const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13)
-  return `mugen-crx-logs-${timestamp}.jsonl`
-}
-
 async function exportDiagnosticLog() {
   if (!diagnosticLogger) {
     throw new Error('诊断日志尚未准备完成')
@@ -1514,330 +1314,6 @@ async function exportDiagnosticLog() {
   }
 }
 
-async function readJsonBody(request) {
-  const chunks = []
-  for await (const chunk of request) {
-    chunks.push(chunk)
-  }
-
-  const raw = Buffer.concat(chunks).toString('utf8')
-  if (!raw) {
-    return {}
-  }
-
-  return JSON.parse(raw)
-}
-
-function broadcastRendererEvent(event) {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return
-  }
-
-  mainWindow.webContents.send('mugen:event', event)
-}
-
-function resolvePending(message) {
-  const pending = state.pending.get(message.id)
-  if (!pending) {
-    const expired = state.expiredRequests.get(message.id)
-    if (expired) {
-      void writeDiagnostic({
-        level: 'warn',
-        requestId: message.id,
-        category: 'bridge',
-        operation: 'bridge.uxp.lateResponse',
-        phase: message.ok ? 'success' : 'error',
-        durationMs: Date.now() - expired.startedAt,
-        details: { command: expired.command },
-        error: message.ok ? undefined : message.error
-      })
-      scheduleDiagnosticEventCleanup(message.id)
-    }
-    return false
-  }
-
-  clearTimeout(pending.timer)
-  state.pending.delete(message.id)
-  scheduleDiagnosticEventCleanup(message.id)
-
-  if (message.ok) {
-    void writeDiagnostic({
-      requestId: message.id,
-      category: 'bridge',
-      operation: 'bridge.uxp.command',
-      phase: 'success',
-      durationMs: Date.now() - pending.startedAt,
-      details: { command: pending.command }
-    })
-    pending.resolve(message.payload)
-  } else {
-    const error = new Error(message.error?.message || 'Photoshop 操作失败')
-    error.code = message.error?.code
-    void writeDiagnostic({
-      level: 'error',
-      requestId: message.id,
-      category: 'bridge',
-      operation: 'bridge.uxp.command',
-      phase: 'error',
-      durationMs: Date.now() - pending.startedAt,
-      details: { command: pending.command },
-      error: message.error || normalizeDiagnosticError(error)
-    })
-    pending.reject(error)
-  }
-
-  return true
-}
-
-function readUxpCommandTimeout(command) {
-  if (typeof command === 'string' && command.startsWith('canvas.capture')) {
-    return 120000
-  }
-
-  if (command === 'canvas.placeImage') {
-    return 120000
-  }
-
-  return 30000
-}
-
-function sendToUxp(type, payload = {}) {
-  if (!isPhotoshopConnected()) {
-    void writeDiagnostic({
-      level: 'error',
-      category: 'bridge',
-      operation: 'bridge.uxp.command',
-      phase: 'error',
-      details: { command: type },
-      error: { code: 'UXP_NOT_CONNECTED', message: 'Photoshop 插件未连接' }
-    })
-    return Promise.reject(new Error('Photoshop 插件未连接'))
-  }
-
-  const id = randomUUID()
-  const startedAt = Date.now()
-  const message = {
-    id,
-    type,
-    role: 'main',
-    payload,
-    createdAt: Date.now()
-  }
-
-  void writeDiagnostic({
-    requestId: id,
-    category: 'bridge',
-    operation: 'bridge.uxp.command',
-    phase: 'start',
-    details: {
-      command: type,
-      payload: readCommandPayloadSummary(type, payload),
-      queueLength: state.uxpQueue.length
-    }
-  })
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      state.pending.delete(id)
-      const error = new Error('Photoshop 操作超时')
-      error.code = 'UXP_COMMAND_TIMEOUT'
-      state.expiredRequests.set(id, { command: type, startedAt, timedOutAt: Date.now() })
-      scheduleDiagnosticEventCleanup(id)
-      void writeDiagnostic({
-        level: 'error',
-        requestId: id,
-        category: 'bridge',
-        operation: 'bridge.uxp.command',
-        phase: 'timeout',
-        durationMs: Date.now() - startedAt,
-        details: { command: type, queueLength: state.uxpQueue.length },
-        error: normalizeDiagnosticError(error)
-      })
-      reject(error)
-    }, readUxpCommandTimeout(type))
-
-    state.pending.set(id, { command: type, resolve, reject, startedAt, timer })
-    state.uxpQueue.push(message)
-    flushPollWaiters()
-  })
-}
-
-function markUxpConnected(payload = {}) {
-  state.uxpLastSeen = Date.now()
-  state.lastDocumentLabel = payload.documentLabel || state.lastDocumentLabel
-}
-
-function shiftUxpMessage() {
-  const message = state.uxpQueue.shift()
-  if (message) {
-    void writeDiagnostic({
-      requestId: message.id,
-      category: 'bridge',
-      operation: 'bridge.uxp.dispatch',
-      phase: 'success',
-      details: { command: message.type, queueLength: state.uxpQueue.length }
-    })
-  }
-  return message
-}
-
-function flushPollWaiters() {
-  while (state.pollWaiters.length && state.uxpQueue.length) {
-    const waiter = state.pollWaiters.shift()
-    clearTimeout(waiter.timer)
-    const message = shiftUxpMessage()
-    waiter.tracker?.annotate({ command: message?.type, requestId: message?.id, result: 'command' })
-    sendJson(waiter.response, 200, message)
-  }
-}
-
-async function exportCrxLog() {
-  if (!diagnosticLogger) {
-    throw new Error('连接日志尚未准备完成')
-  }
-
-  const startedAt = Date.now()
-  void writeDiagnostic({ category: 'crx', operation: 'crx.logs.export', phase: 'start' })
-  const result = await dialog.showSaveDialog(mainWindow ?? undefined, {
-    title: '导出 Photoshop 连接日志',
-    defaultPath: readCrxLogExportFileName(),
-    filters: [{ name: 'CRX 日志', extensions: ['jsonl'] }]
-  })
-
-  if (result.canceled || !result.filePath) {
-    void writeDiagnostic({
-      category: 'crx',
-      operation: 'crx.logs.export',
-      phase: 'cancel',
-      durationMs: Date.now() - startedAt
-    })
-    return { saved: false }
-  }
-
-  try {
-    const exported = await diagnosticLogger.exportTo(result.filePath, {
-      category: 'crx',
-      operation: 'crx.logs.export.snapshot',
-      filter: (record) => ['crx', 'bridge', 'photoshop'].includes(record.category)
-    })
-    void writeDiagnostic({
-      category: 'crx',
-      operation: 'crx.logs.export',
-      phase: 'success',
-      durationMs: Date.now() - startedAt,
-      details: exported
-    })
-    return { saved: true, ...exported }
-  } catch (error) {
-    void writeDiagnostic({
-      level: 'error',
-      category: 'crx',
-      operation: 'crx.logs.export',
-      phase: 'error',
-      durationMs: Date.now() - startedAt,
-      details: { filePath: result.filePath },
-      error: normalizeDiagnosticError(error)
-    })
-    throw error
-  }
-}
-
-async function handleHttpUxpRequest(request, response, url, tracker) {
-  if (url.searchParams.get('token') !== BRIDGE_TOKEN) {
-    tracker?.annotate({ authenticated: false, result: 'forbidden' })
-    sendJson(response, 403, { ok: false, error: 'Invalid token' })
-    return true
-  }
-
-  tracker?.annotate({ authenticated: true })
-
-  if (request.method === 'POST' && url.pathname === '/uxp/hello') {
-    const body = await readJsonBody(request)
-    tracker?.annotate({ requestId: body.id, command: body.type, result: 'hello' })
-    markUxpConnected(body.payload)
-    void writeDiagnostic({
-      category: 'bridge',
-      operation: 'bridge.uxp.hello',
-      phase: 'success',
-      details: {
-        documentLabel: body.payload?.documentLabel,
-        photoshopVersion: body.payload?.photoshopVersion,
-        uxpVersion: body.payload?.uxpVersion
-      }
-    })
-    broadcastRendererEvent({
-      type: 'photoshop.connected',
-      payload: readBridgeStatus()
-    })
-    sendJson(response, 200, { ok: true, ...readBridgeStatus() })
-    return true
-  }
-
-  if (request.method === 'POST' && url.pathname === '/uxp/diagnostics') {
-    const body = await readJsonBody(request)
-    tracker?.annotate({ requestId: body.requestId, result: 'diagnostic' })
-    markUxpConnected(body.payload)
-    const accepted = ingestUxpDiagnostic(body.requestId, body.event, 'live')
-    sendJson(response, 200, { ok: true, accepted })
-    return true
-  }
-
-  if (request.method === 'POST' && url.pathname === '/uxp/logs') {
-    const body = await readJsonBody(request)
-    const accepted = ingestCrxClientInteractions(body.records)
-    tracker?.annotate({ result: 'replayed-client-logs', acceptedCount: accepted })
-    markUxpConnected()
-    sendJson(response, 200, { ok: true, accepted })
-    return true
-  }
-
-  if (request.method === 'GET' && url.pathname === '/uxp/poll') {
-    markUxpConnected()
-    if (state.uxpQueue.length) {
-      const message = shiftUxpMessage()
-      tracker?.annotate({ command: message?.type, requestId: message?.id, result: 'command' })
-      sendJson(response, 200, message)
-      return true
-    }
-
-    const waiter = {
-      response,
-      timer: setTimeout(() => {
-        state.pollWaiters = state.pollWaiters.filter((entry) => entry !== waiter)
-        tracker?.annotate({ result: 'noop' })
-        sendJson(response, 200, {
-          id: `noop-${Date.now()}`,
-          type: 'bridge.noop',
-          role: 'main',
-          payload: {},
-          createdAt: Date.now()
-        })
-      }, 25000),
-      tracker
-    }
-    request.on('close', () => {
-      state.pollWaiters = state.pollWaiters.filter((entry) => entry !== waiter)
-      clearTimeout(waiter.timer)
-    })
-    state.pollWaiters.push(waiter)
-    return true
-  }
-
-  if (request.method === 'POST' && url.pathname === '/uxp/respond') {
-    const body = await readJsonBody(request)
-    tracker?.annotate({ requestId: body.id, result: body.ok ? 'command-success' : 'command-error' })
-    markUxpConnected(body.payload)
-    if (body.id) {
-      ingestUxpTrace(body.id, body.diagnostics, 'final-response')
-      resolvePending(body)
-    }
-    sendJson(response, 200, { ok: true })
-    return true
-  }
-
-  return false
-}
-
 async function sendStaticFile(request, response) {
   const url = new URL(request.url || '/', readBridgeOrigin())
   let pathname = decodeURIComponent(url.pathname)
@@ -1871,12 +1347,12 @@ async function sendStaticFile(request, response) {
 }
 
 async function sendDownloadFile(response, fileName, headOnly = false) {
-  if (fileName !== UXP_PACKAGE_FILE) {
+  if (fileName !== CCX_PACKAGE_FILE) {
     sendJson(response, 404, { ok: false, error: 'Not found' })
     return
   }
 
-  const filePath = join(DIST_DIR, UXP_PACKAGE_FILE)
+  const filePath = join(DIST_DIR, CCX_PACKAGE_FILE)
 
   try {
     const fileStat = await stat(filePath)
@@ -1885,7 +1361,7 @@ async function sendDownloadFile(response, fileName, headOnly = false) {
     }
 
     response.writeHead(200, {
-      'content-disposition': `attachment; filename="${UXP_PACKAGE_FILE}"`,
+      'content-disposition': `attachment; filename="${CCX_PACKAGE_FILE}"`,
       'content-length': String(fileStat.size),
       'content-type': MIME_TYPES['.ccx']
     })
@@ -2121,13 +1597,9 @@ async function sendPreviewPage(request, response, url) {
 function startBridgeServer() {
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url || '/', readBridgeOrigin())
-    const crxTracker = url.pathname.startsWith('/uxp/')
-      ? createCrxInteractionTracker(request, response, url)
-      : null
 
     try {
       if (request.method === 'OPTIONS') {
-        crxTracker?.annotate({ result: 'preflight' })
         sendJson(response, 204, {})
         return
       }
@@ -2138,7 +1610,7 @@ function startBridgeServer() {
       }
 
       if (url.pathname === '/debug/state') {
-        sendJson(response, 200, { ...readBridgeStatus(), startedAt: state.startedAt, queuedMessages: state.uxpQueue.length })
+        sendJson(response, 200, { ...readBridgeStatus(), startedAt: state.startedAt })
         return
       }
 
@@ -2153,13 +1625,8 @@ function startBridgeServer() {
         }
       }
 
-      if (url.pathname.startsWith('/uxp/') && (await handleHttpUxpRequest(request, response, url, crxTracker))) {
-        return
-      }
-
       sendStaticFile(request, response)
     } catch (error) {
-      crxTracker?.fail(error)
       if (!response.headersSent) {
         sendJson(response, error instanceof SyntaxError ? 400 : 500, { ok: false, error: 'Request failed' })
       } else {
@@ -2357,10 +1824,6 @@ async function runRendererCommand(command, payload) {
     return exportDiagnosticLog()
   }
 
-  if (command === 'crx.logs.export') {
-    return exportCrxLog()
-  }
-
   if (command === 'reference.pickUpload') {
     return pickReferenceImageFile()
   }
@@ -2373,7 +1836,7 @@ async function runRendererCommand(command, payload) {
     return saveGeneratedImageFile(payload)
   }
 
-  return sendToUxp(command, payload)
+  throw new Error(`Electron 归档不再提供 Photoshop 中转命令：${command}`)
 }
 
 ipcMain.handle('mugen:invoke', async (_event, command, payload) => {

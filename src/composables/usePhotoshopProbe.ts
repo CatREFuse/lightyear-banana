@@ -1,14 +1,14 @@
 import { computed, shallowRef } from 'vue'
-import { createNamedLayer, getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
+import { createNamedLayer, getHostRequire, readActiveDocumentLabel } from '../ccx/photoshopHost'
 
-type RuntimeName = 'browser' | 'photoshop-uxp'
+type RuntimeName = 'browser' | 'photoshop-ccx'
 
 export function usePhotoshopProbe(runtime: RuntimeName) {
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : '浏览器预览')
+  const status = shallowRef(runtime === 'photoshop-ccx' ? 'Photoshop CCX' : '浏览器预览')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
 
-  const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
+  const canUsePhotoshop = computed(() => runtime === 'photoshop-ccx' && Boolean(getHostRequire()))
 
   function refreshDocument() {
     documentLabel.value = readActiveDocumentLabel()

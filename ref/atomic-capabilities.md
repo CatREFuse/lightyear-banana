@@ -1,8 +1,8 @@
 # 原子能力参考
 
-## UXP entrypoint
+## CCX entrypoint
 
-源码入口是 `src/uxp/main.ts`。
+源码入口是 `src/ccx/main.ts`。
 
 当前 manifest 注册两个 entrypoint：
 
@@ -13,7 +13,7 @@
 
 ## CCX Host 壳与 WebView
 
-`src/uxp/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和本地 WebView。工作台 Vue 应用来自 CCX 内嵌的 `plugin:/webui/index.html`，并与普通浏览器使用同源 WebUI 构建。
+`src/ccx/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和本地 WebView。工作台 Vue 应用来自 CCX 内嵌的 `plugin:/webui/index.html`，并与普通浏览器使用同源 WebUI 构建。
 
 Host 壳负责：
 
@@ -28,7 +28,7 @@ Host 壳负责：
 
 Photoshop API 通过 `globalThis.require("photoshop")` 获取。不要把 `photoshop` 当作普通 ESM 包 import。
 
-低层 runtime 封装仍集中在 `src/uxp/`。普通浏览器 WebUI 不加载这些模块，也不提供假的 `getHostRequire()` 或 Photoshop adapter。只有 CCX Host 可以访问 `globalThis.require("photoshop")`。
+低层 Adobe runtime 封装集中在 `src/ccx/`。普通浏览器 WebUI 不加载这些模块，也不提供假的 `getHostRequire()` 或 Photoshop adapter。只有 CCX Host 可以访问 `globalThis.require("photoshop")`。
 
 ## Modal execution
 

@@ -112,31 +112,31 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
   const pluginManifest = JSON.parse(await readFile(join(root, "plugin", "manifest.json"), "utf8"))
   const ccxVersion = requireSemver(pluginManifest.version, "plugin manifest version")
 
-  const uxpMetadataPath = join(root, "dist", "uxp-release.json")
-  let uxpMetadata
+  const ccxMetadataPath = join(root, "dist", "ccx-release.json")
+  let ccxMetadata
   try {
-    uxpMetadata = JSON.parse(await readFile(uxpMetadataPath, "utf8"))
+    ccxMetadata = JSON.parse(await readFile(ccxMetadataPath, "utf8"))
   } catch (error) {
-    fail(`cannot read ${uxpMetadataPath}: ${error.message}`)
+    fail(`cannot read ${ccxMetadataPath}: ${error.message}`)
   }
-  requireObject(uxpMetadata, "dist/uxp-release.json")
-  requireEqual(uxpMetadata.schemaVersion, 1, "uxp-release.json schemaVersion")
-  requireEqual(uxpMetadata.ccxVersion, ccxVersion, "uxp-release.json ccxVersion")
-  if (typeof uxpMetadata.filename !== "string") {
-    fail("uxp-release.json filename must be a string")
+  requireObject(ccxMetadata, "dist/ccx-release.json")
+  requireEqual(ccxMetadata.schemaVersion, 1, "ccx-release.json schemaVersion")
+  requireEqual(ccxMetadata.ccxVersion, ccxVersion, "ccx-release.json ccxVersion")
+  if (typeof ccxMetadata.filename !== "string") {
+    fail("ccx-release.json filename must be a string")
   }
-  requireEqual(uxpMetadata.filename, basename(uxpMetadata.filename), "uxp-release.json filename basename")
-  requireEqual(uxpMetadata.filename, `mugen-${ccxVersion}.ccx`, "uxp-release.json filename")
-  if (typeof uxpMetadata.sha256 !== "string" || !/^[a-fA-F0-9]{64}$/.test(uxpMetadata.sha256)) {
-    fail("uxp-release.json sha256 must contain 64 hexadecimal characters")
+  requireEqual(ccxMetadata.filename, basename(ccxMetadata.filename), "ccx-release.json filename basename")
+  requireEqual(ccxMetadata.filename, `mugen-${ccxVersion}.ccx`, "ccx-release.json filename")
+  if (typeof ccxMetadata.sha256 !== "string" || !/^[a-fA-F0-9]{64}$/.test(ccxMetadata.sha256)) {
+    fail("ccx-release.json sha256 must contain 64 hexadecimal characters")
   }
-  const webviewOrigin = assertProductionOrigin(uxpMetadata.webviewOrigin, "uxp-release.json webviewOrigin")
+  const webviewOrigin = assertProductionOrigin(ccxMetadata.webviewOrigin, "ccx-release.json webviewOrigin")
   const releaseUrl = resolveReleaseUrl({
-    processEnvironment: { INNER_RELEASE_URL: uxpMetadata.releaseUrl },
+    processEnvironment: { INNER_RELEASE_URL: ccxMetadata.releaseUrl },
     webviewOrigin,
     production: true
   }).href
-  requireEqual(uxpMetadata.releaseUrl, releaseUrl, "uxp-release.json releaseUrl")
+  requireEqual(ccxMetadata.releaseUrl, releaseUrl, "ccx-release.json releaseUrl")
 
   const releaseDir = join(root, "dist", `release-${electronVersion}`)
   const filenames = expectedArtifactFilenames(electronVersion, ccxVersion)
@@ -167,7 +167,7 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
     const sha256 = await sha256File(path)
     requireEqual(listedChecksums.get(filename), sha256, `SHA256 for ${filename}`)
     if (key === "ccx") {
-      requireEqual(uxpMetadata.sha256.toLowerCase(), sha256, "uxp-release.json CCX SHA256")
+      requireEqual(ccxMetadata.sha256.toLowerCase(), sha256, "ccx-release.json CCX SHA256")
     }
     artifacts[key] = { filename, path, sha256, size: fileStats.size }
   }
@@ -178,8 +178,8 @@ export async function verifyReleaseBundle({ root = rootFromScript, version } = {
     ccxVersion,
     releaseDir,
     checksumPath,
-    uxpMetadataPath,
-    uxpMetadata,
+    ccxMetadataPath,
+    ccxMetadata,
     artifacts
   }
 }
@@ -188,36 +188,36 @@ export async function verifyCcxRelease({ root = rootFromScript } = {}) {
   const pluginManifest = JSON.parse(await readFile(join(root, "plugin", "manifest.json"), "utf8"))
   const ccxVersion = requireSemver(pluginManifest.version, "plugin manifest version")
 
-  const uxpMetadataPath = join(root, "dist", "uxp-release.json")
-  let uxpMetadata
+  const ccxMetadataPath = join(root, "dist", "ccx-release.json")
+  let ccxMetadata
   try {
-    uxpMetadata = JSON.parse(await readFile(uxpMetadataPath, "utf8"))
+    ccxMetadata = JSON.parse(await readFile(ccxMetadataPath, "utf8"))
   } catch (error) {
-    fail(`cannot read ${uxpMetadataPath}: ${error.message}`)
+    fail(`cannot read ${ccxMetadataPath}: ${error.message}`)
   }
-  requireObject(uxpMetadata, "dist/uxp-release.json")
-  requireEqual(uxpMetadata.schemaVersion, 1, "uxp-release.json schemaVersion")
-  requireEqual(uxpMetadata.ccxVersion, ccxVersion, "uxp-release.json ccxVersion")
-  requireEqual(uxpMetadata.filename, `mugen-${ccxVersion}.ccx`, "uxp-release.json filename")
-  requireEqual(uxpMetadata.dirty, false, "uxp-release.json dirty")
-  if (typeof uxpMetadata.sourceCommit !== "string" || !/^[a-fA-F0-9]{40}$/.test(uxpMetadata.sourceCommit)) {
-    fail("uxp-release.json sourceCommit must contain 40 hexadecimal characters")
+  requireObject(ccxMetadata, "dist/ccx-release.json")
+  requireEqual(ccxMetadata.schemaVersion, 1, "ccx-release.json schemaVersion")
+  requireEqual(ccxMetadata.ccxVersion, ccxVersion, "ccx-release.json ccxVersion")
+  requireEqual(ccxMetadata.filename, `mugen-${ccxVersion}.ccx`, "ccx-release.json filename")
+  requireEqual(ccxMetadata.dirty, false, "ccx-release.json dirty")
+  if (typeof ccxMetadata.sourceCommit !== "string" || !/^[a-fA-F0-9]{40}$/.test(ccxMetadata.sourceCommit)) {
+    fail("ccx-release.json sourceCommit must contain 40 hexadecimal characters")
   }
-  if (typeof uxpMetadata.builtAt !== "string" || Number.isNaN(Date.parse(uxpMetadata.builtAt))) {
-    fail("uxp-release.json builtAt must be an ISO timestamp")
+  if (typeof ccxMetadata.builtAt !== "string" || Number.isNaN(Date.parse(ccxMetadata.builtAt))) {
+    fail("ccx-release.json builtAt must be an ISO timestamp")
   }
-  if (typeof uxpMetadata.sha256 !== "string" || !/^[a-fA-F0-9]{64}$/.test(uxpMetadata.sha256)) {
-    fail("uxp-release.json sha256 must contain 64 hexadecimal characters")
+  if (typeof ccxMetadata.sha256 !== "string" || !/^[a-fA-F0-9]{64}$/.test(ccxMetadata.sha256)) {
+    fail("ccx-release.json sha256 must contain 64 hexadecimal characters")
   }
-  const webviewOrigin = assertProductionOrigin(uxpMetadata.webviewOrigin, "uxp-release.json webviewOrigin")
+  const webviewOrigin = assertProductionOrigin(ccxMetadata.webviewOrigin, "ccx-release.json webviewOrigin")
   const releaseUrl = resolveReleaseUrl({
-    processEnvironment: { INNER_RELEASE_URL: uxpMetadata.releaseUrl },
+    processEnvironment: { INNER_RELEASE_URL: ccxMetadata.releaseUrl },
     webviewOrigin,
     production: true
   }).href
-  requireEqual(uxpMetadata.releaseUrl, releaseUrl, "uxp-release.json releaseUrl")
+  requireEqual(ccxMetadata.releaseUrl, releaseUrl, "ccx-release.json releaseUrl")
 
-  const path = join(root, "dist", uxpMetadata.filename)
+  const path = join(root, "dist", ccxMetadata.filename)
   const checksumPath = `${path}.sha256`
   let fileStats
   try {
@@ -233,20 +233,20 @@ export async function verifyCcxRelease({ root = rootFromScript } = {}) {
   } catch (error) {
     fail(`cannot read ${checksumPath}: ${error.message}`)
   }
-  const listedChecksums = parseChecksums(checksumContents, [uxpMetadata.filename])
+  const listedChecksums = parseChecksums(checksumContents, [ccxMetadata.filename])
   const sha256 = await sha256File(path)
-  requireEqual(listedChecksums.get(uxpMetadata.filename), sha256, `SHA256 for ${uxpMetadata.filename}`)
-  requireEqual(uxpMetadata.sha256.toLowerCase(), sha256, "uxp-release.json CCX SHA256")
+  requireEqual(listedChecksums.get(ccxMetadata.filename), sha256, `SHA256 for ${ccxMetadata.filename}`)
+  requireEqual(ccxMetadata.sha256.toLowerCase(), sha256, "ccx-release.json CCX SHA256")
 
   return {
     version: ccxVersion,
     ccxVersion,
     releaseDir: join(root, "dist"),
     checksumPath,
-    uxpMetadataPath,
-    uxpMetadata,
+    ccxMetadataPath,
+    ccxMetadata,
     artifacts: {
-      ccx: { filename: uxpMetadata.filename, path, sha256, size: fileStats.size }
+      ccx: { filename: ccxMetadata.filename, path, sha256, size: fileStats.size }
     }
   }
 }
@@ -316,9 +316,9 @@ export async function verifySiteMetadata({
   bundle
 } = {}) {
   const verifiedBundle = bundle ?? await verifyCcxRelease({ root })
-  const { version, artifacts, uxpMetadata } = verifiedBundle
+  const { version, artifacts, ccxMetadata } = verifiedBundle
   const latestPath = join(siteDir, "releases", "latest.json")
-  const releaseRootUrl = uxpMetadata.releaseUrl
+  const releaseRootUrl = ccxMetadata.releaseUrl
   const releaseOrigin = new URL(releaseRootUrl).origin
   const latest = JSON.parse(materializeReleaseOrigin(await readFile(latestPath, "utf8"), releaseOrigin))
   const updateCheckUrl = new URL("latest.json", releaseRootUrl).href

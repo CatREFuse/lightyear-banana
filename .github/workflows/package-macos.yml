@@ -42,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Package verified CCX
-        run: npm run package:uxp
+        run: npm run package:ccx
 
       - name: Stamp release version
         run: >-
@@ -100,17 +100,17 @@ jobs:
 
           app_resources="$(dirname "$package_json")"
           packaged_main="$app_resources/electron/main.js"
-          packaged_uxp_metadata="$app_resources/dist/uxp-release.json"
+          packaged_ccx_metadata="$app_resources/dist/ccx-release.json"
           packaged_plist="$(dirname "$(dirname "$app_resources")")/Info.plist"
           if [[ ! -f "$packaged_main" ]]; then
             echo 'Packaged electron/main.js was not found' >&2
             exit 1
           fi
-          if [[ ! -f "$packaged_uxp_metadata" ]]; then
-            echo 'Packaged UXP release metadata was not found' >&2
+          if [[ ! -f "$packaged_ccx_metadata" ]]; then
+            echo 'Packaged CCX release metadata was not found' >&2
             exit 1
           fi
-          packaged_ccx_filename="$(node -p "require(require('node:path').resolve(process.argv[1])).filename" "$packaged_uxp_metadata")"
+          packaged_ccx_filename="$(node -p "require(require('node:path').resolve(process.argv[1])).filename" "$packaged_ccx_metadata")"
           packaged_ccx="$app_resources/dist/$packaged_ccx_filename"
           if [[ ! -f "$packaged_ccx" ]]; then
             echo "Missing packaged CCX: $packaged_ccx" >&2
@@ -142,10 +142,10 @@ jobs:
             echo "Packaged CCX version is $ccx_version, expected $expected_ccx_version" >&2
             exit 1
           fi
-          expected_ccx_hash="$(node -p "require(require('node:path').resolve(process.argv[1])).sha256" "$packaged_uxp_metadata")"
+          expected_ccx_hash="$(node -p "require(require('node:path').resolve(process.argv[1])).sha256" "$packaged_ccx_metadata")"
           actual_ccx_hash="$(shasum -a 256 "$packaged_ccx" | awk '{print tolower($1)}')"
           if [[ "$actual_ccx_hash" != "$expected_ccx_hash" ]]; then
-            echo 'Packaged CCX does not match uxp-release.json' >&2
+            echo 'Packaged CCX does not match ccx-release.json' >&2
             exit 1
           fi
 

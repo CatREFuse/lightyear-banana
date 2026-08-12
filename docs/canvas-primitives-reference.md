@@ -7,13 +7,13 @@
 服务层：
 
 ```ts
-import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
+import { canvasPrimitiveService } from '../ccx/canvasPrimitiveService'
 ```
 
 底层实现：
 
 ```text
-src/uxp/canvasPrimitives.ts
+src/ccx/canvasPrimitives.ts
 ```
 
 业务代码默认使用 `canvasPrimitiveService`。需要扩展 Photoshop 细节时，再进入 `canvasPrimitives.ts` 增加原子函数。
@@ -135,7 +135,7 @@ await canvasPrimitiveService.insertImage(image, {
 - 插入 sample 图片到选区位置。
 - 插入 sample 图片到指定坐标和尺寸。
 
-最近一次 UXP 运行时验证中，`抓取选中图层` 成功生成预览图，当前图像显示为 `326 × 165`，图像列表显示 `选中图层：UXP 插入 Sample Image`。
+最近一次旧运行时验证中，`抓取选中图层` 成功生成预览图，当前图像显示为 `326 × 165`，图像列表显示 `选中图层：Mugen 插入 Sample Image`。
 
 ## 扩展清单
 

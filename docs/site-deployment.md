@@ -55,9 +55,9 @@ npm run test:site-deploy
 npm run deploy:site -- --dry-run --include-ccx
 ```
 
-`test:site-deploy` 包含会实际执行生成命令的状态转换与失败注入测试。Windows 使用 Git Bash、临时目录、测试专用 `flock` 和目录链接兼容层执行。仓库当前不宣称已有 Ubuntu CI 门禁；获准生产发布前，必须在隔离的 GNU/Linux 环境运行 `REQUIRE_SITE_LINUX_TESTS=1 npm run test:site-deploy`，以原生远端工具完成强制复验。
+`test:site-deploy` 包含会实际执行生成命令的状态转换与失败注入测试。Windows 使用 Git Bash、临时目录、测试专用 `flock` 和目录链接兼容层执行。`.github/workflows/site-deploy-linux.yml` 提供只读、无 secrets、仅手动触发的 `ubuntu-24.04` 门禁；获准生产发布前，必须在该工作流或另一隔离 GNU/Linux 环境运行 `REQUIRE_SITE_LINUX_TESTS=1 npm run test:site-deploy`，以原生远端工具完成强制复验。
 
-`--include-ccx` 只允许合入 `dist/site/releases/1.0.0/mugen-1.0.0.ccx`。脚本会把它与根目录 CCX、根 SHA sidecar 和站点 `SHA256SUMS.txt` 交叉校验。此选项不会改变 `latest.json`。
+`--include-ccx` 从 `plugin/manifest.json` 和 `dist/ccx-release.json` 读取当前 CCX 版本；两者必须一致。站点文件固定为 `dist/site/releases/<ccx-version>/mugen-<ccx-version>.ccx`。脚本会把它与根目录 CCX、根 SHA sidecar、CCX 发布元数据和站点 `SHA256SUMS.txt` 交叉校验。此选项不会改变 `latest.json`。
 
 `build:site` 会生成 `site-release.json` 和 `site-manifest.json`。前者记录当前完整 Git SHA、dirty 状态、构建时间、全站内容哈希和 build ID；后者列出每个可部署静态文件的路径、大小与 SHA256。部署只接受干净工作树、`dirty: false`、与当前 `HEAD` 一致的构建，并重新计算全站内容哈希和清单。
 
@@ -74,7 +74,7 @@ npm run deploy:site -- --include-ccx
 3. 使用 `tar` 生成本地归档，通过 `scp` 上传到唯一 incoming 目录。
 4. 在 `flock` 内确认 `current` 未被并发部署切换，解包到唯一 stage 并校验所有站点文件。
 5. 复制旧 `current/releases/` 并逐文件校验，确认 `latest.json` SHA256 保持不变。
-6. 可选合入已校验的 1.0.0 CCX 与对应 `SHA256SUMS.txt`，再次校验完整 stage。
+6. 可选合入当前 Manifest 与 CCX 发布元数据共同声明的 CCX 及对应 `SHA256SUMS.txt`，再次校验完整 stage。
 7. 在同一文件系统把 stage 移入 `releases/<site-id>`。prepare 会先记录发布前的 `previous` 目标或其不存在状态；activation 在切换前再次确认该状态未变，先更新 `previous`，最后用单次 `mv -T` 原子切换 `current`。
 8. 从公网逐字节读回全部站点文件、`latest.json`、可选 CCX 和 checksum，同时检查 MIME 与安全响应头。
 

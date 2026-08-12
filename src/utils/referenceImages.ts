@@ -1,4 +1,4 @@
-import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
+import type { CapturedCanvasImage } from '../types/canvas'
 
 const referenceJpegMaxEdge = 4096
 const referenceJpegMaxBytes = 9 * 1024 * 1024

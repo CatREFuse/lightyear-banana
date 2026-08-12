@@ -1,9 +1,9 @@
 import { computed, shallowRef } from 'vue'
-import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
-import { canvasPrimitiveService, type CanvasInsertTarget } from '../uxp/canvasPrimitiveService'
-import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
+import type { CapturedCanvasImage } from '../types/canvas'
+import { canvasPrimitiveService, type CanvasInsertTarget } from '../ccx/canvasPrimitiveService'
+import { getHostRequire, readActiveDocumentLabel } from '../ccx/photoshopHost'
 
-type RuntimeName = 'browser' | 'photoshop-uxp'
+type RuntimeName = 'browser' | 'photoshop-ccx'
 
 export type InsertRect = CanvasInsertTarget
 
@@ -54,7 +54,7 @@ function createBrowserImage(kind: 'visible' | 'selection' | 'layer'): CapturedCa
 }
 
 export function useCanvasProbe(runtime: RuntimeName) {
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : '浏览器预览')
+  const status = shallowRef(runtime === 'photoshop-ccx' ? 'Photoshop CCX' : '浏览器预览')
   const documentLabel = shallowRef(readActiveDocumentLabel())
   const busy = shallowRef(false)
   const capturedImages = shallowRef<CapturedCanvasImage[]>([])
@@ -62,7 +62,7 @@ export function useCanvasProbe(runtime: RuntimeName) {
   const selectedImageId = shallowRef('')
   const lastInsert = shallowRef('')
 
-  const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
+  const canUsePhotoshop = computed(() => runtime === 'photoshop-ccx' && Boolean(getHostRequire()))
   const selectedImage = computed(
     () => capturedImages.value.find((image) => image.id === selectedImageId.value) ?? capturedImages.value[0] ?? null
   )

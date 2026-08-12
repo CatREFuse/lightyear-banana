@@ -160,7 +160,7 @@ describe('shared provider capability declarations', () => {
     const browserCapabilities = readProviderCapabilitiesForRuntime('browser')
     const ccxCapability = readProviderCapabilityForRuntime(
       { provider: 'codex-image-server', model: 'gpt-image-2' },
-      'photoshop-uxp'
+      'photoshop-ccx'
     )
 
     for (const capability of Object.values(browserCapabilities)) {
@@ -174,7 +174,7 @@ describe('shared provider capability declarations', () => {
     const capability = adapterCapabilities['codex-image-server']
 
     expect(resolveProviderRatioForRuntime(capability, 'browser', '画布比例')).toBe('参考图比例')
-    expect(resolveProviderRatioForRuntime(capability, 'photoshop-uxp', '画布比例')).toBe('画布比例')
+    expect(resolveProviderRatioForRuntime(capability, 'photoshop-ccx', '画布比例')).toBe('画布比例')
     expect(adaptProviderCapabilityForRuntime(capability, 'browser').ratioOptions).not.toContain('画布比例')
   })
 

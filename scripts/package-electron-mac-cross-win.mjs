@@ -17,11 +17,11 @@ const appName = 'Mugen'
 const stagingDir = path.join(distDir, 'mac-cross-win-staging')
 const outDir = path.join(distDir, 'mac-cross-win')
 const archivePath = path.join(distDir, `${packageJson.name}-${packageJson.version}-mac-cross-win.zip`)
-const uxpReleaseMetadataPath = path.join(distDir, 'uxp-release.json')
+const ccxReleaseMetadataPath = path.join(distDir, 'ccx-release.json')
 
-function readUxpRelease() {
-  if (!existsSync(uxpReleaseMetadataPath)) throw new Error('dist/uxp-release.json is required before Electron packaging.')
-  const metadata = JSON.parse(readFileSync(uxpReleaseMetadataPath, 'utf8'))
+function readCcxRelease() {
+  if (!existsSync(ccxReleaseMetadataPath)) throw new Error('dist/ccx-release.json is required before Electron packaging.')
+  const metadata = JSON.parse(readFileSync(ccxReleaseMetadataPath, 'utf8'))
   if (
     metadata?.schemaVersion !== 1 ||
     typeof metadata.ccxVersion !== 'string' ||
@@ -32,12 +32,12 @@ function readUxpRelease() {
     typeof metadata.sha256 !== 'string' ||
     !/^[a-f0-9]{64}$/i.test(metadata.sha256)
   ) {
-    throw new Error('dist/uxp-release.json is invalid.')
+    throw new Error('dist/ccx-release.json is invalid.')
   }
   const archive = path.join(distDir, metadata.filename)
   if (!existsSync(archive)) throw new Error(`CCX archive is missing: ${archive}`)
   const actualSha256 = createHash('sha256').update(readFileSync(archive)).digest('hex')
-  if (actualSha256 !== metadata.sha256.toLowerCase()) throw new Error('CCX archive does not match dist/uxp-release.json.')
+  if (actualSha256 !== metadata.sha256.toLowerCase()) throw new Error('CCX archive does not match dist/ccx-release.json.')
   return { ...metadata, archive }
 }
 
@@ -93,7 +93,7 @@ if (!buildNumber || !/^\d{12}$/.test(buildNumber)) {
   throw new Error('src/buildInfo.ts does not contain a valid 12-digit build number.')
 }
 
-const uxpRelease = readUxpRelease()
+const ccxRelease = readCcxRelease()
 
 for (const targetPath of [stagingDir, outDir, archivePath]) {
   resetGeneratedPath(targetPath)
@@ -104,11 +104,11 @@ copyRequiredPath(path.join(projectRoot, 'electron'), path.join(stagingDir, 'elec
 copyRequiredPath(path.join(distDir, 'index.html'), path.join(stagingDir, 'dist', 'index.html'))
 copyRequiredPath(path.join(distDir, 'assets'), path.join(stagingDir, 'dist', 'assets'))
 copyRequiredPath(
-  uxpRelease.archive,
-  path.join(stagingDir, 'dist', uxpRelease.filename)
+  ccxRelease.archive,
+  path.join(stagingDir, 'dist', ccxRelease.filename)
 )
-copyRequiredPath(uxpReleaseMetadataPath, path.join(stagingDir, 'dist', 'uxp-release.json'))
-copyRequiredPath(`${uxpRelease.archive}.sha256`, path.join(stagingDir, 'dist', `${uxpRelease.filename}.sha256`))
+copyRequiredPath(ccxReleaseMetadataPath, path.join(stagingDir, 'dist', 'ccx-release.json'))
+copyRequiredPath(`${ccxRelease.archive}.sha256`, path.join(stagingDir, 'dist', `${ccxRelease.filename}.sha256`))
 
 if (existsSync(path.join(projectRoot, 'favicon.svg'))) {
   copyRequiredPath(path.join(projectRoot, 'favicon.svg'), path.join(stagingDir, 'favicon.svg'))
@@ -169,11 +169,11 @@ const packagedPackage = JSON.parse(readFileSync(path.join(appResourcesDir, 'pack
 if (packagedPackage.version !== packageJson.version) {
   throw new Error(`Cross-package version is ${packagedPackage.version}, expected ${packageJson.version}.`)
 }
-if (!existsSync(path.join(appResourcesDir, 'dist', uxpRelease.filename))) {
+if (!existsSync(path.join(appResourcesDir, 'dist', ccxRelease.filename))) {
   throw new Error('Cross-package is missing the matching embedded CCX.')
 }
-if (!existsSync(path.join(appResourcesDir, 'dist', 'uxp-release.json'))) {
-  throw new Error('Cross-package is missing UXP release metadata.')
+if (!existsSync(path.join(appResourcesDir, 'dist', 'ccx-release.json'))) {
+  throw new Error('Cross-package is missing CCX release metadata.')
 }
 if (!existsSync(path.join(appResourcesDir, 'CROSS_BUILD_FROM_WINDOWS.json'))) {
   throw new Error('Cross-package marker is missing.')

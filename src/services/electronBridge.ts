@@ -1,5 +1,5 @@
-import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
-import type { DiagnosticExportResult, ImageRequestLogEntry, PlacementTarget } from '../types/mugen'
+import type { CapturedCanvasImage } from '../types/canvas'
+import type { DiagnosticExportResult, ImageRequestLogEntry } from '../types/mugen'
 
 type BridgeStatus = {
   bridge: {
@@ -7,11 +7,7 @@ type BridgeStatus = {
     port: number
     running: boolean
   }
-  photoshop: {
-    connected: boolean
-    documentLabel?: string
-  }
-  uxpPackage?: {
+  ccxPackage?: {
     fileName: string
     downloadUrl: string
   }
@@ -24,10 +20,9 @@ type ElectronBridgeApi = {
   recordGenerationRequest?: (entry: ImageRequestLogEntry) => void
   saveSettings: (settings: unknown) => Promise<{ ok: boolean }>
   invoke: <T = unknown>(command: string, payload?: unknown) => Promise<T>
-  onEvent: (callback: (event: unknown) => void) => () => void
 }
 
-type SerializedCanvasImage = Omit<CapturedCanvasImage, 'rgba'> & {
+export type SerializedCanvasImage = Omit<CapturedCanvasImage, 'rgba'> & {
   rgba: string | number[] | Record<string, number>
 }
 
@@ -52,17 +47,6 @@ function readRgba(value: SerializedCanvasImage['rgba']) {
     .sort((a, b) => a - b)
 
   return new Uint8Array(keys.map((key) => value[String(key)] ?? 0))
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = ''
-  const chunkSize = 0x8000
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunk = bytes.subarray(offset, offset + chunkSize)
-    binary += String.fromCharCode(...chunk)
-  }
-
-  return btoa(binary)
 }
 
 function base64ToBytes(value: string) {
@@ -132,57 +116,9 @@ export function recordElectronGenerationRequest(entry: ImageRequestLogEntry) {
   window.mugenBridge?.recordGenerationRequest?.(entry)
 }
 
-export function onElectronBridgeEvent(callback: (event: unknown) => void) {
-  if (!window.mugenBridge) {
-    return undefined
-  }
-
-  return window.mugenBridge.onEvent(callback)
-}
-
 export function deserializeCanvasImage(image: SerializedCanvasImage): CapturedCanvasImage {
   return {
     ...image,
     rgba: readRgba(image.rgba)
   }
-}
-
-export function serializeCanvasImage(image: CapturedCanvasImage): SerializedCanvasImage {
-  return {
-    ...image,
-    rgba: bytesToBase64(image.rgba)
-  }
-}
-
-export function serializePlacementTarget(target: PlacementTarget, image?: CapturedCanvasImage) {
-  if (target.type === 'reference-selection') {
-    const bounds = target.bounds
-    return {
-      type: 'bounds',
-      bounds: {
-        left: bounds.left,
-        top: bounds.top,
-        width: bounds.right - bounds.left,
-        height: bounds.bottom - bounds.top
-      }
-    }
-  }
-
-  if (target.type === 'original-size' && image) {
-    return {
-      type: 'bounds',
-      bounds: {
-        left: 0,
-        top: 0,
-        width: image.width,
-        height: image.height
-      }
-    }
-  }
-
-  if (target.type === 'current-selection') {
-    return { type: 'currentSelection' }
-  }
-
-  return { type: 'fullCanvas' }
 }

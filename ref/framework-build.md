@@ -22,15 +22,15 @@ packages/inner-protocol/  Host 合同、schema 和兼容信息
 src/components/mugen/     原 Electron UI 组件与迁移来源
 src/composables/          原工作台行为与迁移来源
 src/providers/            Provider 合同、能力、注册和 wire 语义
-src/uxp/main.ts           CCX entrypoint、会话与 WebView Host
-src/uxp/inner/            消息桥、资产、存储、Provider 与确认
-src/uxp/canvasPrimitives.ts       Photoshop 原子能力
-src/uxp/canvasPrimitiveService.ts 画布业务服务层
+src/ccx/main.ts           CCX entrypoint、会话与 WebView Host
+src/ccx/inner/            消息桥、资产、存储、Provider 与确认
+src/ccx/canvasPrimitives.ts       Photoshop 原子能力
+src/ccx/canvasPrimitiveService.ts 画布业务服务层
 site/                     官方单屏站点
 plugin/                   当前 CCX Manifest 和图标
 ```
 
-`standalone-uxp-plugin/` 是归档技术原型，不参与活动构建、版本链或产品功能。
+独立 UXP 技术原型已经删除，不参与源码、构建、测试或版本链。
 
 ## WebUI 构建规则
 
@@ -39,12 +39,12 @@ plugin/                   当前 CCX Manifest 和图标
 - 运行时能力通过受信任 Host 探测选择，不使用 URL 参数伪造。
 - Browser adapter 不注入 Mock Host，也不实现假的 Photoshop API。
 - 生产 bundle 不包含 Electron runtime、preload、IPC 或 Bridge 模块。
-- CCX 构建把完整 `apps/inner-webui/dist/` 复制到 `dist/ps-uxp/webui/`。
+- CCX 构建把完整 `apps/inner-webui/dist/` 复制到 `dist/ccx-host/webui/`。
 - CCX 启动依赖本地内嵌 WebUI，不依赖公网 WebUI。
 
 ## CCX Host 构建规则
 
-`vite.uxp.config.ts` 负责生成 UXP 可加载的 Host 壳：
+`vite.ccx.config.ts` 负责生成 Adobe Photoshop 可加载的 CCX Host 壳：
 
 - `base: "./"` 保持 Host 资源相对路径。
 - Rollup 使用 IIFE，Host 入口不保留 ESM runtime。
@@ -61,25 +61,25 @@ plugin/                   当前 CCX Manifest 和图标
 - `id: "com.tanshow.mugen"`。
 - `name: "Mugen"`。
 - host 为 Photoshop，版本要求与当前发布策略一致。
-- panel 与 command ID 和 `src/uxp/main.ts` 的 `entrypoints.setup()` 一致。
+- panel 与 command ID 和 `src/ccx/main.ts` 的 `entrypoints.setup()` 一致。
 - WebView 只允许本地打包页面通过 local-only bridge 通信。
-- 修改 ID、entrypoint、icon、权限或 WebView 配置后重新构建，并在 UXP Developer Tools 中 Unload/Load。
+- 修改 ID、entrypoint、icon、权限或 WebView 配置后重新构建，并在 Adobe UXP Developer Tools 中 Unload/Load。
 
 版本号以 `plugin/manifest.json` 和 `docs/build-todo-list.md` 的活动发布链为准，不从历史示例复制。
 
 ## 静态校验
 
-`scripts/verify-uxp-build.mjs` 至少校验：
+`scripts/verify-ccx-build.mjs` 至少校验：
 
-- `dist/ps-uxp/manifest.json`、Host HTML、icons 和 `webui/index.html` 存在。
+- `dist/ccx-host/manifest.json`、Host HTML、icons 和 `webui/index.html` 存在。
 - Manifest v5、插件 ID、host、entrypoint 和 WebView 权限正确。
 - Host HTML 使用 classic script。
 - WebUI 资源完整且使用可在 `plugin:/` 下加载的相对路径。
-- `apps/inner-webui/dist/` 与 `dist/ps-uxp/webui/` 的文件集和每个文件的字节完全一致，且两份 `release.json` 的 `contentHash` 可复算。
-- 两份 WebUI `release.json` 都声明活动版本 `0.2.0` 并绑定当前 Git HEAD；本地 `verify:uxp` 要求 `dirty` 与实际工作树状态一致，正式 `package:uxp` 进一步要求干净工作树和 `dirty: false`。
-- CCX 归档生成后逐文件核对归档文件集与最终 staging 目录的字节哈希；`dist/uxp-release.json` 的 `sourceCommit` 必须绑定同一干净提交。
+- `apps/inner-webui/dist/` 与 `dist/ccx-host/webui/` 的文件集和每个文件的字节完全一致，且两份 `release.json` 的 `contentHash` 可复算。
+- 两份 WebUI `release.json` 都声明活动版本 `0.2.0` 并绑定当前 Git HEAD；本地 `verify:ccx` 要求 `dirty` 与实际工作树状态一致，正式 `package:ccx` 进一步要求干净工作树和 `dirty: false`。
+- CCX 归档生成后逐文件核对归档文件集与最终 staging 目录的字节哈希；`dist/ccx-release.json` 的 `sourceCommit` 必须绑定同一干净提交。
 - Host bundle 不包含 `eval`、`new Function`、动态 `import()` 或 `import.meta`。
-- 正式 UXP 产物不包含 smoke 全局对象、MockHost、fixture key、`/__smoke/` 路由或开发域名。
+- 正式 CCX 产物不包含 smoke 全局对象、MockHost、fixture key、`/__smoke/` 路由或开发域名。
 - WebUI bundle 不包含 Electron runtime 或生产 Mock Host 注入。
 - 协议与版本兼容信息一致。
 
@@ -90,8 +90,8 @@ plugin/                   当前 CCX Manifest 和图标
 - WebUI 组件使用 `<script setup lang="ts">` 和明确类型。
 - 派生状态使用 `computed`；大型 RGBA、Photoshop handle 和文件对象避免深层响应式。
 - 组件只消费 runtime capability contract，不直接访问 Electron IPC、UXP `require()` 或复杂 `batchPlay`。
-- Photoshop API 细节保留在 `src/uxp/`。
-- CCX Host 壳使用 UXP 稳定控件；WebView 工作台与普通浏览器共享原 Electron UI 平移后的浏览器组件。
+- Photoshop API 细节保留在 `src/ccx/`。
+- CCX Host 壳使用 Adobe 稳定控件；WebView 工作台与普通浏览器共享原 Electron UI 平移后的浏览器组件。
 - 浏览器中不渲染 Photoshop 抓取和置入入口。
 
 ## 常用命令
@@ -101,9 +101,9 @@ npm run dev:inner-webui
 npm run build:inner-webui
 npm run verify:inner-webui:release
 npm run smoke:apimart-server
-npm run build:uxp
-npm run verify:uxp
-npm run package:uxp
+npm run build:ccx
+npm run verify:ccx
+npm run package:ccx
 npm run build:site
 ```
 
@@ -111,12 +111,12 @@ npm run build:site
 
 ## 开发循环
 
-修改 WebUI 的 Vue、TypeScript 或 CSS 后，构建 WebUI、运行相关测试、执行 `npm run build:uxp`，再在 UXP Developer Tools 中 Reload。
+修改 WebUI 的 Vue、TypeScript 或 CSS 后，构建 WebUI、运行相关测试、执行 `npm run build:ccx`，再在 Adobe UXP Developer Tools 中 Reload。
 
-修改 Manifest、entrypoint、icon、权限或 WebView 配置后，执行 `npm run verify:uxp`，在 UXP Developer Tools 中 Unload，再重新 Load `dist/ps-uxp/manifest.json`，最后在真实 Photoshop 中回归受影响能力。
+修改 Manifest、entrypoint、icon、权限或 WebView 配置后，执行 `npm run verify:ccx`，在 Adobe UXP Developer Tools 中 Unload，再重新 Load `dist/ccx-host/manifest.json`，最后在真实 Photoshop 中回归受影响能力。
 
 正式完成仍需 APIMart 浏览器冒烟和 Photoshop CCX 完整冒烟。
 
 ## 历史说明
 
-早期技术原型曾把 Vue 直接挂载到 UXP panel，并通过 IIFE 和浏览器 fallback 验证画布原语。该方式的构建事实保留在 Git 历史与归档文档中。当前产品使用 UXP Host 壳承载本地 WebView；不得用旧直挂原型替代 vNext WebUI。
+早期技术原型曾把 Vue 直接挂载到 Adobe panel，并通过 IIFE 和浏览器 fallback 验证画布原语。该代码已经删除。当前产品使用 CCX Host 壳承载本地 WebView，不得恢复旧直挂原型替代 vNext WebUI。

@@ -37,7 +37,7 @@ onMounted(store.initialize)
     </section>
     <MugenPanel
       v-else
-      runtime="photoshop-uxp"
+      runtime="photoshop-ccx"
       :controller="controller"
       :desktop-platform="platform"
       :diagnostic-export-available="true"

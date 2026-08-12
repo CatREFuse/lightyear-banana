@@ -10,12 +10,12 @@ Mugen vNext 是一个同时运行在普通浏览器和 Photoshop CCX 中的图�
 | --- | --- |
 | 官方单屏站点 vNext | 开发中 |
 | Inner WebUI vNext `0.2.0` | 开发中 |
-| Photoshop CCX / UXP Host `1.0.0` | 活动 |
+| Photoshop CCX `1.0.1` | 活动 |
 | APIMart 本地测试夹具 | 活动 |
 | Electron 桌面端 `0.3.19` | 已废弃 |
 | Inner WebUI 0.1 | 已废弃 |
 | 旧官网 | 已废弃 |
-| Standalone UXP 原型 | 已归档 |
+| Standalone UXP 原型 | 已删除 |
 
 Electron UI 源码在迁移完成前作为 WebUI vNext 的代码平移来源。vNext 不依赖 Electron runtime、preload、IPC 或本地 Bridge。
 
@@ -31,8 +31,8 @@ Electron UI 源码在迁移完成前作为 WebUI vNext 的代码平移来源。v
 ### Photoshop CCX
 
 - 包含与浏览器版同源构建的 WebUI。
-- 通过 UXP Host 抓取可见画布、选区和当前图层。
-- 通过 UXP Host 把生成结果置入当前文档。
+- 通过 CCX Host 抓取可见画布、选区和当前图层。
+- 通过 CCX Host 把生成结果置入当前文档。
 - API Key 保存在 UXP SecureStorage。
 
 插件 ID：`com.tanshow.mugen`
@@ -45,8 +45,8 @@ npm run dev:inner-webui
 npm run smoke:apimart-server
 npm run build:inner-webui
 npm run verify:inner-webui:release
-npm run verify:uxp
-npm run package:uxp
+npm run verify:ccx
+npm run package:ccx
 npm run build:site
 ```
 
@@ -66,14 +66,14 @@ APIMart 本地夹具固定返回同一张小猫。
 
 CCX 冒烟必须在真实 Photoshop 中完成画布抓取、APIMart 请求、小猫图片获取、结果置入和新图层验证。
 
-## UXP 开发约定
+## CCX 开发约定
 
-- 新增画布能力先写入 `src/uxp/canvasPrimitives.ts`，再由 `src/uxp/canvasPrimitiveService.ts` 暴露。
+- 新增画布能力先写入 `src/ccx/canvasPrimitives.ts`，再由 `src/ccx/canvasPrimitiveService.ts` 暴露。
 - Vue 组件和 composable 不直接拼复杂 `batchPlay` descriptor。
 - 修改 Photoshop 文档状态的操作进入 `core.executeAsModal()`。
-- 修改 Vue、TypeScript 或 CSS 后执行 `npm run build:uxp`，再在 UXP Developer Tools 中 Reload。
-- 修改 Manifest、entrypoint、icon 或权限后执行 `npm run verify:uxp`，再在 UXP Developer Tools 中 Unload/Load。
+- 修改 Vue、TypeScript 或 CSS 后执行 `npm run build:ccx`，再在 Adobe UXP Developer Tools 中 Reload。
+- 修改 Manifest、entrypoint、icon 或权限后执行 `npm run verify:ccx`，再在 Adobe UXP Developer Tools 中 Unload/Load。
 
 ## 历史归档
 
-Electron `0.3.x`、旧官网、Inner WebUI `0.1.0`、旧 Bridge 架构和 Standalone UXP 原型的源码、安装包与记录用于历史追溯，不再作为当前安装说明或产品方向。
+Electron `0.3.x`、旧官网、Inner WebUI `0.1.0` 与旧 Bridge 架构仅用于历史追溯。Standalone UXP 原型源码和构建入口已从活动仓库删除。

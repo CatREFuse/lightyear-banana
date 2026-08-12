@@ -1,0 +1,41 @@
+name: Site Deploy Linux Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site-deploy-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.12.0
+
+      - name: Verify native GNU/Linux runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Linux
+          test "$(uname -s)" = Linux
+          for command in flock sha256sum realpath readlink tar find sort cp mv ln; do
+            command -v "$command" >/dev/null
+          done
+          node --version
+          npm --version
+
+      - name: Run site deployment Linux gate
+        shell: bash
+        env:
+          REQUIRE_SITE_LINUX_TESTS: "1"
+        run: npm run test:site-deploy

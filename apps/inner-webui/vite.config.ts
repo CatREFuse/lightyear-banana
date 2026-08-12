@@ -82,7 +82,7 @@ function productionSourceIsolation(): Plugin {
     load(id) {
       const forbiddenModule = findForbiddenSourceModule(id)
       if (forbiddenModule) {
-        throw new Error(`Production WebUI cannot import test-only module ${forbiddenModule}.`)
+        throw new Error(`Production WebUI cannot import isolated module ${forbiddenModule}.`)
       }
       return null
     }

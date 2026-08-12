@@ -196,17 +196,17 @@ entrypoints.setup({
 构建产物：
 
 ```text
-dist/ps-uxp/manifest.json
-dist/ps-uxp/uxp-panel.html
-dist/ps-uxp/assets/uxp-panel-*.js
-dist/ps-uxp/icons/*.png
+dist/ccx-host/manifest.json
+dist/ccx-host/ccx-panel.html
+dist/ccx-host/assets/ccx-panel-*.js
+dist/ccx-host/icons/*.png
 ```
 
 静态校验：
 
 ```text
-npm run verify:uxp
-UXP build verified: dist/ps-uxp
+npm run verify:ccx
+CCX build verified: dist/ccx-host
 ```
 
 UDT 加载：

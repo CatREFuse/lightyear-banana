@@ -44,7 +44,7 @@ node scripts/stamp-release-version.mjs --check --version $Version --build-number
 npm ci
 npm run test:diagnostics
 npm run test:regressions
-npm run verify:uxp
+npm run verify:ccx
 ```
 
 Windows 使用 PowerShell 构建 Windows 桌面包和 CCX：
@@ -52,14 +52,14 @@ Windows 使用 PowerShell 构建 Windows 桌面包和 CCX：
 ```powershell
 $Version = node -p "require('./package.json').version"
 npm run build:web
-npm run verify:uxp
+npm run verify:ccx
 
 $Dist = (Resolve-Path "dist").Path
 $CcxZip = Join-Path $Dist "mugen-$Version.zip"
 $Ccx = Join-Path $Dist "mugen-$Version.ccx"
 Remove-Item -LiteralPath $CcxZip -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $Ccx -Force -ErrorAction SilentlyContinue
-Push-Location "dist/ps-uxp"
+Push-Location "dist/ccx-host"
 Compress-Archive -Path * -DestinationPath $CcxZip -CompressionLevel Optimal
 Pop-Location
 Move-Item -LiteralPath $CcxZip -Destination $Ccx
@@ -257,9 +257,9 @@ deploy/nginx/inner-webui.conf.template
 set -euo pipefail
 VERSION=$(node -p "require('./package.json').version")
 CCX_VERSION=$(node -p "require('./plugin/manifest.json').version")
-RELEASE_ORIGIN=$(node -p "new URL(require('./dist/uxp-release.json').releaseUrl).origin")
+RELEASE_ORIGIN=$(node -p "new URL(require('./dist/ccx-release.json').releaseUrl).origin")
 RELEASE_DIR="dist/release-$VERSION"
-REMOTE_BASE=$(node -p "new URL(process.argv[1] + '/', require('./dist/uxp-release.json').releaseUrl).href.replace(/\/$/, '')" "$VERSION")
+REMOTE_BASE=$(node -p "new URL(process.argv[1] + '/', require('./dist/ccx-release.json').releaseUrl).href.replace(/\/$/, '')" "$VERSION")
 VERIFY_DIR=$(mktemp -d)
 trap 'rm -rf "$VERIFY_DIR"' EXIT
 
@@ -292,7 +292,7 @@ PowerShell 可在相同门禁下校验远端资源：
 ```powershell
 $Version = node -p "require('./package.json').version"
 $CcxVersion = node -p "require('./plugin/manifest.json').version"
-$ReleaseOrigin = node -p "new URL(require('./dist/uxp-release.json').releaseUrl).origin"
+$ReleaseOrigin = node -p "new URL(require('./dist/ccx-release.json').releaseUrl).origin"
 $ReleaseDir = (Resolve-Path "dist/release-$Version").Path
 $VerifyDir = Join-Path ([IO.Path]::GetTempPath()) "mugen-$Version-remote-check"
 New-Item -ItemType Directory -Path $VerifyDir -Force | Out-Null
@@ -318,8 +318,8 @@ foreach ($File in $Files) {
 ### 8. 线上验收
 
 ```bash
-RELEASE_ORIGIN=$(node -p "new URL(require('./dist/uxp-release.json').releaseUrl).origin")
-RELEASE_HOST=$(node -p "new URL(require('./dist/uxp-release.json').releaseUrl).hostname")
+RELEASE_ORIGIN=$(node -p "new URL(require('./dist/ccx-release.json').releaseUrl).origin")
+RELEASE_HOST=$(node -p "new URL(require('./dist/ccx-release.json').releaseUrl).hostname")
 curl --noproxy '*' -fsSI ${RELEASE_ORIGIN}/
 curl --noproxy '*' -fsSL ${RELEASE_ORIGIN}/releases/latest.json | node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(0,"utf8")); console.log(JSON.stringify({version:m.version, mac:m.downloads.mac.filename, windows:m.downloads.windows.filename, ccx:m.downloads.ccx.filename, updateCheckUrl:m.updateCheckUrl}, null, 2));'
 VERSION=$(node -p "require('./package.json').version")

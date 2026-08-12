@@ -59,8 +59,8 @@
 | 当前功能规格、Nothing 主题、Provider 注册层、预设提示词 | `docs/spec.md` |
 | 项目定位、当前验证状态、运行命令、源码入口 | `ref/project-baseline.md` |
 | Photoshop 画布抓图、选区、图层、插图等交互原语 | `ref/canvas-primitives.md` |
-| UXP entrypoint、Photoshop host、imaging、modal、batchPlay、文件访问等原子能力 | `ref/atomic-capabilities.md` |
-| Vue 3、Vite、TypeScript、Manifest v5、UXP 构建和校验 | `ref/framework-build.md` |
+| CCX entrypoint、Photoshop host、imaging、modal、batchPlay、文件访问等原子能力 | `ref/atomic-capabilities.md` |
+| Vue 3、Vite、TypeScript、Manifest v5、CCX 构建和校验 | `ref/framework-build.md` |
 | UDT 加载、Reload/Unload、真实 Photoshop 验证、错误处理、UI 文案注意事项 | `ref/development-notes.md` |
 | 主流生图模型 API 格式、spec、参考图上限、Provider Adapter 设计 | `ref/image-model-api-specs.md` |
 | 参考文件总入口 | `ref/README.md` |
@@ -69,9 +69,9 @@
 
 - 所有功能改动必须符合需求文档；动手前先核对 `docs/mugen-prototype-requirements.md` 和相关交互文档，改完后自查本次变更是否违背需求文档。
 - 如果实现和需求文档不一致，先更新或确认需求文档，再继续改代码；不得把临时实现默认为新需求。
-- 新增 Photoshop 画布能力时，先在 `src/uxp/canvasPrimitives.ts` 增加最小原子函数，再由 `src/uxp/canvasPrimitiveService.ts` 暴露服务层方法。
+- 新增 Photoshop 画布能力时，先在 `src/ccx/canvasPrimitives.ts` 增加最小原子函数，再由 `src/ccx/canvasPrimitiveService.ts` 暴露服务层方法。
 - Vue 组件和 composable 不直接拼复杂 batchPlay descriptor。
 - 修改 Photoshop 文档状态的操作必须进入 `core.executeAsModal()`。
-- 改 Vue、TypeScript、CSS 后运行 `npm run build:uxp`，再在 UXP Developer Tools 中 `Reload`。
-- 改 manifest、entrypoint、icon、权限后运行 `npm run verify:uxp`，再在 UXP Developer Tools 中 `Unload` / `Load`。
-- 完成 UXP 相关改动后至少运行 `npm run verify:uxp`。
+- 改 Vue、TypeScript、CSS 后运行 `npm run build:ccx`，再在 Adobe UXP Developer Tools 中 `Reload`。
+- 改 manifest、entrypoint、icon、权限后运行 `npm run verify:ccx`，再在 Adobe UXP Developer Tools 中 `Unload` / `Load`。
+- 完成 CCX 相关改动后至少运行 `npm run verify:ccx`。

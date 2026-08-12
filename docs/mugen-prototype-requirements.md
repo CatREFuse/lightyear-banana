@@ -21,9 +21,9 @@ Mugen vNext 由三个活动交付物组成：
 | Electron 桌面端 | 停止开发与发布；UI 源码在迁移完成前作为平移来源 |
 | 旧官网 | 停止作为设计和内容基线；线上替换必须通过新站门禁 |
 | Inner WebUI 0.1 | 停止维护，不要求 vNext 保持其简化 UI 或 Mock Host 行为 |
-| Standalone UXP 插件原型 | 停止产品功能开发，仅保留历史验证材料 |
+| Standalone UXP 插件原型 | 已从源码、构建、测试与版本链删除 |
 
-“UXP 原型已归档”不代表 CCX Host 被移除。Photoshop CCX 仍使用 UXP runtime 提供画布读取、文档写入、SecureStorage 和原生权限能力。
+独立 UXP 产品已经删除。Photoshop CCX 仍通过 Adobe UXP runtime 提供画布读取、文档写入、SecureStorage 和原生权限能力；这个厂商运行时属于 CCX 的底层依赖，不是独立产品。
 
 ## 2. 官方站点需求
 
@@ -166,7 +166,7 @@ Mugen vNext 由三个活动交付物组成：
 
 ### TEST-FR-003 CCX Photoshop 完整冒烟
 
-- 在真实 Photoshop 和正式 CCX 构建中执行，不能只使用浏览器或 UXP 静态 Mock。
+- 在真实 Photoshop 和正式 CCX 构建中执行，不能只使用浏览器或 CCX Host 静态 Mock。
 - 打开已知测试文档并抓取画布内容；采集结果像素与边界有效。
 - 参考图通过 APIMart 上传或随生成请求发送。
 - 生成提交、任务查询和固定小猫获取全部成功。
@@ -203,15 +203,15 @@ Mugen vNext 由三个活动交付物组成：
 - 官网有桌面与移动视口截图或录屏，证明单屏、书法字、可旋转棱镜、折射光线、液态玻璃按钮和 CCX 标本号。
 - 迁移映射证明 UI-FR-001，代码搜索证明没有 Electron runtime 依赖进入 WebUI bundle。
 - WebUI 单元、Provider、协议和浏览器 E2E 通过。
-- `npm run verify:uxp` 通过；修改 Manifest、entrypoint、icon 或权限后在 UDT 执行 Unload/Load。
-- 修改 Vue、TypeScript 或 CSS 后重新构建 UXP，并在 UDT Reload。
+- `npm run verify:ccx` 通过；修改 Manifest、entrypoint、icon 或权限后在 Adobe UXP Developer Tools 执行 Unload/Load。
+- 修改 Vue、TypeScript 或 CSS 后重新构建 CCX，并在 Adobe UXP Developer Tools 中 Reload。
 - TEST-FR-002 浏览器冒烟通过。
 - TEST-FR-003 Photoshop 完整冒烟通过。
 - 官网、WebUI 和 CCX 的版本、来源和 SHA256 满足 `docs/build-todo-list.md`。
 
 ## 7. 当前阶段顺序
 
-1. 冻结 Electron、旧官网、Inner WebUI 0.1 和 Standalone UXP 的产品开发。
+1. 冻结 Electron、旧官网和 Inner WebUI 0.1；删除 Standalone UXP 产品代码。
 2. 建立 Electron UI 到 WebUI vNext 的模块迁移映射。
 3. 平移共享 UI 与业务模块，去除 Electron runtime 依赖。
 4. 建立 Browser adapter 与 CCX Host adapter，并按能力裁剪入口。

@@ -1,6 +1,7 @@
-import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
+import type { CapturedCanvasImage } from './canvas'
 
-export type RuntimeName = 'browser' | 'electron' | 'photoshop-uxp'
+export type RuntimeName = 'browser' | 'electron' | 'photoshop-ccx'
+export type DirectRuntimeName = Exclude<RuntimeName, 'photoshop-ccx'>
 
 export type DesktopPlatform = 'darwin' | 'win32'
 

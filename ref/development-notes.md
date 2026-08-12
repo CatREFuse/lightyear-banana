@@ -2,10 +2,10 @@
 
 ## 2026-08-11 vNext 边界
 
-- Electron 桌面端、Inner WebUI 0.1、旧官网和 Standalone UXP 已归档。
+- Electron 桌面端、Inner WebUI 0.1 与旧官网已归档；独立 UXP 产品代码已删除。
 - WebUI vNext 从 Electron UI 源码平移，并在 Browser adapter 与 CCX Host adapter 中运行。
 - 普通浏览器具备真实网络和配置能力，不显示 Photoshop 读取或置入入口。
-- CCX 继续使用 UXP Host 提供画布、置入和 SecureStorage。
+- CCX Host 继续通过 Adobe 插件 API 提供画布、置入和 SecureStorage。
 - APIMart 冒烟固定返回同一张小猫；浏览器验证网络与配置，CCX 在真实 Photoshop 验证抓取到置入的完整闭环。
 
 ## 重要版本标记
@@ -15,7 +15,7 @@
 - flag：技术原型实现
 - git tag：`v0.1.0-tech-prototype`
 - 用途：作为生图 API mock server、多 provider 配置、mock 模式、模型请求链路、消息 loading、参考图缓存、设置持久化和键盘发送交互的回溯点。
-- 状态：旧浏览器预览链路曾完成技术原型验证，UXP 构建校验通过；这些结果不计入 vNext 双运行时验收。
+- 状态：旧浏览器预览链路曾完成技术原型验证；这些结果不计入 vNext 双运行时验收。
 - 回溯建议：后续大改模型配置、mock server 协议、图片返回结构、消息区交互或设置持久化时，优先对比这个标记版本。
 
 ## 开发循环
@@ -23,7 +23,7 @@
 改 Vue、TypeScript、CSS 后：
 
 ```bash
-npm run build:uxp
+npm run build:ccx
 ```
 
 然后在 UXP Developer Tools 点击 `Reload`。
@@ -31,7 +31,7 @@ npm run build:uxp
 改 manifest、entrypoint id、command、panel、icon、权限后：
 
 ```bash
-npm run verify:uxp
+npm run verify:ccx
 ```
 
 然后在 UXP Developer Tools 先 `Unload`，再 `Load`。只点 `Reload` 容易继续使用旧 manifest。
@@ -40,8 +40,8 @@ npm run verify:uxp
 
 推荐每次能力改动后按这个顺序验证：
 
-1. `npm run verify:uxp`
-2. UXP Developer Tools 加载 `dist/ps-uxp/manifest.json`
+1. `npm run verify:ccx`
+2. Adobe UXP Developer Tools 加载 `dist/ccx-host/manifest.json`
 3. Photoshop 菜单 command 可执行
 4. panel 可以打开 Host 壳并加载内嵌 WebUI
 5. Host 握手与 runtime capability 正确
@@ -97,10 +97,10 @@ npm run verify:uxp
 生成 CCX：
 
 ```bash
-npm run package:uxp
+npm run package:ccx
 ```
 
-打包前会先执行 `verify:uxp`。产物文件名和版本从当前 CCX Manifest 读取，并满足 `docs/build-todo-list.md` 的版本、SHA256 与发布元数据门禁。
+打包前会先执行 `verify:ccx`。产物文件名和版本从当前 CCX Manifest 读取，并满足 `docs/build-todo-list.md` 的版本、SHA256 与发布元数据门禁。
 
 ## Windows Codex 插件索引修复
 

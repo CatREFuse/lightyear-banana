@@ -2,11 +2,12 @@
 import { shallowRef } from 'vue'
 import { buildInfo } from './buildInfo'
 import MugenPanel from './components/mugen/MugenPanel.vue'
-import type { DesktopPlatform, RuntimeName } from './types/mugen'
+import { useMugen } from './composables/useMugen'
+import type { DesktopPlatform, DirectRuntimeName } from './types/mugen'
 
 const props = withDefaults(
   defineProps<{
-    runtime?: RuntimeName
+    runtime?: DirectRuntimeName
     platform?: DesktopPlatform
   }>(),
   {
@@ -16,6 +17,7 @@ const props = withDefaults(
 )
 
 const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
+const controller = useMugen(props.runtime)
 </script>
 
 <template>
@@ -44,6 +46,7 @@ const previewPlatform = shallowRef<DesktopPlatform>(props.platform)
     </div>
     <div class="plugin-preview-frame">
       <MugenPanel
+        :controller="controller"
         :runtime="props.runtime"
         :desktop-platform="props.runtime === 'browser' ? previewPlatform : props.platform"
         :show-window-controls="props.runtime === 'browser'"

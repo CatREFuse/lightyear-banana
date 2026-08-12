@@ -32,6 +32,7 @@ import {
   parsePrepareOutput,
   parseRollbackOutput,
   parseRollbackReconciliationOutput,
+  readCcxDeploymentMetadata,
   resolvePublicSiteUrl,
   resolveSshConfiguration,
   scpArguments,
@@ -112,34 +113,62 @@ test('refuses a build without the protected release index even though that index
   )
 })
 
-test('validates the immutable local Mugen 1.0.0 CCX against both checksum records', (context) => {
+test('derives and validates the immutable local Mugen 1.0.1 CCX from release metadata', (context) => {
   const root = temporaryRoot(context)
   const contents = Buffer.from('ccx fixture bytes')
   const digest = createHash('sha256').update(contents).digest('hex')
-  const rootCcx = write(root, 'dist/mugen-1.0.0.ccx', contents)
-  const siteCcx = write(root, 'dist/site/releases/1.0.0/mugen-1.0.0.ccx', contents)
-  const rootSidecar = write(root, 'dist/mugen-1.0.0.ccx.sha256', `${digest}  mugen-1.0.0.ccx\n`)
-  const siteSidecar = write(root, 'dist/site/releases/1.0.0/SHA256SUMS.txt', `${digest}  mugen-1.0.0.ccx\n`)
+  const fileName = 'mugen-1.0.1.ccx'
+  const rootCcx = write(root, `dist/${fileName}`, contents)
+  const siteCcx = write(root, `dist/site/releases/1.0.1/${fileName}`, contents)
+  const rootSidecar = write(root, `dist/${fileName}.sha256`, `${digest}  ${fileName}\n`)
+  const siteSidecar = write(root, 'dist/site/releases/1.0.1/SHA256SUMS.txt', `${digest}  ${fileName}\n`)
+  write(root, 'plugin/manifest.json', JSON.stringify({ version: '1.0.1' }))
+  write(root, 'dist/ccx-release.json', JSON.stringify({
+    schemaVersion: 1,
+    ccxVersion: '1.0.1',
+    filename: fileName,
+    sha256: digest,
+    sourceCommit: 'a'.repeat(40),
+    dirty: false
+  }))
 
-  assert.deepEqual(validateLocalCcxPayload({ rootCcx, rootSidecar, siteCcx, siteSidecar }), {
+  assert.equal(readCcxDeploymentMetadata({ projectDirectory: root }).version, '1.0.1')
+  assert.deepEqual(validateLocalCcxPayload({ projectDirectory: root, rootCcx, rootSidecar, siteCcx, siteSidecar }), {
     checksum: {
       fileName: 'SHA256SUMS.txt',
       path: siteSidecar,
-      sha256: createHash('sha256').update(`${digest}  mugen-1.0.0.ccx\n`).digest('hex'),
-      size: Buffer.byteLength(`${digest}  mugen-1.0.0.ccx\n`)
+      sha256: createHash('sha256').update(`${digest}  ${fileName}\n`).digest('hex'),
+      size: Buffer.byteLength(`${digest}  ${fileName}\n`)
     },
-    destination: 'releases/1.0.0/mugen-1.0.0.ccx',
-    fileName: 'mugen-1.0.0.ccx',
+    destination: 'releases/1.0.1/mugen-1.0.1.ccx',
+    fileName,
     path: siteCcx,
     sha256: digest,
     size: contents.length,
-    version: '1.0.0'
+    version: '1.0.1'
   })
 
   writeFileSync(siteCcx, 'changed')
   assert.throws(
-    () => validateLocalCcxPayload({ rootCcx, rootSidecar, siteCcx, siteSidecar }),
+    () => validateLocalCcxPayload({ projectDirectory: root, rootCcx, rootSidecar, siteCcx, siteSidecar }),
     /do not match/
+  )
+})
+
+test('rejects a CCX deployment version that disagrees with the plugin manifest', (context) => {
+  const root = temporaryRoot(context)
+  write(root, 'plugin/manifest.json', JSON.stringify({ version: '1.0.1' }))
+  write(root, 'dist/ccx-release.json', JSON.stringify({
+    schemaVersion: 1,
+    ccxVersion: '1.0.0',
+    filename: 'mugen-1.0.0.ccx',
+    sha256: 'a'.repeat(64),
+    sourceCommit: 'b'.repeat(40),
+    dirty: false
+  }))
+  assert.throws(
+    () => readCcxDeploymentMetadata({ projectDirectory: root }),
+    /does not match the active plugin manifest/
   )
 })
 
@@ -239,10 +268,11 @@ test('activation preserves current releases, verifies every file, records previo
         sha256: hashA,
         size: 82
       },
-      fileName: 'mugen-1.0.0.ccx',
+      fileName: 'mugen-1.0.1.ccx',
       sha256: hashB,
       size: 42,
-      version: '1.0.0'
+      version: '1.0.1',
+      destination: 'releases/1.0.1/mugen-1.0.1.ccx'
     },
     expectedCurrent: oldTarget,
     expectedLatestSha: hashA,
@@ -263,11 +293,11 @@ test('activation preserves current releases, verifies every file, records previo
   assert.match(command, /find releases -type f -exec sha256sum \{\} \+/)
   assert.match(command, /cp -a .*current_target\/releases\/\./)
   assert.match(command, /inherited-releases\.sha256/)
-  assert.match(command, /mugen-1\.0\.0\.ccx/)
+  assert.match(command, /mugen-1\.0\.1\.ccx/)
   assert.match(command, /SHA256SUMS\.txt/)
   assert.match(command, /sha256sum -c SHA256SUMS\.txt/)
-  assert.match(command, /if test -e .*mugen-1\.0\.0\.ccx.*\|\| test -e .*SHA256SUMS\.txt/)
-  assert.match(command, /then test -f .*mugen-1\.0\.0\.ccx.*test -f .*SHA256SUMS\.txt/)
+  assert.match(command, /if test -e .*mugen-1\.0\.1\.ccx.*\|\| test -e .*SHA256SUMS\.txt/)
+  assert.match(command, /then test -f .*mugen-1\.0\.1\.ccx.*test -f .*SHA256SUMS\.txt/)
   assert.match(command, new RegExp(`${hashA}  .*stage-.*releases/latest\\.json`))
   assert.match(command, /mv .*stage-.*releases\/20260812T030405Z-aaaaaaaaaaaa-1234abcd/)
   assert.match(command, /mv -Tf .*\.previous-token.*\/previous/)
@@ -487,18 +517,18 @@ test('public verification compares every snapshot byte and proves latest.json st
   const latestSha = createHash('sha256').update(latestBytes).digest('hex')
   const ccxBytes = Buffer.from('public ccx')
   const ccxSha = createHash('sha256').update(ccxBytes).digest('hex')
-  const checksumBytes = Buffer.from(`${ccxSha}  mugen-1.0.0.ccx\n`)
+  const checksumBytes = Buffer.from(`${ccxSha}  mugen-1.0.1.ccx\n`)
   const ccx = {
     checksum: {
       fileName: 'SHA256SUMS.txt',
       sha256: createHash('sha256').update(checksumBytes).digest('hex'),
       size: checksumBytes.length
     },
-    destination: 'releases/1.0.0/mugen-1.0.0.ccx',
-    fileName: 'mugen-1.0.0.ccx',
+    destination: 'releases/1.0.1/mugen-1.0.1.ccx',
+    fileName: 'mugen-1.0.1.ccx',
     sha256: ccxSha,
     size: ccxBytes.length,
-    version: '1.0.0'
+    version: '1.0.1'
   }
   const originalFetch = globalThis.fetch
   let overrideHeaders = () => ({})
@@ -508,7 +538,7 @@ test('public verification compares every snapshot byte and proves latest.json st
       ? latestBytes
       : relative === ccx.destination
         ? ccxBytes
-        : relative === 'releases/1.0.0/SHA256SUMS.txt'
+        : relative === 'releases/1.0.1/SHA256SUMS.txt'
           ? checksumBytes
           : readFileSync(path.join(snapshotDirectory, ...relative.split('/')))
     return new Response(bytes, {

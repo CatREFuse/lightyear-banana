@@ -30,11 +30,11 @@ import {
   validateHostEventPayload
 } from '@mugen/inner-protocol'
 
-export type UxpHostBridge = { postMessage(message: unknown): void }
+export type CcxHostBridge = { postMessage(message: unknown): void }
 
 declare global {
   interface Window {
-    uxpHost?: UxpHostBridge
+    uxpHost?: CcxHostBridge
   }
 }
 
@@ -83,7 +83,7 @@ export class WebViewHostClient implements HostClient {
   private establishedSessionId?: string
   private disposed = false
 
-  constructor(private readonly host: UxpHostBridge = window.uxpHost as UxpHostBridge) {
+  constructor(private readonly host: CcxHostBridge = window.uxpHost as CcxHostBridge) {
     if (!host || typeof host.postMessage !== 'function') throw clientError('HOST_UNAVAILABLE', 'Photoshop 宿主暂时不可用')
     window.addEventListener('message', this.handleMessage)
   }
@@ -334,7 +334,7 @@ export class WebViewHostClient implements HostClient {
   }
 }
 
-export function hasUxpHost(value: Window = window): boolean {
+export function hasCcxHost(value: Window = window): boolean {
   return Boolean(value.uxpHost && typeof value.uxpHost.postMessage === 'function')
 }
 

@@ -105,7 +105,7 @@ export function verifyEmbeddedInnerWebUiProvenance(options = {}) {
   const { projectRoot, provenance } = options
   if (!projectRoot) throw new Error('projectRoot is required to verify the embedded Inner WebUI.')
   const sourceDirectory = options.sourceDirectory ?? path.join(projectRoot, 'apps', 'inner-webui', 'dist')
-  const embeddedDirectory = options.embeddedDirectory ?? path.join(projectRoot, 'dist', 'ps-uxp', 'webui')
+  const embeddedDirectory = options.embeddedDirectory ?? path.join(projectRoot, 'dist', 'ccx-host', 'webui')
   const packagePath = options.packagePath ?? path.join(projectRoot, 'apps', 'inner-webui', 'package.json')
   const expectedVersion = ACTIVE_INNER_WEBUI_VERSION
   const requireClean = options.requireClean ?? false
@@ -138,8 +138,8 @@ export function verifyEmbeddedInnerWebUiProvenance(options = {}) {
     verifiedProvenance
   )
   const embeddedRelease = validateReleaseMetadata(
-    readJson(path.join(embeddedDirectory, 'release.json'), 'dist/ps-uxp/webui/release.json'),
-    'dist/ps-uxp/webui/release.json',
+    readJson(path.join(embeddedDirectory, 'release.json'), 'dist/ccx-host/webui/release.json'),
+    'dist/ccx-host/webui/release.json',
     expectedVersion,
     verifiedProvenance
   )
@@ -150,8 +150,8 @@ export function verifyEmbeddedInnerWebUiProvenance(options = {}) {
     expectedVersion
   )
   validateCompatibility(
-    readJson(path.join(embeddedDirectory, 'compatibility.json'), 'dist/ps-uxp/webui/compatibility.json'),
-    'dist/ps-uxp/webui/compatibility.json',
+    readJson(path.join(embeddedDirectory, 'compatibility.json'), 'dist/ccx-host/webui/compatibility.json'),
+    'dist/ccx-host/webui/compatibility.json',
     expectedVersion
   )
 
@@ -163,7 +163,7 @@ export function verifyEmbeddedInnerWebUiProvenance(options = {}) {
   }
   const embeddedContentHash = calculateContentHash(embeddedDirectory, embeddedFiles)
   if (embeddedContentHash !== embeddedRelease.contentHash) {
-    throw new Error('dist/ps-uxp/webui files do not match release.json contentHash.')
+    throw new Error('dist/ccx-host/webui files do not match release.json contentHash.')
   }
 
   return {
@@ -176,15 +176,15 @@ export function verifyEmbeddedInnerWebUiProvenance(options = {}) {
   }
 }
 
-export function assertUxpReleaseMatchesInnerWebUiProvenance(uxpRelease, innerWebUi) {
-  if (uxpRelease?.dirty !== false) {
-    throw new Error('UXP release metadata must record dirty=false.')
+export function assertCcxReleaseMatchesInnerWebUiProvenance(ccxRelease, innerWebUi) {
+  if (ccxRelease?.dirty !== false) {
+    throw new Error('CCX release metadata must record dirty=false.')
   }
   if (
     !/^[a-f0-9]{40,64}$/.test(innerWebUi?.sourceCommit || '') ||
-    uxpRelease?.sourceCommit !== innerWebUi.sourceCommit
+    ccxRelease?.sourceCommit !== innerWebUi.sourceCommit
   ) {
-    throw new Error('UXP release sourceCommit must match the verified embedded Inner WebUI commit.')
+    throw new Error('CCX release sourceCommit must match the verified embedded Inner WebUI commit.')
   }
-  return uxpRelease
+  return ccxRelease
 }

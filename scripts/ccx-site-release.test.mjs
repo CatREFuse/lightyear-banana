@@ -29,7 +29,7 @@ function fixture(t) {
   json(root, 'plugin/manifest.json', { version: '1.0.0' })
   write(root, `dist/${filename}`, contents)
   write(root, `dist/${filename}.sha256`, `${sha256}  ${filename}\n`)
-  json(root, 'dist/uxp-release.json', {
+  json(root, 'dist/ccx-release.json', {
     schemaVersion: 1,
     ccxVersion: '1.0.0',
     filename,
@@ -73,18 +73,22 @@ test('verifies a CCX-only website against the independent plugin version', async
   const verified = await verifySiteMetadata({ root, bundle })
 
   assert.equal(bundle.version, '1.0.0')
+  assert.equal(bundle.ccxMetadataPath, path.join(root, 'dist/ccx-release.json'))
+  assert.equal(bundle.ccxMetadata.filename, 'mugen-1.0.0.ccx')
+  assert.equal('uxpMetadata' in bundle, false)
+  assert.equal('uxpMetadataPath' in bundle, false)
   assert.deepEqual(Object.keys(bundle.artifacts), ['ccx'])
   assert.deepEqual(Object.keys(verified.latest.downloads), ['ccx'])
 })
 
 test('rejects dirty CCX provenance and desktop downloads', async (t) => {
   const { root } = fixture(t)
-  const metadataPath = path.join(root, 'dist/uxp-release.json')
+  const metadataPath = path.join(root, 'dist/ccx-release.json')
   const metadata = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(metadataPath, 'utf8')))
-  json(root, 'dist/uxp-release.json', { ...metadata, dirty: true })
+  json(root, 'dist/ccx-release.json', { ...metadata, dirty: true })
   await assert.rejects(verifyCcxRelease({ root }), /dirty/)
 
-  json(root, 'dist/uxp-release.json', metadata)
+  json(root, 'dist/ccx-release.json', metadata)
   const latestPath = path.join(root, 'site/releases/latest.json')
   const latest = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(latestPath, 'utf8')))
   json(root, 'site/releases/latest.json', { ...latest, downloads: { ...latest.downloads, mac: {} } })

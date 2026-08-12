@@ -155,8 +155,8 @@ flowchart TD
 | 可见图层 | 抓取当前文档可见合成图 | 不渲染该入口 |
 | 选区 | 抓取当前选区内所有可见图层的合成图和 bounds | 不渲染该入口 |
 | 当前选中图层 | 抓取 active layer 像素 | 不渲染该入口 |
-| 上传文件 | 按 UXP 文件能力适配 | 使用浏览器文件能力 |
-| 剪贴板 | 按 UXP 剪贴板能力适配 | 使用浏览器允许的剪贴板能力 |
+| 上传文件 | 按 CCX Host 文件能力适配 | 使用浏览器文件能力 |
+| 剪贴板 | 按 CCX Host 剪贴板能力适配 | 使用浏览器允许的剪贴板能力 |
 
 交互规则：
 
@@ -451,7 +451,7 @@ APIMart 夹具通过普通 Provider 配置接入。用户填写 loopback Base UR
 | 写入当前选区 | 结果图 > 置入 > 当前选区 | 读取当前选区 bounds，缩放结果图并创建像素图层 |
 | 写入参考选区 | 结果图 > 置入 > 参考图片 N 的选区 | 使用本轮参考图记录的 bounds 创建像素图层 |
 
-UXP 规则：
+CCX Host 规则：
 
 - 所有修改 Photoshop 文档状态的操作必须进入 `executeAsModal()`。
 - 图像写入使用 `imaging.putPixels()`。
@@ -495,15 +495,15 @@ UXP 规则：
 
 ## CCX 与 WebUI 约束
 
-UXP Host 壳遵守 `ref/uxp-ui-runtime-rules.md`，内嵌 WebView 和普通浏览器共同使用 WebUI 的浏览器组件与样式。
+CCX Host 壳遵守 `ref/ccx-adobe-runtime-rules.md`，内嵌 WebView 和普通浏览器共同使用 WebUI 的浏览器组件与样式。
 
 关键约束：
 
-- UXP Host 壳的控件优先使用 Spectrum UXP Widgets 或 SWC wrapper。
+- CCX Host 壳的原生控件优先使用 Adobe Spectrum UXP Widgets 或 SWC wrapper。
 - WebUI 组件以原 Electron UI 源码平移为准，不为 CCX 另写第二套 Spectrum 工作台。
 - WebUI 的 CSS、输入、文件和网络能力需要同时在普通浏览器与 Photoshop WebView 验证。
 - Photoshop 专属命令只通过 Host adapter 暴露。
-- 面板内关键路径在 UXP Developer Tools reload 后实测。
+- 面板内关键路径在 Adobe UXP Developer Tools Reload 后实测。
 
 ## 待补交互
 

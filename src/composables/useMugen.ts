@@ -35,20 +35,15 @@ import {
   type ReferenceImage,
   type ReferenceSource,
   type ResolutionInputMode,
-  type RuntimeName,
+  type DirectRuntimeName,
   type SettingsTestState,
   type SettingsView,
 } from '../types/mugen'
-import { canvasPrimitiveService } from '../uxp/canvasPrimitiveService'
-import type { CapturedCanvasImage } from '../uxp/canvasPrimitives'
-import { getHostRequire, readActiveDocumentLabel } from '../uxp/photoshopHost'
+import type { CapturedCanvasImage } from '../types/canvas'
 import { createCanvasImageFromApiAsset } from '../utils/imagePixels'
 import {
-  bytesToBase64,
-  createReferenceCanvasImage,
   pickBrowserReferenceImage,
-  readBrowserClipboardReferenceImage,
-  readImageMimeType
+  readBrowserClipboardReferenceImage
 } from '../utils/referenceImages'
 import {
   deserializeCanvasImage,
@@ -56,12 +51,10 @@ import {
   getElectronBridgeStatus,
   hasElectronBridge,
   invokeElectronBridge,
-  onElectronBridgeEvent,
   recordElectronGenerationRequest,
   readElectronStoredSettings,
-  serializeCanvasImage,
-  serializePlacementTarget,
-  writeElectronStoredSettings
+  writeElectronStoredSettings,
+  type SerializedCanvasImage
 } from '../services/electronBridge'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
 import { canUseDevelopmentApimartBaseUrl } from '../utils/apimartDevelopmentConfig'
@@ -74,14 +67,12 @@ const referenceLabels: Record<ReferenceSource, string> = {
   clipboard: '剪贴板',
   generated: '生成结果'
 }
-
 type StoredSettings = {
   activeConfigId: string
   configs: ModelConfig[]
   generationHistory: ChatTurn[]
   promptPresets: PromptPreset[]
 }
-
 const settingsStorageKey = 'mugen.settings.v1'
 const legacySettingsStorageKey = 'lightyear-banana.settings.v1'
 const maxStoredTurns = 50
@@ -197,31 +188,6 @@ async function saveBrowserGeneratedImage(image: CapturedCanvasImage) {
     triggerBrowserDownload(image.previewUrl, readGeneratedImageFileName(image))
   }
 }
-
-async function saveUxpGeneratedImage(image: CapturedCanvasImage) {
-  const hostRequire = getHostRequire()
-  const uxp = hostRequire?.('uxp')
-  const localFileSystem = uxp?.storage?.localFileSystem
-  if (!localFileSystem?.getFileForSaving) {
-    throw new Error('当前环境无法保存图片')
-  }
-
-  const blob = await fetchImageBlob(image.previewUrl)
-  const extension = readGeneratedImageExtension(image, blob.type)
-  const file = await localFileSystem.getFileForSaving(readGeneratedImageFileName(image, extension), {
-    types: [extension]
-  })
-  if (!file) {
-    return false
-  }
-
-  await file.write(new Uint8Array(await blob.arrayBuffer()), {
-    format: uxp.storage?.formats?.binary
-  })
-
-  return true
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object')
 }
@@ -296,7 +262,6 @@ function cloneModelConfig(config: ModelConfig): ModelConfig {
     comfyUi: provider === 'comfyui' ? normalizeComfyUiSettings(config.comfyUi) : undefined
   }
 }
-
 function createEmptyModelConfig(): ModelConfig {
   return {
     id: '',
@@ -626,7 +591,7 @@ function writeStoredSettings(settings: StoredSettings) {
   }
 }
 
-export function useMugen(runtime: RuntimeName) {
+export function useMugen(runtime: DirectRuntimeName) {
   const storedSettings = readStoredSettings()
   const isElectronRuntime = __MUGEN_LEGACY_DESKTOP__ && runtime === 'electron'
   const runtimeProviderCapabilities = readProviderCapabilitiesForRuntime(runtime)
@@ -638,9 +603,9 @@ export function useMugen(runtime: RuntimeName) {
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
-  const status = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Mugen App' : 'Mugen WebUI')
-  const connectionStatus = shallowRef(runtime === 'photoshop-uxp' ? 'Photoshop UXP' : isElectronRuntime ? 'Photoshop 未连接' : '浏览器模式')
-  const documentLabel = shallowRef(readActiveDocumentLabel())
+  const status = shallowRef(isElectronRuntime ? 'Mugen App' : 'Mugen WebUI')
+  const connectionStatus = shallowRef(isElectronRuntime ? 'Photoshop 未连接' : '浏览器模式')
+  const documentLabel = shallowRef(connectionStatus.value)
   const busy = shallowRef(false)
   const prompt = shallowRef('')
   const references = shallowRef<ReferenceImage[]>([])
@@ -666,8 +631,6 @@ export function useMugen(runtime: RuntimeName) {
   const generationLoading = shallowRef<GenerationLoadingState[]>([])
   const canvasOperation = shallowRef<CanvasOperationState>({ type: 'idle', label: '' })
   let toastTimer: ReturnType<typeof setTimeout> | undefined
-  let bridgeStatusTimer: ReturnType<typeof setInterval> | undefined
-  let removeBridgeListener: (() => void) | undefined
   let generationTimer: ReturnType<typeof setInterval> | undefined
   let settingsTestResetTimer: ReturnType<typeof setTimeout> | undefined
   const generationControllers = new Map<string, AbortController>()
@@ -677,7 +640,7 @@ export function useMugen(runtime: RuntimeName) {
     ...cloneModelConfig(initialConfig)
   })
 
-  const canUsePhotoshop = computed(() => runtime === 'photoshop-uxp' && Boolean(getHostRequire()))
+  const canUsePhotoshop = computed(() => false)
   const canUseElectronBridge = computed(() => isElectronRuntime && hasElectronBridge())
   const activeConfig = computed(
     () => configs.value.find((config) => config.id === activeConfigId.value) ?? configs.value[0] ?? createEmptyModelConfig()
@@ -940,8 +903,8 @@ function readHighestQuality(options: string[]): string {
       return
     }
 
-    documentLabel.value = readActiveDocumentLabel()
-    connectionStatus.value = canUsePhotoshop.value ? 'Photoshop 已连接' : runtime === 'browser' ? '浏览器模式' : 'Photoshop 未连接'
+    documentLabel.value = runtime === 'browser' ? '浏览器模式' : 'Photoshop 未连接'
+    connectionStatus.value = documentLabel.value
   }
 
   async function refreshElectronDocument() {
@@ -952,9 +915,9 @@ function readHighestQuality(options: string[]): string {
 
     try {
       const bridgeStatus = await getElectronBridgeStatus()
-      installPluginUrl.value = bridgeStatus.uxpPackage?.downloadUrl ?? ''
-      documentLabel.value = bridgeStatus.photoshop.connected ? bridgeStatus.photoshop.documentLabel ?? 'Photoshop 已连接' : 'Photoshop 未连接'
-      connectionStatus.value = bridgeStatus.photoshop.connected ? 'Photoshop 已连接' : 'Photoshop 未连接'
+      installPluginUrl.value = bridgeStatus.ccxPackage?.downloadUrl ?? ''
+      documentLabel.value = 'Electron 已归档'
+      connectionStatus.value = '请使用 Photoshop CCX'
     } catch (error) {
       connectionStatus.value = 'Photoshop 未连接'
     }
@@ -1019,48 +982,15 @@ function readHighestQuality(options: string[]): string {
         return
       }
 
-      if (!(__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) && !canUsePhotoshop.value) {
-        status.value = '请在 Mugen App 或 Photoshop 面板中添加参考'
-        return
-      }
-
-      if (source === 'visible') {
-        const image = __MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value
-          ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureVisible'))
-          : await canvasPrimitiveService.captureVisibleReferenceImage()
-        addReferenceImage(source, image)
-        return
-      }
-
-      if (source === 'selection') {
-        const image = __MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value
-          ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureSelection'))
-          : await canvasPrimitiveService.captureSelectionReferenceImage()
-        addReferenceImage(source, image)
-        return
-      }
-
-      if (source === 'layer') {
-        const image = __MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value
-          ? deserializeCanvasImage(await invokeElectronBridge('canvas.captureLayer'))
-          : await canvasPrimitiveService.captureSelectedLayerReferenceImage()
-        addReferenceImage(source, image)
-        return
-      }
-
-      status.value = `${referenceLabels[source]}暂不可用`
+      status.value = '请在 Photoshop CCX 中读取画布'
     })
   }
 
   async function pickUploadReferenceImage() {
     if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
-      const image = await invokeElectronBridge<ReturnType<typeof serializeCanvasImage> | null>('reference.pickUpload')
+      const image = await invokeElectronBridge<SerializedCanvasImage | null>('reference.pickUpload')
 
       return image ? deserializeCanvasImage(image) : null
-    }
-
-    if (canUsePhotoshop.value) {
-      return pickUxpUploadReferenceImage()
     }
 
     return pickBrowserReferenceImage()
@@ -1072,34 +1002,6 @@ function readHighestQuality(options: string[]): string {
     }
 
     return readBrowserClipboardReferenceImage()
-  }
-
-  async function pickUxpUploadReferenceImage() {
-    const hostRequire = getHostRequire()
-    const uxp = hostRequire?.('uxp')
-    const localFileSystem = uxp?.storage?.localFileSystem
-    if (!localFileSystem?.getFileForOpening) {
-      throw new Error('当前环境无法上传图片')
-    }
-
-    const file = await localFileSystem.getFileForOpening({
-      types: ['png', 'jpg', 'jpeg', 'webp']
-    })
-    if (!file) {
-      return null
-    }
-
-    const raw = await file.read({
-      format: uxp.storage?.formats?.binary
-    })
-    const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw)
-    const fileName = String(file.name || '参考图')
-
-    return createReferenceCanvasImage({
-      idPrefix: 'upload',
-      label: `上传图片：${fileName}`,
-      previewUrl: `data:${readImageMimeType(fileName)};base64,${bytesToBase64(bytes)}`
-    })
   }
 
   function removeReference(id: string) {
@@ -1259,14 +1161,6 @@ function readHighestQuality(options: string[]): string {
   async function readCanvasSizeForRequest(requestRatio: string) {
     if (runtime === 'browser' || requestRatio !== '画布比例') {
       return undefined
-    }
-
-    if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
-      return invokeElectronBridge<{ width: number; height: number }>('canvas.readSize')
-    }
-
-    if (canUsePhotoshop.value) {
-      return canvasPrimitiveService.readCanvasSize()
     }
 
     return undefined
@@ -1772,55 +1666,9 @@ function readHighestQuality(options: string[]): string {
     showToast('已填入修改请求')
   }
 
-  async function placeImage(image: GeneratedImage, target: PlacementTarget) {
+  async function placeImage(image: GeneratedImage, _target: PlacementTarget) {
     await runCanvasAction({ type: 'place', label: '正在置入', imageId: image.id }, async () => {
-      const placeableImage = image
-
-      if (__MUGEN_LEGACY_DESKTOP__ && canUseElectronBridge.value) {
-        await invokeElectronBridge('canvas.placeImage', {
-          image: serializeCanvasImage(placeableImage),
-          target: serializePlacementTarget(target, placeableImage)
-        })
-        status.value = '已置入 Photoshop'
-        return
-      }
-
-      if (!canUsePhotoshop.value) {
-        status.value = '浏览器预览无法置入 Photoshop'
-        return
-      }
-
-      if (target.type === 'reference-selection') {
-        const bounds = target.bounds
-        await canvasPrimitiveService.insertImageFromPreview(placeableImage, {
-          left: bounds.left,
-          top: bounds.top,
-          width: bounds.right - bounds.left,
-          height: bounds.bottom - bounds.top
-        })
-        status.value = `已置入参考图片 ${target.referenceIndex + 1} 的选区`
-        return
-      }
-
-      if (target.type === 'current-selection') {
-        await canvasPrimitiveService.insertImageFromPreviewToSelection(placeableImage)
-        status.value = '已置入当前选区'
-        return
-      }
-
-      if (target.type === 'original-size') {
-        await canvasPrimitiveService.insertImageFromPreview(placeableImage, {
-          left: 0,
-          top: 0,
-          width: placeableImage.width,
-          height: placeableImage.height
-        })
-        status.value = '已按原尺寸置入'
-        return
-      }
-
-      await canvasPrimitiveService.insertImageFromPreviewToFullCanvas(placeableImage)
-      status.value = '已置入全画布'
+      status.value = '请在 Photoshop CCX 中置入图片'
     })
   }
 
@@ -1837,12 +1685,6 @@ function readHighestQuality(options: string[]): string {
           width: image.width
         })
         if (!result.saved) {
-          status.value = '已取消保存'
-          return
-        }
-      } else if (canUsePhotoshop.value) {
-        const saved = await saveUxpGeneratedImage(image)
-        if (!saved) {
           status.value = '已取消保存'
           return
         }
@@ -2147,12 +1989,6 @@ function readHighestQuality(options: string[]): string {
 
   if (__MUGEN_LEGACY_DESKTOP__ && isElectronRuntime) {
     refreshElectronDocument()
-    bridgeStatusTimer = setInterval(() => {
-      void refreshElectronDocument()
-    }, 3000)
-    removeBridgeListener = onElectronBridgeEvent(() => {
-      void refreshElectronDocument()
-    })
   } else {
     refreshDocument()
   }
@@ -2161,11 +1997,7 @@ function readHighestQuality(options: string[]): string {
     if (toastTimer) {
       clearTimeout(toastTimer)
     }
-    if (bridgeStatusTimer) {
-      clearInterval(bridgeStatusTimer)
-    }
     clearSettingsTestResetTimer()
-    removeBridgeListener?.()
     clearAllGenerationLoading()
   })
 
@@ -2238,5 +2070,4 @@ function readHighestQuality(options: string[]): string {
     useResultAsReference
   }
 }
-
-export type MugenController = ReturnType<typeof useMugen>
+export type { MugenController } from '../types/mugenController'

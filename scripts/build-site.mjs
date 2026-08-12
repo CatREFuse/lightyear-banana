@@ -24,7 +24,7 @@ await cp(siteDir, outDir, {
   filter: (source) => !source.endsWith(".DS_Store")
 })
 
-const releaseOrigin = new URL(bundle.uxpMetadata.releaseUrl).origin
+const releaseOrigin = new URL(bundle.ccxMetadata.releaseUrl).origin
 for (const relativePath of ["index.html", "llms.txt", "LLM.TXT"]) {
   const target = join(outDir, relativePath)
   const contents = await readFile(target, "utf8")

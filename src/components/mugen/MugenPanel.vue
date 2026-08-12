@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
-import { useMugen, type MugenController } from '../../composables/useMugen'
+import type { MugenController } from '../../types/mugenController'
 import { useThemePreferences, type ThemePreferencesController } from '../../composables/useThemePreferences'
 import type { DesktopPlatform, RuntimeName } from '../../types/mugen'
-import type { CapturedCanvasImage } from '../../uxp/canvasPrimitives'
+import type { CapturedCanvasImage } from '../../types/canvas'
 import ComposerDock from './ComposerDock.vue'
 import BoxIcon from './BoxIcon.vue'
 import MessageThread from './MessageThread.vue'
@@ -14,14 +14,13 @@ const props = defineProps<{
   runtime: RuntimeName
   desktopPlatform: DesktopPlatform
   showWindowControls?: boolean
-  controller?: MugenController
+  controller: MugenController
   version: string
   diagnosticExportAvailable?: boolean
   photoshopIntegrationAvailable?: boolean
   themeController?: ThemePreferencesController
 }>()
 
-const localController = props.controller ? undefined : useMugen(props.runtime)
 const localThemeController = props.themeController ? undefined : useThemePreferences()
 const {
   activeCapability,
@@ -85,7 +84,7 @@ const {
   updateSettingsDraft,
   updatePromptPresets,
   useResultAsReference
-} = props.controller ?? localController!
+} = props.controller
 
 const {
   colorMode,

@@ -4,7 +4,7 @@ import {
   providerCapabilities,
   readProviderCapability
 } from '../../../../src/data/providerCapabilities'
-import type { MugenController } from '../../../../src/composables/useMugen'
+import type { MugenController } from '../../../../src/types/mugenController'
 import type {
   AppView,
   CanvasOperationState,
@@ -24,7 +24,7 @@ import type {
   SettingsTestState,
   SettingsView,
 } from '../../../../src/types/mugen'
-import type { CapturedCanvasImage } from '../../../../src/uxp/canvasPrimitives'
+import type { CapturedCanvasImage } from '../../../../src/types/canvas'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../../../../src/utils/promptPresets'
 import type {
   GenerationSnapshot,

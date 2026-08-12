@@ -9,16 +9,26 @@ export const forbiddenBundleMarkers = Object.freeze([
   { id: 'desktop-permission-command', expression: /openMacPermissionSettings/i },
   { id: 'retired-connection-log-command', expression: /crx\.logs\.export/i },
   { id: 'retired-mock-host', expression: /MockHost/i },
-  { id: 'retired-desktop-version', expression: /0\.3\.19/ }
+  { id: 'retired-desktop-version', expression: /0\.3\.19/ },
+  { id: 'adobe-host-global-require', expression: /globalThis\.require/ },
+  { id: 'adobe-host-modal-api', expression: /executeAsModal/ },
+  { id: 'adobe-host-read-pixels-api', expression: /getPixels/ },
+  { id: 'adobe-host-write-pixels-api', expression: /putPixels/ },
+  { id: 'adobe-host-uxp-require', expression: /require\s*\(\s*['"]uxp['"]\s*\)/ },
+  { id: 'adobe-host-photoshop-require', expression: /require\s*\(\s*['"]photoshop['"]\s*\)/ }
 ])
 
 export const forbiddenSourceModuleSuffixes = Object.freeze([
-  '/src/host/mockHost.fixture.ts'
+  '/src/host/mockHost.fixture.ts',
+  '/src/ccx/',
+  '/src/uxp/'
 ])
 
 export function findForbiddenSourceModule(moduleId) {
   const normalized = String(moduleId).split('?', 1)[0].replaceAll('\\', '/')
-  return forbiddenSourceModuleSuffixes.find((suffix) => normalized.endsWith(suffix))
+  return forbiddenSourceModuleSuffixes.find((suffix) => suffix.endsWith('/')
+    ? normalized.includes(suffix)
+    : normalized.endsWith(suffix))
 }
 
 const textExtensions = new Set(['.css', '.html', '.js', '.json', '.map', '.mjs', '.svg', '.txt'])

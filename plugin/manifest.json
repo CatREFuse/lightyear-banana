@@ -2,8 +2,8 @@
   "manifestVersion": 5,
   "id": "com.tanshow.mugen",
   "name": "Mugen",
-  "version": "1.0.0",
-  "main": "uxp-panel.html",
+  "version": "1.0.1",
+  "main": "ccx-panel.html",
   "host": {
     "app": "PS",
     "minVersion": "27.3.0",

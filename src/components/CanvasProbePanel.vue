@@ -2,7 +2,7 @@
 import { computed, reactive, shallowRef } from 'vue'
 import { useCanvasProbe, type InsertRect } from '../composables/useCanvasProbe'
 
-type RuntimeName = 'browser' | 'photoshop-uxp'
+type RuntimeName = 'browser' | 'photoshop-ccx'
 type ProbeTab = 'capture' | 'insert'
 
 const props = defineProps<{
@@ -36,7 +36,7 @@ const rect = reactive<InsertRect>({
 const activeTab = shallowRef<ProbeTab>('capture')
 
 const runtimeLabel = computed(() =>
-  props.runtime === 'photoshop-uxp' ? 'Photoshop UXP' : 'Web Preview'
+  props.runtime === 'photoshop-ccx' ? 'Photoshop CCX' : 'Web Preview'
 )
 
 const captureMeta = computed(() => {

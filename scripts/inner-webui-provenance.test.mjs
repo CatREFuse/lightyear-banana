@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import {
-  assertUxpReleaseMatchesInnerWebUiProvenance,
+  assertCcxReleaseMatchesInnerWebUiProvenance,
   verifyEmbeddedInnerWebUiProvenance
 } from './inner-webui-provenance.mjs'
 
@@ -44,7 +44,7 @@ function fixture(t, { dirty = false } = {}) {
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const sourceCommit = 'a'.repeat(40)
   const sourceDirectory = path.join(root, 'apps', 'inner-webui', 'dist')
-  const embeddedDirectory = path.join(root, 'dist', 'ps-uxp', 'webui')
+  const embeddedDirectory = path.join(root, 'dist', 'ccx-host', 'webui')
   const compatibility = {
     schemaVersion: 1,
     webVersion: version,
@@ -71,7 +71,7 @@ function fixture(t, { dirty = false } = {}) {
   }
   json(root, 'apps/inner-webui/dist/release.json', release)
   for (const file of listFiles(sourceDirectory)) {
-    write(root, `dist/ps-uxp/webui/${file}`, readFileSync(path.join(sourceDirectory, file)))
+    write(root, `dist/ccx-host/webui/${file}`, readFileSync(path.join(sourceDirectory, file)))
   }
 
   return {
@@ -114,7 +114,7 @@ test('rejects metadata whose dirty state does not match the actual worktree', (t
   const value = fixture(t, { dirty: true })
   const mismatchedRelease = { ...value.release, dirty: false }
   json(value.root, 'apps/inner-webui/dist/release.json', mismatchedRelease)
-  json(value.root, 'dist/ps-uxp/webui/release.json', mismatchedRelease)
+  json(value.root, 'dist/ccx-host/webui/release.json', mismatchedRelease)
   assert.throws(
     () => verifyEmbeddedInnerWebUiProvenance({
       projectRoot: value.root,
@@ -153,7 +153,7 @@ test('rejects source or embedded metadata from a stale commit', (t) => {
   )
 
   const embeddedFixture = fixture(t)
-  json(embeddedFixture.root, 'dist/ps-uxp/webui/release.json', {
+  json(embeddedFixture.root, 'dist/ccx-host/webui/release.json', {
     ...embeddedFixture.release,
     commit: 'b'.repeat(40)
   })
@@ -169,7 +169,7 @@ test('rejects source or embedded metadata from a stale commit', (t) => {
 
 test('rejects modified embedded bytes even when release metadata was copied', (t) => {
   const value = fixture(t)
-  write(value.root, 'dist/ps-uxp/webui/assets/index.js', 'console.log("modified")')
+  write(value.root, 'dist/ccx-host/webui/assets/index.js', 'console.log("modified")')
   assert.throws(
     () => verifyEmbeddedInnerWebUiProvenance({
       projectRoot: value.root,
@@ -180,7 +180,7 @@ test('rejects modified embedded bytes even when release metadata was copied', (t
   )
 })
 
-test('binds uxp-release sourceCommit to the verified embedded WebUI commit', (t) => {
+test('binds ccx-release sourceCommit to the verified embedded WebUI commit', (t) => {
   const value = fixture(t)
   const verified = verifyEmbeddedInnerWebUiProvenance({
     projectRoot: value.root,
@@ -189,12 +189,12 @@ test('binds uxp-release sourceCommit to the verified embedded WebUI commit', (t)
   })
   const metadata = { sourceCommit: value.sourceCommit, dirty: false }
 
-  assert.equal(assertUxpReleaseMatchesInnerWebUiProvenance(metadata, verified), metadata)
+  assert.equal(assertCcxReleaseMatchesInnerWebUiProvenance(metadata, verified), metadata)
   assert.throws(
-    () => assertUxpReleaseMatchesInnerWebUiProvenance(
+    () => assertCcxReleaseMatchesInnerWebUiProvenance(
       { sourceCommit: 'b'.repeat(40), dirty: false },
       verified
     ),
-    /UXP release sourceCommit must match/
+    /CCX release sourceCommit must match/
   )
 })

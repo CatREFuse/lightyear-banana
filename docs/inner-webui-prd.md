@@ -6,9 +6,9 @@
 
 ## 1. 决策摘要
 
-Mugen WebUI vNext 从原 Electron UI 源码平移，随后适配 CCX 和普通浏览器两个运行时。Electron 桌面端、Inner WebUI 0.1 和 Standalone UXP 产品实现均已废弃或归档。
+Mugen WebUI vNext 从原 Electron UI 源码平移，随后适配 CCX 和普通浏览器两个运行时。Electron 桌面端与 Inner WebUI 0.1 已废弃，Standalone UXP 产品实现已删除。
 
-Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 UXP Host 获得画布抓取、选区、图层、置入、SecureStorage 和原生权限。普通浏览器独立完成配置与网络生图，不显示任何 Photoshop 读取或置入入口。
+Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host 获得画布抓取、选区、图层、置入、SecureStorage 和原生权限。普通浏览器独立完成配置与网络生图，不显示任何 Photoshop 读取或置入入口。
 
 ## 2. 目标与非目标
 
@@ -33,7 +33,7 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 UXP Host �
 - 不维护 Inner WebUI 0.1 的简化界面或 Mock Host 启动语义。
 - 不恢复 Electron 应用、桌面安装包、自动更新或本地 Bridge。
 - 不把浏览器页面伪装为 Photoshop，也不显示不可用的 Photoshop 按钮。
-- 不继续扩展 `standalone-uxp-plugin/`。
+- 不恢复已经删除的独立 UXP 产品。
 - 不通过截图、设计图或视觉能力重做 Electron UI。
 
 ## 3. 源码平移原则
@@ -94,7 +94,7 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 UXP Host �
 | 真实生图网络流程 | 支持 | 支持 |
 | 任务轮询和取消 | 支持 | 支持 |
 | 结果流、参考、超分 | 支持 | 支持 |
-| 浏览器文件输入 | 支持 | 按 UXP 文件能力适配 |
+| 浏览器文件输入 | 支持 | 按 Adobe 插件文件能力适配 |
 | Photoshop 可见画布 | 不提供 | 支持 |
 | Photoshop 选区 | 不提供 | 支持 |
 | Photoshop 当前图层 | 不提供 | 支持 |
@@ -220,7 +220,7 @@ interface MugenRuntime {
 7. 断言新图层存在，位置、尺寸和内容正确。
 8. 把结果继续作为参考，确认工作流仍可继续。
 
-自动化单元测试、浏览器 Mock 或静态 UXP 校验不能替代该流程。
+自动化单元测试、浏览器 Mock 或静态 CCX 校验不能替代该流程。
 
 ## 11. 迁移与完成定义
 
@@ -237,6 +237,6 @@ interface MugenRuntime {
 
 ## 12. 历史归档
 
-Inner WebUI 0.1 曾采用线上或本地 WebView、`inner-host/v1`、Mock Host 和 CCX Host 的方案，并完成部分协议、单元、Playwright、静态 UXP 与公网验证。旧 PRD 还记录过 Web Host 热发布、Electron 双轨灰度和退出门禁。这些内容描述旧阶段，不再是 vNext 的产品或工程要求。
+Inner WebUI 0.1 曾采用线上或本地 WebView、`inner-host/v1`、Mock Host 和 CCX Host 的方案，并完成部分协议、单元、Playwright、静态 Host 与公网验证。旧 PRD 还记录过 Web Host 热发布、Electron 双轨灰度和退出门禁。这些内容描述旧阶段，不再是 vNext 的产品或工程要求。
 
 `ref/electron-bridge-architecture.md` 和 `docs/inner-webui-deployment.md` 继续保留旧架构与部署历史；开发新功能时不得把其中的 Electron Bridge 或 Inner WebUI 0.1 发布流程恢复为活动依赖。

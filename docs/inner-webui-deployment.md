@@ -2,7 +2,7 @@
 
 > 归档文档：Inner WebUI 0.1、旧官网和本部署流程已废弃。不要用本文件发布 WebUI vNext 或新官网。vNext 发布以 `docs/build-todo-list.md`、`docs/spec.md` 和更新后的实际脚本为准；本文只保留旧版本的部署事实与回滚方法。
 
-Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.1.0`，CCX 使用 `1.0.0`，根目录的 Electron 版本继续按原发行线维护。
+Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.2.0`，CCX 使用自身 Manifest 版本；根目录的 Electron `0.3.19` 仅保留历史兼容信息，不再继续发行。
 
 ## 部署配置
 
@@ -47,7 +47,7 @@ npm run verify:inner-webui:release
 npm run deploy:inner-webui -- --dry-run
 npm run deploy:inner-webui
 npm run verify:inner-webui:public
-npm run package:uxp
+npm run package:ccx
 ```
 
 发布构建必须来自已提交的干净 Git 工作区。`release.json` 会记录提交、构建时间和内容哈希，部署脚本拒绝 `dirty` 构建。
@@ -72,7 +72,7 @@ npm run deploy:inner-webui -- --rollback
 
 ## 发布顺序
 
-先发布并校验 WebUI，随后运行 `npm run package:uxp`。正式 CCX 打包入口会再次把公网 WebUI 与本地发布快照逐字节比对，并要求 Git 工作区干净。CCX 校验会确认 Manifest 版本为 `1.0.0`、WebView 只有一个正式 HTTPS Origin，并扫描构建产物中的旧域名和占位域名。最终产物为 `dist/mugen-1.0.0.ccx`，同目录的发布元数据和 SHA256 sidecar 用于 Electron 打包与产物追踪。
+先发布并校验 WebUI，随后运行 `npm run package:ccx`。正式 CCX 打包入口会再次把公网 WebUI 与本地发布快照逐字节比对，并要求 Git 工作区干净。CCX 校验会确认 Manifest 版本、local-only WebView 边界，并扫描构建产物中的旧域名和占位域名。最终产物为 `dist/mugen-$VERSION.ccx`，同目录的 `ccx-release.json` 和 SHA256 sidecar 用于发布追踪。
 
 安装 CCX 后，在真实 Photoshop 中验证握手、画布抓取、参考图、生成、取消、落图、保存、历史和诊断导出。完成这些验证后，才能按 PRD 的退出门禁停止 Electron 新功能开发。
 

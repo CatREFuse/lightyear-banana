@@ -47,7 +47,7 @@ jobs:
         run: npm run legacy:test:diagnostics
 
       - name: Package verified CCX
-        run: npm run package:uxp
+        run: npm run package:ccx
 
       - name: Package Windows app
         run: npm run legacy:package:electron:win:prepared
@@ -73,18 +73,18 @@ jobs:
             throw "Packaged version is $packagedVersion, expected $version"
           }
           $appResources = Split-Path -Parent $packageJson.FullName
-          $uxpMetadataPath = Join-Path $appResources 'dist/uxp-release.json'
-          if (-not (Test-Path $uxpMetadataPath -PathType Leaf)) {
-            throw 'Packaged UXP release metadata was not found'
+          $ccxMetadataPath = Join-Path $appResources 'dist/ccx-release.json'
+          if (-not (Test-Path $ccxMetadataPath -PathType Leaf)) {
+            throw 'Packaged CCX release metadata was not found'
           }
-          $uxpMetadata = Get-Content $uxpMetadataPath -Raw | ConvertFrom-Json
-          $packagedCcx = Join-Path $appResources "dist/$($uxpMetadata.filename)"
+          $ccxMetadata = Get-Content $ccxMetadataPath -Raw | ConvertFrom-Json
+          $packagedCcx = Join-Path $appResources "dist/$($ccxMetadata.filename)"
           if (-not (Test-Path $packagedCcx -PathType Leaf)) {
             throw "Missing packaged CCX: $packagedCcx"
           }
           $ccxHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $packagedCcx).Hash.ToLowerInvariant()
-          if ($ccxHash -ne $uxpMetadata.sha256) {
-            throw 'Packaged CCX does not match uxp-release.json'
+          if ($ccxHash -ne $ccxMetadata.sha256) {
+            throw 'Packaged CCX does not match ccx-release.json'
           }
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
           "$hash  mugen-$version-win.zip" | Set-Content "$archive.sha256" -Encoding ascii

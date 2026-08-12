@@ -1,11 +1,11 @@
 import type { DiagnosticExport, Handshake, HandshakeResult, HostAssetRef, HostClient, HostCommand, HostCommandPayload, HostCommandResult, HostContext, HostEvent, HostEventName, HostEventPayload, HostRequestOptions, LocalDataClearResult, ModelConfig, PlacementResult, PlacementTarget, ReferenceSource } from '@mugen/inner-protocol'
 import { HostClientError } from '@mugen/inner-protocol'
-import { WebViewHostClient, hasUxpHost } from './webviewHost'
+import { WebViewHostClient, hasCcxHost } from './webviewHost'
 
 export type WebUiRuntime = 'browser' | 'embedded'
 
 export function resolveWebUiRuntime(value: Window = window): WebUiRuntime {
-  return hasUxpHost(value) ? 'embedded' : 'browser'
+  return hasCcxHost(value) ? 'embedded' : 'browser'
 }
 
 class UnavailableHostClient implements HostClient {
@@ -31,8 +31,8 @@ class UnavailableHostClient implements HostClient {
 }
 
 export function createHostClient(value: Window = window): HostClient {
-  if (hasUxpHost(value)) return new WebViewHostClient(value.uxpHost)
+  if (hasCcxHost(value)) return new WebViewHostClient(value.uxpHost)
   return new UnavailableHostClient()
 }
 
-export { WebViewHostClient, hasUxpHost }
+export { WebViewHostClient, hasCcxHost }

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BridgeEnvelope, HostContext } from '@mugen/inner-protocol'
 import { INNER_HOST_PROTOCOL, PROTOCOL_VERSION } from '@mugen/inner-protocol'
-import { WebViewHostClient, type UxpHostBridge } from './webviewHost'
+import { WebViewHostClient, type CcxHostBridge } from './webviewHost'
 
 const context: HostContext = {
   ready: true,
-  hostVersion: '1.0.0',
+  hostVersion: '1.0.1',
   photoshopVersion: '27.0.0',
   platform: 'win32',
   theme: 'dark',
@@ -25,7 +25,7 @@ function envelope(value: Partial<BridgeEnvelope> & Pick<BridgeEnvelope, 'kind' |
 function createHarness() {
   const eventTarget = new EventTarget()
   const sent: BridgeEnvelope[] = []
-  const host: UxpHostBridge = { postMessage(message) { sent.push(message as BridgeEnvelope) } }
+  const host: CcxHostBridge = { postMessage(message) { sent.push(message as BridgeEnvelope) } }
   const fakeWindow = Object.assign(eventTarget, { uxpHost: host, location: { search: '' } }) as unknown as Window
   vi.stubGlobal('window', fakeWindow)
   const dispatch = (message: BridgeEnvelope, source: unknown = host) => {
@@ -60,7 +60,7 @@ describe('WebViewHostClient', () => {
     harness.client.dispose()
   })
 
-  it('accepts messages only from the exact UXP bridge object', async () => {
+  it('accepts messages only from the exact CCX bridge object', async () => {
     const harness = createHarness()
     const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.2.0', clientNonce: 'client-1' })
     const ready = envelope({ kind: 'event', command: 'host.ready', payload: { protocolVersion: PROTOCOL_VERSION, hostNonce: 'host-1' } })

@@ -1,6 +1,6 @@
 # Build TODO List
 
-本清单用于修改版本号、准备 CCX、发布 WebUI 或切换正式官网前的强制检查。当前活动产品是 WebUI vNext、Photoshop CCX 和单屏官网。Electron、旧官网、Inner WebUI 0.1 与 Standalone UXP 已归档。
+本清单用于修改版本号、准备 CCX、发布 WebUI 或切换正式官网前的强制检查。当前活动产品是 WebUI vNext、Photoshop CCX 和单屏官网。Electron、旧官网与 Inner WebUI 0.1 已归档；独立 UXP 产品代码已经删除。
 
 当前阶段允许部署 WebUI vNext、单屏官网与不可变的 CCX 版本文件。完整 macOS、Windows、CCX 与 `SHA256SUMS.txt` 尚未齐备时，必须保留线上 `latest.json`，不得把局部产物声明为完整正式发行；缺失项继续记录 TODO。macOS 与 Windows 包属于历史兼容发行工件，不在官网展示且不属于活动产品。
 
@@ -9,11 +9,11 @@
 - 根 `package.json` 的 Electron `0.3.x` 版本被冻结。正常 vNext 开发不得增加 Electron 版本、恢复桌面入口或生成新的桌面发行说明。
 - Electron UI 源码可在迁移完成前保留，但只作为 WebUI vNext 的代码平移来源，不得作为活动 runtime 依赖。
 - 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、兼容信息、构建元数据和 CCX 内嵌版本一致。
-- 本地 `verify:uxp` 接受干净或脏工作树，但 Inner WebUI `0.2.0` 的源码构建与 CCX 内嵌副本必须绑定当前 HEAD，且两份 `release.json` 的 `dirty` 必须与实际工作树状态一致；内容哈希和逐字节目录比较仍须通过。
-- 正式 `package:uxp` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/uxp-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
+- 本地 `verify:ccx` 接受干净或脏工作树，但 Inner WebUI `0.2.0` 的源码构建与 CCX 内嵌副本必须绑定当前 HEAD，且两份 `release.json` 的 `dirty` 必须与实际工作树状态一致；内容哈希和逐字节目录比较仍须通过。
+- 正式 `package:ccx` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
-- 修改 CCX 版本时，确认 `plugin/manifest.json`、构建后的 `dist/ps-uxp/manifest.json`、CCX 文件名、`.sha256` 与 `dist/uxp-release.json` 一致。
-- `standalone-uxp-plugin/manifest.json` 不再参与活动 CCX 版本链；该目录属于历史原型。
+- 修改 CCX 版本时，确认 `plugin/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
+- 不得恢复 `standalone-uxp-plugin/`、`src/uxp/`、`vite.uxp.config.ts`、`uxp-panel.html` 或旧 `*:uxp` 产品命令。
 - 插件 ID 必须保持 `com.tanshow.mugen`。
 
 ## Electron 历史重建门禁
@@ -43,7 +43,7 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 - 所有成功图片响应固定返回同一张小猫 fixture；不得随机选择不同猫图。
 - 浏览器冒烟验证配置新建、测试、保存、重载、网络生成、小猫结果、错误或取消路径，以及 Photoshop 入口完全不存在。
 - CCX 冒烟在真实 Photoshop 中完成画布抓取、APIMart 请求、小猫图片获取、置入当前文档和新图层断言。
-- 单元测试、浏览器 Mock、静态 `verify:uxp` 或只观察界面不能替代 Photoshop 完整闭环。
+- 单元测试、浏览器 Mock、静态 `verify:ccx` 或只观察界面不能替代 Photoshop 完整闭环。
 
 ## 官方单屏站点门禁
 
@@ -72,7 +72,7 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 - [ ] Electron UI 到 WebUI vNext 的源码迁移映射已评审。
 - [ ] WebUI 单元、Provider、协议、浏览器 E2E 和生产构建通过。
 - [ ] 浏览器 APIMart 冒烟通过，固定小猫与无 Photoshop 入口断言通过。
-- [ ] `npm run verify:uxp` 通过。
+- [ ] `npm run verify:ccx` 通过。
 - [ ] CCX 已在真实 Photoshop 完成抓取、请求、取图、置入完整闭环。
 - [ ] 官网单屏视觉、交互、性能、可访问性与静态兜底通过。
 - [ ] `dist/release-$VERSION/` 的 macOS、Windows、CCX 与 `SHA256SUMS.txt` 齐全且匹配。
@@ -80,8 +80,8 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 
 ## 旧 Inner WebUI 0.1 / CCX 1.0 状态（归档）
 
-- Inner WebUI `0.1.0` 曾通过 `inner-host/v1` 与 UXP Host 接入，并使用本地打包 WebUI。
-- 旧基线曾通过协议、WebUI、UXP Host 和部分发布校验，也曾生成 `dist/mugen-1.0.0.ccx`。
+- Inner WebUI `0.1.0` 曾通过 `inner-host/v1` 与旧 Host 接入，并使用本地打包 WebUI。
+- 旧基线曾通过协议、WebUI、CCX Host 和部分发布校验，也曾生成 `dist/mugen-1.0.0.ccx`。
 - 旧公网 WebUI 和官网曾返回 200，旧域名也曾配置跳转。
 - 真实 Photoshop 的旧 Inner WebUI 完整业务回归未形成正式通过证据。
 - 上述结果只能用于历史追溯，不计入 vNext 发布证据。
@@ -91,7 +91,7 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 ### Electron 0.3.19（归档）
 
 - 本次修复将生图请求从“所有异常自动重试 99 次”收敛为只对网络中断、限流和服务端临时错误最多重试 2 次；参数、鉴权和权限错误立即结束。Electron 诊断导出同步增加脱敏后的生图请求状态、尝试次数和错误原因。
-- 诊断日志测试 8/8、重试策略与既有回归、TypeScript 检查、Web 构建、UXP 构建和 `verify:uxp` 均已通过。
+- 诊断日志测试 8/8、重试策略与既有回归、TypeScript 检查、Web 构建和当时的 CCX Host 构建均已通过。
 - Windows 包由当前 Windows 环境构建，并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.19-win.zip`，build number：`202608090001`，SHA256：`c22c3d3d7153741fcd92906b0024f294f6b1133b14da4331e87ce2f5b15866ef`。
 - CCX 已在 Windows 环境构建并验证根包与内嵌 manifest：`lightyear-banana-0.3.19.ccx`，SHA256：`42c1209d922f896af65e143bb5e37cb1a1620ff3f1bf8f558e6f5b7ee7541b37`。
 - macOS 原生包尚未构建。完整发布前必须从包含本次改动的远端 ref 派发 `Package macOS`，取得 `lightyear-banana-0.3.19-mac.zip` 及 SHA256；当前不创建完整 `dist/release-0.3.19/`，不更新官网 `latest.json` 和静态下载链接。
@@ -100,7 +100,7 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 
 - 本次修复针对 Gemini 图生图偶发未跟随参考图比例：参考图比例匹配 Gemini 支持枚举时，Google Gemini 明确发送 `aspectRatio`，APIMart Gemini 明确发送 `size`；非常规比例继续使用原有自动跟随语义。
 - 附件日志确认 `9504 × 6336` 的 3:2 参考图曾返回 `5504 × 3072` 的近 16:9 结果，同源后续结果恢复为近 3:2；客户端抓图宽高稳定，问题落在 Gemini 自动跟随的软约束。
-- 3:2、2:3、尺寸量化容差、非常规比例回退和显式固定比例回归均已覆盖；诊断日志测试 8/8、比例与画布回归、TypeScript 检查、Web 构建、UXP 构建和 `verify:uxp` 均已通过。
+- 3:2、2:3、尺寸量化容差、非常规比例回退和显式固定比例回归均已覆盖；诊断日志测试 8/8、比例与画布回归、TypeScript 检查、Web 构建和当时的 CCX Host 构建均已通过。
 - Windows 包由当前 Windows 环境构建，并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.18-win.zip`，SHA256：`dd28168b23ab4869a959932da81e47582035d36c136917daa58f5b9e09dca0fe`。
 - CCX 已在 Windows 环境构建并验证根包与内嵌 manifest：`lightyear-banana-0.3.18.ccx`，SHA256：`f5048c975870b51dc9a1e1ae945589f684ed0bd72f47da130376275f36c37a25`。
 - Windows 成品已实际启动并创建 `Lightyear Banana` 窗口；包内版本为 `0.3.18`，Web 资源包含 build number `202607310001`。
@@ -110,7 +110,7 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 ### Electron 0.3.17（归档）
 
 - 本次修复让可见合成图读取绑定 Photoshop 当前活动历史状态，避免直接打开的 Camera Raw／ARW 文档在图层操作后继续使用首次打开时的旧状态；诊断日志同步增加图层数量、历史状态 ID 和名称。
-- 诊断日志测试 8/8、ARW／智能对象历史状态回归、TypeScript 构建、UXP 构建和 `verify:uxp` 均已通过。
+- 诊断日志测试 8/8、ARW／智能对象历史状态回归、TypeScript 构建和当时的 CCX Host 构建均已通过。
 - Windows 包由当前 Windows 环境构建，并完成应用版本、build number、内嵌 CCX 与 SHA256 校验：`lightyear-banana-0.3.17-win.zip`，SHA256：`8ef033193f2d6edd9fb34b675b0ba195affa5c7f7ba6c40c1ec1be43c04a0c5e`。
 - CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.17.ccx`，SHA256：`87aa18b5894554ac1d3f18243cce2d0a2ceeebcd2ca10b08a4443db955f87866`。
 - Windows 成品已使用电脑控制实际启动，并验证版本 `0.3.17` 与 build number `202607270001`。

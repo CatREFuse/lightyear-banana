@@ -16,9 +16,9 @@ const appResourcesDir = path.join(resourcesDir, 'app')
 const appIconName = 'mugen.icns'
 const appIconPath = path.join(resourcesDir, appIconName)
 
-function readUxpRelease() {
-  const metadataPath = path.join(projectRoot, 'dist', 'uxp-release.json')
-  if (!existsSync(metadataPath)) throw new Error('dist/uxp-release.json is required before Electron packaging.')
+function readCcxRelease() {
+  const metadataPath = path.join(projectRoot, 'dist', 'ccx-release.json')
+  if (!existsSync(metadataPath)) throw new Error('dist/ccx-release.json is required before Electron packaging.')
   const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'))
   if (
     metadata?.schemaVersion !== 1 ||
@@ -26,12 +26,12 @@ function readUxpRelease() {
     typeof metadata.filename !== 'string' || path.basename(metadata.filename) !== metadata.filename ||
     metadata.filename !== `${packageJson.name}-${metadata.ccxVersion}.ccx` ||
     typeof metadata.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(metadata.sha256)
-  ) throw new Error('dist/uxp-release.json is invalid.')
+  ) throw new Error('dist/ccx-release.json is invalid.')
   const archivePath = path.join(projectRoot, 'dist', metadata.filename)
   const checksumPath = `${archivePath}.sha256`
   if (!existsSync(archivePath) || !existsSync(checksumPath)) throw new Error('The verified CCX release file set is incomplete.')
   const actualSha256 = createHash('sha256').update(readFileSync(archivePath)).digest('hex')
-  if (actualSha256 !== metadata.sha256.toLowerCase()) throw new Error('CCX archive does not match dist/uxp-release.json.')
+  if (actualSha256 !== metadata.sha256.toLowerCase()) throw new Error('CCX archive does not match dist/ccx-release.json.')
   return { archivePath, checksumPath, metadata, metadataPath }
 }
 
@@ -126,7 +126,7 @@ if (!existsSync(electronApp)) {
   throw new Error('Electron.app not found. Run npm install first.')
 }
 
-const uxpRelease = readUxpRelease()
+const ccxRelease = readCcxRelease()
 
 rmSync(outDir, { force: true, recursive: true })
 rmSync(archivePath, { force: true })
@@ -146,16 +146,16 @@ for (const entry of readdirSync(sourceDist)) {
     entry === 'mac' ||
     entry.endsWith('.ccx') ||
     entry.endsWith('.ccx.sha256') ||
-    entry === 'uxp-release.json'
+    entry === 'ccx-release.json'
   ) {
     continue
   }
 
   cpSync(path.join(sourceDist, entry), path.join(packagedDist, entry), { recursive: true })
 }
-cpSync(uxpRelease.archivePath, path.join(packagedDist, uxpRelease.metadata.filename))
-cpSync(uxpRelease.checksumPath, path.join(packagedDist, `${uxpRelease.metadata.filename}.sha256`))
-cpSync(uxpRelease.metadataPath, path.join(packagedDist, 'uxp-release.json'))
+cpSync(ccxRelease.archivePath, path.join(packagedDist, ccxRelease.metadata.filename))
+cpSync(ccxRelease.checksumPath, path.join(packagedDist, `${ccxRelease.metadata.filename}.sha256`))
+cpSync(ccxRelease.metadataPath, path.join(packagedDist, 'ccx-release.json'))
 
 writeFileSync(
   path.join(appResourcesDir, 'package.json'),

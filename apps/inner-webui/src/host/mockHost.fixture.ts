@@ -63,7 +63,7 @@ const defaultConfig: ModelConfig = {
 
 const defaultContext: HostContext = {
   ready: true,
-  hostVersion: '1.0.0',
+  hostVersion: '1.0.1',
   photoshopVersion: '27.3.0',
   uxpVersion: '8.1.0',
   platform: 'mock',

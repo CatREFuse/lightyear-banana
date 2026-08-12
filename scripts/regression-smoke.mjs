@@ -35,7 +35,7 @@ function compileRegressionSources(outDir) {
     'src/data/providerCapabilities.ts',
     'packages/inner-protocol/src/providerCapabilityData.ts',
     'src/utils/imagePixels.ts',
-    'src/uxp/canvasPrimitives.ts'
+    'src/ccx/canvasPrimitives.ts'
   ], { stdio: 'pipe' })
 
   return join(outDir, 'src')
@@ -1090,7 +1090,7 @@ async function main() {
     const imageApi = requireFromBuild(join(sourceOutDir, 'services', 'imageApiClient.js'))
     const providerCapabilities = requireFromBuild(join(sourceOutDir, 'data', 'providerCapabilities.js'))
     const providerRegistry = requireFromBuild(join(sourceOutDir, 'providers', 'registry.js'))
-    const canvasPrimitives = requireFromBuild(join(sourceOutDir, 'uxp', 'canvasPrimitives.js'))
+    const canvasPrimitives = requireFromBuild(join(sourceOutDir, 'ccx', 'canvasPrimitives.js'))
     await testProviderRegistry(imageApi, providerCapabilities, providerRegistry)
     await testProviderRatios(imageApi)
     await testImageRequestRetryPolicy(imageApi)

@@ -27,12 +27,7 @@ const defaultEnvPath = path.join(projectRoot, 'key.env')
 const defaultSiteDirectory = path.join(projectRoot, 'dist', 'site')
 const defaultRemoteRoot = '/etc/nginx/static/mugen-site'
 const protectedReleaseIndex = 'releases/latest.json'
-const ccxVersion = '1.0.0'
-const ccxFileName = `mugen-${ccxVersion}.ccx`
-const localCcxPath = path.join(projectRoot, 'dist', 'site', 'releases', ccxVersion, ccxFileName)
-const rootCcxPath = path.join(projectRoot, 'dist', ccxFileName)
-const rootCcxSidecarPath = `${rootCcxPath}.sha256`
-const siteCcxSidecarPath = path.join(projectRoot, 'dist', 'site', 'releases', ccxVersion, 'SHA256SUMS.txt')
+const releaseVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 
 function readOption(name) {
   const prefix = `${name}=`
@@ -375,12 +370,52 @@ function parseSingleChecksum(contents, expectedFile, label) {
   return match[1].toLowerCase()
 }
 
-export function validateLocalCcxPayload({
-  siteCcx = localCcxPath,
-  rootCcx = rootCcxPath,
-  rootSidecar = rootCcxSidecarPath,
-  siteSidecar = siteCcxSidecarPath
+function readRequiredJson(filePath, label) {
+  if (!existsSync(filePath) || !lstatSync(filePath).isFile()) {
+    throw new Error(`Missing ${label}: ${filePath}`)
+  }
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf8'))
+  } catch (error) {
+    throw new Error(`${label} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+export function readCcxDeploymentMetadata({
+  projectDirectory = projectRoot,
+  pluginManifestPath = path.join(projectDirectory, 'plugin', 'manifest.json'),
+  ccxMetadataPath = path.join(projectDirectory, 'dist', 'ccx-release.json')
 } = {}) {
+  const pluginManifest = readRequiredJson(pluginManifestPath, 'plugin manifest')
+  const ccxMetadata = readRequiredJson(ccxMetadataPath, 'CCX release metadata')
+  const version = pluginManifest?.version
+  if (typeof version !== 'string' || !releaseVersionPattern.test(version)) {
+    throw new Error('The plugin manifest version must use canonical x.y.z format.')
+  }
+  const fileName = `mugen-${version}.ccx`
+  if (
+    ccxMetadata?.schemaVersion !== 1 ||
+    ccxMetadata.ccxVersion !== version ||
+    ccxMetadata.filename !== fileName ||
+    path.basename(ccxMetadata.filename || '') !== ccxMetadata.filename ||
+    typeof ccxMetadata.sha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(ccxMetadata.sha256) ||
+    ccxMetadata.dirty !== false ||
+    typeof ccxMetadata.sourceCommit !== 'string' ||
+    !/^[a-f0-9]{40,64}$/.test(ccxMetadata.sourceCommit)
+  ) {
+    throw new Error('dist/ccx-release.json does not match the active plugin manifest and clean CCX release contract.')
+  }
+  return { ccxMetadata, ccxMetadataPath, fileName, pluginManifestPath, version }
+}
+
+export function validateLocalCcxPayload(options = {}) {
+  const descriptor = readCcxDeploymentMetadata(options)
+  const { fileName: ccxFileName, version: ccxVersion } = descriptor
+  const rootCcx = options.rootCcx ?? path.join(options.projectDirectory ?? projectRoot, 'dist', ccxFileName)
+  const siteCcx = options.siteCcx ?? path.join(options.projectDirectory ?? projectRoot, 'dist', 'site', 'releases', ccxVersion, ccxFileName)
+  const rootSidecar = options.rootSidecar ?? `${rootCcx}.sha256`
+  const siteSidecar = options.siteSidecar ?? path.join(options.projectDirectory ?? projectRoot, 'dist', 'site', 'releases', ccxVersion, 'SHA256SUMS.txt')
   for (const [label, filePath] of [
     ['site CCX', siteCcx],
     ['root CCX', rootCcx],
@@ -396,8 +431,13 @@ export function validateLocalCcxPayload({
   const siteDigest = fileDigest(siteCcx)
   const expectedFromRoot = parseSingleChecksum(readFileSync(rootSidecar, 'utf8'), ccxFileName, 'Root CCX checksum')
   const expectedFromSite = parseSingleChecksum(readFileSync(siteSidecar, 'utf8'), ccxFileName, 'Site CCX checksum')
-  if (rootDigest !== siteDigest || rootDigest !== expectedFromRoot || rootDigest !== expectedFromSite) {
-    throw new Error('The root CCX, site CCX, and checksum records do not match.')
+  if (
+    rootDigest !== descriptor.ccxMetadata.sha256 ||
+    rootDigest !== siteDigest ||
+    rootDigest !== expectedFromRoot ||
+    rootDigest !== expectedFromSite
+  ) {
+    throw new Error('The CCX release metadata, root CCX, site CCX, and checksum records do not match.')
   }
   const size = lstatSync(siteCcx).size
   if (!size) throw new Error('The optional site CCX is empty.')
@@ -749,9 +789,14 @@ export function createActivationCommand({
     `printf ${shellQuote(`${expectedLatestSha}  ${stage}/releases/latest.json\n`)} | sha256sum -c - >/dev/null`
   ]
   if (ccx) {
+    const ccxVersion = ccx.version
+    const ccxFileName = typeof ccxVersion === 'string' && releaseVersionPattern.test(ccxVersion)
+      ? `mugen-${ccxVersion}.ccx`
+      : ''
     if (
-      ccx.version !== ccxVersion ||
+      !ccxFileName ||
       ccx.fileName !== ccxFileName ||
+      ccx.destination !== `releases/${ccxVersion}/${ccxFileName}` ||
       !/^[a-f0-9]{64}$/.test(ccx.sha256) ||
       !Number.isSafeInteger(ccx.size) ||
       ccx.size < 1 ||
@@ -1332,11 +1377,11 @@ export async function verifyPublicSite({ baseUrl, ccx, expectedLatestSha, record
     assertPublicHeaders(publicCcx.response, ccx.destination)
     const ccxContentType = publicCcx.response.headers.get('content-type')?.toLowerCase() || ''
     if (!/^application\/(?:octet-stream|zip|x-zip-compressed|x-uxp-plugin|vnd\.adobe\.uxp-plugin)\b/.test(ccxContentType)) {
-      throw new Error('Public Mugen 1.0.0 CCX has an invalid Content-Type.')
+      throw new Error(`Public Mugen ${ccx.version} CCX has an invalid Content-Type.`)
     }
     const digest = createHash('sha256').update(publicCcx.bytes).digest('hex')
     if (publicCcx.bytes.byteLength !== ccx.size || digest !== ccx.sha256) {
-      throw new Error('Public Mugen 1.0.0 CCX does not match the local immutable payload.')
+      throw new Error(`Public Mugen ${ccx.version} CCX does not match the local immutable payload.`)
     }
     const checksumPath = `releases/${ccx.version}/${ccx.checksum.fileName}`
     const publicChecksum = await fetchPublicFile(baseUrl, checksumPath, 64 * 1024)
@@ -1344,7 +1389,7 @@ export async function verifyPublicSite({ baseUrl, ccx, expectedLatestSha, record
     assertContentType(publicChecksum.response, checksumPath)
     const checksumDigest = createHash('sha256').update(publicChecksum.bytes).digest('hex')
     if (publicChecksum.bytes.byteLength !== ccx.checksum.size || checksumDigest !== ccx.checksum.sha256) {
-      throw new Error('Public Mugen 1.0.0 SHA256SUMS.txt does not match the local immutable payload.')
+      throw new Error(`Public Mugen ${ccx.version} SHA256SUMS.txt does not match the local immutable payload.`)
     }
   }
   return { latestSha: latestDigest, verifiedFiles: records.length + 1 + (ccx ? 2 : 0) }
@@ -1402,7 +1447,7 @@ function printUsage() {
     'Usage: node scripts/deploy-site.mjs [options]',
     '',
     '  --dry-run                 build and validate a stable local snapshot only',
-    '  --include-ccx             merge dist/site/releases/1.0.0/mugen-1.0.0.ccx',
+    '  --include-ccx             merge the version declared by plugin/manifest.json and dist/ccx-release.json',
     '  --rollback                restore previous with an atomic current-link switch',
     '  --env <path>              deployment environment file (default: key.env)',
     '  --site-id <id>            explicit immutable site release ID',

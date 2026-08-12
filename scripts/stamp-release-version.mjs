@@ -171,7 +171,7 @@ function verifyReleaseVersion(read = readText) {
       throw new Error(`${label} is missing ${JSON.stringify(expected)}`)
     }
   }
-  assertTargetContains(targetFiles.electronMain, 'uxp-release.json', 'electron UXP release metadata lookup')
+  assertTargetContains(targetFiles.electronMain, 'ccx-release.json', 'electron CCX release metadata lookup')
   assertTargetContains(targetFiles.buildInfo, `version: '${version}'`, 'buildInfo version')
   assertTargetContains(targetFiles.buildInfo, `buildNumber: '${buildNumber}'`, 'buildInfo build number')
   assertTargetContains(
