@@ -130,7 +130,7 @@ for permission_path in "$active_path" "$candidate_path"; do
 done
 
 file_sha256() {
-  sha256sum -- "$1" | awk 'NF == 2 && $1 ~ /^[a-f0-9]{64}$/ { print $1; found=1 } END { if (!found) exit 1 }'
+  sha256sum -- "$1" | awk 'NF == 2 && length($1) == 64 && $1 ~ /^[a-f0-9]+$/ { print $1; found=1 } END { if (!found) exit 1 }'
 }
 
 exec 9>"$lock_file"

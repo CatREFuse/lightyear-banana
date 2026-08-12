@@ -341,6 +341,8 @@ test('transaction script pins both hashes and restores before reloading on failu
   assert.match(script, /active_after=/)
   assert.match(script, /active_pre_swap=/)
   assert.match(script, /test -s "\$restore_path"/)
+  assert.match(script, /length\(\$1\) == 64/)
+  assert.doesNotMatch(script, /\[a-f0-9\]\{64\}/)
   assert.doesNotMatch(script, /if ! restore_previous/)
 })
 
