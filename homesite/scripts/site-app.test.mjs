@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  createConsecutiveActivation,
   createPrismLifecycle,
   installWordmarkFallback,
   resolveCcxReleaseUpdate
@@ -168,4 +169,37 @@ test('uses the static fallback when scene construction fails', async () => {
 
   await assert.doesNotReject(lifecycle.initialize())
   assert.equal(stage.classes.has('webgl-unavailable'), true)
+})
+
+test('unlocks the prism controls on five consecutive prism clicks', () => {
+  let currentTime = 0
+  let activations = 0
+  const unlock = createConsecutiveActivation({
+    onActivate: () => { activations += 1 },
+    now: () => currentTime
+  })
+
+  for (let index = 0; index < 4; index += 1) {
+    assert.equal(unlock.trigger(), false)
+    currentTime += 120
+  }
+  assert.equal(unlock.trigger(), true)
+  assert.equal(activations, 1)
+})
+
+test('resets the prism click sequence when clicks are too far apart', () => {
+  let currentTime = 0
+  let activations = 0
+  const unlock = createConsecutiveActivation({
+    onActivate: () => { activations += 1 },
+    now: () => currentTime
+  })
+
+  for (let index = 0; index < 4; index += 1) {
+    unlock.trigger()
+    currentTime += 120
+  }
+  currentTime += 900
+  assert.equal(unlock.trigger(), false)
+  assert.equal(activations, 0)
 })
