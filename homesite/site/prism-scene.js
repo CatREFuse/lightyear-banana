@@ -2,10 +2,10 @@ import * as THREE from './vendor/three.module.min.js'
 import { RoomEnvironment } from './vendor/RoomEnvironment.js'
 
 export const defaultPrismParams = Object.freeze({
-  dispersionOffsetScale: 5,
-  baseGlassIor: 1.49,
-  rotationSpeed: 1,
-  incidentAngle: 2.6
+  dispersionOffsetScale: 2.5,
+  baseGlassIor: 1.3,
+  rotationSpeed: 0.55,
+  incidentAngle: 8
 })
 
 const spectrum = [
@@ -218,6 +218,27 @@ function findSurfaceHit(object, origin, direction, near) {
   object.getWorldPosition(objectCenter)
   if (normal.dot(new THREE.Vector3().subVectors(hit.point, objectCenter)) < 0) normal.negate()
   return { point: hit.point.clone(), normal }
+}
+
+export function resolveIncidentRay(prism, origin, intendedDirection) {
+  const direction = new THREE.Vector3().copy(intendedDirection).normalize()
+  const intendedHit = findSurfaceHit(prism, origin, direction, 0.001)
+  if (intendedHit) return { direction, hit: intendedHit, corrected: false }
+
+  const center = new THREE.Vector3()
+  prism.getWorldPosition(center)
+  const correctedDirection = center.sub(origin).normalize()
+  const correctedHit = findSurfaceHit(prism, origin, correctedDirection, 0.001)
+  if (correctedHit) return { direction: correctedDirection, hit: correctedHit, corrected: true }
+
+  return {
+    direction: correctedDirection,
+    hit: {
+      point: new THREE.Vector3().copy(origin).addScaledVector(correctedDirection, incomingBeamDistance),
+      normal: entryFaceNormal.clone()
+    },
+    corrected: true
+  }
 }
 
 function refractDirection(direction, outwardNormal, fromIor, toIor) {
@@ -474,8 +495,8 @@ export function createPrismScene(canvas, stage, options = {}) {
       attenuationColor: new THREE.Color('#bafcff'),
       attenuationDistance: 4.6,
       clearcoat: 1,
-      clearcoatRoughness: 0.14,
-      envMapIntensity: 0.28,
+      clearcoatRoughness: 0.06,
+      envMapIntensity: 0.9,
       iridescence: 0.2,
       iridescenceIOR: 1.36,
       iridescenceThicknessRange: [120, 540],
@@ -669,17 +690,16 @@ export function createPrismScene(canvas, stage, options = {}) {
         innerGlow.scale.setScalar(0.92 + pulse * 0.035)
         prismGroup.updateMatrixWorld(true)
 
-        const incidentDirection = createIncidentDirection(params.incidentAngle)
-        const incomingBeamStart = createIncomingStart(incidentDirection, -0.18)
-        const incomingGlowStart = createIncomingStart(incidentDirection, -0.19)
+        const requestedIncidentDirection = createIncidentDirection(params.incidentAngle)
+        const incomingBeamStart = createIncomingStart(requestedIncidentDirection, -0.18)
+        const incomingGlowStart = createIncomingStart(requestedIncidentDirection, -0.19)
+        const incidentRay = resolveIncidentRay(prism, incomingBeamStart, requestedIncidentDirection)
+        const incidentDirection = incidentRay.direction
         const referenceIor = getIorForOffset(referenceIorOffset, params)
         prismMaterial.ior = params.baseGlassIor
         prismMaterial.dispersion = 0.74 * params.dispersionOffsetScale
-        const entryHit = findSurfaceHit(prism, incomingBeamStart, incidentDirection, 0.001)
-        if (entryHit) {
-          entrySurfacePoint = entryHit.point
-          entrySurfaceNormal = entryHit.normal
-        }
+        entrySurfacePoint = incidentRay.hit.point
+        entrySurfaceNormal = incidentRay.hit.normal
         beamMaterials.forEach((material, index) => {
           material.uniforms.uTime.value = elapsed + index * 0.19
         })
