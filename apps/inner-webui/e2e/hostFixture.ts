@@ -16,7 +16,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     const trace: TestHostTrace = { commands: [], captures: [], network: [], placements: [] }
     const context = {
       ready: true,
-      hostVersion: '1.0.1',
+      hostVersion: '1.0.2',
       photoshopVersion: '27.3.0',
       uxpVersion: '8.1.0',
       platform: 'darwin',
@@ -260,7 +260,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     }) as typeof window.postMessage
 
     const readyTimer = window.setInterval(() => {
-      emit('event', 'host.ready', { protocolVersion: 1, hostNonce, hostVersion: '1.0.1' }, `e2e-ready-${Date.now()}`)
+      emit('event', 'host.ready', { protocolVersion: 1, hostNonce, hostVersion: '1.0.2' }, `e2e-ready-${Date.now()}`)
     }, 25)
     window.setTimeout(() => window.clearInterval(readyTimer), 3_000)
   }, {

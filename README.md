@@ -10,7 +10,7 @@ Mugen vNext 是一个同时运行在普通浏览器和 Photoshop CCX 中的图�
 | --- | --- |
 | 官方单屏站点 vNext | 开发中 |
 | Inner WebUI vNext `0.2.0` | 开发中 |
-| Photoshop CCX `1.0.1` | 活动 |
+| Photoshop CCX `1.0.2` | 活动 |
 | APIMart 本地测试夹具 | 活动 |
 | Electron 桌面端 `0.3.19` | 已废弃 |
 | Inner WebUI 0.1 | 已废弃 |
