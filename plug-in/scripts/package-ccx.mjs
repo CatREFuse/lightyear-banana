@@ -9,12 +9,14 @@ import { resolveReleaseProvenance } from './release-provenance.mjs'
 import { createCcxReleaseMetadata } from './ccx-release-metadata.mjs'
 import {
   createVerifiedDirectorySnapshot,
+  normalizeUdtManifestBytes,
   verifyArchiveMatchesDirectory
 } from './package-archive-integrity.mjs'
 import {
   assertCcxReleaseMatchesInnerWebUiProvenance,
   verifyEmbeddedInnerWebUiProvenance
 } from './inner-webui-provenance.mjs'
+import { createUdtCompatibleZip } from './udt-compatible-zip.mjs'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const provenance = resolveReleaseProvenance(projectRoot)
@@ -114,31 +116,10 @@ try {
     requireClean: true
   })
 
-  if (process.platform === 'win32') {
-    execFileSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        '$ErrorActionPreference = "Stop"; ' +
-          'Get-ChildItem -LiteralPath $env:MUGEN_CCX_SOURCE_DIR -Force | ' +
-          'Compress-Archive -DestinationPath $env:MUGEN_CCX_ARCHIVE_PATH -Force'
-      ],
-      {
-        cwd: projectRoot,
-        env: {
-          ...process.env,
-          MUGEN_CCX_ARCHIVE_PATH: temporaryArchivePath,
-          MUGEN_CCX_SOURCE_DIR: stagedSourceDir
-        },
-        stdio: 'inherit'
-      }
-    )
-  } else {
-    execFileSync('zip', ['-r', '-q', temporaryArchivePath, '.'], { cwd: stagedSourceDir, stdio: 'inherit' })
-  }
+  createUdtCompatibleZip({
+    sourceDirectory: stagedSourceDir,
+    archivePath: temporaryArchivePath
+  })
 
   if (!existsSync(temporaryArchivePath)) {
     throw new Error(`Temporary CCX archive was not created: ${temporaryArchivePath}`)
@@ -186,6 +167,8 @@ try {
   verifyArchiveMatchesDirectory({
     sourceDirectory: stagedSourceDir,
     archiveEntries: entries,
+    normalizeFileBytes: (file, bytes) =>
+      file === 'manifest.json' ? normalizeUdtManifestBytes(bytes) : bytes,
     readArchiveEntry: (entry) => execFileSync(
       'tar',
       ['-xOf', temporaryArchivePath, entry],

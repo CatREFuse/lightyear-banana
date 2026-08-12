@@ -85,6 +85,29 @@ plugin/                   当前 CCX Manifest 和图标
 
 静态校验不能替代真实 Photoshop 的抓取、请求、取图和置入闭环。
 
+## UDT 兼容打包格式
+
+Windows 正式 CCX 由 `plug-in/scripts/package-ccx.mjs` 从已验证的 `dist/ccx-host/` 生成。脚本使用 `udt-compatible-zip.mjs` 写出与 Adobe UXP Developer Tools `Package` 产物一致的关键 ZIP 特征；PowerShell `Compress-Archive` 和系统右键压缩不能直接生成正式发行包。
+
+UDT 产物具有以下可校验特征：
+
+- CCX 是 ZIP 容器，归档根目录直接包含 `manifest.json`、`ccx-panel.html`、`assets/`、`icons/` 与 `webui/`，不能再套一层父目录，也不写独立目录条目。
+- 归档中的 Manifest 必须保持 `manifestVersion: 5`、`id: "com.tanshow.mugen"`、`host.app: "PS"`，版本必须与 `plug-in/manifest.json` 和 `dist/ccx-host/manifest.json` 一致。
+- `manifest.json` 排在首项，并移除末尾的单个 LF 或 CRLF，与 UDT 的 Manifest 行为一致；发布校验只对这一处换行差异做归一化，其他文件仍逐字节匹配 `dist/ccx-host/`。
+- 文件使用 Deflate、ZIP 数据描述符、Unix create-system 元数据和 `0644` 权限，避免 Windows 通用压缩器产生的权限与条目标记差异。
+- 归档文件集必须与已验证的 `dist/ccx-host/` 完全一致，不能包含额外父目录、源码映射、开发入口或临时文件。
+- `plug-in/scripts/package-ccx.mjs` 从不可变 staging 快照生成 `dist/mugen-<version>.ccx`，随后逐文件回读归档并生成 `.sha256` 与 `dist/ccx-release.json`。
+- 正式打包要求干净工作树。内嵌 WebUI 的两份 `release.json`、CCX 发布元数据和归档内容都绑定同一个 Git HEAD。
+
+Windows 操作顺序：
+
+```text
+npm run verify:ccx
+npm run package:ccx:local
+```
+
+可将同一 `dist/ccx-host/manifest.json` 交给 UDT `Package` 生成对照包，比较条目和 ZIP 元数据，但正式产物无需依赖 UDT 图形操作。最终分发验收仍使用资源管理器双击 `dist/mugen-<version>.ccx`，确认 Creative Cloud 显示第三方插件提示、安装完成并能在 Photoshop 中打开。命令行 `/install` 只用于诊断，不能作为分发验收结果。
+
 ## UI 写法
 
 - WebUI 组件使用 `<script setup lang="ts">` 和明确类型。

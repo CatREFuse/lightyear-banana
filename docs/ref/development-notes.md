@@ -94,13 +94,19 @@ npm run verify:ccx
 
 ## 打包规则
 
-生成 CCX：
+构建并校验 CCX Host：
 
 ```bash
-npm run package:ccx
+npm run verify:ccx
 ```
 
-打包前会先执行 `verify:ccx`。产物文件名和版本从当前 CCX Manifest 读取，并满足 `docs/build-todo-list.md` 的版本、SHA256 与发布元数据门禁。
+在干净工作树中运行发布脚本：
+
+```powershell
+npm run package:ccx:local
+```
+
+发布脚本从不可变 staging 快照生成 UDT 格式兼容归档，回读校验文件集、Manifest 和逐文件内容，随后生成 `dist/mugen-<version>.ccx`、`.sha256` 与 `dist/ccx-release.json`。ZIP 特征和允许的 Manifest 末尾换行差异见 `docs/ref/framework-build.md`。
 
 ## Windows Codex 插件索引修复
 
