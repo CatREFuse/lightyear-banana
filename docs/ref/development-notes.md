@@ -94,13 +94,20 @@ npm run verify:ccx
 
 ## 打包规则
 
-生成 CCX：
+构建并校验 CCX Host：
 
 ```bash
-npm run package:ccx
+npm run verify:ccx
 ```
 
-打包前会先执行 `verify:ccx`。产物文件名和版本从当前 CCX Manifest 读取，并满足 `docs/build-todo-list.md` 的版本、SHA256 与发布元数据门禁。
+在 Adobe UXP Developer Tools 中加载 `dist/ccx-host/manifest.json` 并执行 `Package`，再把生成的 `com.tanshow.mugen_PS.ccx` 路径传给发布脚本：
+
+```powershell
+$env:MUGEN_UDT_CCX_PATH = '<UDT 输出的 com.tanshow.mugen_PS.ccx>'
+npm run package:ccx:local
+```
+
+发布脚本校验 UDT 归档与已验证构建的文件集、Manifest 和逐文件内容，随后生成 `dist/mugen-<version>.ccx`、`.sha256` 与 `dist/ccx-release.json`。UDT 打包特征和允许的 Manifest 末尾换行差异见 `docs/ref/framework-build.md`。
 
 ## Windows Codex 插件索引修复
 

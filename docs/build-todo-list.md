@@ -13,6 +13,7 @@
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
 - 修改 CCX 版本时，确认 `plug-in/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
 - Windows CCX 必须通过 Adobe UXP Developer Tools 的 `Package` 动作生成；通用压缩工具不得代替 UDT。资源管理器双击安装及 Photoshop 可用性由分发验收确认，命令行安装不能代替该结果。
+- UDT 原始产物必须命名为 `com.tanshow.mugen_PS.ccx`，归档根目录直接包含 Manifest 与运行资源；发布脚本只允许归一化 `manifest.json` 末尾的单个换行，其他条目必须与 `dist/ccx-host/` 逐字节一致。完整特征见 `docs/ref/framework-build.md`。
 - 不得恢复 `standalone-uxp-plugin/`、`src/uxp/`、`vite.uxp.config.ts`、`uxp-panel.html` 或旧 `*:uxp` 产品命令。
 - 插件 ID 必须保持 `com.tanshow.mugen`。
 
