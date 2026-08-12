@@ -320,7 +320,7 @@ export function validateSiteBuild(directory = defaultSiteDirectory) {
     'app.js',
     'prism-optics.js',
     'prism-scene.js',
-    'assets/mugen-wordmark-4k.png',
+    'assets/mugen-wordmark-imagegen-v2-4k.png',
     'vendor/three.module.min.js',
     siteReleaseFileName,
     siteManifestFileName

@@ -19,6 +19,7 @@ key.env
 # Local deployment credentials and generated workspace artifacts
 key.env
 .tmp/
+tmp/
 
 # Editor directories and files
 .vscode/*

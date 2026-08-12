@@ -74,7 +74,7 @@ function createSiteFixture(context) {
     'app.js',
     'prism-optics.js',
     'prism-scene.js',
-    'assets/mugen-wordmark-4k.png',
+    'assets/mugen-wordmark-imagegen-v2-4k.png',
     'vendor/three.module.min.js'
   ]) write(root, file, `fixture:${file}`)
   write(root, 'vendor/THREE-LICENSE.txt', 'license')
@@ -101,7 +101,7 @@ test('creates a stable full site snapshot while excluding every local release fi
   assert.equal(existsSync(path.join(destination, 'releases')), false)
   assert.equal(readFileSync(path.join(destination, 'index.html'), 'utf8'), 'fixture:index.html')
   assert.equal(result.snapshotHash, calculateSnapshotHash(createFileRecords(destination)))
-  assert.match(createSha256Manifest(result.records), /^[a-f0-9]{64}  \.\/assets\/mugen-wordmark-4k\.png/m)
+  assert.match(createSha256Manifest(result.records), /^[a-f0-9]{64}  \.\/assets\/mugen-wordmark-imagegen-v2-4k\.png/m)
 })
 
 test('refuses a build without the protected release index even though that index is never uploaded', (context) => {
