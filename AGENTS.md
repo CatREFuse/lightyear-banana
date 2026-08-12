@@ -50,24 +50,24 @@
 
 ## Mugen 开发参考路由
 
-开发本项目时优先查阅 `ref/`。`docs/` 保留研究过程和更完整背景，`ref/` 是后续开发的直接参考。
+开发本项目时优先查阅 `docs/ref/`。`docs/` 保留研究过程和更完整背景，`docs/ref/` 是后续开发的直接参考。
 
 | 任务 | 查阅文件 |
 | --- | --- |
 | 当前功能规格、Nothing 主题、Provider 注册层、预设提示词 | `docs/spec.md` |
-| 项目定位、当前验证状态、运行命令、源码入口 | `ref/project-baseline.md` |
-| Photoshop 画布抓图、选区、图层、插图等交互原语 | `ref/canvas-primitives.md` |
-| CCX entrypoint、Photoshop host、imaging、modal、batchPlay、文件访问等原子能力 | `ref/atomic-capabilities.md` |
-| Vue 3、Vite、TypeScript、Manifest v5、CCX 构建和校验 | `ref/framework-build.md` |
-| UDT 加载、Reload/Unload、真实 Photoshop 验证、错误处理、UI 文案注意事项 | `ref/development-notes.md` |
-| 主流生图模型 API 格式、spec、参考图上限、Provider Adapter 设计 | `ref/image-model-api-specs.md` |
-| 参考文件总入口 | `ref/README.md` |
+| 项目定位、当前验证状态、运行命令、源码入口 | `docs/ref/project-baseline.md` |
+| Photoshop 画布抓图、选区、图层、插图等交互原语 | `docs/ref/canvas-primitives.md` |
+| CCX entrypoint、Photoshop host、imaging、modal、batchPlay、文件访问等原子能力 | `docs/ref/atomic-capabilities.md` |
+| Vue 3、Vite、TypeScript、Manifest v5、CCX 构建和校验 | `docs/ref/framework-build.md` |
+| UDT 加载、Reload/Unload、真实 Photoshop 验证、错误处理、UI 文案注意事项 | `docs/ref/development-notes.md` |
+| 主流生图模型 API 格式、spec、参考图上限、Provider Adapter 设计 | `docs/ref/image-model-api-specs.md` |
+| 参考文件总入口 | `docs/ref/README.md` |
 
 ## 开发约定
 
 - 所有功能改动必须符合需求文档；动手前先核对 `docs/mugen-prototype-requirements.md` 和相关交互文档，改完后自查本次变更是否违背需求文档。
 - 如果实现和需求文档不一致，先更新或确认需求文档，再继续改代码；不得把临时实现默认为新需求。
-- 新增 Photoshop 画布能力时，先在 `src/ccx/canvasPrimitives.ts` 增加最小原子函数，再由 `src/ccx/canvasPrimitiveService.ts` 暴露服务层方法。
+- 新增 Photoshop 画布能力时，先在 `plug-in/src/ccx/canvasPrimitives.ts` 增加最小原子函数，再由 `plug-in/src/ccx/canvasPrimitiveService.ts` 暴露服务层方法。
 - Vue 组件和 composable 不直接拼复杂 batchPlay descriptor。
 - 修改 Photoshop 文档状态的操作必须进入 `core.executeAsModal()`。
 - 改 Vue、TypeScript、CSS 后运行 `npm run build:ccx`，再在 Adobe UXP Developer Tools 中 `Reload`。

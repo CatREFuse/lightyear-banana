@@ -6,16 +6,16 @@
 
 | 想查什么 | 先看 |
 | --- | --- |
-| 项目在做什么、当前验证到哪里、怎么运行 | `ref/project-baseline.md` |
+| 项目在做什么、当前验证到哪里、怎么运行 | `docs/ref/project-baseline.md` |
 | vNext 标定了哪些功能、官网和双运行时怎么验收 | `docs/mugen-prototype-requirements.md` |
 | 工作台、结果流、设置页及浏览器／CCX 怎么交互 | `docs/mugen-interaction-spec.md` |
-| Photoshop 画布抓图、选区、图层、插图等交互原语 | `ref/canvas-primitives.md` |
-| CCX entrypoint、Photoshop host、imaging、modal、文件访问等原子能力 | `ref/atomic-capabilities.md` |
-| Vue 3 + Vite + TypeScript + Manifest v5 的框架和构建方式 | `ref/framework-build.md` |
-| CCX Host 壳、Adobe Spectrum Widgets 与 WebView 边界 | `ref/ccx-adobe-runtime-rules.md` |
+| Photoshop 画布抓图、选区、图层、插图等交互原语 | `docs/ref/canvas-primitives.md` |
+| CCX entrypoint、Photoshop host、imaging、modal、文件访问等原子能力 | `docs/ref/atomic-capabilities.md` |
+| Vue 3 + Vite + TypeScript + Manifest v5 的框架和构建方式 | `docs/ref/framework-build.md` |
+| CCX Host 壳、Adobe Spectrum Widgets 与 WebView 边界 | `docs/ref/ccx-adobe-runtime-rules.md` |
 | WebUI vNext 与 Browser/CCX 双运行时门禁 | `docs/inner-webui-prd.md` |
-| 开发、调试、加载、验证、扩展时需要注意的事项 | `ref/development-notes.md` |
-| 主流生图模型 API 格式、参考图上限和接入差异 | `ref/image-model-api-specs.md` |
+| 开发、调试、加载、验证、扩展时需要注意的事项 | `docs/ref/development-notes.md` |
+| 主流生图模型 API 格式、参考图上限和接入差异 | `docs/ref/image-model-api-specs.md` |
 
 ## 源文件
 
@@ -26,11 +26,11 @@
 - `docs/mugen-interaction-spec.md`
 - `docs/research-notes.md`
 - Adobe Premiere Pro / Photoshop / InDesign UXP 官方文档与 samples
-- `src/ccx/main.ts`
-- `src/ccx/photoshopHost.ts`
-- `src/ccx/canvasPrimitives.ts`
-- `src/ccx/canvasPrimitiveService.ts`
+- `plug-in/src/ccx/main.ts`
+- `plug-in/src/ccx/photoshopHost.ts`
+- `plug-in/src/ccx/canvasPrimitives.ts`
+- `plug-in/src/ccx/canvasPrimitiveService.ts`
 - `vite.ccx.config.ts`
-- `plugin/manifest.json`
-- `scripts/verify-ccx-build.mjs`
+- `plug-in/manifest.json`
+- `plug-in/scripts/verify-ccx-build.mjs`
 - 外部官方/准官方生图 API 文档

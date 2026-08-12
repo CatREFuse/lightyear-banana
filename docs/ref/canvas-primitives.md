@@ -4,8 +4,8 @@
 
 画布交互能力分为两层：
 
-- `src/ccx/canvasPrimitiveService.ts` 面向业务调用。
-- `src/ccx/canvasPrimitives.ts` 面向 Photoshop API 细节。
+- `plug-in/src/ccx/canvasPrimitiveService.ts` 面向业务调用。
+- `plug-in/src/ccx/canvasPrimitives.ts` 面向 Photoshop API 细节。
 
 业务代码默认调用 `canvasPrimitiveService`。只有新增 Photoshop 底层能力时，才进入 `canvasPrimitives.ts`。
 
@@ -108,9 +108,9 @@ await canvasPrimitiveService.insertImage(image, {
 
 新增画布能力时按这个顺序改：
 
-1. 在 `src/ccx/canvasPrimitives.ts` 增加最小原子函数。
-2. 在 `src/ccx/canvasPrimitiveService.ts` 暴露稳定方法。
-3. 在 `src/composables/useCanvasProbe.ts` 或后续业务 composable 中组织状态。
+1. 在 `plug-in/src/ccx/canvasPrimitives.ts` 增加最小原子函数。
+2. 在 `plug-in/src/ccx/canvasPrimitiveService.ts` 暴露稳定方法。
+3. 在 `webui/src/composables/useCanvasProbe.ts` 或后续业务 composable 中组织状态。
 4. 在面板或业务 UI 中调用服务层。
 5. 更新 `ref/canvas-primitives.md` 或对应参考文件。
 

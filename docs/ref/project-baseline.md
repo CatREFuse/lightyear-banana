@@ -37,24 +37,24 @@ Mugen 是一个同时运行在普通浏览器和 Photoshop CCX 中的图像生�
 - Electron runtime、preload、IPC、Bridge Server 和桌面窗口不得成为 WebUI vNext 依赖。
 - 普通浏览器中完全移除画布、选区、图层读取和 Photoshop 置入入口，不提供 Mock 占位。
 - CCX 中保留完整 Photoshop 工作流。
-- 新增画布能力先进入 `src/ccx/canvasPrimitives.ts`，再由 `src/ccx/canvasPrimitiveService.ts` 暴露。
+- 新增画布能力先进入 `plug-in/src/ccx/canvasPrimitives.ts`，再由 `plug-in/src/ccx/canvasPrimitiveService.ts` 暴露。
 - 生产运行时不自动启用 Mock Host 或 APIMart 测试配置。
 
 ## 当前代码入口
 
 | 模块 | 当前用途 |
 | --- | --- |
-| `src/components/mugen/` | Electron UI 的共享组件与 vNext 平移来源 |
-| `src/composables/useMugen.ts` | 原工作台状态和行为的迁移来源 |
-| `src/providers/` | Provider 合同、能力、注册与 wire 兼容逻辑 |
-| `apps/inner-webui/src/` | WebUI vNext 目标工程；旧 0.1 入口应被替换 |
+| `webui/src/components/mugen/` | Electron UI 的共享组件与 vNext 平移来源 |
+| `webui/src/composables/useMugen.ts` | 原工作台状态和行为的迁移来源 |
+| `packages/mugen-core/src/providers/` | Provider 合同、能力、注册与 wire 兼容逻辑 |
+| `webui/src/` | WebUI vNext 目标工程；旧 0.1 入口应被替换 |
 | `packages/inner-protocol/src/` | CCX Host 消息合同；按 vNext 兼容需要演进 |
-| `src/ccx/main.ts` | CCX panel、会话和 Host 注册 |
-| `src/ccx/inner/` | CCX 资产、历史、Provider、存储与确认能力 |
-| `src/ccx/canvasPrimitiveService.ts` | 画布业务服务层 |
-| `src/ccx/canvasPrimitives.ts` | Photoshop imaging、选区、图层与写入原语 |
-| `scripts/apimart-smoke-server.mjs` | vNext APIMart 固定小猫 fixture、状态与请求记录 |
-| `scripts/mock-image-api-server.mjs` | 历史多 Provider Mock 回归 |
+| `plug-in/src/ccx/main.ts` | CCX panel、会话和 Host 注册 |
+| `plug-in/src/ccx/inner/` | CCX 资产、历史、Provider、存储与确认能力 |
+| `plug-in/src/ccx/canvasPrimitiveService.ts` | 画布业务服务层 |
+| `plug-in/src/ccx/canvasPrimitives.ts` | Photoshop imaging、选区、图层与写入原语 |
+| `utils/apimart-smoke-server.mjs` | vNext APIMart 固定小猫 fixture、状态与请求记录 |
+| `utils/mock-image-api-server.mjs` | 历史多 Provider Mock 回归 |
 | `site/` | 官方单屏站点 vNext 目标目录；旧内容已废弃 |
 
 ## 常用命令
@@ -107,7 +107,7 @@ npm run build:site
 - `docs/mugen-interaction-spec.md`：工作台与双运行时交互。
 - `docs/build-todo-list.md`：版本、CCX、官网与发布门禁。
 - `docs/mock-image-api-server.md`：APIMart 本地夹具。
-- `ref/canvas-primitives.md`：画布交互原语。
-- `ref/atomic-capabilities.md`：UXP 原子能力。
-- `ref/framework-build.md`：框架和构建。
-- `ref/development-notes.md`：UDT 与 Photoshop 实机注意事项。
+- `docs/ref/canvas-primitives.md`：画布交互原语。
+- `docs/ref/atomic-capabilities.md`：UXP 原子能力。
+- `docs/ref/framework-build.md`：框架和构建。
+- `docs/ref/development-notes.md`：UDT 与 Photoshop 实机注意事项。

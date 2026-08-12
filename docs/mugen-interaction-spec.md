@@ -495,7 +495,7 @@ CCX Host 规则：
 
 ## CCX 与 WebUI 约束
 
-CCX Host 壳遵守 `ref/ccx-adobe-runtime-rules.md`，内嵌 WebView 和普通浏览器共同使用 WebUI 的浏览器组件与样式。
+CCX Host 壳遵守 `docs/ref/ccx-adobe-runtime-rules.md`，内嵌 WebView 和普通浏览器共同使用 WebUI 的浏览器组件与样式。
 
 关键约束：
 

@@ -5,7 +5,7 @@
 - `/webui/` 的 `connect-src` 从 `'none'` 改为 `'self' http: https:`，并把 `img-src` 从 `'self' data: blob:` 精确扩展为 `'self' data: blob: http: https:`。
 - 官网入口使用严格 CSP，并返回 `Referrer-Policy: no-referrer`。
 
-WebUI 目标值已经写入 `deploy/nginx/inner-webui.conf.template`。官网目标 CSP 为：
+WebUI 目标值已经写入 `utils/deploy/nginx/inner-webui.conf.template`。官网目标 CSP 为：
 
 ```text
 default-src 'self';
@@ -27,7 +27,7 @@ form-action 'none';
 本地执行差异门禁：
 
 ```powershell
-node scripts/nginx-security-policy.mjs `
+node utils/nginx-security-policy.mjs `
   --current .tmp/nginx-active.conf `
   --candidate .tmp/nginx-candidate.conf `
   --server-name mugen.example.com `
@@ -44,7 +44,7 @@ node scripts/nginx-security-policy.mjs `
 在获得明确的生产配置变更授权后，使用评审清单运行完整编排：
 
 ```powershell
-node scripts/apply-nginx-security-policy.mjs `
+node utils/apply-nginx-security-policy.mjs `
   --apply `
   --manifest .tmp/nginx-policy-approval.json `
   --active-config /etc/nginx/conf.d/mugen.conf
@@ -72,7 +72,7 @@ sudo sh apply-verified-config.sh \
 配置 reload 成功后，先读回首页响应头，再运行现有的逐字节发布校验：
 
 ```powershell
-node scripts/nginx-security-policy.mjs `
+node utils/nginx-security-policy.mjs `
   --verify-public `
   --manifest .tmp/nginx-policy-approval.json
 npm run verify:inner-webui:public

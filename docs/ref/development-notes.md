@@ -113,7 +113,7 @@ Test-Path "$env:USERPROFILE\.codex\.tmp\bundled-marketplaces\openai-bundled\.age
 如果返回 `False`，运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rebuild-codex-windows.ps1 -Apply
+powershell -NoProfile -ExecutionPolicy Bypass -File utils/rebuild-codex-windows.ps1 -Apply
 ```
 
 脚本会从当前安装的 Codex Windows app 中恢复 `openai-bundled` marketplace，并把派生缓存移动到 `.codex\.repair-backups\`。完成后重启 Codex，让插件目录重新索引。
@@ -121,7 +121,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rebuild-codex-window
 如果安装过的插件 bundle 缓存也需要重建，再运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rebuild-codex-windows.ps1 -Apply -Full
+powershell -NoProfile -ExecutionPolicy Bypass -File utils/rebuild-codex-windows.ps1 -Apply -Full
 ```
 
 `-Full` 会同时备份清空 `.codex\plugins\cache`，重启后由 Codex 重新生成。
@@ -130,8 +130,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rebuild-codex-window
 
 新增或修改基础能力时同步更新：
 
-- `ref/canvas-primitives.md`
-- `ref/atomic-capabilities.md`
-- `ref/development-notes.md`
+- `docs/ref/canvas-primitives.md`
+- `docs/ref/atomic-capabilities.md`
+- `docs/ref/development-notes.md`
 
 如果只是保留研究过程和来源，放到 `docs/`。如果是后续开发要直接查的规则，放到 `ref/`。

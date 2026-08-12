@@ -26,7 +26,7 @@ Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.2.0`，CCX 使用自身 Manif
 
 ## 首次配置 Nginx
 
-以 `deploy/nginx/inner-webui.conf.template` 为模板替换以下值：
+以 `utils/deploy/nginx/inner-webui.conf.template` 为模板替换以下值：
 
 - `__SERVER_NAME__`
 - `__TLS_CERTIFICATE__`

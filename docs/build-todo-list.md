@@ -7,11 +7,11 @@
 ## 生命周期与版本规则
 
 - Electron 桌面端源码已删除（2026-08-12），不得恢复桌面入口、electron 依赖或桌面发行脚本。
-- 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、兼容信息、构建元数据和 CCX 内嵌版本一致。
+- 修改 Inner WebUI 版本时，确认 `webui/package.json`、兼容信息、构建元数据和 CCX 内嵌版本一致。
 - 本地 `verify:ccx` 接受干净或脏工作树，但 Inner WebUI `0.2.0` 的源码构建与 CCX 内嵌副本必须绑定当前 HEAD，且两份 `release.json` 的 `dirty` 必须与实际工作树状态一致；内容哈希和逐字节目录比较仍须通过。
 - 正式 `package:ccx` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
-- 修改 CCX 版本时，确认 `plugin/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
+- 修改 CCX 版本时，确认 `plug-in/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
 - 不得恢复 `standalone-uxp-plugin/`、`src/uxp/`、`vite.uxp.config.ts`、`uxp-panel.html` 或旧 `*:uxp` 产品命令。
 - 插件 ID 必须保持 `com.tanshow.mugen`。
 
@@ -50,7 +50,7 @@
 - 发布前确认 CCX 发行物与 `dist/ccx-release.json` 一致；不一致时只记录待办，不更新线上 `latest.json`。
 - 桌面端已删除，新首页与用户可见 `latest.json` 下载项只提供 CCX。
 - `下载 CCX` 只指向已校验文件；`进入 WebUI` 只指向通过浏览器门禁的 vNext 地址。
-- `site/releases/latest.json` 的地址使用 `key.env` 中的正式域名，仓库与生产产物不得恢复已废弃域名。
+- `homesite/site/releases/latest.json` 的地址使用 `key.env` 中的正式域名，仓库与生产产物不得恢复已废弃域名。
 - 正式构建来自已提交的干净工作区，并记录提交、构建时间、版本、文件大小与 SHA256。
 - 公网发布后逐字节验证入口 HTML、关键资源、CCX 文件和元数据，并检查 TLS、MIME、CSP、HSTS 与 `nosniff`。
 
@@ -102,7 +102,7 @@
 - CCX 已在 Windows 环境构建并验证内嵌 manifest：`lightyear-banana-0.3.17.ccx`，SHA256：`87aa18b5894554ac1d3f18243cce2d0a2ceeebcd2ca10b08a4443db955f87866`。
 - Windows 成品已使用电脑控制实际启动，并验证版本 `0.3.17` 与 build number `202607270001`。
 - macOS 包由 GitHub Actions 原生 macOS runner 构建并完成包内版本、CCX、Info.plist、build number 与 SHA256 校验：`lightyear-banana-0.3.17-mac.zip`，SHA256：`bd01a491dae1bfe49559e23e62728461cf4207d132a89b992dc2047dd117960f`，Actions run：`30212510944`。
-- `dist/release-0.3.17/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`；`scripts/verify-release-bundle.mjs` 与 `scripts/build-site.mjs` 已通过。
+- `dist/release-0.3.17/` 已包含原生 macOS、原生 Windows、CCX 和只使用 basename 的 `SHA256SUMS.txt`；`homesite/scripts/verify-release-bundle.mjs` 与 `homesite/scripts/build-site.mjs` 已通过。
 - PR `#3` 已合并，tag `v0.3.17` 与 GitHub Release 已发布；四个 GitHub 资产均返回 200，大小和服务端 SHA256 digest 与本地正式发行物一致。
 - Photoshop 最终 ARW 实机回归被当前 Adobe 账户的“请求访问 Photoshop”授权页拦截。电脑控制已重启 Creative Cloud 并复查，账户仍显示 Photoshop 需要管理员授权，因此没有提交访问申请，也没有绕过授权。
 - 官网 0.3.17 已发布：macOS、Windows、CCX 和 `SHA256SUMS.txt` 已部署至正式版本目录，公网完整下载的字节数与 SHA256 均和本地正式发行物一致；`latest.json` 已从 0.3.16 原子切换至 0.3.17，旧清单备份为 `.latest.json.0.3.16-backup-20260728`。主页、版本清单和三个下载地址均返回 200，Nginx 配置校验与重载通过，TLS 证书域名和有效期正常。部署使用已有交互式凭据，未在仓库或配置文件中保存凭据。

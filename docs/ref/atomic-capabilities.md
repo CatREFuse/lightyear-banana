@@ -2,18 +2,18 @@
 
 ## CCX entrypoint
 
-源码入口是 `src/ccx/main.ts`。
+源码入口是 `plug-in/src/ccx/main.ts`。
 
 当前 manifest 注册两个 entrypoint：
 
 - `commands.createLayer`
 - `panels.panel`
 
-`entrypoints.setup()` 中的 key 必须和 `plugin/manifest.json` 里的 `id` 完全一致。修改 command、panel、id、权限、图标后，需要重新构建并在 UXP Developer Tools 里 `Unload` / `Load`。
+`entrypoints.setup()` 中的 key 必须和 `plug-in/manifest.json` 里的 `id` 完全一致。修改 command、panel、id、权限、图标后，需要重新构建并在 UXP Developer Tools 里 `Unload` / `Load`。
 
 ## CCX Host 壳与 WebView
 
-`src/ccx/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和本地 WebView。工作台 Vue 应用来自 CCX 内嵌的 `plugin:/webui/index.html`，并与普通浏览器使用同源 WebUI 构建。
+`plug-in/src/ccx/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和本地 WebView。工作台 Vue 应用来自 CCX 内嵌的 `plugin:/webui/index.html`，并与普通浏览器使用同源 WebUI 构建。
 
 Host 壳负责：
 
@@ -28,7 +28,7 @@ Host 壳负责：
 
 Photoshop API 通过 `globalThis.require("photoshop")` 获取。不要把 `photoshop` 当作普通 ESM 包 import。
 
-低层 Adobe runtime 封装集中在 `src/ccx/`。普通浏览器 WebUI 不加载这些模块，也不提供假的 `getHostRequire()` 或 Photoshop adapter。只有 CCX Host 可以访问 `globalThis.require("photoshop")`。
+低层 Adobe runtime 封装集中在 `plug-in/src/ccx/`。普通浏览器 WebUI 不加载这些模块，也不提供假的 `getHostRequire()` 或 Photoshop adapter。只有 CCX Host 可以访问 `globalThis.require("photoshop")`。
 
 ## Modal execution
 

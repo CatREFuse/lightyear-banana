@@ -5,4 +5,4 @@
 - Enhancement request: preserve the exact text, letter shapes, spacing, brush gesture, and composition while increasing ink-fiber and edge detail for a 4K website master.
 - Chroma removal: border sampling, soft matte, and despill (helper script no longer in this repository).
 - Delivery: white RGBA wordmark centered on a transparent `4096 × 2048` canvas.
-- Production asset: `site/assets/mugen-wordmark-imagegen-v2-4k.png`.
+- Production asset: `homesite/site/assets/mugen-wordmark-imagegen-v2-4k.png`.

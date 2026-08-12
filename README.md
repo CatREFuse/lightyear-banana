@@ -55,7 +55,7 @@ npm run build:site
 - `docs/mugen-prototype-requirements.md`
 - `docs/inner-webui-prd.md`
 - `docs/build-todo-list.md`
-- `ref/project-baseline.md`
+- `docs/ref/project-baseline.md`
 
 ## 测试
 
@@ -67,7 +67,7 @@ CCX 冒烟必须在真实 Photoshop 中完成画布抓取、APIMart 请求、小
 
 ## CCX 开发约定
 
-- 新增画布能力先写入 `src/ccx/canvasPrimitives.ts`，再由 `src/ccx/canvasPrimitiveService.ts` 暴露。
+- 新增画布能力先写入 `plug-in/src/ccx/canvasPrimitives.ts`，再由 `plug-in/src/ccx/canvasPrimitiveService.ts` 暴露。
 - Vue 组件和 composable 不直接拼复杂 `batchPlay` descriptor。
 - 修改 Photoshop 文档状态的操作进入 `core.executeAsModal()`。
 - 修改 Vue、TypeScript 或 CSS 后执行 `npm run build:ccx`，再在 Adobe UXP Developer Tools 中 Reload。

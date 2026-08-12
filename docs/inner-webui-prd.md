@@ -42,12 +42,12 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host �
 
 | 原模块 | vNext 职责 |
 | --- | --- |
-| `src/components/mugen/` | 工作台、消息流、输入 Dock、设置、结果和通用控件 |
-| `src/composables/useMugen.ts` | 会话、参考图、生成、设置和结果操作 |
-| `src/providers/` | Provider 合同、能力、注册、校验和请求语义 |
-| `src/data/providerCapabilities.ts` | 旧 import 兼容与能力入口 |
-| `src/services/imageApiClient.ts` | 旧请求 facade 与迁移来源 |
-| `src/styles/` | Nothing、经典主题、字体和布局 token |
+| `webui/src/components/mugen/` | 工作台、消息流、输入 Dock、设置、结果和通用控件 |
+| `webui/src/composables/useMugen.ts` | 会话、参考图、生成、设置和结果操作 |
+| `packages/mugen-core/src/providers/` | Provider 合同、能力、注册、校验和请求语义 |
+| `packages/mugen-core/src/data/providerCapabilities.ts` | 旧 import 兼容与能力入口 |
+| `packages/mugen-core/src/services/imageApiClient.ts` | 旧请求 facade 与迁移来源 |
+| `webui/src/styles/` | Nothing、经典主题、字体和布局 token |
 | 原 Electron UI 测试 | 交互与回归行为基线 |
 
 迁移可以移动文件、拆分模块、抽取共享包和改写运行时边界。核心交互必须保留代码与行为来源，不接受根据旧界面外观重新搭建的新组件集合。
@@ -228,7 +228,7 @@ interface MugenRuntime {
 
 只有以下证据全部存在时，WebUI vNext 才能标记完成：
 
-- 生产 WebUI bundle 不含 Electron runtime 依赖（由 `apps/inner-webui/scripts/bundlePolicy.mjs` 回归防线覆盖）。
+- 生产 WebUI bundle 不含 Electron runtime 依赖（由 `webui/scripts/bundlePolicy.mjs` 回归防线覆盖）。
 - 没有 Electron runtime 依赖进入生产 WebUI。
 - 浏览器和 CCX 从同一生产 UI 构建。
 - 浏览器网络、配置和固定小猫冒烟通过，且无 Photoshop 入口。

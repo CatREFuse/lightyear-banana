@@ -28,7 +28,7 @@ mock-apimart-good
 MUGEN_APIMART_SMOKE_HOST=127.0.0.1 MUGEN_APIMART_SMOKE_PORT=38323 npm run smoke:apimart-server
 ```
 
-固定图片为 `public/mock-images/cats/cat-01.jpg`。模型、数量和请求路径无论如何变化，所有成功图片都返回该文件。同一任务在创建、轮询和图片获取阶段保持相同内容。
+固定图片为 `webui/public/mock-images/cats/cat-01.jpg`。模型、数量和请求路径无论如何变化，所有成功图片都返回该文件。同一任务在创建、轮询和图片获取阶段保持相同内容。
 
 可观测接口：
 
@@ -58,7 +58,7 @@ Photoshop CCX 中使用同一 APIMart 配置，先抓取真实画布内容，再
 通用多 Provider Mock Server 保留用于旧回归：
 
 ```bash
-node scripts/mock-image-api-server.mjs
+node utils/mock-image-api-server.mjs
 ```
 
 默认地址为 `http://127.0.0.1:38322`。成功响应默认随机等待 3 到 5 秒，可用 `MUGEN_MOCK_IMAGE_API_DELAY_MIN_MS`、`MUGEN_MOCK_IMAGE_API_DELAY_MAX_MS` 和 `MUGEN_MOCK_IMAGE_API_PORT` 调整。
@@ -85,7 +85,7 @@ APIMart 配置使用 `mock-*` Key 且 Base URL 为 `127.0.0.1`、`localhost` 或
 | Seedream | `seedream-4-0-250828` | `POST /api/v3/images/generations` |
 | OpenAI compatible | `custom-image-model` | `POST /v1/images/generations`、`POST /v1/images/edits` |
 
-模型声明已经同步到 `src/data/providerCapabilities.ts`。Google 模型以当前官方图像生成文档可查到的 `gemini-3-pro-image-preview` 和 `gemini-2.5-flash-image` 为准。
+模型声明已经同步到 `packages/mugen-core/src/data/providerCapabilities.ts`。Google 模型以当前官方图像生成文档可查到的 `gemini-3-pro-image-preview` 和 `gemini-2.5-flash-image` 为准。
 
 ## API Key
 
@@ -119,12 +119,12 @@ Bad case：
 通用历史模式使用项目内 20 张 CC0 猫咪照片并随机抽样。APIMart vNext 模式不使用该随机逻辑，始终选择 `cat-01.jpg`。通用模式中的 Kling 创建任务和任务结果会保持同一组随机图片：
 
 ```text
-public/mock-images/cats/cat-01.jpg
+webui/public/mock-images/cats/cat-01.jpg
 ...
-public/mock-images/cats/cat-20.jpg
+webui/public/mock-images/cats/cat-20.jpg
 ```
 
-这些 fixture 来自 Wikimedia Commons，授权和来源写在 `public/mock-images/cats/LICENSE.md`，机器可读元数据写在 `public/mock-images/cats/metadata.json`。
+这些 fixture 来自 Wikimedia Commons，授权和来源写在 `webui/public/mock-images/cats/LICENSE.md`，机器可读元数据写在 `webui/public/mock-images/cats/metadata.json`。
 
 OpenAI 和 OpenAI compatible 返回 Image API 结构：
 

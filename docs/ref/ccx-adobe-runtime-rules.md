@@ -2,7 +2,7 @@
 
 本文约束 Photoshop CCX Host 壳及其 Adobe 原生控件。Mugen WebUI vNext 运行在 CCX 本地 WebView 与普通浏览器中，使用从 Electron UI 源码平移的浏览器组件；WebUI 不按本文改写为 Spectrum 工作台。
 
-Host 壳中的按钮、状态、占位与恢复控件只能使用经过 UXP 验证的 HTML、CSS、JavaScript 和 Spectrum 组件。WebUI 仍需在 Photoshop WebView 中实测，但其规则以 `docs/inner-webui-prd.md`、`docs/mugen-interaction-spec.md` 和 `ref/framework-build.md` 为准。
+Host 壳中的按钮、状态、占位与恢复控件只能使用经过 UXP 验证的 HTML、CSS、JavaScript 和 Spectrum 组件。WebUI 仍需在 Photoshop WebView 中实测，但其规则以 `docs/inner-webui-prd.md`、`docs/mugen-interaction-spec.md` 和 `docs/ref/framework-build.md` 为准。
 
 ## 基本原则
 
@@ -211,11 +211,11 @@ Mugen vNext 的完整工作台运行在 CCX 本地 WebView 中，并与普通浏
 ## 代码实现要求
 
 - WebUI Vue 组件只写 UI、交互状态和用户操作入口，并消费 runtime capability contract。
-- Photoshop API、batchPlay、Adobe UXP 文件系统和 SecureStorage 放到 `src/ccx/` Host 层。
+- Photoshop API、batchPlay、Adobe UXP 文件系统和 SecureStorage 放到 `plug-in/src/ccx/` Host 层。
 - 组件中不拼复杂 batchPlay descriptor。
 - 错误信息面向普通用户，避免出现 descriptor、manifest、bundle、runtime 等工程词。
 - 所有长任务都需要 busy 状态和可见进度或状态。
-- Host 壳和 WebView 都按 `plugin/manifest.json` 的 `minimumSize.width` 验证。
+- Host 壳和 WebView 都按 `plug-in/manifest.json` 的 `minimumSize.width` 验证。
 
 ## 验证清单
 

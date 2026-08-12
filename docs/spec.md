@@ -116,11 +116,11 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 
 | 层 | 主要入口 | 职责 |
 | --- | --- | --- |
-| 合同 | `src/providers/contracts.ts` | 请求、结果、适配器、定义和校验类型 |
-| 定义 | `src/providers/definitions.ts` | Provider 能力、必填字段、模型差异和默认配置 |
-| 注册表 | `src/providers/registry.ts` | 静态注册、查找、派发前校验和 generate/test 入口 |
-| Wire 兼容层 | `src/providers/legacyRuntime.ts` | 已验证的请求构造、轮询、响应解析和错误映射 |
-| 兼容 facade | `src/data/providerCapabilities.ts`、`src/services/imageApiClient.ts` | 保持旧 import 和公开导出稳定 |
+| 合同 | `packages/mugen-core/src/providers/contracts.ts` | 请求、结果、适配器、定义和校验类型 |
+| 定义 | `packages/mugen-core/src/providers/definitions.ts` | Provider 能力、必填字段、模型差异和默认配置 |
+| 注册表 | `packages/mugen-core/src/providers/registry.ts` | 静态注册、查找、派发前校验和 generate/test 入口 |
+| Wire 兼容层 | `packages/mugen-core/src/providers/legacyRuntime.ts` | 已验证的请求构造、轮询、响应解析和错误映射 |
+| 兼容 facade | `packages/mugen-core/src/data/providerCapabilities.ts`、`packages/mugen-core/src/services/imageApiClient.ts` | 保持旧 import 和公开导出稳定 |
 
 - 11 个 Provider ID 必须同时出现在能力定义和静态注册表中。
 - 未注册 Provider、Provider 不匹配、缺少模型、必填 API Key 或 Base URL 时不进入 wire 层。
@@ -189,7 +189,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 ## 验收证据
 
 - 官网桌面与移动视口截图及交互录屏，证明单屏、书法字、可旋转棱镜、折射光线、两个液态玻璃按钮和 CCX 标本号均成立。
-- 生产 bundle 扫描拒绝 Electron runtime（见 `apps/inner-webui/scripts/bundlePolicy.mjs` 回归防线）。
+- 生产 bundle 扫描拒绝 Electron runtime（见 `webui/scripts/bundlePolicy.mjs` 回归防线）。
 - 浏览器自动化测试，证明真实网络与配置流程可用且无 Photoshop 操作入口。
 - `npm run verify:ccx` 与 CCX 打包校验通过。
 - Photoshop 实机完整闭环记录，证明画布抓取、APIMart 请求、小猫图片获取和新图层置入均成功。
