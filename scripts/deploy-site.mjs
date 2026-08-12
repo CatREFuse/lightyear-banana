@@ -1296,6 +1296,19 @@ function assertNoStore(response, fileName) {
   }
 }
 
+function assertRollbackProofCache(response, fileName) {
+  const cacheDirectives = (response.headers.get('cache-control') || '')
+    .toLowerCase()
+    .split(',')
+    .map((token) => token.trim())
+  if (cacheDirectives.some((token) => token === 'public' || token === 'immutable' || token.startsWith('max-age=') || token.startsWith('s-maxage='))) {
+    throw new Error(`${fileName} must not use public or persistent caching.`)
+  }
+  if (!cacheDirectives.includes('no-store') && !cacheDirectives.includes('no-cache')) {
+    throw new Error(`${fileName} must be served with Cache-Control: no-store or no-cache.`)
+  }
+}
+
 function sameBytes(left, right) {
   return left.byteLength === right.byteLength && Buffer.from(left).equals(Buffer.from(right))
 }
@@ -1430,8 +1443,9 @@ export async function verifyPublicRollback(baseUrl, result) {
   ]) {
     assertPublicHeaders(file.response, fileName)
     assertContentType(file.response, fileName)
-    assertNoStore(file.response, fileName)
   }
+  assertRollbackProofCache(latestProof.response, result.latestProofName)
+  assertNoStore(activeLatest.response, protectedReleaseIndex)
   if (!sameBytes(latestProof.bytes, activeLatest.bytes)) {
     throw new Error('Public rollback latest.json differs byte-for-byte from its unique release proof.')
   }

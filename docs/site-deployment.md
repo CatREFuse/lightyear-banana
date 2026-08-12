@@ -43,7 +43,7 @@ frame-ancestors 'none';
 form-action 'none';
 ```
 
-首页与 `releases/latest.json` 还必须返回有效的正数 `max-age` HSTS 和 `X-Content-Type-Options: nosniff`。CCX 使用受支持的二进制 MIME，`SHA256SUMS.txt` 使用 `text/plain`，两者也必须返回 HSTS 和 `nosniff`。`releases/latest.json` 与回滚时生成的唯一 `site-rollback-*.latest.json` 证明都必须使用 JSON MIME、HSTS、`nosniff` 和 `Cache-Control: no-store`。部署脚本只验证这些响应头，不修改 Nginx 配置。
+首页与 `releases/latest.json` 还必须返回有效的正数 `max-age` HSTS 和 `X-Content-Type-Options: nosniff`。CCX 使用受支持的二进制 MIME，`SHA256SUMS.txt` 使用 `text/plain`，两者也必须返回 HSTS 和 `nosniff`。`releases/latest.json` 必须使用 JSON MIME、HSTS、`nosniff` 和 `Cache-Control: no-store`。回滚时生成的唯一 `site-rollback-*.latest.json` 证明必须使用 JSON MIME、HSTS、`nosniff`，并使用 `no-store` 或 `no-cache`，同时拒绝 `public`、`immutable` 与持久缓存时长。部署脚本只验证这些响应头，不修改 Nginx 配置。
 
 ## 本地检查
 
@@ -90,4 +90,4 @@ npm run deploy:site -- --include-ccx
 npm run deploy:site -- --rollback
 ```
 
-回滚先在锁内记录并验证预期 `current`、`previous` 与相同的 `releases/latest.json` SHA256，生成或复用恢复版本的唯一全站清单，并在切换前校验清单中的每个静态资产。脚本先更新 `previous`，最后用单次重命名原子切换公网使用的 `current`；如果最后一次重命名失败，会在退出前把 `previous` 补偿恢复为原回滚目标，使状态仍可重试。两个链接不宣称成对原子交换。公网会逐字节读回清单、其中每个静态资产、活动 `latest.json` 和唯一 latest 证明，并校验 SHA256、MIME、HSTS、`nosniff` 与 `no-store`。历史快照不会自动删除。
+回滚先在锁内记录并验证预期 `current`、`previous` 与相同的 `releases/latest.json` SHA256，生成或复用恢复版本的唯一全站清单，并在切换前校验清单中的每个静态资产。脚本先更新 `previous`，最后用单次重命名原子切换公网使用的 `current`；如果最后一次重命名失败，会在退出前把 `previous` 补偿恢复为原回滚目标，使状态仍可重试。两个链接不宣称成对原子交换。公网会逐字节读回清单、其中每个静态资产、活动 `latest.json` 和唯一 latest 证明，并校验 SHA256、MIME、HSTS、`nosniff` 与受约束缓存策略。历史快照不会自动删除。

@@ -656,7 +656,7 @@ test('rollback verification proves the unique public marker and every restored s
   overrideHeaders = (relative) => relative === expected.latestProofName ? { 'cache-control': 'public, max-age=3600' } : {}
   await assert.rejects(
     () => verifyPublicRollback(new URL('https://mugen.product.dev/'), expected),
-    /Cache-Control: no-store/
+    /must not use public or persistent caching/
   )
 })
 
