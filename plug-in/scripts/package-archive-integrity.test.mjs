@@ -8,6 +8,7 @@ import {
   normalizeUdtManifestBytes,
   verifyArchiveMatchesDirectory
 } from './package-archive-integrity.mjs'
+import { createUdtCompatibleZip } from './udt-compatible-zip.mjs'
 
 function fixture(t) {
   const root = mkdtempSync(path.join(tmpdir(), 'mugen-ccx-archive-'))
@@ -121,11 +122,37 @@ test('accepts only the terminal manifest newline removed by UXP Developer Tools'
   }), /archive bytes do not match.*manifest\.json/)
 })
 
-test('release packaging consumes the official UXP Developer Tools package without recreating ZIP bytes', () => {
+test('creates a code-generated archive with UDT-compatible ZIP metadata', (t) => {
+  const value = fixture(t)
+  const archivePath = `${value.root}.ccx`
+  t.after(() => rmSync(archivePath, { force: true }))
+
+  assert.deepEqual(createUdtCompatibleZip({
+    sourceDirectory: value.root,
+    archivePath,
+    createdAt: new Date(2026, 7, 13, 12, 34, 56)
+  }), {
+    fileCount: 3,
+    entries: ['manifest.json', 'assets/index.js', 'webui.bin']
+  })
+
+  const archive = readFileSync(archivePath)
+  assert.equal(archive.readUInt32LE(0), 0x04034b50)
+  assert.equal(archive.readUInt16LE(4), 20)
+  assert.equal(archive.readUInt16LE(6), 0x0008)
+  assert.equal(archive.readUInt16LE(8), 8)
+  assert.equal(archive.subarray(30, 43).toString(), 'manifest.json')
+  const centralOffset = archive.lastIndexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]))
+  assert.notEqual(centralOffset, -1)
+  assert.equal(archive.readUInt16LE(centralOffset + 4), 0x032d)
+  assert.equal(archive.readUInt32LE(centralOffset + 38), 0x81a40020)
+})
+
+test('release packaging creates the archive from the verified staging directory', () => {
   const source = readFileSync(new URL('./package-ccx.mjs', import.meta.url), 'utf8')
-  assert.match(source, /MUGEN_UDT_CCX_PATH/)
-  assert.match(source, /UXP Developer Tools > Package/)
-  assert.match(source, /copyFileSync\(udtPackagePath, temporaryArchivePath\)/)
+  assert.match(source, /createUdtCompatibleZip/)
+  assert.match(source, /sourceDirectory: stagedSourceDir/)
   assert.doesNotMatch(source, /Compress-Archive/)
   assert.doesNotMatch(source, /execFileSync\('zip'/)
+  assert.doesNotMatch(source, /MUGEN_UDT_CCX_PATH/)
 })

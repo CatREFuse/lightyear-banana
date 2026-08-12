@@ -100,14 +100,13 @@ npm run verify:ccx
 npm run verify:ccx
 ```
 
-在 Adobe UXP Developer Tools 中加载 `dist/ccx-host/manifest.json` 并执行 `Package`，再把生成的 `com.tanshow.mugen_PS.ccx` 路径传给发布脚本：
+在干净工作树中运行发布脚本：
 
 ```powershell
-$env:MUGEN_UDT_CCX_PATH = '<UDT 输出的 com.tanshow.mugen_PS.ccx>'
 npm run package:ccx:local
 ```
 
-发布脚本校验 UDT 归档与已验证构建的文件集、Manifest 和逐文件内容，随后生成 `dist/mugen-<version>.ccx`、`.sha256` 与 `dist/ccx-release.json`。UDT 打包特征和允许的 Manifest 末尾换行差异见 `docs/ref/framework-build.md`。
+发布脚本从不可变 staging 快照生成 UDT 格式兼容归档，回读校验文件集、Manifest 和逐文件内容，随后生成 `dist/mugen-<version>.ccx`、`.sha256` 与 `dist/ccx-release.json`。ZIP 特征和允许的 Manifest 末尾换行差异见 `docs/ref/framework-build.md`。
 
 ## Windows Codex 插件索引修复
 
