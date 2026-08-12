@@ -207,6 +207,70 @@ test('browser creates and reloads APIMart config, then completes the network flo
   ]))
 })
 
+test('browser tests an official iMini config through the same-origin proxy', async ({ page }) => {
+  const requests: Array<{ authorization: string; method: string; pathname: string }> = []
+  await page.route('**/webui-api/imini/**', async (route) => {
+    const request = route.request()
+    const pathname = new URL(request.url()).pathname
+    requests.push({
+      authorization: request.headers().authorization ?? '',
+      method: request.method(),
+      pathname
+    })
+
+    await route.fulfill({
+      contentType: 'application/json',
+      body: request.method() === 'POST'
+        ? JSON.stringify({ task_id: 'browser-imini-task', request_id: 'browser-submit' })
+        : JSON.stringify({
+            task_id: 'browser-imini-task',
+            status: 'succeeded',
+            images: [{ url: 'https://file.iminicdn.com/file/browser-test.png', width: 1024, height: 1024 }],
+            request_id: 'browser-poll'
+          })
+    })
+  })
+
+  await page.evaluate(() => {
+    localStorage.setItem('mugen.settings.v1', JSON.stringify({
+      activeConfigId: 'imini-browser-smoke',
+      configs: [{
+        id: 'imini-browser-smoke',
+        name: 'iMini Browser',
+        provider: 'iMini',
+        model: 'google/nano-banana',
+        models: ['google/nano-banana'],
+        apiKey: 'browser-test-token',
+        baseUrl: 'https://openapi.imini.ai/imini/router',
+        usesOfficialBaseUrl: false,
+        enabled: true
+      }],
+      generationHistory: [],
+      promptPresets: []
+    }))
+  })
+  await page.reload()
+
+  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: /iMini Browser/ }).click()
+  const detail = page.getByLabel('配置详情')
+  await detail.getByRole('button', { name: '测试 API' }).click()
+  await expect(detail.getByRole('button', { name: 'API 可用' })).toBeVisible()
+
+  expect(requests).toEqual([
+    {
+      authorization: 'Bearer browser-test-token',
+      method: 'POST',
+      pathname: '/webui-api/imini/v1/images/generate'
+    },
+    {
+      authorization: 'Bearer browser-test-token',
+      method: 'GET',
+      pathname: '/webui-api/imini/v1/images/tasks/browser-imini-task'
+    }
+  ])
+})
+
 test('browser surfaces a recoverable APIMart network error and retries it from the keyboard-submitted turn', async ({ page }) => {
   await useApimartBrowserConfig(page, 'APIMart Recovery')
 

@@ -35,6 +35,14 @@ test('keeps the public WebUI CSP aligned with standalone Provider networking', (
   assert.doesNotMatch(nginxTemplate, /connect-src 'none'/)
 })
 
+test('proxies browser iMini requests without retaining credentials or responses', () => {
+  assert.match(nginxTemplate, /location \^~ \/webui-api\/imini\//)
+  assert.match(nginxTemplate, /proxy_pass https:\/\/openapi\.imini\.ai\/imini\/router\//)
+  assert.match(nginxTemplate, /proxy_set_header Authorization \$http_authorization/)
+  assert.match(nginxTemplate, /proxy_set_header Cookie ""/)
+  assert.match(nginxTemplate, /add_header Cache-Control "no-store" always/)
+})
+
 test('ignores legacy lowercase deployment keys while keeping application settings strict', () => {
   assert.deepEqual(parseEnv([
     'server_ip=192.0.2.1',

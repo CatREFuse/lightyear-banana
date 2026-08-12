@@ -182,7 +182,7 @@ async function main() {
     const require = createRequire(import.meta.url)
     const coreOutputRoot = join(outDir, 'packages', 'mugen-core', 'src')
     const { providerCapabilities, readProviderCapability } = require(join(coreOutputRoot, 'data', 'providerCapabilities.js'))
-    const { generateImagesWithProvider } = require(join(coreOutputRoot, 'services', 'imageApiClient.js'))
+    const { generateImagesWithProvider, testImageConfig } = require(join(coreOutputRoot, 'services', 'imageApiClient.js'))
 
     assert(
       JSON.stringify(providerCapabilities.iMini.modelOptions) === JSON.stringify([
@@ -219,6 +219,8 @@ async function main() {
       size: '4K'
     })
 
+    await testImageConfig(createConfig(port, 'google/nano-banana-2'))
+
     let failedTaskError
     try {
       await generateImagesWithProvider({
@@ -252,7 +254,7 @@ async function main() {
     }
 
     const posts = captured.filter((item) => item.method === 'POST')
-    assert(posts.length === 4, 'expected four i-mini submit requests')
+    assert(posts.length === 5, 'expected five i-mini submit requests')
     assert(posts.every((item) => item.url === '/v1/images/generate'), 'i-mini submit path is incorrect')
     assert(captured.filter((item) => item.method === 'GET').every((item) => item.url.startsWith('/v1/images/tasks/')), 'i-mini poll path is incorrect')
     assert(captured.every((item) => item.auth === 'Bearer test-token'), 'i-mini requests must use Bearer auth')
@@ -265,11 +267,13 @@ async function main() {
     assert(nanoBody.quality === undefined && nanoBody.num === undefined, 'Nano Banana 2 should not receive GPT Image 2 fields')
 
     const gptBody = JSON.parse(posts[1].bodyText)
+    const testBody = JSON.parse(posts[2].bodyText)
     assert(gptBody.model === 'openai/gpt-image-2', 'GPT Image 2 model was not forwarded')
     assert(gptBody.aspect_ratio === '9:21', 'GPT Image 2 aspect_ratio was not forwarded')
     assert(gptBody.resolution === '4K', 'GPT Image 2 resolution was not forwarded')
     assert(gptBody.quality === 'high', 'GPT Image 2 quality was not forwarded')
     assert(gptBody.num === 3, 'GPT Image 2 num was not forwarded')
+    assert(testBody.prompt === 'A solid blue circle centered on a plain white background', 'i-mini connection test prompt is unsafe')
     assert(nanoImages[0].previewUrl === 'https://file.iminicdn.com/file/test.png', 'i-mini image URL was not parsed')
     assert(gptImages[0].resolvedSize === '1024x1024', 'i-mini result dimensions were not parsed')
     assert(gptImages.length === 2 && gptImages[1].previewUrl.endsWith('/test-2.png'), 'i-mini image arrays were not fully parsed')

@@ -2696,7 +2696,9 @@ export async function testImageConfigWithLegacyRuntime(config: ModelConfig) {
     return
   }
 
-  const prompt = 'connection test'
+  const prompt = config.provider === 'iMini'
+    ? 'A solid blue circle centered on a plain white background'
+    : 'connection test'
   const params: ImageGenerationParams = {
     config,
     count: 1,

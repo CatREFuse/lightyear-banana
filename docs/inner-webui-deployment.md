@@ -36,6 +36,8 @@ Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.2.0`，CCX 使用自身 Manif
 
 `__INNER_WEBUI_ROOT__` 必须与 `DEPLOY_WEB_ROOT` 相同，`__RELEASES_ROOT__` 必须与 `DEPLOY_RELEASES_ROOT` 相同。Nginx 的全局 `http` 配置必须加载标准 `mime.types`，确保 JavaScript 返回 JavaScript MIME、CSS 返回 `text/css`。`/releases/latest.json` 禁止缓存，版本化发行文件使用不可变缓存，点号开头的备份文件不会公开。启用配置后先执行 `nginx -t`，通过后再 reload，并通过 `nginx -T` 确认最终配置包含模板中的 CSP、HSTS 和 `nosniff` 响应头。WebUI 使用 Hash Router，浏览器路径固定在 `/webui/`。
 
+浏览器版 iMini 通过同源 `/webui-api/imini/` 请求。Nginx 模板只允许 `GET` 和 `POST`，固定转发到 iMini 官方 Router，不转发 Cookie，不缓存响应。缺少该路由时，浏览器会因 iMini 官方接口未返回 CORS 许可头而显示 API 不可用。
+
 部署账号只需要目标目录的写权限，不使用日常管理员账号。服务器需要提供 POSIX `sh`、`tar`、`grep`、`flock`、`sha256sum`、`readlink`、`ln` 和 GNU `cp`、`mv`。模板启用 HSTS；同一域名仍承载 HTTP 资源时，先完成全站 HTTPS 迁移再启用该配置。
 
 ## 构建与发布

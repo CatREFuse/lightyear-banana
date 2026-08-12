@@ -99,6 +99,18 @@ export default defineConfig(({ mode }) => ({
     __MUGEN_APP_ENV__: JSON.stringify(mode === 'production' ? 'production' : mode === 'test' ? 'test' : 'development')
   },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)), '@mugen/inner-protocol': fileURLToPath(new URL('../packages/inner-protocol/src/index.ts', import.meta.url)), '@mugen/core': fileURLToPath(new URL('../packages/mugen-core/src/index.ts', import.meta.url)) } },
-  server: { host: '127.0.0.1', port: 4173, strictPort: true },
+  server: {
+    host: '127.0.0.1',
+    port: 4173,
+    strictPort: true,
+    proxy: {
+      '/webui-api/imini': {
+        target: 'https://openapi.imini.ai',
+        changeOrigin: true,
+        secure: true,
+        rewrite: path => path.replace(/^\/webui-api\/imini/, '/imini/router')
+      }
+    }
+  },
   build: { outDir: 'dist', assetsDir: 'assets', sourcemap: false, target: 'es2022' }
 }))

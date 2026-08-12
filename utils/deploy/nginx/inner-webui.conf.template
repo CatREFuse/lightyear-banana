@@ -47,6 +47,27 @@ server {
     add_header Referrer-Policy "no-referrer" always;
   }
 
+  location ^~ /webui-api/imini/ {
+    limit_except GET POST {
+      deny all;
+    }
+    client_max_body_size 32m;
+    proxy_pass https://openapi.imini.ai/imini/router/;
+    proxy_http_version 1.1;
+    proxy_ssl_server_name on;
+    proxy_ssl_name openapi.imini.ai;
+    proxy_pass_request_headers off;
+    proxy_set_header Host openapi.imini.ai;
+    proxy_set_header Authorization $http_authorization;
+    proxy_set_header Content-Type $content_type;
+    proxy_set_header Accept application/json;
+    proxy_set_header Cookie "";
+    add_header Cache-Control "no-store" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+  }
+
   location ^~ /webui/assets/ {
     alias __INNER_WEBUI_ROOT__/assets/;
     add_header Cache-Control "public, max-age=31536000, immutable" always;

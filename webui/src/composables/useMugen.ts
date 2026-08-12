@@ -66,6 +66,7 @@ const settingsStorageKey = 'mugen.settings.v1'
 const legacySettingsStorageKey = 'lightyear-banana.settings.v1'
 const maxStoredTurns = 50
 const apiRetryDelayMs = 800
+const iMiniBrowserProxyPath = '/webui-api/imini'
 const retiredBundledConfigIds = new Set([
   'nano-banana-pro',
   'gpt-image-2',
@@ -271,6 +272,23 @@ function readDefaultBaseUrl(provider: ModelConfig['provider'], fallback: string)
 
 function readDefaultApiKey(provider: ModelConfig['provider'], fallback: string) {
   return providerRequiresApiKey(provider) ? fallback : ''
+}
+
+function resolveBrowserProviderConfig(config: ModelConfig): ModelConfig {
+  if (config.provider !== 'iMini') {
+    return config
+  }
+
+  const officialBaseUrl = providerCapabilities.iMini.officialBaseUrl?.replace(/\/+$/, '') ?? ''
+  const configuredBaseUrl = config.baseUrl.trim().replace(/\/+$/, '')
+  if (configuredBaseUrl && configuredBaseUrl !== officialBaseUrl) {
+    return config
+  }
+
+  return {
+    ...config,
+    baseUrl: new URL(iMiniBrowserProxyPath, window.location.origin).toString().replace(/\/+$/, '')
+  }
 }
 
 function isModelConfig(value: unknown): value is ModelConfig {
@@ -995,6 +1013,7 @@ function readHighestQuality(options: string[]): string {
 
         const apiImages = await generateImagesWithProvider({
           ...params,
+          config: resolveBrowserProviderConfig(params.config),
           onTiming: (entry) => {
             params.onTiming?.({
               ...entry,
@@ -1774,7 +1793,7 @@ function readHighestQuality(options: string[]): string {
       status.value = '正在测试本机服务'
 
       try {
-        await testImageConfig({ ...settingsDraft })
+        await testImageConfig(resolveBrowserProviderConfig({ ...settingsDraft }))
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : ''
         const message = /api key|token|unauthorized|401/i.test(rawMessage)
@@ -1802,7 +1821,7 @@ function readHighestQuality(options: string[]): string {
     status.value = '正在测试 API'
 
     try {
-      await testImageConfig({ ...settingsDraft })
+      await testImageConfig(resolveBrowserProviderConfig({ ...settingsDraft }))
     } catch (error) {
       const message = error instanceof Error ? error.message : 'API 配置不可用'
       setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
