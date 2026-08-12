@@ -1,14 +1,33 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import test from 'node:test'
 import {
   parseEnv,
+  copyBuildSnapshot,
   resolveInnerReleaseUrl,
   validatePublicLatestJson,
   verifyPublicReleaseIndex
 } from './deploy-inner-webui.mjs'
 
 const nginxTemplate = readFileSync(new URL('../deploy/nginx/inner-webui.conf.template', import.meta.url), 'utf8')
+
+test('copies a nested WebUI snapshot without relying on recursive fs.cp', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'mugen-webui-copy-'))
+  try {
+    const source = path.join(directory, 'source')
+    const destination = path.join(directory, 'snapshot')
+    mkdirSync(path.join(source, 'assets'), { recursive: true })
+    writeFileSync(path.join(source, 'index.html'), '<main>Mugen</main>')
+    writeFileSync(path.join(source, 'assets', '应用.js'), 'export default 1')
+    copyBuildSnapshot(source, destination)
+    assert.equal(readFileSync(path.join(destination, 'index.html'), 'utf8'), '<main>Mugen</main>')
+    assert.equal(readFileSync(path.join(destination, 'assets', '应用.js'), 'utf8'), 'export default 1')
+  } finally {
+    rmSync(directory, { force: true, recursive: true })
+  }
+})
 
 test('keeps the public WebUI CSP aligned with standalone Provider networking', () => {
   assert.match(nginxTemplate, /img-src 'self' data: blob: http: https:/)

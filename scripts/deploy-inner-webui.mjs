@@ -2,8 +2,9 @@ import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import {
   closeSync,
-  cpSync,
+  copyFileSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   openSync,
   readFileSync,
@@ -255,6 +256,21 @@ function createSnapshotChecksums(directory) {
       return `${digest}  ./${file}`
     })
     .join('\n') + '\n'
+}
+
+export function copyBuildSnapshot(source, destination) {
+  mkdirSync(destination)
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = path.join(source, entry.name)
+    const destinationPath = path.join(destination, entry.name)
+    if (entry.isDirectory()) {
+      copyBuildSnapshot(sourcePath, destinationPath)
+    } else if (entry.isFile()) {
+      copyFileSync(sourcePath, destinationPath)
+    } else {
+      throw new Error(`WebUI build contains an unsupported entry: ${entry.name}`)
+    }
+  }
 }
 
 function wait(milliseconds) {
@@ -632,7 +648,7 @@ const snapshotRoot = path.join(temporaryDirectory, 'snapshot')
 const archivePath = path.join(temporaryDirectory, `${releaseId}-${token}.tar.gz`)
 
 try {
-  cpSync(webUiDist, snapshotRoot, { recursive: true })
+  copyBuildSnapshot(webUiDist, snapshotRoot)
   if (calculateWebUiContentHash(snapshotRoot) !== localRelease.contentHash) {
     throw new Error('WebUI output changed while the deployment snapshot was being created.')
   }
