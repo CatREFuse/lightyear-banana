@@ -1,8 +1,8 @@
-# Inner WebUI 0.1 与 CCX 1.0 部署指南
+# Inner WebUI 与 CCX 部署指南
 
-> 归档文档：Inner WebUI 0.1、旧官网和本部署流程已废弃。不要用本文件发布 WebUI vNext 或新官网。vNext 发布以 `docs/build-todo-list.md`、`docs/spec.md` 和更新后的实际脚本为准；本文只保留旧版本的部署事实与回滚方法。
+发布门禁以 `docs/build-todo-list.md` 为准。
 
-Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.2.0`，CCX 使用自身 Manifest 版本；根目录的 Electron `0.3.19` 仅保留历史兼容信息，不再继续发行。
+Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.2.0`，CCX 使用自身 Manifest 版本。
 
 ## 部署配置
 
@@ -76,6 +76,6 @@ npm run deploy:inner-webui -- --rollback
 
 先发布并校验 WebUI，随后运行 `npm run package:ccx`。正式 CCX 打包入口会再次把公网 WebUI 与本地发布快照逐字节比对，并要求 Git 工作区干净。CCX 校验会确认 Manifest 版本、local-only WebView 边界，并扫描构建产物中的旧域名和占位域名。最终产物为 `dist/mugen-$VERSION.ccx`，同目录的 `ccx-release.json` 和 SHA256 sidecar 用于发布追踪。
 
-安装 CCX 后，在真实 Photoshop 中验证握手、画布抓取、参考图、生成、取消、落图、保存、历史和诊断导出。完成这些验证后，才能按 PRD 的退出门禁停止 Electron 新功能开发。
+安装 CCX 后，在真实 Photoshop 中验证握手、画布抓取、参考图、生成、取消、落图、保存、历史和诊断导出。完成这些验证后，才能按 `docs/build-todo-list.md` 门禁进入正式发布。
 
 正式 Manifest 的 Provider 网络权限使用 `all`，用于用户自定义 HTTPS Base URL 和 loopback 本地服务。Host 会拒绝带凭据的 URL、非 loopback HTTP 和无效 Provider；WebView 权限仍只允许 `INNER_WEBUI_URL` 的精确 HTTPS Origin。该权限决策需要随每次 CCX 安全审查复核。

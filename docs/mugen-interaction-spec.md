@@ -2,7 +2,7 @@
 
 版本：vNext
 日期：2026-08-11
-范围：从 Electron UI 源码平移的工作台、结果流、设置页，以及浏览器与 Photoshop CCX 的运行时差异
+范围：浏览器与 Photoshop CCX 双运行时的工作台、结果流、设置页
 
 ## 交互目标
 
@@ -12,7 +12,7 @@ Mugen 的核心体验是围绕参考图、提示词、模型参数和生成结�
 
 - 工作台在普通浏览器以及 Photoshop docked 和 floating 状态下都能稳定操作。
 - 每一步都能看到当前状态，尤其是生成、测试、置入和失败状态。
-- 两种运行时共享原 Electron UI 平移后的组件和行为；运行时差异由能力合同处理。
+- 两种运行时共享同一 WebUI 组件与行为；运行时差异由能力合同处理。
 
 ## 信息架构
 
@@ -500,7 +500,7 @@ CCX Host 壳遵守 `ref/ccx-adobe-runtime-rules.md`，内嵌 WebView 和普通�
 关键约束：
 
 - CCX Host 壳的原生控件优先使用 Adobe Spectrum UXP Widgets 或 SWC wrapper。
-- WebUI 组件以原 Electron UI 源码平移为准，不为 CCX 另写第二套 Spectrum 工作台。
+- WebUI 组件为唯一工作台实现，不为 CCX 另写第二套 Spectrum 工作台。
 - WebUI 的 CSS、输入、文件和网络能力需要同时在普通浏览器与 Photoshop WebView 验证。
 - Photoshop 专属命令只通过 Host adapter 暴露。
 - 面板内关键路径在 Adobe UXP Developer Tools Reload 后实测。

@@ -6,7 +6,7 @@
 
 ## 1. 决策摘要
 
-Mugen WebUI vNext 从原 Electron UI 源码平移，随后适配 CCX 和普通浏览器两个运行时。Electron 桌面端与 Inner WebUI 0.1 已废弃，Standalone UXP 产品实现已删除。
+Mugen WebUI vNext 继承自原 Electron UI 源码，现已适配 CCX 和普通浏览器两个运行时。Electron 桌面端已于 2026-08-12 整体移除，Inner WebUI 0.1 已废弃，Standalone UXP 产品实现已删除。
 
 Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host 获得画布抓取、选区、图层、置入、SecureStorage 和原生权限。普通浏览器独立完成配置与网络生图，不显示任何 Photoshop 读取或置入入口。
 
@@ -14,16 +14,16 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host �
 
 ### 产品目标
 
-- 恢复并延续原 Electron UI 的完整工作台体验。
+- 延续原 Electron UI 的完整工作台体验。
 - 让同一 WebUI 在 CCX 与浏览器中使用。
-- 让浏览器用户无需 Electron、CCX 或 Bridge 即可配置 Provider 并生成图片。
+- 让浏览器用户无需安装任何桌面端即可配置 Provider 并生成图片。
 - 让 Photoshop 用户在共享工作台中完成画布到模型再回到画布的闭环。
 - 用 APIMart 格式本地夹具稳定验证两种运行时。
 
 ### 工程目标
 
-- 保留原 Electron UI 的组件、状态、Provider、预设、结果流、主题和测试资产。
-- 去除 Electron runtime、preload、IPC、Bridge 和桌面窗口依赖。
+- 已保留原 Electron UI 的组件、状态、Provider、预设、结果流、主题和测试资产。
+- 已去除 Electron runtime、preload、IPC、Bridge 和桌面窗口依赖。
 - 用能力合同隔离 Browser adapter 与 CCX Host adapter。
 - 保持 Provider 请求语义和结果数据结构跨运行时一致。
 - 只保留一个生产工作台实现。
@@ -31,10 +31,10 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host �
 ### 非目标
 
 - 不维护 Inner WebUI 0.1 的简化界面或 Mock Host 启动语义。
-- 不恢复 Electron 应用、桌面安装包、自动更新或本地 Bridge。
+- Electron 桌面端已整体移除，不再恢复桌面安装包、自动更新或本地 Bridge。
 - 不把浏览器页面伪装为 Photoshop，也不显示不可用的 Photoshop 按钮。
 - 不恢复已经删除的独立 UXP 产品。
-- 不通过截图、设计图或视觉能力重做 Electron UI。
+- 不通过截图、设计图或视觉能力重做已删除的 Electron UI。
 
 ## 3. 源码平移原则
 
@@ -228,7 +228,7 @@ interface MugenRuntime {
 
 只有以下证据全部存在时，WebUI vNext 才能标记完成：
 
-- Electron UI 源码迁移映射与代码评审通过。
+- 生产 WebUI bundle 不含 Electron runtime 依赖（由 `apps/inner-webui/scripts/bundlePolicy.mjs` 回归防线覆盖）。
 - 没有 Electron runtime 依赖进入生产 WebUI。
 - 浏览器和 CCX 从同一生产 UI 构建。
 - 浏览器网络、配置和固定小猫冒烟通过，且无 Photoshop 入口。
@@ -239,4 +239,4 @@ interface MugenRuntime {
 
 Inner WebUI 0.1 曾采用线上或本地 WebView、`inner-host/v1`、Mock Host 和 CCX Host 的方案，并完成部分协议、单元、Playwright、静态 Host 与公网验证。旧 PRD 还记录过 Web Host 热发布、Electron 双轨灰度和退出门禁。这些内容描述旧阶段，不再是 vNext 的产品或工程要求。
 
-`ref/electron-bridge-architecture.md` 和 `docs/inner-webui-deployment.md` 继续保留旧架构与部署历史；开发新功能时不得把其中的 Electron Bridge 或 Inner WebUI 0.1 发布流程恢复为活动依赖。
+`docs/inner-webui-deployment.md` 保留部署历史；开发新功能时不得把其中的 Inner WebUI 0.1 发布流程恢复为活动依赖。Electron 桌面端源码与 Bridge 架构已随桌面端移除，不再有恢复入口。

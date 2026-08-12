@@ -9,7 +9,7 @@
 └── previous -> releases/<previous-site-id>
 ```
 
-Nginx 从 `current` 提供首页，并把 `/releases/` 映射到 `current/releases/`。每次新站部署会复制当前快照中的整个 `releases/`，逐文件校验后再合入站点文件。仓库构建中的 `dist/site/releases/latest.json` 不会打包、上传或激活。完整四件套发行门禁未通过时，线上 `latest.json` 会保持原字节内容。
+Nginx 从 `current` 提供首页，并把 `/releases/` 映射到 `current/releases/`。每次新站部署会复制当前快照中的整个 `releases/`，逐文件校验后再合入站点文件。仓库构建中的 `dist/site/releases/latest.json` 不会打包、上传或激活。CCX 发行门禁未通过时，线上 `latest.json` 会保持原字节内容。
 
 ## 环境
 

@@ -12,12 +12,11 @@ Mugen vNext 是一个同时运行在普通浏览器和 Photoshop CCX 中的图�
 | Inner WebUI vNext `0.2.0` | 开发中 |
 | Photoshop CCX `1.0.2` | 活动 |
 | APIMart 本地测试夹具 | 活动 |
-| Electron 桌面端 `0.3.19` | 已废弃 |
 | Inner WebUI 0.1 | 已废弃 |
 | 旧官网 | 已废弃 |
 | Standalone UXP 原型 | 已删除 |
 
-Electron UI 源码在迁移完成前作为 WebUI vNext 的代码平移来源。vNext 不依赖 Electron runtime、preload、IPC 或本地 Bridge。
+原 Electron UI 源码已整体移除（2026-08-12），WebUI vNext 为独立实现，不依赖 Electron runtime、preload、IPC 或本地 Bridge。
 
 ## 运行时
 
@@ -76,4 +75,4 @@ CCX 冒烟必须在真实 Photoshop 中完成画布抓取、APIMart 请求、小
 
 ## 历史归档
 
-Electron `0.3.x`、旧官网、Inner WebUI `0.1.0` 与旧 Bridge 架构仅用于历史追溯。Standalone UXP 原型源码和构建入口已从活动仓库删除。
+Electron `0.3.x` 桌面端源码与打包链路已于 2026-08-12 移除，历史发行记录见 `docs/build-todo-list.md`。旧官网、Inner WebUI `0.1.0` 与旧 Bridge 架构仅用于历史追溯。Standalone UXP 原型源码和构建入口已从活动仓库删除。

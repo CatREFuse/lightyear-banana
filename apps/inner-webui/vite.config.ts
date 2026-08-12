@@ -96,7 +96,6 @@ export default defineConfig(({ mode }) => ({
   define: {
     __WEBUI_VERSION__: JSON.stringify(webVersion),
     __BUILD_COMMIT__: JSON.stringify(buildCommit),
-    __MUGEN_LEGACY_DESKTOP__: 'false',
     __MUGEN_APP_ENV__: JSON.stringify(mode === 'production' ? 'production' : mode === 'test' ? 'test' : 'development')
   },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)), '@mugen/inner-protocol': fileURLToPath(new URL('../../packages/inner-protocol/src/index.ts', import.meta.url)) } },

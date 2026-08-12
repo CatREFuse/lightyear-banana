@@ -1,23 +1,21 @@
-# AGENTS.md instructions for /Users/tanshow/Developer/mugen
+# AGENTS.md instructions for /Users/tanshow/Developer/lightyear-banana
 
 
 ## 部署参数
 
-请在 `key.env` 环境变量中获取部署参数：
+请在 `key.env` 环境变量中获取部署参数（参数以 `key.env.example` 为准）：
 - server_ip
-- password
+- password（官网部署脚本明确拒绝密码，仅支持 SSH 公钥，详见 `docs/site-deployment.md`）
 - domain
 - secondary_domain
 
 
 ## Release Build Gate
 
-- 修改或提交 `package.json` 版本号前，必须先读取 `docs/build-todo-list.md`。
-- `docs/build-todo-list.md` 是版本提交、当前平台打包、跨平台派发判断、官网发布门禁的索引入口。
-- 提交版本号时必须打包当前平台版本：Windows 产出 `dist/mugen-$VERSION-win.zip`，macOS 产出 `dist/mugen-$VERSION-mac.zip`。
-- 不允许用跨平台临时包替代正式平台包。macOS 包必须由 macOS 环境打包，Windows 包必须由 Windows 环境打包。
-- 在 macOS 上打包时，必须判断是否需要派发 Windows 打包任务；在 Windows 上打包时，必须判断是否需要派发 macOS 打包任务。
-- 官网发布前必须确认 `dist/release-$VERSION/` 同时包含 macOS、Windows、CCX 和 `SHA256SUMS.txt`，否则只记录待办，不更新线上 `latest.json`。
+- 修改或提交版本号前，必须先读取 `docs/build-todo-list.md`。
+- 发布门禁按三条线执行：CCX 以 `docs/build-todo-list.md` 为准；WebUI 部署见 `docs/inner-webui-deployment.md`；官网部署见 `docs/site-deployment.md`。
+- Electron 桌面端已移除，不再有 macOS/Windows 桌面打包门禁（历史发行记录见 `docs/build-todo-list.md`）。
+- 官网发布前必须确认 CCX 发行物与 `dist/ccx-release.json` 一致，否则只记录待办，不更新线上 `latest.json`。
 
 ## 拒绝 Comment 内容直接出现在最终产物文案中
 

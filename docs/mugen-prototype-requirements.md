@@ -18,7 +18,7 @@ Mugen vNext 由三个活动交付物组成：
 
 | 归档对象 | 处理方式 |
 | --- | --- |
-| Electron 桌面端 | 停止开发与发布；UI 源码在迁移完成前作为平移来源 |
+| Electron 桌面端 | 已删除（2026-08-12） |
 | 旧官网 | 停止作为设计和内容基线；线上替换必须通过新站门禁 |
 | Inner WebUI 0.1 | 停止维护，不要求 vNext 保持其简化 UI 或 Mock Host 行为 |
 | Standalone UXP 插件原型 | 已从源码、构建、测试与版本链删除 |
@@ -66,10 +66,10 @@ Mugen vNext 由三个活动交付物组成：
 
 ### UI-FR-001 源码平移
 
-- WebUI vNext 必须从原 Electron UI 源码平移，并针对 Web 与 CCX 环境适配。
+- WebUI vNext 已从原 Electron UI 源码平移，并针对 Web 与 CCX 环境适配。
 - 工作台、消息流、输入 Dock、设置、Provider、预设、结果卡片和主题均有源代码级迁移对应。
 - 迁移以移动、复用或抽取 Vue、TypeScript 和 CSS 模块为主，不以截图或视觉观察重新实现。
-- 评审材料包含旧模块到 vNext 模块的映射。
+- 评审材料包含旧模块到 vNext 模块的映射（桌面源码已删除）。
 - 关键交互的自动化测试或行为断言得到保留或迁移。
 - Electron preload、IPC、本地 Bridge、桌面窗口和自动更新代码不进入 vNext 运行依赖。
 - Inner WebUI 0.1 的简化生产入口被替换，不能与 vNext 并存为两个可发布工作台。
@@ -123,7 +123,7 @@ Mugen vNext 由三个活动交付物组成：
 - Photoshop 可见画布、选区、当前图层抓取入口不存在。
 - 结果置入 Photoshop 的按钮、菜单项、快捷键和无障碍节点不存在。
 - 不使用小猫或其他 Mock 图像替代 Photoshop 画布。
-- 不要求安装 CCX、Electron、Bridge Server 或浏览器扩展。
+- 不要求安装任何桌面端或浏览器扩展。
 - 浏览器刷新后可以恢复允许持久化的配置；凭据只保存在当前浏览器适配层。
 
 ### UI-FR-008 CCX Photoshop 能力
@@ -201,7 +201,7 @@ Mugen vNext 由三个活动交付物组成：
 ## 6. 发布验收
 
 - 官网有桌面与移动视口截图或录屏，证明单屏、书法字、可旋转棱镜、折射光线、液态玻璃按钮和 CCX 标本号。
-- 迁移映射证明 UI-FR-001，代码搜索证明没有 Electron runtime 依赖进入 WebUI bundle。
+- 代码搜索证明没有 Electron runtime 依赖进入 WebUI bundle（bundlePolicy 回归防线覆盖）。
 - WebUI 单元、Provider、协议和浏览器 E2E 通过。
 - `npm run verify:ccx` 通过；修改 Manifest、entrypoint、icon 或权限后在 Adobe UXP Developer Tools 执行 Unload/Load。
 - 修改 Vue、TypeScript 或 CSS 后重新构建 CCX，并在 Adobe UXP Developer Tools 中 Reload。
@@ -211,9 +211,9 @@ Mugen vNext 由三个活动交付物组成：
 
 ## 7. 当前阶段顺序
 
-1. 冻结 Electron、旧官网和 Inner WebUI 0.1；删除 Standalone UXP 产品代码。
-2. 建立 Electron UI 到 WebUI vNext 的模块迁移映射。
-3. 平移共享 UI 与业务模块，去除 Electron runtime 依赖。
+1. 冻结旧官网和 Inner WebUI 0.1；删除 Standalone UXP 产品代码。
+2. Electron 桌面端已整体移除（2026-08-12）。
+3. 平移共享 UI 与业务模块，去除 Electron runtime 依赖（已完成）。
 4. 建立 Browser adapter 与 CCX Host adapter，并按能力裁剪入口。
 5. 固化 APIMart 单猫 fixture，完成浏览器冒烟。
 6. 打包 CCX，在真实 Photoshop 完成抓取、请求、取图和置入闭环。

@@ -1,6 +1,6 @@
 import type { CapturedCanvasImage } from './canvas'
 
-export type RuntimeName = 'browser' | 'electron' | 'photoshop-ccx'
+export type RuntimeName = 'browser' | 'photoshop-ccx'
 export type DirectRuntimeName = Exclude<RuntimeName, 'photoshop-ccx'>
 
 export type DesktopPlatform = 'darwin' | 'win32'
@@ -23,55 +23,6 @@ export type PromptPreset = {
 
 export type ResolutionInputMode = 'preset' | 'custom'
 
-export type WindowDeploySide = 'left' | 'right'
-
-export type WindowDeployStatus = 'idle' | 'deploying' | 'success' | 'error'
-
-export type WindowDeployState = {
-  status: WindowDeployStatus
-  message: string
-}
-
-export type WindowDeployResult = {
-  side: WindowDeploySide
-  panelBounds: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-  photoshopBounds: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-  photoshopAdjusted: boolean
-  message: string
-}
-
-export type AppUpdateCheckStatus = 'idle' | 'checking' | 'current' | 'available' | 'error'
-
-export type AppUpdateCheckState = {
-  status: AppUpdateCheckStatus
-  message: string
-  currentVersion?: string
-  latestVersion?: string
-  checkedAt?: string
-}
-
-export type AppUpdateCheckResult = {
-  status: Exclude<AppUpdateCheckStatus, 'idle' | 'checking'>
-  currentVersion: string
-  latestVersion: string
-  mandatory: boolean
-  releaseUrl: string
-  downloadUrl: string
-  fileName: string
-  checkedAt: string
-  message?: string
-}
-
 export type DiagnosticExportStatus = 'idle' | 'exporting' | 'success' | 'error'
 
 export type DiagnosticExportState = {
@@ -79,22 +30,11 @@ export type DiagnosticExportState = {
   message: string
 }
 
-export type DiagnosticExportResult = {
-  saved: boolean
-  fileName?: string
-  filePath?: string
-  recordCount?: number
-  cutoff?: string
-  snapshotTime?: string
-}
-
 export type CanvasOperationState = {
   type: 'idle' | 'capture' | 'place'
   label: string
   imageId?: string
 }
-
-export type MacPermissionPane = 'accessibility' | 'automation' | 'screenCapture'
 
 export type SettingsTestStatus = 'idle' | 'testing' | 'success' | 'error'
 

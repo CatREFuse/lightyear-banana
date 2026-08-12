@@ -1,13 +1,12 @@
 # Build TODO List
 
-本清单用于修改版本号、准备 CCX、发布 WebUI 或切换正式官网前的强制检查。当前活动产品是 WebUI vNext、Photoshop CCX 和单屏官网。Electron、旧官网与 Inner WebUI 0.1 已归档；独立 UXP 产品代码已经删除。
+本清单用于修改版本号、准备 CCX、发布 WebUI 或切换正式官网前的强制检查。当前活动产品是 WebUI vNext、Photoshop CCX 和单屏官网。Electron 桌面端源码已彻底移除（2026-08-12）；旧官网与 Inner WebUI 0.1 已归档；独立 UXP 产品代码已经删除。
 
-当前阶段允许部署 WebUI vNext、单屏官网与不可变的 CCX 版本文件。完整 macOS、Windows、CCX 与 `SHA256SUMS.txt` 尚未齐备时，必须保留线上 `latest.json`，不得把局部产物声明为完整正式发行；缺失项继续记录 TODO。macOS 与 Windows 包属于历史兼容发行工件，不在官网展示且不属于活动产品。
+当前阶段允许部署 WebUI vNext、单屏官网与不可变的 CCX 版本文件。完整 CCX 发行物未就绪前，必须保留线上 `latest.json`，不得把局部产物声明为完整正式发行；缺失项继续记录 TODO。
 
 ## 生命周期与版本规则
 
-- 根 `package.json` 的 Electron `0.3.x` 版本被冻结。正常 vNext 开发不得增加 Electron 版本、恢复桌面入口或生成新的桌面发行说明。
-- Electron UI 源码可在迁移完成前保留，但只作为 WebUI vNext 的代码平移来源，不得作为活动 runtime 依赖。
+- Electron 桌面端源码已删除（2026-08-12），不得恢复桌面入口、electron 依赖或桌面发行脚本。
 - 修改 Inner WebUI 版本时，确认 `apps/inner-webui/package.json`、兼容信息、构建元数据和 CCX 内嵌版本一致。
 - 本地 `verify:ccx` 接受干净或脏工作树，但 Inner WebUI `0.2.0` 的源码构建与 CCX 内嵌副本必须绑定当前 HEAD，且两份 `release.json` 的 `dirty` 必须与实际工作树状态一致；内容哈希和逐字节目录比较仍须通过。
 - 正式 `package:ccx` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
@@ -16,20 +15,9 @@
 - 不得恢复 `standalone-uxp-plugin/`、`src/uxp/`、`vite.uxp.config.ts`、`uxp-panel.html` 或旧 `*:uxp` 产品命令。
 - 插件 ID 必须保持 `com.tanshow.mugen`。
 
-## Electron 历史重建门禁
-
-Electron 已废弃，以下规则只在明确要求重建历史桌面版本或修改根 Electron 版本时启用：
-
-- 修改或提交根 `package.json` 版本号前必须重新读取本文件。
-- Windows 环境必须产出 `dist/mugen-$VERSION-win.zip`；macOS 环境必须产出 `dist/mugen-$VERSION-mac.zip`。
-- 不允许使用跨平台临时包替代正式平台包。
-- Windows 构建后检查 macOS 包；macOS 构建后检查 Windows 包。缺少另一平台正式包时必须派发对应原生环境任务。
-- 派发任务写明版本、文件名、上传文件、SHA256 和是否重建 `SHA256SUMS.txt`。
-- 当前平台产物缺失或版本不一致时，不得提交根版本号或创建该桌面版本 tag。
-
 ## WebUI vNext 迁移门禁
 
-- 提供 Electron UI 旧模块到 vNext 模块的迁移映射，证明工作台、消息流、输入 Dock、设置、Provider、预设、结果卡片和主题来自源码平移。
+- 工作台、消息流、输入 Dock、设置、Provider、预设、结果卡片和主题均为当前仓库直接实现（原 Electron UI 迁移已完成并删除桌面源码）。
 - WebUI bundle 不得依赖 Electron preload、IPC、本地 Bridge、桌面窗口或自动更新模块。
 - CCX 与浏览器从同一 WebUI 源码构建，运行时差异通过 adapter 或 capability contract 实现。
 - 普通浏览器必须能完成配置、配置测试、真实网络生成、任务轮询、取消和结果查看。
@@ -59,9 +47,8 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 
 ## 正式官网发布门禁
 
-- 发布前确认 `dist/release-$VERSION/` 同时包含 macOS、Windows、CCX 和 `SHA256SUMS.txt`；任一文件缺失时只记录待办，不更新线上 `latest.json`。
-- macOS 包必须由 macOS 环境打包，Windows 包必须由 Windows 环境打包；不接受跨平台临时包。
-- 桌面端已废弃，因此新首页与用户可见 `latest.json` 下载项只提供 CCX。macOS 与 Windows 产物仅用于满足现行完整发行包门禁和保存历史，不恢复桌面端入口。
+- 发布前确认 CCX 发行物与 `dist/ccx-release.json` 一致；不一致时只记录待办，不更新线上 `latest.json`。
+- 桌面端已删除，新首页与用户可见 `latest.json` 下载项只提供 CCX。
 - `下载 CCX` 只指向已校验文件；`进入 WebUI` 只指向通过浏览器门禁的 vNext 地址。
 - `site/releases/latest.json` 的地址使用 `key.env` 中的正式域名，仓库与生产产物不得恢复已废弃域名。
 - 正式构建来自已提交的干净工作区，并记录提交、构建时间、版本、文件大小与 SHA256。
@@ -69,13 +56,13 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 
 ## vNext 发布证据清单
 
-- [ ] Electron UI 到 WebUI vNext 的源码迁移映射已评审。
+- [ ] 生产 WebUI 不含 Electron runtime 依赖（bundlePolicy 回归防线通过）。
 - [ ] WebUI 单元、Provider、协议、浏览器 E2E 和生产构建通过。
 - [ ] 浏览器 APIMart 冒烟通过，固定小猫与无 Photoshop 入口断言通过。
 - [ ] `npm run verify:ccx` 通过。
 - [ ] CCX 已在真实 Photoshop 完成抓取、请求、取图、置入完整闭环。
 - [ ] 官网单屏视觉、交互、性能、可访问性与静态兜底通过。
-- [ ] `dist/release-$VERSION/` 的 macOS、Windows、CCX 与 `SHA256SUMS.txt` 齐全且匹配。
+- [ ] `dist/` 的 CCX 与 `SHA256SUMS.txt` 匹配。
 - [ ] 公网读回和安全响应头检查通过，最后才更新 `latest.json`。
 
 ## 旧 Inner WebUI 0.1 / CCX 1.0 状态（归档）
@@ -86,7 +73,7 @@ Electron 已废弃，以下规则只在明确要求重建历史桌面版本或�
 - 真实 Photoshop 的旧 Inner WebUI 完整业务回归未形成正式通过证据。
 - 上述结果只能用于历史追溯，不计入 vNext 发布证据。
 
-## Electron 历史发行记录
+## Electron 历史发行记录（Electron 已删除，仅存档）
 
 ### Electron 0.3.19（归档）
 

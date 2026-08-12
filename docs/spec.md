@@ -7,7 +7,7 @@
 ## 产品决策
 
 - 对外品牌名只使用 `Mugen`。
-- Electron 桌面端已废弃，不再开发、打包或作为用户入口。其 Vue 工作台源码只在 vNext 迁移完成前作为代码平移来源保留。
+- Electron 桌面端已整体移除（2026-08-12），不再有桌面入口或打包流程。
 - 旧官网实现与旧官网内容已废弃。正式站点重构为单屏 Mugen 品牌页。
 - Inner WebUI `0.1.x` 已废弃，不作为 vNext 的兼容目标或发布基线。
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.0`，可在 CCX 内和普通浏览器中运行。
@@ -57,15 +57,15 @@
 
 ### 代码平移原则
 
-- vNext 以原 Electron UI 的实际 Vue、TypeScript、状态管理、Provider、提示词、结果流和主题代码为迁移源。
-- 迁移必须保留源代码级结构与行为对应关系，并针对 WebUI 运行环境做适配。
+- vNext 以原 Electron UI 的实际 Vue、TypeScript、状态管理、Provider、提示词、结果流和主题代码为迁移源（迁移已完成并删除桌面源码）。
+- 迁移保留了源代码级结构与行为对应关系，并针对 WebUI 运行环境做适配。
 - 不允许根据截图重新搭建一套相似界面，也不允许保留简化版 0.1 UI 作为生产入口。
-- 可拆出共享模块或移动文件，但每个核心模块都应能追溯到 Electron UI 原实现或有明确的运行时适配原因。
-- Electron runtime、preload、IPC、本地 Bridge 和桌面窗口代码不得成为 vNext 的运行依赖。
+- 迁移过程中可拆出共享模块或移动文件，每个核心模块都能追溯到 Electron UI 原实现或有明确的运行时适配原因。
+- Electron runtime、preload、IPC、本地 Bridge 和桌面窗口代码已从 vNext 中移除。
 
 ### 共同功能
 
-CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，至少保留原 Electron 工作台的以下能力：
+CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原 Electron 工作台的以下能力：
 
 - 工作台、消息流、结果卡片和设置页。
 - Provider 配置、API Key、Base URL、模型和能力约束。
@@ -172,7 +172,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 
 ## 发布边界
 
-- 当前阶段允许在 WebUI、单屏官网和不可变 CCX 各自门禁通过后部署正式入口。完整 macOS、Windows、CCX 与 `SHA256SUMS.txt` 四件套未齐时，线上 `latest.json` 保持原版本；站点部署必须继承并逐字节验证该文件。
+- 当前阶段允许在 WebUI、单屏官网和不可变 CCX 各自门禁通过后部署正式入口。完整 CCX 发行物未就绪时，线上 `latest.json` 保持原版本；站点部署必须继承并逐字节验证该文件。
 - 旧官网、Electron 桌面端与 Inner WebUI 0.1 只保留历史记录；独立 UXP 原型代码已删除，均不进入新首页、WebUI 入口或活动发布说明。
 - CCX 包必须内含与浏览器版同源构建的 WebUI，且不依赖公网 WebUI 才能启动。
 - 浏览器 WebUI 和 CCX WebUI 可以独立部署，但必须记录可追溯的提交、版本和兼容信息。
@@ -180,7 +180,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 
 ## 非目标
 
-- 本阶段不恢复 Electron 桌面端。
+- Electron 桌面端已删除，不再恢复。
 - 本阶段不扩展官网介绍、教程、价格、案例或账号系统。
 - 本阶段不把浏览器运行时伪装成 Photoshop。
 - 本阶段不继续维护 Inner WebUI 0.1 的视觉或协议兼容。
@@ -189,11 +189,11 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 ## 验收证据
 
 - 官网桌面与移动视口截图及交互录屏，证明单屏、书法字、可旋转棱镜、折射光线、两个液态玻璃按钮和 CCX 标本号均成立。
-- 代码差异或迁移清单，证明 vNext 从 Electron UI 源码平移且已去除 Electron 运行依赖。
+- 生产 bundle 扫描拒绝 Electron runtime（见 `apps/inner-webui/scripts/bundlePolicy.mjs` 回归防线）。
 - 浏览器自动化测试，证明真实网络与配置流程可用且无 Photoshop 操作入口。
 - `npm run verify:ccx` 与 CCX 打包校验通过。
 - Photoshop 实机完整闭环记录，证明画布抓取、APIMart 请求、小猫图片获取和新图层置入均成功。
 
 ## 历史归档
 
-截至 2026-08-11，Inner WebUI `0.1.0`、CCX `1.0.0`、`inner-host/v1` 和旧官网曾完成部分构建、协议、静态发布与自动化验证。这些结果只说明旧基线曾可运行，不证明 vNext 已通过验收。Electron `0.3.x` 的安装包、构建记录和 Bridge 文档继续作为历史证据保留，但不再定义当前产品方向。
+截至 2026-08-11，Inner WebUI `0.1.0`、CCX `1.0.0`、`inner-host/v1` 和旧官网曾完成部分构建、协议、静态发布与自动化验证。这些结果只说明旧基线曾可运行，不证明 vNext 已通过验收。Electron `0.3.x` 的安装包、构建记录和 Bridge 文档已随源码移除，历史见 `docs/build-todo-list.md` 发行记录。
