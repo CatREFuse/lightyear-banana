@@ -1,22 +1,22 @@
 {
   "product": "mugen",
   "name": "Mugen",
-  "version": "1.0.0",
-  "ccxVersion": "1.0.0",
-  "tag": "v1.0.0",
+  "version": "1.0.1",
+  "ccxVersion": "1.0.1",
+  "tag": "v1.0.1",
   "minimumSupportedVersion": "1.0.0",
-  "publishedAt": "2026-08-11T17:26:16.537Z",
-  "releaseUrl": "__MUGEN_RELEASE_ORIGIN__/releases/1.0.0/SHA256SUMS.txt",
+  "publishedAt": "2026-08-12T02:37:31.045Z",
+  "releaseUrl": "__MUGEN_RELEASE_ORIGIN__/releases/1.0.1/SHA256SUMS.txt",
   "githubUrl": "https://github.com/CatREFuse/lightyear-banana",
   "updateCheckUrl": "__MUGEN_RELEASE_ORIGIN__/releases/latest.json",
   "mandatory": false,
   "downloads": {
     "ccx": {
       "platform": "photoshop-ccx",
-      "filename": "mugen-1.0.0.ccx",
-      "url": "__MUGEN_RELEASE_ORIGIN__/releases/1.0.0/mugen-1.0.0.ccx",
-      "sha256": "ac60982a50eb8e484044719d6de27ab4c2a073e0da81230f6d16616c49b622fe",
-      "size": 226463
+      "filename": "mugen-1.0.1.ccx",
+      "url": "__MUGEN_RELEASE_ORIGIN__/releases/1.0.1/mugen-1.0.1.ccx",
+      "sha256": "f9bc6ed8a2ba806282cd87e51fd8255eab5c24ee99a37e4830538e4fcf6be05b",
+      "size": 220686
     }
   }
 }
