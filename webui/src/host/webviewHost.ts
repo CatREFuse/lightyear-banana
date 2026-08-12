@@ -51,6 +51,7 @@ type ReadyWaiter = { resolve(value: ReadyState): void; reject(reason: Error): vo
 
 const DEFAULT_TIMEOUT_MS = 12_000
 const READY_TIMEOUT_MS = 12_000
+const CONFIG_TEST_TIMEOUT_MS = 610_000
 
 function clientError(code: string, message: string, recoverable = true) {
   return new HostClientError({ code, message, recoverable })
@@ -312,7 +313,7 @@ export class WebViewHostClient implements HostClient {
   }
   async testConfig(config: ModelConfig, apiKey?: string) {
     const saved = await this.saveConfig({ ...config, id: config.id || createMessageId('config') }, apiKey)
-    return this.invoke('generation.testConfig', { configId: saved.id })
+    return this.invoke('generation.testConfig', { configId: saved.id }, { timeoutMs: CONFIG_TEST_TIMEOUT_MS })
   }
   async clearHistory() { await this.invoke('history.clear', undefined) }
   exportDiagnostics() { return this.invoke('diagnostics.export', undefined) }

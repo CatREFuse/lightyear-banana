@@ -104,4 +104,52 @@ describe('WebViewHostClient', () => {
     harness.dispatch(envelope({ kind: 'response', command: request.command, messageId: request.messageId, payload: context }))
     harness.client.dispose()
   })
+
+  it('keeps a Provider config test alive beyond the default host timeout', async () => {
+    const harness = createHarness()
+    await connect(harness)
+    const config = {
+      id: 'imini-config',
+      name: 'iMini',
+      provider: 'iMini' as const,
+      model: 'google/nano-banana',
+      models: ['google/nano-banana'],
+      apiKey: '',
+      hasCredential: true,
+      baseUrl: 'https://openapi.imini.ai/imini/router',
+      enabled: true
+    }
+
+    vi.useFakeTimers()
+    const pending = harness.client.testConfig(config)
+    const settingsRequest = harness.sent.at(-1)!
+    harness.dispatch(envelope({
+      kind: 'response',
+      command: settingsRequest.command,
+      messageId: settingsRequest.messageId,
+      payload: { activeConfigId: config.id, configs: [] }
+    }))
+    await vi.waitFor(() => expect(harness.sent.at(-1)?.command).toBe('settings.save'))
+    const saveRequest = harness.sent.at(-1)!
+    const savePayload = saveRequest.payload as { configs: unknown[] }
+    harness.dispatch(envelope({
+      kind: 'response',
+      command: saveRequest.command,
+      messageId: saveRequest.messageId,
+      payload: { activeConfigId: config.id, configs: [savePayload.configs[0]] }
+    }))
+    await vi.waitFor(() => expect(harness.sent.at(-1)?.command).toBe('generation.testConfig'))
+
+    await vi.advanceTimersByTimeAsync(13_000)
+    const testRequest = harness.sent.at(-1)!
+    harness.dispatch(envelope({
+      kind: 'response',
+      command: testRequest.command,
+      messageId: testRequest.messageId,
+      payload: { ok: true, message: '连接成功' }
+    }))
+
+    await expect(pending).resolves.toEqual({ ok: true, message: '连接成功' })
+    harness.client.dispose()
+  })
 })
