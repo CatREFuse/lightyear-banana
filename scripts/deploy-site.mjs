@@ -1252,28 +1252,35 @@ function cacheBust(url) {
 }
 
 async function fetchPublicFile(baseUrl, relative, maximumBytes = 24 * 1024 * 1024) {
-  const target = cacheBust(new URL(relative.split('/').map(encodeURIComponent).join('/'), baseUrl))
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 20_000)
-  try {
-    const response = await fetch(target, {
-      cache: 'no-store',
-      headers: { 'cache-control': 'no-cache' },
-      redirect: 'error',
-      signal: controller.signal
-    })
-    if (response.status !== 200) throw new Error(`${relative} returned HTTP ${response.status}.`)
-    const declaredLengthHeader = response.headers.get('content-length')
-    const declaredLength = declaredLengthHeader === null ? undefined : Number(declaredLengthHeader)
-    if (declaredLength !== undefined && Number.isFinite(declaredLength) && (declaredLength < 1 || declaredLength > maximumBytes)) {
-      throw new Error(`${relative} has an invalid public content length.`)
+  let lastError
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const target = cacheBust(new URL(relative.split('/').map(encodeURIComponent).join('/'), baseUrl))
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20_000)
+    try {
+      const response = await fetch(target, {
+        cache: 'no-store',
+        headers: { 'cache-control': 'no-cache', connection: 'close' },
+        redirect: 'error',
+        signal: controller.signal
+      })
+      if (response.status !== 200) throw new Error(`${relative} returned HTTP ${response.status}.`)
+      const declaredLengthHeader = response.headers.get('content-length')
+      const declaredLength = declaredLengthHeader === null ? undefined : Number(declaredLengthHeader)
+      if (declaredLength !== undefined && Number.isFinite(declaredLength) && (declaredLength < 1 || declaredLength > maximumBytes)) {
+        throw new Error(`${relative} has an invalid public content length.`)
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      if (!bytes.byteLength || bytes.byteLength > maximumBytes) throw new Error(`${relative} is empty or too large.`)
+      return { bytes, response }
+    } catch (error) {
+      lastError = error
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
+    } finally {
+      clearTimeout(timeout)
     }
-    const bytes = new Uint8Array(await response.arrayBuffer())
-    if (!bytes.byteLength || bytes.byteLength > maximumBytes) throw new Error(`${relative} is empty or too large.`)
-    return { bytes, response }
-  } finally {
-    clearTimeout(timeout)
   }
+  throw lastError
 }
 
 function assertPublicHeaders(response, fileName) {
