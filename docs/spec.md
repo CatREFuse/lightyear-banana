@@ -129,6 +129,7 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - iMini 使用 `https://openapi.imini.ai/imini/router` 和 Bearer API Key；图片任务提交到 `POST /v1/images/generate`，随后查询 `GET /v1/images/tasks/{task_id}`。
 - iMini 只处理 `queued`、`processing`、`succeeded`、`failed` 四种任务状态；图片任务使用 10 分钟总超时、1.5 倍指数退避、30 秒上限与正负 20% 抖动，429 的等待下限为 5 秒。
 - iMini 错误保留 `error.code`、`error.message` 和 `request_id`，发布验证必须运行独立的 iMini Provider 冒烟。
+- iMini Provider 冒烟从 monorepo 的 `packages/mugen-core` 编译输出加载共享能力和请求实现，目录重构后仍必须通过发布门禁。
 - 配置结构、Provider ID、请求语义和旧公开函数在源码平移中保持兼容，运行时存储由 adapter 接管。
 
 ### 预设提示词

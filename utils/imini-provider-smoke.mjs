@@ -180,8 +180,9 @@ async function main() {
 
   try {
     const require = createRequire(import.meta.url)
-    const { providerCapabilities, readProviderCapability } = require(join(outDir, 'src', 'data', 'providerCapabilities.js'))
-    const { generateImagesWithProvider } = require(join(outDir, 'src', 'services', 'imageApiClient.js'))
+    const coreOutputRoot = join(outDir, 'packages', 'mugen-core', 'src')
+    const { providerCapabilities, readProviderCapability } = require(join(coreOutputRoot, 'data', 'providerCapabilities.js'))
+    const { generateImagesWithProvider } = require(join(coreOutputRoot, 'services', 'imageApiClient.js'))
 
     assert(
       JSON.stringify(providerCapabilities.iMini.modelOptions) === JSON.stringify([
