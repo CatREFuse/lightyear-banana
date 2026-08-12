@@ -126,6 +126,9 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，至少保
 - 未注册 Provider、Provider 不匹配、缺少模型、必填 API Key 或 Base URL 时不进入 wire 层。
 - `supportsBaseUrl` 只表示界面允许编辑地址；`requiresBaseUrl` 单独决定地址是否必填。
 - iMini、ComfyUI 和 Codex Image Server 可以使用 wire 层默认地址；自定义 OpenAI 配置必须填写 Base URL。
+- iMini 使用 `https://openapi.imini.ai/imini/router` 和 Bearer API Key；图片任务提交到 `POST /v1/images/generate`，随后查询 `GET /v1/images/tasks/{task_id}`。
+- iMini 只处理 `queued`、`processing`、`succeeded`、`failed` 四种任务状态；图片任务使用 10 分钟总超时、1.5 倍指数退避、30 秒上限与正负 20% 抖动，429 的等待下限为 5 秒。
+- iMini 错误保留 `error.code`、`error.message` 和 `request_id`，发布验证必须运行独立的 iMini Provider 冒烟。
 - 配置结构、Provider ID、请求语义和旧公开函数在源码平移中保持兼容，运行时存储由 adapter 接管。
 
 ### 预设提示词

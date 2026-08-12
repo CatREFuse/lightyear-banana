@@ -20,6 +20,7 @@ type ApiErrorPayload = {
   error?: {
     code?: string | number
     message?: string
+    request_id?: string
     status?: string | number
     type?: string
   }
@@ -81,8 +82,11 @@ const pollIntervalMs = 2000
 const pollAttempts = 99
 const apimartPollIntervalMs = 5000
 const apimartPollAttempts = 99
-const iMiniPollIntervalMs = 2000
-const iMiniPollAttempts = 99
+const iMiniPollStartIntervalMs = 2000
+const iMiniPollMaxIntervalMs = 30000
+const iMiniRateLimitIntervalMs = 5000
+const iMiniImageTimeoutMs = 600000
+const iMiniTransientRetryCount = 3
 export const maxImageRequestRetryCount = 2
 const originalRatioOption = '原图比例'
 const legacyAutoRatioOption = '自动'
@@ -125,12 +129,16 @@ function followsReferenceRatio(params: Pick<ImageGenerationParams, 'ratio' | 're
 }
 
 export class ImageApiError extends Error {
+  apiCode?: string | number
+  requestId?: string
   status: number
   retryable: boolean
 
-  constructor(message: string, status: number, retryable = false) {
+  constructor(message: string, status: number, retryable = false, apiCode?: string | number, requestId?: string) {
     super(message)
     this.name = 'ImageApiError'
+    this.apiCode = apiCode
+    this.requestId = requestId
     this.status = status
     this.retryable = retryable
   }
@@ -271,7 +279,14 @@ async function fetchJson(url: string, init: RequestInit, timing?: TimingContext)
   })
 
   if (!response.ok) {
-    throw new ImageApiError(errorMessage ?? 'API 请求失败', response.status, retryable)
+    const apiError = payload as ApiErrorPayload
+    throw new ImageApiError(
+      errorMessage ?? 'API 请求失败',
+      response.status,
+      retryable,
+      apiError.error?.code ?? apiError.code,
+      apiError.error?.request_id ?? apiError.request_id
+    )
   }
 
   return payload
@@ -1999,52 +2014,129 @@ function readIMiniTaskStatus(payload: any) {
 }
 
 function readIMiniTaskError(payload: any) {
-  return payload?.error?.message ?? payload?.message
+  const error = payload?.error
+  const message = error?.message ?? payload?.message ?? 'i-mini 任务失败'
+  const code = error?.code
+  const requestId = error?.request_id ?? payload?.request_id
+  return [message, code ? `(${code})` : '', requestId ? `[request_id=${requestId}]` : '']
+    .filter(Boolean)
+    .join(' ')
+}
+
+function readIMiniHttpError(error: ImageApiError) {
+  if (!error.apiCode && !error.requestId) {
+    return error
+  }
+
+  const message = [
+    error.message,
+    error.apiCode ? `(${error.apiCode})` : '',
+    error.requestId ? `[request_id=${error.requestId}]` : ''
+  ].filter(Boolean).join(' ')
+  return new ImageApiError(message, error.status, error.retryable, error.apiCode, error.requestId)
+}
+
+function readIMiniJitteredDelay(intervalMs: number) {
+  return Math.round(intervalMs * (0.8 + 0.4 * Math.random()))
+}
+
+async function submitIMini(params: ImageGenerationParams, deadline: number) {
+  let intervalMs = iMiniPollStartIntervalMs
+
+  for (let attempt = 0; attempt <= iMiniTransientRetryCount; attempt += 1) {
+    try {
+      return await fetchJson(joinUrl(resolveBaseUrl(params.config), providerPaths.iMini ?? ''), {
+        method: 'POST',
+        headers: createAuthHeaders(params.config),
+        signal: params.signal,
+        body: JSON.stringify(buildIMiniRequest(params))
+      }, readTimingContext(params, 'submit', { attempt: attempt + 1 }))
+    } catch (error) {
+      if (params.signal?.aborted || !(error instanceof ImageApiError) || error.status === 499) {
+        throw error
+      }
+
+      const transient = error.status === 0 || error.status === 429 || error.status >= 500
+      if (!transient || attempt === iMiniTransientRetryCount) {
+        error.retryable = false
+        throw readIMiniHttpError(error)
+      }
+
+      if (error.status === 429) {
+        intervalMs = Math.max(intervalMs, iMiniRateLimitIntervalMs)
+      }
+      const remainingMs = deadline - Date.now()
+      if (remainingMs <= 0) {
+        throw new ImageApiError('i-mini 任务超时', 504)
+      }
+      await wait(Math.min(readIMiniJitteredDelay(intervalMs), remainingMs), params.signal)
+      intervalMs = Math.min(intervalMs * 1.5, iMiniPollMaxIntervalMs)
+    }
+  }
+
+  throw new ImageApiError('i-mini 提交失败', 502)
 }
 
 async function requestIMini(params: ImageGenerationParams) {
   const baseUrl = resolveBaseUrl(params.config)
-  const payload = await fetchJson(joinUrl(baseUrl, providerPaths.iMini ?? ''), {
-    method: 'POST',
-    headers: createAuthHeaders(params.config),
-    signal: params.signal,
-    body: JSON.stringify(buildIMiniRequest(params))
-  }, readTimingContext(params, 'submit'))
+  const deadline = Date.now() + iMiniImageTimeoutMs
+  const payload = await submitIMini(params, deadline)
 
   const taskId = readIMiniTaskId(payload)
   if (!taskId) {
-    return normalizeIMiniResultPayload(params, payload)
+    throw new ImageApiError('i-mini 未返回 task_id', 502)
   }
 
-  for (let attempt = 0; attempt < iMiniPollAttempts; attempt += 1) {
+  let attempt = 0
+  let intervalMs = iMiniPollStartIntervalMs
+  while (Date.now() < deadline) {
+    attempt += 1
     let result: any
     try {
       result = await fetchJson(joinUrl(baseUrl, `/v1/images/tasks/${encodeURIComponent(taskId)}`), {
         method: 'GET',
         headers: createAuthHeaders(params.config),
         signal: params.signal
-      }, readTimingContext(params, 'poll', { taskId, attempt: attempt + 1 }))
+      }, readTimingContext(params, 'poll', { taskId, attempt }))
     } catch (error) {
       if (params.signal?.aborted || (error instanceof ImageApiError && error.status === 499)) {
         throw error
       }
 
-      if (error instanceof ImageApiError && error.status === 0 && attempt < iMiniPollAttempts - 1) {
-        await wait(iMiniPollIntervalMs, params.signal)
-        continue
+      if (!(error instanceof ImageApiError) || !error.retryable) {
+        throw error instanceof ImageApiError ? readIMiniHttpError(error) : error
       }
 
-      throw error
+      if (error.status === 429) {
+        intervalMs = Math.max(intervalMs, iMiniRateLimitIntervalMs)
+      }
     }
 
-    const status = readIMiniTaskStatus(result)
-    if (status === 'succeeded' || status === 'completed' || status === 'success') {
-      return normalizeIMiniResultPayload(params, result)
+    if (result) {
+      const status = readIMiniTaskStatus(result)
+      if (status === 'succeeded') {
+        return normalizeIMiniResultPayload(params, result)
+      }
+      if (status === 'failed') {
+        throw new ImageApiError(
+          readIMiniTaskError(result),
+          502,
+          false,
+          result?.error?.code,
+          result?.error?.request_id ?? result?.request_id
+        )
+      }
+      if (status !== 'queued' && status !== 'processing') {
+        throw new ImageApiError(`i-mini 返回了未知任务状态：${status || '空'}`, 502)
+      }
     }
-    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
-      throw new ImageApiError(readIMiniTaskError(result) || 'i-mini 任务失败', 502)
+
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0) {
+      break
     }
-    await wait(iMiniPollIntervalMs, params.signal)
+    await wait(Math.min(readIMiniJitteredDelay(intervalMs), remainingMs), params.signal)
+    intervalMs = Math.min(intervalMs * 1.5, iMiniPollMaxIntervalMs)
   }
 
   throw new ImageApiError(`i-mini 任务超时：${taskId}`, 504)

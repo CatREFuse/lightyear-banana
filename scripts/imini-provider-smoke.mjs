@@ -101,8 +101,15 @@ async function main() {
     response.setHeader('Content-Type', 'application/json')
     if (request.method === 'POST' && request.url === '/v1/images/generate') {
       const body = JSON.parse(bodyText)
+      const taskId = body.model === 'google/nano-banana'
+        ? 'task_failed'
+        : body.model === 'google/nano-banana-pro'
+          ? 'task_unknown'
+          : body.model === 'openai/gpt-image-2'
+            ? 'task_gpt'
+            : 'task_nano'
       response.end(JSON.stringify({
-        task_id: body.model === 'openai/gpt-image-2' ? 'task_gpt' : 'task_nano',
+        task_id: taskId,
         model: body.model,
         created_at: '2026-04-07T03:00:17.062Z',
         request_id: 'req_submit'
@@ -111,6 +118,31 @@ async function main() {
     }
 
     if (request.method === 'GET' && request.url?.startsWith('/v1/images/tasks/')) {
+      if (request.url.endsWith('/task_failed')) {
+        response.end(JSON.stringify({
+          task_id: 'task_failed',
+          status: 'failed',
+          error: {
+            code: 'INVALID_PROMPT',
+            message: 'Prompt rejected',
+            status: 400,
+            request_id: 'req_failed'
+          },
+          request_id: 'req_poll_failed'
+        }))
+        return
+      }
+
+      if (request.url.endsWith('/task_unknown')) {
+        response.end(JSON.stringify({
+          task_id: 'task_unknown',
+          status: 'completed',
+          images: [{ url: 'https://file.iminicdn.com/file/should-not-pass.png', width: 1024, height: 1024 }],
+          request_id: 'req_poll_unknown'
+        }))
+        return
+      }
+
       response.end(JSON.stringify({
         task_id: request.url.split('/').pop(),
         status: 'succeeded',
@@ -122,6 +154,11 @@ async function main() {
             url: 'https://file.iminicdn.com/file/test.png',
             width: 1024,
             height: 1024
+          },
+          {
+            url: 'https://file.iminicdn.com/file/test-2.png',
+            width: 2048,
+            height: 2048
           }
         ],
         error: null,
@@ -181,8 +218,40 @@ async function main() {
       size: '4K'
     })
 
+    let failedTaskError
+    try {
+      await generateImagesWithProvider({
+        config: createConfig(port, 'google/nano-banana'),
+        count: 1,
+        prompt: 'Reject this prompt',
+        quality: '',
+        ratio: '1:1',
+        references: [],
+        selectedSize: '1K',
+        size: '1K'
+      })
+    } catch (error) {
+      failedTaskError = error
+    }
+
+    let unknownStatusError
+    try {
+      await generateImagesWithProvider({
+        config: createConfig(port, 'google/nano-banana-pro'),
+        count: 1,
+        prompt: 'Reject an undocumented status',
+        quality: '',
+        ratio: '1:1',
+        references: [],
+        selectedSize: '1K',
+        size: '1K'
+      })
+    } catch (error) {
+      unknownStatusError = error
+    }
+
     const posts = captured.filter((item) => item.method === 'POST')
-    assert(posts.length === 2, 'expected two i-mini submit requests')
+    assert(posts.length === 4, 'expected four i-mini submit requests')
     assert(posts.every((item) => item.url === '/v1/images/generate'), 'i-mini submit path is incorrect')
     assert(captured.filter((item) => item.method === 'GET').every((item) => item.url.startsWith('/v1/images/tasks/')), 'i-mini poll path is incorrect')
     assert(captured.every((item) => item.auth === 'Bearer test-token'), 'i-mini requests must use Bearer auth')
@@ -202,6 +271,10 @@ async function main() {
     assert(gptBody.num === 3, 'GPT Image 2 num was not forwarded')
     assert(nanoImages[0].previewUrl === 'https://file.iminicdn.com/file/test.png', 'i-mini image URL was not parsed')
     assert(gptImages[0].resolvedSize === '1024x1024', 'i-mini result dimensions were not parsed')
+    assert(gptImages.length === 2 && gptImages[1].previewUrl.endsWith('/test-2.png'), 'i-mini image arrays were not fully parsed')
+    assert(failedTaskError?.message.includes('INVALID_PROMPT'), 'i-mini task error code was not preserved')
+    assert(failedTaskError?.message.includes('req_failed'), 'i-mini task request_id was not preserved')
+    assert(unknownStatusError?.message.includes('completed'), 'undocumented i-mini task status was accepted')
 
     console.log('i-mini provider smoke passed')
   } finally {

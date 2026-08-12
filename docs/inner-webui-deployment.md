@@ -50,6 +50,8 @@ npm run verify:inner-webui:public
 npm run package:ccx
 ```
 
+`verify:inner-webui` 包含 iMini Provider 冒烟，校验 Bearer 鉴权、图片任务提交与查询、模型参数和多图片结果解析。
+
 发布构建必须来自已提交的干净 Git 工作区。`release.json` 会记录提交、构建时间和内容哈希，部署脚本拒绝 `dirty` 构建。
 
 部署脚本先复制稳定快照并逐文件校验上传内容，再按 WebUI 内容哈希创建不可变版本目录。服务器文件锁会串行激活，通过临时符号链接原子切换 `current`，并保留上一个目标为 `previous`。哈希资源累积保存在共享 `assets` 目录，已经打开的旧页面仍可完成懒加载。切换完成后，脚本会精确比对公网与本地 `release.json`、`compatibility.json`、入口 HTML 和入口资源字节，同时检查安全响应头与静态资源 MIME。公网校验失败时只会在 `current` 仍指向本次发布的情况下尝试恢复，避免回滚覆盖并发发布。
