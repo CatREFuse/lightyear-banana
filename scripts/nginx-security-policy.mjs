@@ -198,9 +198,17 @@ function assertSupportedHeaderInheritance(source, server, locations, label) {
   if (/\badd_header_inherit\b/.test(maskQuotedAndCommentText(source))) {
     throw new Error(`${label} uses add_header_inherit, which this exact policy gate cannot safely model.`)
   }
-  for (const [blockLabel, block] of [['server', server], ['homepage', locations.homepage], ['WebUI', locations.webUi]]) {
+  for (const [blockLabel, block] of [['homepage', locations.homepage], ['WebUI', locations.webUi]]) {
     if (directStatements(source, block).some((statement) => /^include\s+/i.test(statement.text))) {
       throw new Error(`${label} ${blockLabel} block uses an include directive, so effective response headers cannot be proven locally.`)
+    }
+  }
+  const serverUsesInclude = directStatements(source, server).some((statement) => /^include\s+/i.test(statement.text))
+  if (serverUsesInclude) {
+    for (const [blockLabel, block] of [['homepage', locations.homepage], ['WebUI', locations.webUi]]) {
+      if (addHeaders(source, block).length === 0) {
+        throw new Error(`${label} server uses an include directive while the ${blockLabel} location inherits response headers.`)
+      }
     }
   }
 }
@@ -240,8 +248,13 @@ function webUiExpectedFromCurrent(currentValue) {
   if (JSON.stringify(connect) !== JSON.stringify(["'none'"])) {
     throw new Error("Current WebUI CSP connect-src must be exactly 'none'.")
   }
+  const images = current.get('img-src')
+  if (JSON.stringify(images) !== JSON.stringify(["'self'", 'data:', 'blob:'])) {
+    throw new Error("Current WebUI CSP img-src must be exactly 'self' data: blob:.")
+  }
   const expected = new Map(current)
   expected.set('connect-src', WEBUI_CONNECT_SRC)
+  expected.set('img-src', WEBUI_CSP.get('img-src'))
   return expected
 }
 

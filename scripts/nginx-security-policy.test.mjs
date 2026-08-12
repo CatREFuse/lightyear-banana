@@ -30,8 +30,10 @@ import {
 } from './nginx-security-policy.mjs'
 
 const host = 'mugen.example.test'
-const webUiCspNone = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http: https:; font-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; worker-src 'none'; media-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'"
-const webUiCspNetwork = webUiCspNone.replace("connect-src 'none'", "connect-src 'self' http: https:")
+const webUiCspNone = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; worker-src 'none'; media-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'"
+const webUiCspNetwork = webUiCspNone
+  .replace("img-src 'self' data: blob:", "img-src 'self' data: blob: http: https:")
+  .replace("connect-src 'none'", "connect-src 'self' http: https:")
 const homepageCsp = "default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; form-action 'none'"
 const transactionScript = fileURLToPath(new URL('../deploy/nginx/apply-verified-config.sh', import.meta.url))
 
@@ -72,6 +74,10 @@ ${homepageExtra}  }
 
 const homepageHeaders = `    add_header Content-Security-Policy "${homepageCsp}" always;
     add_header Referrer-Policy "no-referrer" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+`
+const homepageCurrentHeaders = `    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
 `
@@ -209,6 +215,15 @@ test('rejects header inheritance constructs that cannot be proven from the revie
   )
 })
 
+test('allows an unchanged server TLS include when both target locations define their own headers', () => {
+  const serverExtra = '  include /etc/letsencrypt/options-ssl-nginx.conf;'
+  const current = configuration({ homepageExtra: homepageCurrentHeaders, serverExtra })
+  const candidate = configuration({ homepageExtra: homepageHeaders, serverExtra, webUiCsp: webUiCspNetwork })
+  const result = validateNginxSecurityPolicyChange(current, candidate, host, `https://${host}`)
+  assert.equal(result.serverName, host)
+  assert.deepEqual(result.webUiConnectSrc, ["'self'", 'http:', 'https:'])
+})
+
 test('revalidates complete Nginx semantics before any approved apply', () => {
   const fixture = localReviewedManifest()
   try {
@@ -244,7 +259,11 @@ test('remote active-config preflight is read-only and rejects non-production pat
   assert.match(command, /test ! -L '\/etc\/nginx\/conf\.d\/mugen\.conf'/)
   assert.match(command, /canonical_active=\$\(readlink -f -- '\/etc\/nginx\/conf\.d\/mugen\.conf'\)/)
   assert.match(command, /test "\$canonical_active" = '\/etc\/nginx\/conf\.d\/mugen\.conf'/)
+  assert.match(command, /; nginx -t;/)
+  assert.match(command, /nginx -T 2>&1 \| grep -Eq/)
+  assert.match(command, /add_header_inherit/)
   assert.doesNotMatch(command, /(?:^|; )(?:cp|mkdir|mv|reload|rm|systemctl)\b/)
+  assert.doesNotThrow(() => createRemoteCanonicalPreflight('/etc/nginx/sites-enabled/mugen.catrefuse.com.conf'))
   assert.throws(
     () => createRemoteCanonicalPreflight('/etc/nginx/sites-enabled/mugen'),
     /dedicated file/
@@ -356,6 +375,7 @@ function writeExecutable(filePath, contents) {
 }
 
 function runShellTransaction({
+  activeDirectory = 'conf.d',
   activeInputKind = 'canonical',
   candidate = 'candidate nginx config\n',
   candidateInputKind = 'staging',
@@ -371,7 +391,7 @@ function runShellTransaction({
   const directory = mkdtempSync(path.join(tmpdir(), 'mugen-nginx-policy-'))
   try {
     const testRoot = path.join(directory, 'nginx')
-    const configDirectory = path.join(testRoot, 'etc', 'nginx', 'conf.d')
+    const configDirectory = path.join(testRoot, 'etc', 'nginx', activeDirectory)
     const fixtureDirectory = path.join(testRoot, 'fixtures')
     const stagingDirectory = path.join(testRoot, 'tmp', 'mugen-nginx-policy-0123456789abcdef01234567')
     const mockBin = path.join(directory, 'bin')
@@ -501,6 +521,13 @@ test('executable transaction accepts only the active-specific reviewed backup br
   assert.match(result.stdout, /Nginx policy activated/)
 })
 
+test('executable transaction accepts a physical sites-enabled conf file', () => {
+  const result = runShellTransaction({ activeDirectory: 'sites-enabled' })
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(result.activeAfter, result.candidate)
+  assert.match(result.stdout, /Nginx policy activated/)
+})
+
 test('executable production-equivalent path gates reject symlinks, escaped backups, bad digests, and wide active paths', () => {
   for (const [options, expectedMessage] of [
     [{ activeInputKind: 'symlink' }, /active config path must already be canonical/],
@@ -598,12 +625,24 @@ test('public readback gate checks the complete policies on both exact paths', as
 
 test('public readback gate rejects the old WebUI connect-src policy', async (context) => {
   const originalFetch = globalThis.fetch
-  globalThis.fetch = async (url) => publicResponse(new URL(url).pathname === '/' ? homepageCsp : webUiCspNone)
+  const oldConnectPolicy = webUiCspNetwork.replace("connect-src 'self' http: https:", "connect-src 'none'")
+  globalThis.fetch = async (url) => publicResponse(new URL(url).pathname === '/' ? homepageCsp : oldConnectPolicy)
   context.after(() => { globalThis.fetch = originalFetch })
   const manifest = reviewedManifest()
   await assert.rejects(
     () => verifyPublicSecurityPolicy(manifest),
     /Public WebUI CSP has an invalid connect-src/
+  )
+})
+
+test('public readback gate rejects the old WebUI img-src policy', async (context) => {
+  const originalFetch = globalThis.fetch
+  const oldImagePolicy = webUiCspNetwork.replace("img-src 'self' data: blob: http: https:", "img-src 'self' data: blob:")
+  globalThis.fetch = async (url) => publicResponse(new URL(url).pathname === '/' ? homepageCsp : oldImagePolicy)
+  context.after(() => { globalThis.fetch = originalFetch })
+  await assert.rejects(
+    () => verifyPublicSecurityPolicy(reviewedManifest()),
+    /Public WebUI CSP has an invalid img-src/
   )
 })
 

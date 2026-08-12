@@ -70,8 +70,11 @@ case "$active_path" in
   "$nginx_root"/conf.d/*.conf)
     relative_active=${active_path#"$nginx_root"/conf.d/}
     ;;
-  "$nginx_root"/sites-available/*)
+  "$nginx_root"/sites-available/*.conf)
     relative_active=${active_path#"$nginx_root"/sites-available/}
+    ;;
+  "$nginx_root"/sites-enabled/*.conf)
+    relative_active=${active_path#"$nginx_root"/sites-enabled/}
     ;;
   *) echo "active config must resolve to a dedicated file under the approved Nginx root" >&2; exit 64 ;;
 esac

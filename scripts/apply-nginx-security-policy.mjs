@@ -150,8 +150,8 @@ function sha256File(filePath) {
 }
 
 function validateRemoteConfigPath(value) {
-  if (!/^\/etc\/nginx\/(?:conf\.d\/[A-Za-z0-9_.-]+\.conf|sites-available\/[A-Za-z0-9_.-]+)$/.test(value || '')) {
-    throw new Error('Active config must be one dedicated file in /etc/nginx/conf.d or /etc/nginx/sites-available.')
+  if (!/^\/etc\/nginx\/(?:conf\.d\/[A-Za-z0-9_.-]+\.conf|sites-(?:available|enabled)\/[A-Za-z0-9_.-]+\.conf)$/.test(value || '')) {
+    throw new Error('Active config must be one dedicated file ending in .conf under /etc/nginx/conf.d, /etc/nginx/sites-available, or /etc/nginx/sites-enabled.')
   }
   return value
 }
@@ -168,7 +168,9 @@ export function createRemoteCanonicalPreflight(activeConfigValue) {
     `canonical_active=$(readlink -f -- ${shellQuote(activeConfig)})`,
     `test "$canonical_active" = ${shellQuote(activeConfig)}`,
     `test -f ${shellQuote(activeConfig)}`,
-    `test -s ${shellQuote(activeConfig)}`
+    `test -s ${shellQuote(activeConfig)}`,
+    `nginx -t`,
+    `if nginx -T 2>&1 | grep -Eq '(^|[[:space:]])add_header_inherit[[:space:]]'; then echo 'expanded Nginx config uses unsupported add_header_inherit' >&2; exit 65; fi`
   ].join('; ')
 }
 

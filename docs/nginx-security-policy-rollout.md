@@ -2,7 +2,7 @@
 
 这次配置变更只允许修改目标 HTTPS `server` 中的两处响应头：
 
-- `/webui/` 的 `connect-src` 从 `'none'` 改为 `'self' http: https:`。
+- `/webui/` 的 `connect-src` 从 `'none'` 改为 `'self' http: https:`，并把 `img-src` 从 `'self' data: blob:` 精确扩展为 `'self' data: blob: http: https:`。
 - 官网入口使用严格 CSP，并返回 `Referrer-Policy: no-referrer`。
 
 WebUI 目标值已经写入 `deploy/nginx/inner-webui.conf.template`。官网目标 CSP 为：
@@ -37,6 +37,8 @@ node scripts/nginx-security-policy.mjs `
 
 门禁要求目标域名只有一个 TLS `server`，并且只允许两处位置内的安全响应头变化。它会拒绝 root、alias、路由、证书、代理、缓存和其他服务器块的任何变化。输出中的两个 SHA256 用于锁定评审过的当前配置与候选配置。公网 origin 与 `serverName` 一起写入评审清单，后续读回不能改成其他 HTTPS 主机。
 
+目标 `/` 与 `/webui/` 位置不得使用 `include`，并且必须各自显式定义有效响应头。HTTPS `server` 可以保留当前配置中未变化的 TLS `include`；这种情况下目标位置不能依赖 server 级响应头继承。应用前还会读取完整 `nginx -T` 输出并拒绝任何 `add_header_inherit`，避免外部 include 改写已评审的继承语义。
+
 ## 原子应用
 
 在获得明确的生产配置变更授权后，使用评审清单运行完整编排：
@@ -47,6 +49,8 @@ node scripts/apply-nginx-security-policy.mjs `
   --manifest .tmp/nginx-policy-approval.json `
   --active-config /etc/nginx/conf.d/mugen.conf
 ```
+
+`--active-config` 只接受 `/etc/nginx/conf.d`、`/etc/nginx/sites-available` 或 `/etc/nginx/sites-enabled` 下的直属 `.conf` 物理文件。符号链接、目录跳转、宽路径和非 root 文件都会在上传前被拒绝。生产服务器当前使用 `/etc/nginx/sites-enabled/mugen.catrefuse.com.conf` 这一物理文件。
 
 编排器只使用 `key.env` 中的部署主机和域名，并固定使用 SSH BatchMode 公钥认证。它先记录变更前 `/` 与 `/webui/` 的公网安全头快照，再上传候选文件和事务脚本。事务脚本会拒绝摘要漂移、非 root 文件、宽目录目标和并发执行。它先在原配置旁创建权限受限的备份，紧邻原子换入前再次校验 active 与 candidate 摘要，然后运行 `nginx -t` 和 reload。
 
