@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -131,6 +132,7 @@ function installMvSignalStub(fixture, signalTarget) {
     'printf "%s\n" "$count" > "$state"',
     'if test "$destination" = "$signal_target" && test ! -f "$signal_sent"; then printf sent > "$signal_sent"; kill -HUP "$PPID"; exit 0; fi'
   ].join('\n') + '\n')
+  chmodSync(path.join(fixture.binFs, 'mv'), 0o755)
 }
 
 async function verifyFixtureRollback(fixture, result) {
@@ -429,6 +431,7 @@ test('rollback compensates previous when the current-link rename fails and recon
     'test "$count" -ne 2 || exit 74',
     'exec /usr/bin/mv "$@"'
   ].join('\n') + '\n')
+  chmodSync(path.join(fixture.binFs, 'mv'), 0o755)
   const markerName = 'site-rollback-linux-second-mv-marker.sha256.txt'
   const proofName = 'site-rollback-linux-second-mv-proof.latest.json'
   const transition = executeWithStateReconciliation({
