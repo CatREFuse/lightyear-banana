@@ -404,6 +404,11 @@ export class MockHostClient implements HostClient {
     const command = `canvas.capture${source[0].toUpperCase()}${source.slice(1)}` as 'canvas.captureVisible' | 'canvas.captureSelection' | 'canvas.captureLayer'
     return this.invoke(command, undefined)
   }
+  async importReferenceImage(input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }) {
+    const asset = this.capture(input.source, input.source === 'clipboard' ? '剪贴板图片' : `上传图片：${input.name}`)
+    this.assets.set(asset.assetId, { ...asset, previewUrl: input.thumbnailUrl, thumbnailUrl: input.thumbnailUrl })
+    return this.assets.get(asset.assetId)!
+  }
   startGeneration(snapshot: GenerationSnapshot) { return this.invoke('generation.start', snapshot) }
   async cancelGeneration(taskId: string) { await this.invoke('generation.cancel', { taskId }) }
   async placeAsset(assetId: string, target: PlacementTarget): Promise<PlacementResult> { return this.invoke('canvas.placeAsset', { assetId, target }) }

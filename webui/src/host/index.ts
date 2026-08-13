@@ -16,6 +16,7 @@ class UnavailableHostClient implements HostClient {
   on<TEvent extends HostEventName>(_event: TEvent, _listener: (payload: HostEventPayload<TEvent>) => void) { return () => undefined }
   getContext(): Promise<HostContext> { return this.reject() }
   captureReference(_source: Exclude<ReferenceSource, 'generated'>): Promise<HostAssetRef | null> { return this.reject() }
+  importReferenceImage(_input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }): Promise<HostAssetRef> { return this.reject() }
   startGeneration(_snapshot: Parameters<HostClient['startGeneration']>[0]): Promise<{ taskId: string }> { return this.reject() }
   cancelGeneration(_taskId: string): Promise<void> { return this.reject() }
   placeAsset(_assetId: string, _target: PlacementTarget): Promise<PlacementResult> { return this.reject() }

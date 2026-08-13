@@ -47,7 +47,8 @@ class MemoryFolder {
 
 const runtime = vi.hoisted(() => ({
   dataFolder: undefined as MemoryFolder | undefined,
-  thumbnailError: false
+  thumbnailError: false,
+  previewThumbnailCalls: 0
 }))
 
 vi.mock('../photoshopHost', () => ({
@@ -68,6 +69,7 @@ vi.mock('../canvasPrimitives', () => ({
     return 'data:image/png;base64,dGh1bWI='
   },
   createBridgeThumbnailFromPreview: async () => {
+    runtime.previewThumbnailCalls += 1
     if (runtime.thumbnailError) throw new Error('缩略图编码失败')
     return 'data:image/png;base64,dGh1bWI='
   }
@@ -100,6 +102,20 @@ describe('persistent Host assets', () => {
   beforeEach(() => {
     runtime.dataFolder = new MemoryFolder()
     runtime.thumbnailError = false
+    runtime.previewThumbnailCalls = 0
+  })
+
+  it('uses a prepared file thumbnail without opening the image in Photoshop', async () => {
+    const assets = new AssetStore()
+    const thumbnailUrl = 'data:image/jpeg;base64,dGh1bWI='
+    const ref = await assets.add(
+      'upload',
+      { ...image, previewUrl: `data:image/png;base64,${'a'.repeat(20_000)}` },
+      { thumbnailUrl }
+    )
+
+    expect(ref).toMatchObject({ previewUrl: thumbnailUrl, thumbnailUrl, previewStatus: 'ready' })
+    expect(runtime.previewThumbnailCalls).toBe(0)
   })
 
   it('reports a thumbnail error without returning a placeholder image', async () => {

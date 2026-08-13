@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCanvasImageFromApiAsset, readInlineImageDimensions } from './imagePixels'
+import { createCanvasImageFromApiAsset, readImageByteDimensions, readInlineImageDimensions } from './imagePixels'
 
 function dataUrl(bytes: number[], mimeType: string) {
   return `data:${mimeType};base64,${btoa(String.fromCharCode(...bytes))}`
@@ -12,6 +12,7 @@ describe('inline image dimensions', () => {
       0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52,
       0, 0, 2, 0, 0, 0, 1, 0
     ]
+    expect(readImageByteDimensions(Uint8Array.from(bytes))).toEqual({ width: 512, height: 256 })
     expect(readInlineImageDimensions(dataUrl(bytes, 'image/png'))).toEqual({ width: 512, height: 256 })
   })
 

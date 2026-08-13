@@ -171,16 +171,23 @@ export class AssetStore {
   async add(
     source: HostAssetRef['source'],
     image: CapturedCanvasImage,
-    options: { documentId?: string; owner?: string } = {}
+    options: { documentId?: string; owner?: string; thumbnailUrl?: string } = {}
   ): Promise<HostAssetRef> {
     this.cleanup()
     const assetId = `asset-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     const now = Date.now()
     const expiresAt = new Date(now + ASSET_TTL_MS).toISOString()
-    let thumbnail = image.previewUrl
+    let thumbnail = options.thumbnailUrl ?? image.previewUrl
     let previewError = ''
 
-    if (image.rgba.byteLength > 0) {
+    if (options.thumbnailUrl !== undefined) {
+      if (serializedBytes(options.thumbnailUrl) > MAX_THUMBNAIL_BYTES) {
+        thumbnail = ''
+        previewError = '缩略图超过传输限制'
+      } else if (!options.thumbnailUrl) {
+        previewError = '当前 Photoshop 版本无法生成文件缩略图'
+      }
+    } else if (image.rgba.byteLength > 0) {
       try {
         thumbnail = await createBridgeThumbnail(image, MAX_THUMBNAIL_BYTES)
       } catch (error) {

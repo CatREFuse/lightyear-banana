@@ -174,7 +174,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await expect(page.getByRole('button', { name: '选区', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '当前选中图层', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '上传文件', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: '剪贴板', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '剪贴板', exact: true })).toHaveCount(0)
 
   const chooserPromise = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: '上传文件', exact: true }).click()

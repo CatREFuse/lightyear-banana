@@ -204,6 +204,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
   }
 
+  function importReferenceImage(input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }) {
+    return mutateReferences(async () => {
+      if (!canAddReference.value) return
+      error.value = ''
+      try {
+        references.value.push(await host.importReferenceImage(input))
+      } catch (reason) {
+        error.value = reason instanceof Error ? reason.message : '无法添加参考图'
+      }
+    })
+  }
+
   function removeReference(assetId: string) {
     return mutateReferences(async () => {
       references.value = references.value.filter((reference) => reference.assetId !== assetId)
@@ -487,7 +499,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   return {
     host, status, context, error, configs, enabledConfigs, references, turns, promptPresets, selectedConfigId, colorMode, visualTheme, theme, isPreview,
     currentConfig, currentCapability, canAddReference, resolvedTheme, initialize, openReleasePage,
-    addReference, removeReference, clearReferences, addResultAsReference, applySnapshot, generate, cancel, place, placeToReference,
+    addReference, importReferenceImage, removeReference, clearReferences, addResultAsReference, applySnapshot, generate, cancel, place, placeToReference,
     save, retry, canRetryTurn, clearHistory, clearLocalData, saveConfig, deleteConfig, selectConfig, setColorMode, setVisualTheme, setTheme, savePromptPresets
   }
 })

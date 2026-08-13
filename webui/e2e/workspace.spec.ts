@@ -102,20 +102,44 @@ test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })
 
-test('adds uploaded and clipboard images as references through the CCX host', async ({ page }, testInfo) => {
+test('adds uploaded, pasted, and dropped images as references through the CCX host', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '添加参考' }).click()
   await page.getByRole('button', { name: '上传文件', exact: true }).click()
   await expect(page.getByRole('img', { name: '上传图片' })).toBeVisible()
 
-  await page.getByRole('button', { name: '添加参考' }).click()
-  await page.getByRole('button', { name: '剪贴板', exact: true }).click()
-  await expect(page.getByRole('img', { name: '剪贴板' })).toBeVisible()
-  await expect(page.locator('.reference-thumb')).toHaveCount(2)
+  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).evaluate((target) => {
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="#d97706"/></svg>'
+    ], '剪贴板图片.svg', { type: 'image/svg+xml' }))
+    target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer }))
+  })
+  await expect(page.getByRole('img', { name: '剪贴板图片' })).toBeVisible()
+
+  const composer = page.locator('.composer')
+  await composer.evaluate((target) => {
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([
+      '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="120"><rect width="80" height="120" fill="#2563eb"/></svg>'
+    ], '拖入图片.svg', { type: 'image/svg+xml' }))
+    target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+  })
+  await expect(page.getByText('松开添加参考图')).toBeVisible()
+  await composer.evaluate((target) => {
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([
+      '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="120"><rect width="80" height="120" fill="#2563eb"/></svg>'
+    ], '拖入图片.svg', { type: 'image/svg+xml' }))
+    target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+  })
+  await expect(page.getByRole('img', { name: '上传图片：拖入图片.svg' })).toBeVisible()
+  await expect(page.locator('.reference-thumb')).toHaveCount(3)
   await page.screenshot({ path: testInfo.outputPath('ccx-reference-images.png') })
 
   const commands = (await readTestHostTrace(page)).commands.map((entry) => entry.command)
   expect(commands).toContain('reference.pickFile')
-  expect(commands).toContain('reference.readClipboard')
+  expect(commands.filter((command) => command === 'reference.importImageChunk').length).toBeGreaterThanOrEqual(2)
+  expect(commands).not.toContain('reference.readClipboard')
 })
 
 test('shows a thumbnail error, advances the timer, and opens the original image', async ({ browser }, testInfo) => {

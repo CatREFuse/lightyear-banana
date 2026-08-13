@@ -79,6 +79,7 @@ const {
   toastMessage,
   turns,
   addReference,
+  importReferenceImage,
   toggleConfigEnabled,
   upscaleImage,
   updateSettingsDraft,
@@ -331,6 +332,7 @@ function handleManageModels() {
           :resolution-mode="resolutionMode"
           :size="size"
           @add-reference="addReference"
+          @import-reference="importReferenceImage"
           @clear-references="clearReferences"
           @manage-models="handleManageModels"
           @menu-open="setWorkspaceMenu"

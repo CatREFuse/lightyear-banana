@@ -55,6 +55,7 @@ const CONFIG_TEST_TIMEOUT_MS = 610_000
 const INTERACTIVE_TIMEOUT_MS = 30 * 60_000
 const ORIGINAL_READ_TIMEOUT_MS = 180_000
 const MAX_ORIGINAL_DATA_URL_LENGTH = 96 * 1024 * 1024
+const IMAGE_IMPORT_CHUNK_LENGTH = 192 * 1024
 
 function clientError(code: string, message: string, recoverable = true) {
   return new HostClientError({ code, message, recoverable })
@@ -71,7 +72,7 @@ function incomingPayload(data: unknown): unknown {
 }
 
 function normalizeResult<TCommand extends HostCommand>(command: TCommand, payload: HostCommandResult<TCommand>): HostCommandResult<TCommand> {
-  if (['canvas.captureVisible', 'canvas.captureSelection', 'canvas.captureLayer', 'reference.pickFile', 'reference.readClipboard'].includes(command)) {
+  if (['canvas.captureVisible', 'canvas.captureSelection', 'canvas.captureLayer', 'reference.pickFile', 'reference.readClipboard', 'reference.importImageChunk'].includes(command)) {
     return (payload ? toWebUiAssetRef(payload as never) : null) as HostCommandResult<TCommand>
   }
   return payload
@@ -292,6 +293,30 @@ export class WebViewHostClient implements HostClient {
     if (source === 'clipboard') return this.invoke('reference.readClipboard', undefined, { timeoutMs: INTERACTIVE_TIMEOUT_MS })
     const command = `canvas.capture${source[0].toUpperCase()}${source.slice(1)}` as 'canvas.captureVisible' | 'canvas.captureSelection' | 'canvas.captureLayer'
     return this.invoke(command, undefined)
+  }
+  async importReferenceImage(input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }) {
+    const comma = input.dataUrl.indexOf(',')
+    if (comma < 0) throw clientError('INVALID_IMAGE', '图片数据无效', false)
+    const base64 = input.dataUrl.slice(comma + 1)
+    const total = Math.max(1, Math.ceil(base64.length / IMAGE_IMPORT_CHUNK_LENGTH))
+    const importId = createMessageId('image')
+    let asset: HostCommandResult<'reference.importImageChunk'> = null
+    for (let index = 0; index < total; index += 1) {
+      asset = await this.invoke('reference.importImageChunk', {
+        importId,
+        name: input.name,
+        mimeType: input.mimeType,
+        source: input.source,
+        width: input.width,
+        height: input.height,
+        index,
+        total,
+        chunk: base64.slice(index * IMAGE_IMPORT_CHUNK_LENGTH, (index + 1) * IMAGE_IMPORT_CHUNK_LENGTH),
+        ...(index === 0 ? { thumbnailUrl: input.thumbnailUrl } : {})
+      }, { timeoutMs: INTERACTIVE_TIMEOUT_MS })
+    }
+    if (!asset) throw clientError('INVALID_RESPONSE', '图片导入未完成')
+    return asset
   }
   startGeneration(snapshot: Parameters<HostClient['startGeneration']>[0]) { return this.invoke('generation.start', snapshot) }
   async cancelGeneration(taskId: string) { await this.invoke('generation.cancel', { taskId }) }

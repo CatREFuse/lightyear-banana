@@ -100,11 +100,10 @@ DOM API 覆盖不到时使用 `photoshop.action.batchPlay()`。当前 `createNam
 
 ## 文件访问能力
 
-当前实现还没有外部文件置入。后续从用户选择文件导入图片时，使用 UXP 文件系统能力：
+当前本地参考图通过用户选择文件导入，使用 UXP 文件系统能力：
 
 - `localFileSystem.getFileForOpening()`
 - `localFileSystem.getFileForSaving()`
 - `localFileSystem.createSessionToken(file)`
 
-Photoshop 需要访问 UXP file entry 时用 session token，不直接传 native path。
-
+Photoshop 需要访问 UXP file entry 时直接传 File Entry 或使用 session token，不传 native path。上传缩略图由 `app.open(file)` 与 imaging 生成，原图字节保存在 Host AssetStore。

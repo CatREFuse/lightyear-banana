@@ -43,6 +43,7 @@ type PhotoshopRuntime = {
   app: {
     version?: string
     activeDocument: PhotoshopDocument
+    documents: PhotoshopDocument[]
     open?: (file: AdobeUxpFile) => Promise<PhotoshopDocument>
   }
   core: {
@@ -767,46 +768,55 @@ export async function createBridgeThumbnail(image: CapturedCanvasImage, maxBytes
   return lastPreview
 }
 
-export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImage, maxBytes = 512 * 1024) {
+async function createBridgeThumbnailFromFile(file: AdobeUxpFile, maxBytes: number) {
   const photoshop = getPhotoshop()
   if (!photoshop.app.open) throw new Error('当前 Photoshop 版本无法读取图片缩略图')
+  return photoshop.core.executeAsModal(async () => {
+    const existingDocumentIds = new Set((photoshop.app.documents ?? []).map((document) => document.id))
+    const document = await photoshop.app.open!(file)
+    try {
+      const bounds = getDocumentBounds(document)
+      const sourceWidth = bounds.right - bounds.left
+      const sourceHeight = bounds.bottom - bounds.top
+      let maxEdge = 800
+      let lastPreview = ''
+      while (maxEdge >= 96) {
+        const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight))
+        const result = await photoshop.imaging.getPixels({
+          documentID: document.id,
+          sourceBounds: bounds,
+          targetSize: {
+            width: Math.max(1, Math.round(sourceWidth * scale)),
+            height: Math.max(1, Math.round(sourceHeight * scale))
+          },
+          colorSpace: 'RGB',
+          componentSize: 8
+        })
+        try {
+          const base64 = await photoshop.imaging.encodeImageData({ imageData: result.imageData, base64: true })
+          lastPreview = `data:image/jpeg;base64,${base64}`
+        } finally {
+          result.imageData.dispose()
+        }
+        if (utf8ByteLength(lastPreview) <= maxBytes) return { thumbnailUrl: lastPreview, width: sourceWidth, height: sourceHeight }
+        maxEdge = Math.round(maxEdge * 0.72)
+      }
+      if (utf8ByteLength(lastPreview) > maxBytes) throw new Error('缩略图超过传输限制')
+      return { thumbnailUrl: lastPreview, width: sourceWidth, height: sourceHeight }
+    } finally {
+      if (!existingDocumentIds.has(document.id)) await closeTemporaryDocument(photoshop, document)
+    }
+  }, { commandName: '读取 Mugen 图片缩略图', timeOut: 120 })
+}
+
+export async function createBridgeThumbnailFromLocalFile(file: AdobeUxpFile, maxBytes = 512 * 1024) {
+  return createBridgeThumbnailFromFile(file, maxBytes)
+}
+
+export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImage, maxBytes = 512 * 1024) {
   const temporaryFile = await createTemporaryPreviewFile(image)
   try {
-    return await photoshop.core.executeAsModal(async () => {
-      const document = await photoshop.app.open!(temporaryFile.file)
-      try {
-        const bounds = getDocumentBounds(document)
-        const sourceWidth = bounds.right - bounds.left
-        const sourceHeight = bounds.bottom - bounds.top
-        let maxEdge = 800
-        let lastPreview = ''
-        while (maxEdge >= 96) {
-          const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight))
-          const result = await photoshop.imaging.getPixels({
-            documentID: document.id,
-            sourceBounds: bounds,
-            targetSize: {
-              width: Math.max(1, Math.round(sourceWidth * scale)),
-              height: Math.max(1, Math.round(sourceHeight * scale))
-            },
-            colorSpace: 'RGB',
-            componentSize: 8
-          })
-          try {
-            const base64 = await photoshop.imaging.encodeImageData({ imageData: result.imageData, base64: true })
-            lastPreview = `data:image/jpeg;base64,${base64}`
-          } finally {
-            result.imageData.dispose()
-          }
-          if (utf8ByteLength(lastPreview) <= maxBytes) return lastPreview
-          maxEdge = Math.round(maxEdge * 0.72)
-        }
-        if (utf8ByteLength(lastPreview) > maxBytes) throw new Error('缩略图超过传输限制')
-        return lastPreview
-      } finally {
-        await closeTemporaryDocument(photoshop, document)
-      }
-    }, { commandName: '读取 Mugen 图片缩略图', timeOut: 120 })
+    return (await createBridgeThumbnailFromFile(temporaryFile.file, maxBytes)).thumbnailUrl
   } finally {
     await deleteTemporaryFile(temporaryFile.file)
   }

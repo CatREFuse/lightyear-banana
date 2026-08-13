@@ -235,6 +235,7 @@ export interface HostCommandMap {
   'canvas.readSize': { payload: undefined; result: { width: number; height: number } }
   'reference.pickFile': { payload: undefined; result: HostAssetRef | null }
   'reference.readClipboard': { payload: undefined; result: HostAssetRef | null }
+  'reference.importImageChunk': { payload: { importId: string; name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; index: number; total: number; chunk: string; thumbnailUrl?: string }; result: HostAssetRef | null }
   'generation.start': { payload: GenerationSnapshot; result: { taskId: string } }
   'generation.cancel': { payload: { taskId: string }; result: { taskId?: string; cancelled?: boolean } | undefined }
   'generation.testConfig': { payload: { configId: string }; result: { ok: boolean; message: string } }
@@ -282,6 +283,7 @@ export interface HostClient {
   on<TEvent extends HostEventName>(event: TEvent, listener: (payload: HostEventPayload<TEvent>) => void): () => void
   getContext(): Promise<HostContext>
   captureReference(source: Exclude<ReferenceSource, 'generated'>): Promise<HostAssetRef | null>
+  importReferenceImage(input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }): Promise<HostAssetRef>
   startGeneration(snapshot: GenerationSnapshot): Promise<{ taskId: string }>
   cancelGeneration(taskId: string): Promise<void>
   placeAsset(assetId: string, target: PlacementTarget): Promise<PlacementResult>
@@ -333,7 +335,7 @@ const hostCommands = new Set<string>([
   'host.handshake', 'host.getContext', 'host.openReleasePage', 'settings.get', 'settings.save',
   'history.list', 'history.upsert', 'history.clear', 'credential.set', 'credential.remove',
   'canvas.captureVisible', 'canvas.captureSelection', 'canvas.captureLayer', 'canvas.readSize',
-  'reference.pickFile', 'reference.readClipboard', 'generation.start', 'generation.cancel',
+  'reference.pickFile', 'reference.readClipboard', 'reference.importImageChunk', 'generation.start', 'generation.cancel',
   'generation.testConfig', 'canvas.placeAsset', 'asset.save', 'asset.readOriginal', 'asset.retain', 'asset.release', 'diagnostics.export',
   'storage.clearAll'
 ])
@@ -355,6 +357,10 @@ function nonEmptyText(value: unknown, maxLength = 512): value is string {
 
 function finiteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function positiveInteger(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) > 0
 }
 
 function optionalString(value: unknown): value is string | undefined {
@@ -607,6 +613,11 @@ export function validateCommandPayload<TCommand extends HostCommand>(command: TC
       if (!finiteNumber(value.protocolVersion) || !nonEmptyText(value.webVersion) || !nonEmptyText(value.clientNonce) || !optionalString(value.hostNonce)) throw new BridgeValidationError('INVALID_PAYLOAD', '握手参数无效')
       return
     }
+    case 'reference.importImageChunk': {
+      const value = requireRecord(payload, command)
+      if (!nonEmptyText(value.importId) || !nonEmptyText(value.name) || !nonEmptyText(value.mimeType) || !String(value.mimeType).startsWith('image/') || !['upload', 'clipboard'].includes(String(value.source)) || !positiveInteger(value.width) || !positiveInteger(value.height) || !Number.isInteger(value.index) || !Number.isInteger(value.total) || Number(value.index) < 0 || Number(value.total) < 1 || Number(value.total) > 1024 || Number(value.index) >= Number(value.total) || !nonEmptyText(value.chunk, 256 * 1024) || (value.thumbnailUrl !== undefined && !nonEmptyText(value.thumbnailUrl, 20 * 1024))) throw new BridgeValidationError('INVALID_PAYLOAD', '图片导入分片无效')
+      return
+    }
     case 'generation.start': {
       if (!isGenerationSnapshot(payload)) throw new BridgeValidationError('INVALID_PAYLOAD', '生成参数无效')
       return
@@ -668,7 +679,7 @@ export function validateCommandResult<TCommand extends HostCommand>(command: TCo
     case 'host.getContext':
       if (!isHostContext(payload)) throw new BridgeValidationError('INVALID_PAYLOAD', '宿主上下文无效')
       return
-    case 'canvas.captureVisible': case 'canvas.captureSelection': case 'canvas.captureLayer': case 'reference.pickFile': case 'reference.readClipboard':
+    case 'canvas.captureVisible': case 'canvas.captureSelection': case 'canvas.captureLayer': case 'reference.pickFile': case 'reference.readClipboard': case 'reference.importImageChunk':
       if (payload !== null && !isHostAssetRef(payload)) throw new BridgeValidationError('INVALID_PAYLOAD', '资产响应无效')
       return
     case 'generation.start': {

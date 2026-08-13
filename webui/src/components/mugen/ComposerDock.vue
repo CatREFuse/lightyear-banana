@@ -10,6 +10,7 @@ import ControlSelect from './ControlSelect.vue'
 import RatioPicker from './RatioPicker.vue'
 import ReferenceThumb from './ReferenceThumb.vue'
 import PromptPresetMenu from './PromptPresetMenu.vue'
+import { createReferenceImportFromBlob } from '../../utils/referenceImages'
 
 type SelectOption = {
   icon?: BoxIconName
@@ -51,6 +52,7 @@ const manageModelsValue = '__mugen_manage_models__'
 
 const emit = defineEmits<{
   addReference: [source: ReferenceSource]
+  importReference: [input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }]
   clearReferences: []
   manageModels: []
   menuOpen: [owner: string]
@@ -71,6 +73,7 @@ const emit = defineEmits<{
 
 const openPanel = shallowRef('')
 const expandedPresetContent = shallowRef<string | null>(null)
+const referenceImportError = shallowRef('')
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
 const customSizeValue = '__mugen_custom_resolution__'
 
@@ -78,8 +81,7 @@ const allReferenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; l
   { icon: 'image', source: 'visible', label: '可见图层' },
   { icon: 'selection', source: 'selection', label: '选区' },
   { icon: 'layer', source: 'layer', label: '当前选中图层' },
-  { icon: 'upload', source: 'upload', label: '上传文件' },
-  { icon: 'clipboard', source: 'clipboard', label: '剪贴板' }
+  { icon: 'upload', source: 'upload', label: '上传文件' }
 ]
 const photoshopReferenceSources = new Set<ReferenceSource>(['visible', 'selection', 'layer'])
 const referenceActions = computed(() => allReferenceActions.filter((action) => (
@@ -89,6 +91,7 @@ const referenceActions = computed(() => allReferenceActions.filter((action) => (
 const referenceCountText = computed(() => `${props.references.length} / ${props.activeCapability.referenceLimit}`)
 const hasReferences = computed(() => props.references.length > 0)
 const referenceBusy = computed(() => props.canvasOperation.type === 'capture')
+const referenceDragActive = shallowRef(false)
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.activeConfigId) ?? props.configs[0])
 const activeModel = computed(() => activeConfig.value?.model ?? '')
 const configOptions = computed<SelectOption[]>(() =>
@@ -240,6 +243,59 @@ function handlePromptKeydown(event: KeyboardEvent) {
   requestSend()
 }
 
+function imageFileFromItems(items: DataTransferItemList | undefined) {
+  if (!items) return undefined
+  for (const item of Array.from(items)) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) return item.getAsFile() ?? undefined
+  }
+  return undefined
+}
+
+function hasImageItem(items: DataTransferItemList | undefined) {
+  return Boolean(items && Array.from(items).some((item) => item.kind === 'file' && item.type.startsWith('image/')))
+}
+
+function imageFileFromTransfer(transfer: DataTransfer | null) {
+  return imageFileFromItems(transfer?.items) ?? Array.from(transfer?.files ?? []).find((file) => file.type.startsWith('image/'))
+}
+
+async function importImageFile(file: File, source: 'upload' | 'clipboard') {
+  if (!props.canAddReference) return
+  referenceImportError.value = ''
+  try {
+    emit('importReference', await createReferenceImportFromBlob(file, file.name || '剪贴板图片.png', source))
+  } catch (reason) {
+    referenceImportError.value = reason instanceof Error ? reason.message : '无法读取图片'
+  }
+}
+
+function handlePaste(event: ClipboardEvent) {
+  const file = imageFileFromItems(event.clipboardData?.items)
+  if (!file) return
+  event.preventDefault()
+  void importImageFile(file, 'clipboard')
+}
+
+function handleDragOver(event: DragEvent) {
+  if (!hasImageItem(event.dataTransfer?.items)) return
+  event.preventDefault()
+  referenceDragActive.value = true
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+}
+
+function handleDragLeave(event: DragEvent) {
+  if (event.relatedTarget instanceof Node && event.currentTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
+  referenceDragActive.value = false
+}
+
+function handleDrop(event: DragEvent) {
+  const file = imageFileFromTransfer(event.dataTransfer)
+  referenceDragActive.value = false
+  if (!file) return
+  event.preventDefault()
+  void importImageFile(file, 'upload')
+}
+
 useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'reference')
 
 watch(
@@ -264,7 +320,18 @@ watch(
 </script>
 
 <template>
-  <section class="composer" aria-label="生成输入">
+  <section
+    class="composer"
+    :class="{ 'is-reference-dragging': referenceDragActive }"
+    aria-label="生成输入"
+    tabindex="0"
+    @dragenter="handleDragOver"
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
+    @paste="handlePaste"
+  >
+    <p v-if="referenceImportError" class="reference-import-error" role="alert">{{ referenceImportError }}</p>
     <div class="reference-header">
       <span>参考图 {{ referenceCountText }}</span>
       <div class="reference-actions">
@@ -314,6 +381,7 @@ watch(
         @preview="emit('preview', $event)"
       />
     </div>
+    <div v-if="referenceDragActive" class="reference-drop-hint">松开添加参考图</div>
 
     <div class="prompt-shell">
       <PromptPresetMenu
@@ -446,6 +514,26 @@ watch(
   padding: 10px 12px 12px;
   border-top: 1px solid var(--mugen-hairline);
   background: var(--mugen-composer);
+}
+
+.composer.is-reference-dragging {
+  background: var(--mugen-hover);
+}
+
+.reference-drop-hint {
+  display: grid;
+  min-height: 56px;
+  place-items: center;
+  border: 1px dashed var(--mugen-border-strong);
+  border-radius: 8px;
+  color: var(--mugen-secondary);
+  font-size: 12px;
+}
+
+.reference-import-error {
+  margin: 0;
+  color: var(--mugen-danger);
+  font-size: 11px;
 }
 
 .prompt-shell {

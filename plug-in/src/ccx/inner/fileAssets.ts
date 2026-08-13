@@ -1,4 +1,5 @@
-import type { CapturedCanvasImage } from '../canvasPrimitives'
+import { createBridgeThumbnailFromLocalFile, type CapturedCanvasImage } from '../canvasPrimitives'
+import { readImageByteDimensions } from '@mugen/core'
 import { getHostRequire } from '../photoshopHost'
 import { AssetStore } from './assetStore'
 import { encodeUtf8 } from './utf8'
@@ -23,6 +24,26 @@ type ClipboardBinary = {
   arrayBuffer?: () => Promise<ArrayBuffer>
   type?: string
 }
+
+type ImageImportChunk = {
+  importId: string
+  name: string
+  mimeType: string
+  source: 'upload' | 'clipboard'
+  width: number
+  height: number
+  index: number
+  total: number
+  chunk: string
+  thumbnailUrl?: string
+}
+
+const MAX_REFERENCE_FILE_BYTES = 128 * 1024 * 1024
+const MAX_REFERENCE_BASE64_LENGTH = Math.ceil(MAX_REFERENCE_FILE_BYTES / 3) * 4 + 4
+const MAX_ACTIVE_IMPORTS = 16
+const MAX_THUMBNAIL_BYTES = 16 * 1024
+const THUMBNAIL_MAX_EDGE = 512
+const IMAGE_DECODE_TIMEOUT_MS = 15_000
 
 function getAdobeUxpStorage() {
   const hostRequire = getHostRequire()
@@ -70,35 +91,91 @@ function extensionForMime(mimeType: string) {
   return 'png'
 }
 
-async function readImageDimensions(previewUrl: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+async function loadImage(sourceUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
-    const timeout = setTimeout(() => reject(new Error('图片解析超时')), 60_000)
+    const timeout = setTimeout(() => reject(new Error('图片解析超时')), IMAGE_DECODE_TIMEOUT_MS)
     image.addEventListener('load', () => {
       clearTimeout(timeout)
-      resolve({
-        width: Math.max(1, Math.round(image.naturalWidth || image.width || 1)),
-        height: Math.max(1, Math.round(image.naturalHeight || image.height || 1))
-      })
+      resolve(image)
     }, { once: true })
     image.addEventListener('error', () => {
       clearTimeout(timeout)
       reject(new Error('无法读取图片尺寸'))
     }, { once: true })
-    image.src = previewUrl
+    image.src = sourceUrl
   })
 }
 
-async function createImage(previewUrl: string, label: string): Promise<CapturedCanvasImage> {
-  const dimensions = await readImageDimensions(previewUrl)
-  return {
-    id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    label,
-    width: dimensions.width,
-    height: dimensions.height,
-    sourceBounds: { left: 0, top: 0, right: dimensions.width, bottom: dimensions.height },
-    previewUrl,
-    rgba: new Uint8Array()
+function renderImage(image: HTMLImageElement, width: number, height: number, mimeType: 'image/png' | 'image/jpeg', quality?: number) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('图片预览生成失败')
+  context.drawImage(image, 0, 0, width, height)
+  return canvas.toDataURL(mimeType, quality)
+}
+
+function createThumbnail(image: HTMLImageElement, width: number, height: number) {
+  let maxEdge = THUMBNAIL_MAX_EDGE
+  while (maxEdge >= 64) {
+    const scale = Math.min(1, maxEdge / Math.max(width, height))
+    const thumbnail = renderImage(
+      image,
+      Math.max(1, Math.round(width * scale)),
+      Math.max(1, Math.round(height * scale)),
+      'image/jpeg',
+      0.72
+    )
+    if (thumbnail.length <= MAX_THUMBNAIL_BYTES) return thumbnail
+    maxEdge = Math.floor(maxEdge * 0.7)
+  }
+  throw new Error('缩略图超过传输限制')
+}
+
+async function createImage(bytes: Uint8Array, mimeType: string, label: string, source?: Blob, knownDimensions?: { width: number; height: number }) {
+  if (!bytes.byteLength) throw new Error('图片文件为空')
+  if (bytes.byteLength > MAX_REFERENCE_FILE_BYTES) throw new Error('图片超过 128 MB，无法读取')
+  if (mimeType === 'image/uncompressed' && !source) throw new Error('剪贴板图片格式无法读取')
+  const inlineDimensions = knownDimensions ?? (mimeType === 'image/uncompressed' ? undefined : readImageByteDimensions(bytes))
+  const encoded = mimeType === 'image/uncompressed' ? '' : `data:${mimeType};base64,${bytesToBase64(bytes)}`
+  const sourceUrl = source
+    ? URL.createObjectURL(source)
+    : mimeType === 'image/uncompressed'
+      ? ''
+      : encoded
+  try {
+    if (inlineDimensions && !source) {
+      const image: CapturedCanvasImage = {
+        id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        label,
+        width: inlineDimensions.width,
+        height: inlineDimensions.height,
+        sourceBounds: { left: 0, top: 0, right: inlineDimensions.width, bottom: inlineDimensions.height },
+        previewUrl: encoded,
+        rgba: new Uint8Array()
+      }
+      return { image, thumbnailUrl: '' }
+    }
+    const element = await loadImage(sourceUrl)
+    const width = Math.max(1, Math.round(element.naturalWidth || element.width || 1))
+    const height = Math.max(1, Math.round(element.naturalHeight || element.height || 1))
+    const previewUrl = mimeType === 'image/uncompressed'
+      ? renderImage(element, width, height, 'image/png')
+      : encoded
+    const image: CapturedCanvasImage = {
+      id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      label,
+      width,
+      height,
+      sourceBounds: { left: 0, top: 0, right: width, bottom: height },
+      previewUrl,
+      rgba: new Uint8Array()
+    }
+    return { image, thumbnailUrl: createThumbnail(element, width, height) }
+  } finally {
+    if (source) URL.revokeObjectURL(sourceUrl)
   }
 }
 
@@ -158,13 +235,20 @@ async function readClipboardImage(raw: unknown) {
     if (!type) continue
     const value = typeof record.getType === 'function' ? await record.getType(type) : (record[type] ?? item)
     const bytes = await readBinary(value)
-    if (bytes?.length) return { type, bytes }
+    if (bytes?.length) return {
+      type,
+      bytes,
+      source: value && typeof value === 'object' && typeof (value as ClipboardBinary).arrayBuffer === 'function'
+        ? value as Blob
+        : undefined
+    }
   }
   return undefined
 }
 
 export class FileAssetService {
   private readonly assets: AssetStore
+  private readonly imports = new Map<string, { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; total: number; chunks: string[]; encodedLength: number; thumbnailUrl?: string }>()
 
   constructor(assets: AssetStore) {
     this.assets = assets
@@ -191,24 +275,72 @@ export class FileAssetService {
     const bytes = raw instanceof Uint8Array ? raw : typeof raw === 'string' ? encodeUtf8(raw) : new Uint8Array(raw)
     const name = file.name || '上传图片.png'
     const extension = readExtension(name)
-    const previewUrl = `data:${mimeForExtension(extension)};base64,${bytesToBase64(bytes)}`
-    return this.assets.add('upload', await createImage(previewUrl, `上传图片：${name}`))
+    const mimeType = mimeForExtension(extension)
+    if (!bytes.byteLength) throw new Error('图片文件为空')
+    if (bytes.byteLength > MAX_REFERENCE_FILE_BYTES) throw new Error('图片超过 128 MB，无法读取')
+    const localPreview = await createBridgeThumbnailFromLocalFile(file, MAX_THUMBNAIL_BYTES)
+    const prepared = await createImage(bytes, mimeType, `上传图片：${name}`, undefined, localPreview)
+    return this.assets.add('upload', prepared.image, { thumbnailUrl: localPreview.thumbnailUrl })
   }
 
   async readClipboardReference() {
     const clipboard = navigator.clipboard as UxpClipboard | undefined
-    const read = clipboard?.read ?? clipboard?.getContent
-    if (!clipboard || typeof read !== 'function') throw new Error('当前 Photoshop 版本不支持读取剪贴板图片')
-    let raw: unknown
-    try {
-      raw = await read.call(clipboard)
-    } catch (error) {
-      throw withCause('剪贴板图片读取失败，请重新复制图片后重试', error)
+    if (!clipboard) throw new Error('当前 Photoshop 版本不支持读取剪贴板图片')
+    const readers = [clipboard.read, clipboard.getContent].filter((read): read is () => Promise<unknown> => typeof read === 'function')
+    if (!readers.length) throw new Error('当前 Photoshop 版本不支持读取剪贴板图片')
+    let lastError: unknown
+    let successfulRead = false
+    for (const read of readers) {
+      try {
+        const raw = await read.call(clipboard)
+        successfulRead = true
+        const clipboardImage = await readClipboardImage(raw)
+        if (!clipboardImage) continue
+        const prepared = await createImage(clipboardImage.bytes, clipboardImage.type, '剪贴板图片', clipboardImage.source)
+        return this.assets.add('clipboard', prepared.image, { thumbnailUrl: prepared.thumbnailUrl })
+      } catch (error) {
+        lastError = error
+      }
     }
-    const image = await readClipboardImage(raw)
-    if (!image) throw new Error('剪贴板里没有图片')
-    const previewUrl = `data:${image.type};base64,${bytesToBase64(image.bytes)}`
-    return this.assets.add('clipboard', await createImage(previewUrl, '剪贴板图片'))
+    if (!successfulRead && lastError) throw withCause('剪贴板图片读取失败，请重新复制图片后重试', lastError)
+    throw new Error('剪贴板里没有图片')
+  }
+
+  async importImageChunk(payload: ImageImportChunk) {
+    const existing = this.imports.get(payload.importId)
+    if (!existing && this.imports.size >= MAX_ACTIVE_IMPORTS) {
+      this.imports.delete(this.imports.keys().next().value as string)
+    }
+    const active = existing ?? {
+      name: payload.name,
+      mimeType: payload.mimeType,
+      source: payload.source,
+      width: payload.width,
+      height: payload.height,
+      total: payload.total,
+      chunks: new Array<string>(payload.total),
+      encodedLength: 0,
+      thumbnailUrl: payload.thumbnailUrl
+    }
+    if (active.name !== payload.name || active.mimeType !== payload.mimeType || active.source !== payload.source || active.width !== payload.width || active.height !== payload.height || active.total !== payload.total) {
+      this.imports.delete(payload.importId)
+      throw new Error('图片导入分片不一致')
+    }
+    const previous = active.chunks[payload.index]
+    active.encodedLength += payload.chunk.length - (previous?.length ?? 0)
+    if (active.encodedLength > MAX_REFERENCE_BASE64_LENGTH) {
+      this.imports.delete(payload.importId)
+      throw new Error('图片超过 128 MB，无法读取')
+    }
+    active.chunks[payload.index] = payload.chunk
+    this.imports.set(payload.importId, active)
+    if (active.chunks.filter((chunk) => typeof chunk === 'string').length !== active.total) return null
+
+    this.imports.delete(payload.importId)
+    const dataUrl = `data:${active.mimeType};base64,${active.chunks.join('')}`
+    const imageData = readDataUrl(dataUrl)
+    const prepared = await createImage(imageData.bytes, imageData.mimeType, active.source === 'clipboard' ? '剪贴板图片' : `上传图片：${active.name}`, undefined, active)
+    return this.assets.add(active.source, prepared.image, { thumbnailUrl: active.thumbnailUrl ?? prepared.thumbnailUrl })
   }
 
   async save(assetId: string) {

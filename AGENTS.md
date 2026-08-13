@@ -71,6 +71,7 @@ WebUI 部署:
 | Photoshop 画布抓图、选区、图层、插图等交互原语 | `docs/ref/canvas-primitives.md` |
 | CCX entrypoint、Photoshop host、imaging、modal、batchPlay、文件访问等原子能力 | `docs/ref/atomic-capabilities.md` |
 | Vue 3、Vite、TypeScript、Manifest v5、CCX 构建和校验 | `docs/ref/framework-build.md` |
+| CCX + Inner WebUI 开发流程、原子功能 Cookbook、调试和常见坑 | `docs/ref/ccx-inner-webui-cookbook.md` |
 | UDT 加载、Reload/Unload、真实 Photoshop 验证、错误处理、UI 文案注意事项 | `docs/ref/development-notes.md` |
 | 主流生图模型 API 格式、spec、参考图上限、Provider Adapter 设计 | `docs/ref/image-model-api-specs.md` |
 | 参考文件总入口 | `docs/ref/README.md` |

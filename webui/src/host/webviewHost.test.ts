@@ -121,6 +121,48 @@ describe('WebViewHostClient', () => {
     harness.client.dispose()
   })
 
+  it('keeps clipboard image decoding alive beyond the default host timeout', async () => {
+    const harness = createHarness()
+    await connect(harness)
+    vi.useFakeTimers()
+    const pending = harness.client.captureReference('clipboard')
+    const request = harness.sent.at(-1)!
+    await vi.advanceTimersByTimeAsync(13_000)
+    harness.dispatch(envelope({
+      kind: 'response', command: 'reference.readClipboard', messageId: request.messageId,
+      payload: { assetId: 'asset-clipboard-1', label: '剪贴板图片', source: 'clipboard', width: 512, height: 512, previewUrl: 'data:image/png;base64,AQID', status: 'available' }
+    }))
+
+    await expect(pending).resolves.toMatchObject({ assetId: 'asset-clipboard-1', source: 'clipboard' })
+    harness.client.dispose()
+  })
+
+  it('imports pasted images through ordered bridge chunks', async () => {
+    const harness = createHarness()
+    await connect(harness)
+    const data = 'A'.repeat(192 * 1024 + 7)
+    const pending = harness.client.importReferenceImage({
+      name: '剪贴板图片.png', mimeType: 'image/png', source: 'clipboard',
+      width: 640, height: 480,
+      dataUrl: `data:image/png;base64,${data}`,
+      thumbnailUrl: 'data:image/jpeg;base64,AQID'
+    })
+    await vi.waitFor(() => expect(harness.sent.at(-1)?.command).toBe('reference.importImageChunk'))
+    const first = harness.sent.at(-1)!
+    expect(first.payload).toMatchObject({ index: 0, total: 2, source: 'clipboard', width: 640, height: 480, thumbnailUrl: 'data:image/jpeg;base64,AQID' })
+    harness.dispatch(envelope({ kind: 'response', command: first.command, messageId: first.messageId, payload: null }))
+    await vi.waitFor(() => expect((harness.sent.at(-1)?.payload as { index?: number })?.index).toBe(1))
+    const second = harness.sent.at(-1)!
+    expect(second.payload).not.toHaveProperty('thumbnailUrl')
+    harness.dispatch(envelope({
+      kind: 'response', command: second.command, messageId: second.messageId,
+      payload: { assetId: 'asset-paste-1', label: '剪贴板图片', source: 'clipboard', width: 640, height: 480, previewUrl: 'data:image/jpeg;base64,AQID', status: 'available' }
+    }))
+
+    await expect(pending).resolves.toMatchObject({ assetId: 'asset-paste-1', source: 'clipboard' })
+    harness.client.dispose()
+  })
+
   it('keeps a Provider config test alive beyond the default host timeout', async () => {
     const harness = createHarness()
     await connect(harness)

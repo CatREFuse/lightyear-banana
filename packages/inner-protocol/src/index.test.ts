@@ -97,6 +97,23 @@ describe('inner-host/v1 envelope', () => {
     })).not.toThrow()
   })
 
+  it('validates bounded image-import chunks and their final asset', () => {
+    const payload = {
+      importId: 'paste-1', name: '参考图.png', mimeType: 'image/png', source: 'clipboard' as const, width: 640, height: 480,
+      index: 0, total: 2, chunk: 'AQID', thumbnailUrl: 'data:image/jpeg;base64,AQID'
+    }
+    expect(() => validateCommandPayload('reference.importImageChunk', payload)).not.toThrow()
+    expect(() => validateCommandPayload('reference.importImageChunk', { ...payload, mimeType: 'text/plain' })).toThrow('分片')
+    expect(() => validateCommandPayload('reference.importImageChunk', { ...payload, width: 0 })).toThrow('分片')
+    expect(() => validateCommandPayload('reference.importImageChunk', { ...payload, total: 1025 })).toThrow('分片')
+    expect(() => validateCommandPayload('reference.importImageChunk', { ...payload, index: 2 })).toThrow('分片')
+    expect(() => validateCommandResult('reference.importImageChunk', null)).not.toThrow()
+    expect(() => validateCommandResult('reference.importImageChunk', {
+      assetId: 'asset-paste-1', label: '剪贴板图片', source: 'clipboard', width: 640, height: 480,
+      previewUrl: 'data:image/jpeg;base64,AQID', status: 'available'
+    })).not.toThrow()
+  })
+
   it('whitelists clear-all as a parameterless command with a closed result shape', () => {
     expect(() => createRequestEnvelope({ command: 'storage.clearAll', sessionId: 'session-1', payload: undefined })).not.toThrow()
     expect(() => validateCommandPayload('storage.clearAll', { confirm: true })).toThrow('不接受参数')

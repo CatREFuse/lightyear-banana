@@ -4,6 +4,7 @@ const referenceJpegMaxEdge = 4096
 const referenceJpegMaxBytes = 9 * 1024 * 1024
 const referenceJpegMinQuality = 0.5
 const referenceJpegQualityStep = 0.08
+const referenceImportMaxBytes = 128 * 1024 * 1024
 
 const imageMimeTypes: Record<string, string> = {
   gif: 'image/gif',
@@ -168,6 +169,38 @@ export async function createReferenceImageFromBlob(blob: Blob, label: string, id
     label,
     previewUrl: await readBlobAsDataUrl(blob)
   })
+}
+
+export async function createReferenceImportFromBlob(blob: Blob, name: string, source: 'upload' | 'clipboard') {
+  if (blob.size > referenceImportMaxBytes) throw new Error('图片超过 128 MB，无法读取')
+  const originalUrl = await readBlobAsDataUrl(blob)
+  const image = await loadImage(originalUrl)
+  let maxEdge = 256
+  let thumbnailUrl = ''
+  while (maxEdge >= 64) {
+    const dimensions = readResizedDimensions(image.naturalWidth || image.width, image.naturalHeight || image.height, maxEdge)
+    const canvas = document.createElement('canvas')
+    canvas.width = dimensions.width
+    canvas.height = dimensions.height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('无法生成参考图预览')
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, dimensions.width, dimensions.height)
+    context.drawImage(image, 0, 0, dimensions.width, dimensions.height)
+    thumbnailUrl = await readBlobAsDataUrl(await canvasToJpegBlob(canvas, 0.68))
+    if (thumbnailUrl.length <= 16 * 1024) break
+    maxEdge = Math.floor(maxEdge * 0.7)
+  }
+  if (!thumbnailUrl || thumbnailUrl.length > 16 * 1024) throw new Error('参考图预览过大')
+  return {
+    name,
+    mimeType: blob.type || readImageMimeType(name),
+    source,
+    width: Math.max(1, Math.round(image.naturalWidth || image.width)),
+    height: Math.max(1, Math.round(image.naturalHeight || image.height)),
+    dataUrl: originalUrl,
+    thumbnailUrl
+  }
 }
 
 export function pickBrowserImageFile() {

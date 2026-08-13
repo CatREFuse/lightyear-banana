@@ -13,7 +13,7 @@
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.0`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
-- 当前 CCX 版本为 `1.1.1`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
+- 当前 CCX 版本为 `1.1.3`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
 
 ## 官方单屏站点
 
@@ -111,7 +111,7 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - WebUI 在提交生成请求前创建稳定任务 ID，CCX Host 沿用该 ID；并发任务的进度、完成和失败事件不得互相覆盖或因响应先后顺序而丢失。
 - CCX 内的生成计时由 WebUI 本地时钟持续更新，Host 阶段事件用于校准时间；轮询期间没有新阶段事件时，秒数仍需继续增长。
 - CCX Host 持久保存最近 30 条终态生成记录及其生成结果，超过 30 条时淘汰最早记录。历史文件使用可恢复备份，当前文件损坏且没有有效备份时停止写入并显示错误。
-- 上传附件、读取剪贴板和本地保存属于用户交互操作，不使用普通 Host 命令的 12 秒等待上限；文件选择或图片解析期间 WebView 保持请求有效。文件选择使用 UXP `localFileSystem.getFileForOpening()`，取消选择不改变参考图；剪贴板兼容 UXP `read()` / `getContent()` 返回的 `ClipboardItem`、`ImageBlob`、`ArrayBuffer` 和 typed array 图像值。
+- 上传附件、用户主动粘贴图片、拖入图片和本地保存属于用户交互操作，不使用普通 Host 命令的 12 秒等待上限。文件选择使用 UXP `localFileSystem.getFileForOpening()`，取消选择不改变参考图；上传缩略图从用户选中的原文件由 Photoshop 原生像素接口生成。主动粘贴与拖入在 WebView 读取图片，生成受控缩略图并通过分片协议导入 CCX Host，不依赖宿主剪贴板读取。
 - 缩略图生成失败、体积超限或资源失效时显示明确异常状态，不生成替代结果图。原图仍可用时，异常状态允许继续打开原图、置入或保存。
 - CCX 消息流只传输受控缩略图；打开结果时通过分块协议载入原图，预览窗口展示原图。原图过大时提示保存后查看。
 - CCX 预览窗口的保存操作必须调用 Host 文件保存能力，不使用 WebView 下载链接或页面导航。

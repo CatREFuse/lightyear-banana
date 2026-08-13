@@ -42,6 +42,7 @@ import {
 import type { CapturedCanvasImage } from '@mugen/core'
 import { createCanvasImageFromApiAsset } from '@mugen/core'
 import {
+  createReferenceCanvasImage,
   pickBrowserReferenceImage,
   readBrowserClipboardReferenceImage
 } from '../utils/referenceImages'
@@ -899,6 +900,18 @@ function readHighestQuality(options: string[]): string {
       ratio.value = readDefaultRatio(activeCapability.value.ratioOptions, ratio.value)
     }
     status.value = `已添加${referenceLabels[source]}`
+  }
+
+  async function importReferenceImage(input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }) {
+    await runCanvasAction({ type: 'capture', label: input.source === 'clipboard' ? '正在粘贴图片' : '正在读取图片' }, async () => {
+      addReferenceImage(input.source, await createReferenceCanvasImage({
+        idPrefix: input.source,
+        label: input.source === 'clipboard' ? '剪贴板图片' : `上传图片：${input.name}`,
+        previewUrl: input.dataUrl,
+        width: input.width,
+        height: input.height
+      }))
+    })
   }
 
   async function addReference(source: ReferenceSource) {
@@ -1947,6 +1960,7 @@ function readHighestQuality(options: string[]): string {
     toggleConfigEnabled,
     turns,
     addReference,
+    importReferenceImage,
     upscaleImage,
     updateSettingsDraft,
     updatePromptPresets,

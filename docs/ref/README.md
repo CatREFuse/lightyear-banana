@@ -13,6 +13,7 @@
 | CCX entrypoint、Photoshop host、imaging、modal、文件访问等原子能力 | `docs/ref/atomic-capabilities.md` |
 | Vue 3 + Vite + TypeScript + Manifest v5 的框架和构建方式 | `docs/ref/framework-build.md` |
 | CCX Host 壳、Adobe Spectrum Widgets 与 WebView 边界 | `docs/ref/ccx-adobe-runtime-rules.md` |
+| CCX + Inner WebUI 开发流程、原子能力配方、调试与踩坑 | `docs/ref/ccx-inner-webui-cookbook.md` |
 | WebUI vNext 与 Browser/CCX 双运行时门禁 | `docs/inner-webui-prd.md` |
 | 开发、调试、加载、验证、扩展时需要注意的事项 | `docs/ref/development-notes.md` |
 | 主流生图模型 API 格式、参考图上限和接入差异 | `docs/ref/image-model-api-specs.md` |

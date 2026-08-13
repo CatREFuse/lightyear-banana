@@ -25,7 +25,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
       capabilities: [
         'host.getContext', 'settings.get', 'settings.save', 'history.list', 'history.upsert', 'history.clear',
         'credential.set', 'credential.remove', 'canvas.captureVisible', 'canvas.captureSelection',
-        'canvas.captureLayer', 'canvas.readSize', 'reference.pickFile', 'reference.readClipboard',
+        'canvas.captureLayer', 'canvas.readSize', 'reference.pickFile', 'reference.readClipboard', 'reference.importImageChunk',
         'generation.start', 'generation.cancel', 'generation.testConfig', 'canvas.placeAsset',
         'asset.save', 'asset.readOriginal', 'asset.retain', 'asset.release', 'diagnostics.export', 'storage.clearAll'
       ]
@@ -46,6 +46,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     }
     const assets = new Map<string, Record<string, any>>()
     const originals = new Map<string, string>()
+    const imageImports = new Map<string, { source: string; name: string; total: number; chunks: string[]; thumbnailUrl: string }>()
     const bridge = window as Window & { uxpHost?: { postMessage(message: unknown): void } }
     const nativePostMessage = window.postMessage.bind(window)
     let taskSequence = 0
@@ -218,6 +219,31 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         case 'canvas.readSize': respond(request, { width: 1024, height: 1024 }); return
         case 'reference.pickFile': respond(request, capture('e2e-upload', 'upload', '上传图片')); return
         case 'reference.readClipboard': respond(request, capture('e2e-clipboard', 'clipboard', '剪贴板')); return
+        case 'reference.importImageChunk': {
+          const current = imageImports.get(request.payload.importId) ?? {
+            source: request.payload.source,
+            name: request.payload.name,
+            total: request.payload.total,
+            chunks: new Array<string>(request.payload.total),
+            thumbnailUrl: request.payload.thumbnailUrl || ''
+          }
+          current.chunks[request.payload.index] = request.payload.chunk
+          imageImports.set(request.payload.importId, current)
+          if (current.chunks.filter((chunk) => typeof chunk === 'string').length !== current.total) {
+            respond(request, null)
+            return
+          }
+          imageImports.delete(request.payload.importId)
+          const imported = capture(
+            `e2e-import-${trace.captures.length + 1}`,
+            current.source,
+            current.source === 'clipboard' ? '剪贴板图片' : `上传图片：${current.name}`
+          )
+          Object.assign(imported, { previewUrl: current.thumbnailUrl, thumbnailUrl: current.thumbnailUrl, previewStatus: 'ready' })
+          assets.set(imported.assetId, imported)
+          respond(request, imported)
+          return
+        }
         case 'asset.retain': respond(request, assets.get(request.payload.assetId)); return
         case 'asset.release': respond(request, { assetId: request.payload.assetId, released: true }); return
         case 'generation.start': {

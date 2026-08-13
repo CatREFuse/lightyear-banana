@@ -199,6 +199,7 @@ export class CommandRegistry {
       'canvas.readSize': async () => canvasPrimitiveService.readCanvasSize(),
       'reference.pickFile': async () => this.files.pickReference(),
       'reference.readClipboard': async () => this.files.readClipboardReference(),
+      'reference.importImageChunk': async (payload) => this.files.importImageChunk(payload as never),
       'generation.start': async (payload) => this.provider.start(payload as never),
       'generation.cancel': async (payload) => this.provider.cancel(String(payload?.taskId ?? '')),
       'generation.testConfig': async (payload) => this.provider.testConfig(String(payload?.configId ?? '')),

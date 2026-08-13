@@ -81,6 +81,7 @@ export type MugenController = {
   toggleConfigEnabled: (enabled: boolean) => ControllerResult
   turns: ReadonlyState<ChatTurn[]>
   addReference: (source: ReferenceSource) => ControllerResult
+  importReferenceImage: (input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }) => ControllerResult
   upscaleImage: (image: GeneratedImage) => ControllerResult
   updateSettingsDraft: (patch: Partial<ModelConfig>) => ControllerResult
   updatePromptPresets: (presets: PromptPreset[]) => ControllerResult

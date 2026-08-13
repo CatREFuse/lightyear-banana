@@ -59,9 +59,7 @@ function readJpegDimensions(bytes: Uint8Array) {
   return undefined
 }
 
-export function readInlineImageDimensions(previewUrl: string) {
-  const bytes = readBase64DataUrlBytes(previewUrl)
-  if (!bytes) return undefined
+export function readImageByteDimensions(bytes: Uint8Array) {
   if (
     bytes.length >= 24
     && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
@@ -81,6 +79,11 @@ export function readInlineImageDimensions(previewUrl: string) {
     if (width > 0 && height > 0) return { width, height }
   }
   return readJpegDimensions(bytes)
+}
+
+export function readInlineImageDimensions(previewUrl: string) {
+  const bytes = readBase64DataUrlBytes(previewUrl)
+  return bytes ? readImageByteDimensions(bytes) : undefined
 }
 
 function isRemoteImageUrl(value: string) {

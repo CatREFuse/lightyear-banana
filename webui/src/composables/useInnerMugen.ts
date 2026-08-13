@@ -331,6 +331,13 @@ export function useInnerMugen(): MugenController {
     })
   }
 
+  function importReferenceImage(input: { name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; dataUrl: string; thumbnailUrl: string }) {
+    return withCanvasOperation({ type: 'capture', label: input.source === 'clipboard' ? '正在粘贴图片' : '正在读取图片' }, async () => {
+      await store.importReferenceImage(input)
+      if (store.error) showToast(store.error)
+    })
+  }
+
   function removeReference(id: string) { return store.removeReference(id) }
   function clearReferences() { return store.clearReferences() }
 
@@ -669,6 +676,7 @@ export function useInnerMugen(): MugenController {
     toggleConfigEnabled,
     turns,
     addReference,
+    importReferenceImage,
     upscaleImage,
     updateSettingsDraft,
     updatePromptPresets,
