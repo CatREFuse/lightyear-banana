@@ -200,6 +200,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 ## 发布边界
 
 - 当前阶段允许在 WebUI、单屏官网和 CCX 各自门禁通过后部署正式入口。官网使用 `download/mugen-<version>.ccx` 直连标准，CCX 随站点快照发布并纳入全站逐字节校验；`releases/latest.json` 已废弃。
+- 官方发行统一执行 `docs/release-sop.md`。CCX 本地打包不构成正式发布，官网原子切换和公网版本化 CCX 逐字节回读通过后才能确认发行完成。
 - 旧官网、Electron 桌面端与 Inner WebUI 0.1 只保留历史记录；独立 UXP 原型代码已删除，均不进入新首页、WebUI 入口或活动发布说明。
 - CCX WebView 固定加载 `https://mugen.catrefuse.com/webui/`，CCX 包不包含 WebUI HTML、JavaScript、CSS 或其他 `webui/` 静态目录。
 - CCX 接收 WebView 消息时，将 UXP 提供的内容 URL 解析后按协议、主机和端口校验同源，并继续要求消息 `source` 为当前 WebView；不得把包含 `/webui/` 路径的合法内容 URL 当作非可信来源，也不得放宽到其他 Origin。

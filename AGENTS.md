@@ -13,7 +13,7 @@ Mugen 是 monorepo,按功能模块组织,npm 配置内聚在各模块目录,根�
 | `packages/mugen-core/` | 共享生图业务核心(Provider、请求、能力、类型) | `@mugen/core` | `src/index.ts`(export * 全部符号) |
 | `packages/inner-protocol/` | WebUI ↔ CCX 通信协议 | `@mugen/inner-protocol` | `src/index.ts` |
 | `utils/` | 跨模块脚手架(测试服务、smoke、nginx 策略、部署夹具) | 无(平铺脚本) | `mock-image-api-server.mjs`、`regression-smoke.mjs`、`deploy/nginx/` |
-| `docs/` | 文档(11 篇)与开发参考(`docs/ref/` 8 篇) | — | `docs/build-todo-list.md` 为发布门禁索引 |
+| `docs/` | 产品、发行与开发参考文档 | — | `docs/build-todo-list.md` 为发布门禁索引，`docs/release-sop.md` 为官方发行流程 |
 
 模块间依赖方向:`plug-in` → `@mugen/core` + `@mugen/inner-protocol`;`webui` → `@mugen/core` + `@mugen/inner-protocol`;`homesite` 只读 `plug-in` 的构建产物(`dist/`)。共享业务必须进 `packages/mugen-core`,不要在模块间复制代码或跨模块相对引用(例外:`mugen-core` 内部对 `inner-protocol` 用相对路径,因为 regression-smoke 以 node10 模式编译)。
 
@@ -62,6 +62,7 @@ WebUI 部署:
 ## 发布与部署门禁
 
 - 修改或提交版本号前，必须先读取 `docs/build-todo-list.md`。
+- 正式发行必须按 `docs/release-sop.md` 完成 WebUI、CCX、官网部署与公网回读；本地打包不能代替官方发布。
 - 发布门禁按三条线执行：CCX 以 `docs/build-todo-list.md` 为准；WebUI 部署见 `docs/inner-webui-deployment.md`；官网部署见 `docs/site-deployment.md`。
 - Electron 桌面端已移除，不再有 macOS/Windows 桌面打包门禁（历史发行记录见 `docs/build-todo-list.md`）。
 - 正式 `package:ccx` 只接受干净工作树；官网发布前必须确认 CCX 发行物与 `dist/ccx-release.json` 一致，构建把版本化 CCX 放入 `download/` 并纳入全站哈希；`releases/latest.json` 已废弃。
@@ -85,6 +86,7 @@ WebUI 部署:
 
 | 任务(部署/运维) | 查阅文件 |
 | --- | --- |
+| WebUI、CCX 与官网的统一官方发行顺序和完成标准 | `docs/release-sop.md` |
 | 版本号、CCX、WebUI、官网发布的强制检查清单 | `docs/build-todo-list.md` |
 | WebUI 与 CCX 的构建、部署、回滚流程 | `docs/inner-webui-deployment.md` |
 | 官网单屏站点的部署、验收、回滚流程 | `docs/site-deployment.md` |

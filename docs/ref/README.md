@@ -6,6 +6,7 @@
 
 | 想查什么 | 先看 |
 | --- | --- |
+| WebUI、CCX 和官网如何完成一次官方发行 | `docs/release-sop.md` |
 | 项目在做什么、当前验证到哪里、怎么运行 | `docs/ref/project-baseline.md` |
 | vNext 标定了哪些功能、官网和双运行时怎么验收 | `docs/mugen-prototype-requirements.md` |
 | 工作台、结果流、设置页及浏览器／CCX 怎么交互 | `docs/mugen-interaction-spec.md` |

@@ -4,6 +4,8 @@
 
 当前阶段允许部署 WebUI vNext、单屏官网与站点内的版本化 CCX 文件。官网从 `download/` 直接提供当前 CCX，文件必须来自干净提交的打包产物并进入全站哈希；`releases/latest.json` 已废弃。
 
+统一执行顺序与完成标准见 `docs/release-sop.md`。本清单是强制门禁，SOP 是正式操作流程；两者都必须满足。
+
 ## 生命周期与版本规则
 
 - Electron 桌面端源码已删除（2026-08-12），不得恢复桌面入口、electron 依赖或桌面发行脚本。
@@ -14,6 +16,7 @@
 - 修改 CCX 版本时，确认 `plug-in/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
 - CCX 发布前确认 `https://mugen.catrefuse.com/webui/` 和 `compatibility.json` 可访问，并兼容 `inner-host/v1`；该检查不要求云端文件与当前 CCX 仓库提交一致。
 - 每次 CCX 发布必须依次完成当前版本打包、官网首页与两份 LLM 文本的版本化下载信息更新、`npm run build:site` 和公网读回。官网 `下载 CCX` 必须指向本次 `dist/ccx-release.json` 的文件名；仍指向任一旧版本时停止站点构建和部署。
+- `npm run package:ccx` 完成只代表本地发行物可用。`npm run deploy:site` 完成原子切换且公网版本化 CCX 的逐字节回读通过后，才允许记录为 CCX 正式发布。
 - Windows CCX 由仓库打包脚本生成，归档格式必须对齐 Adobe UXP Developer Tools 的 `Package` 产物特征；不得使用 PowerShell `Compress-Archive` 或系统右键压缩直接充当发行包。资源管理器双击安装及 Photoshop 可用性由分发验收确认，命令行安装不能代替该结果。
 - 代码生成的 CCX 必须在归档根目录直接包含 Manifest 与运行资源，使用 UDT 一致的文件条目、Manifest 首项、Deflate、数据描述符和 Unix `0644` 权限；`manifest.json` 只移除末尾单个换行，其他条目必须与 `dist/ccx-host/` 逐字节一致。完整特征见 `docs/ref/framework-build.md`。
 - 不得恢复 `standalone-uxp-plugin/`、`src/uxp/`、`vite.uxp.config.ts`、`uxp-panel.html` 或旧 `*:uxp` 产品命令。
@@ -75,6 +78,7 @@
 - [ ] `dist/` 的 CCX 与 `SHA256SUMS.txt` 匹配。
 - [ ] 官网 `下载 CCX` 指向本次最新版 CCX，标本号、文件大小与 SHA256 均和 `dist/ccx-release.json` 一致。
 - [ ] 公网逐字节读回 `download/` CCX 和安全响应头检查通过。
+- [ ] `docs/release-sop.md` 的 WebUI、CCX、官网和公网验收状态已分别记录，没有用本地打包结果代替正式发布。
 
 ## 旧 Inner WebUI 0.1 / CCX 1.0 状态（归档）
 
