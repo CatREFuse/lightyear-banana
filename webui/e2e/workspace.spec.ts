@@ -115,6 +115,30 @@ test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })
 
+test('restores prompt editing after the CCX WebView regains window focus', async ({ page }) => {
+  const prompt = page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' })
+  await prompt.fill('窗口切换后')
+
+  await prompt.evaluate((target) => {
+    target.focus()
+    window.dispatchEvent(new Event('blur'))
+    target.blur()
+    window.dispatchEvent(new Event('focus'))
+  })
+
+  await expect(prompt).toBeFocused()
+  await prompt.pressSequentially('继续输入')
+  await expect(prompt).toHaveValue('窗口切换后继续输入')
+
+  await page.getByRole('button', { name: '设置' }).focus()
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('blur'))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    window.dispatchEvent(new Event('focus'))
+  })
+  await expect(prompt).not.toBeFocused()
+})
+
 test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
   await page.getByRole('button', { name: '设置' }).click()
   await page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' }).click()

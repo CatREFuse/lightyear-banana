@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef, useTemplateRef, watch } from 'vue'
 import type { CanvasOperationState, ModelConfig, PromptPreset, ReferenceImage, ReferenceSource, ResolutionInputMode } from '@mugen/core'
 import type { ProviderCapability } from '@mugen/core'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
@@ -75,7 +75,10 @@ const openPanel = shallowRef('')
 const expandedPresetContent = shallowRef<string | null>(null)
 const referenceImportError = shallowRef('')
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
+const promptInputRef = useTemplateRef<HTMLTextAreaElement>('promptInput')
 const customSizeValue = '__mugen_custom_resolution__'
+let shouldRestorePromptFocus = false
+let promptFocusFrame: number | undefined
 
 const allReferenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; label: string }> = [
   { icon: 'image', source: 'visible', label: '可见图层' },
@@ -223,6 +226,43 @@ function applyPromptPreset(preset: PromptPreset) {
 function updatePromptInput(value: string) {
   expandedPresetContent.value = null
   emit('updatePrompt', value)
+}
+
+function handlePromptFocus() {
+  shouldRestorePromptFocus = true
+  closePanel()
+}
+
+function handlePromptBlur(event: FocusEvent) {
+  if (event.relatedTarget instanceof Node && document.contains(event.relatedTarget)) {
+    shouldRestorePromptFocus = false
+  }
+}
+
+function restorePromptFocus() {
+  if (!shouldRestorePromptFocus || promptFocusFrame !== undefined) return
+  promptFocusFrame = window.requestAnimationFrame(() => {
+    promptFocusFrame = undefined
+    const target = promptInputRef.value
+    if (!shouldRestorePromptFocus || !target) return
+    target.blur()
+    promptFocusFrame = window.requestAnimationFrame(() => {
+      promptFocusFrame = undefined
+      if (shouldRestorePromptFocus && target.isConnected) {
+        target.focus({ preventScroll: true })
+      }
+    })
+  })
+}
+
+function handleWindowBlur() {
+  if (document.activeElement === promptInputRef.value) {
+    shouldRestorePromptFocus = true
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') restorePromptFocus()
 }
 
 function requestSend() {
@@ -436,6 +476,19 @@ function handleDrop(event: DragEvent) {
 
 useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'reference')
 
+onMounted(() => {
+  window.addEventListener('blur', handleWindowBlur)
+  window.addEventListener('focus', restorePromptFocus)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('blur', handleWindowBlur)
+  window.removeEventListener('focus', restorePromptFocus)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (promptFocusFrame !== undefined) window.cancelAnimationFrame(promptFocusFrame)
+})
+
 watch(
   () => props.activeMenuOwner,
   (owner) => {
@@ -531,11 +584,13 @@ watch(
         @select="applyPromptPreset"
       />
       <textarea
+        ref="promptInput"
         class="prompt-input"
         :value="prompt"
         placeholder="输入提示词，或输入 / 调用预设"
         rows="3"
-        @focus="closePanel"
+        @blur="handlePromptBlur"
+        @focus="handlePromptFocus"
         @input="updatePromptInput(($event.target as HTMLTextAreaElement).value)"
         @keydown="handlePromptKeydown"
       />

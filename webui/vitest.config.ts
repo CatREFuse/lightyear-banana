@@ -11,7 +11,7 @@ export default defineConfig({
     }
   },
   define: {
-    __WEBUI_VERSION__: JSON.stringify('0.2.0'),
+    __WEBUI_VERSION__: JSON.stringify('0.2.1'),
     __BUILD_COMMIT__: JSON.stringify('test')
   },
   test: {

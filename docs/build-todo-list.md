@@ -66,6 +66,7 @@
 - [ ] 生产 WebUI 不含 Electron runtime 依赖（bundlePolicy 回归防线通过）。
 - [ ] WebUI 单元、Provider、协议、浏览器 E2E 和生产构建通过。
 - [ ] 浏览器 APIMart 冒烟通过，固定小猫与无 Photoshop 入口断言通过。
+- [ ] Windows Photoshop 从提示词输入状态切出再返回后可以继续键盘输入，其他焦点状态不会被提示词输入框抢占。
 - [ ] `npm run verify:ccx` 通过。
 - [ ] CCX 产物只包含 Host 资源，WebView URL、Manifest Origin 和远程消息桥权限校验通过，归档中没有 `webui/` 目录。
 - [ ] UDT 格式兼容的 CCX 已在 Windows 资源管理器完成双击安装验收，并在 Photoshop 中可用。
