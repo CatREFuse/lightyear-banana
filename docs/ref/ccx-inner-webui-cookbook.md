@@ -258,6 +258,12 @@ WebView DOM 在 Photoshop 外层辅助功能树中可能不可见。真实验收
 
 大 data URL 单消息会触发宿主消息限制、序列化耗时或 WebView 退出。原图分片、缩略图限长、历史只存指针是同一套设计，缺少任何一层都可能在大图上失败。
 
+### 9.3 UXP 不提供全部浏览器编码全局
+
+共享 `mugen-core` 会同时在浏览器和 CCX Host 执行。Photoshop UXP JavaScript 环境不保证提供 `TextEncoder`；直接使用它构造 APIMart multipart header 会在参考图上传时抛出 `TextEncoder is not defined`，错误最终由 Inner WebUI 显示。
+
+共享 Provider 中的 UTF-8 编码应使用不依赖宿主全局的字节实现。回归测试需显式移除 `globalThis.TextEncoder`，再构造完整 multipart 正文；同时运行 Core Provider 测试、CCX Host 集成测试和 `verify:ccx`，确认最终 Host bundle 已使用兼容编码路径。
+
 ### 9.3 稀疏数组会跳过空位
 
 分片聚合使用 `new Array(total)` 时，`some()`、`every()` 等方法跳过空槽，不能据此判断是否收齐。使用 `filter((chunk) => typeof chunk === 'string').length === total` 或显式计数。
