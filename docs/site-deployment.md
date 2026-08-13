@@ -57,7 +57,7 @@ npm run test:site-deploy
 npm run deploy:site -- --dry-run
 ```
 
-`test:site-deploy` 包含会实际执行生成命令的状态转换与失败注入测试。Windows 使用 Git Bash、临时目录、测试专用 `flock` 和目录链接兼容层执行。`.github/workflows/site-deploy-linux.yml` 提供只读、无 secrets、仅手动触发的 `ubuntu-24.04` 门禁；获准生产发布前，必须在该工作流或另一隔离 GNU/Linux 环境运行 `REQUIRE_SITE_LINUX_TESTS=1 npm run test:site-deploy`，以原生远端工具完成强制复验。
+`test:site-deploy` 包含状态转换与失败注入测试。日常发行使用当前开发环境完成构建和 dry-run；无需额外启动 Docker 或触发 Linux CI。服务器仍需满足上文列出的 GNU/Linux 远端契约。
 
 `build:site` 从 `plug-in/manifest.json` 和 `dist/ccx-release.json` 读取当前 CCX 版本；两者必须一致。站点文件固定为 `dist/site/download/mugen-<ccx-version>.ccx`，其字节、大小与 SHA256 必须和根目录打包产物一致。`--include-ccx` 属于旧发布树兼容参数，新标准不使用。
 
