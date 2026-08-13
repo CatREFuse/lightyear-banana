@@ -1,6 +1,6 @@
 # CCX 与 Adobe Runtime 强制规则
 
-本文约束 Photoshop CCX Host 壳及其 Adobe 原生控件。Mugen WebUI vNext 运行在 CCX 本地 WebView 与普通浏览器中，使用从 Electron UI 源码平移的浏览器组件；WebUI 不按本文改写为 Spectrum 工作台。
+本文约束 Photoshop CCX Host 壳及其 Adobe 原生控件。Mugen WebUI vNext 通过正式云端地址运行在 CCX WebView 与普通浏览器中，使用从 Electron UI 源码平移的浏览器组件；WebUI 不按本文改写为 Spectrum 工作台。
 
 Host 壳中的按钮、状态、占位与恢复控件只能使用经过 UXP 验证的 HTML、CSS、JavaScript 和 Spectrum 组件。WebUI 仍需在 Photoshop WebView 中实测，但其规则以 `docs/inner-webui-prd.md`、`docs/mugen-interaction-spec.md` 和 `docs/ref/framework-build.md` 为准。
 
@@ -199,11 +199,11 @@ Spectrum UXP Widgets 是当前项目的默认控件方案。新增控件时先�
 
 ## WebView 使用边界
 
-Mugen vNext 的完整工作台运行在 CCX 本地 WebView 中，并与普通浏览器使用同源构建。UXP 原生 UI 只承担 Host 壳、连接状态和无法进入 WebView 时的恢复入口。
+Mugen vNext 的完整工作台由 CCX WebView 加载正式云端 WebUI，并与普通浏览器使用同一部署页面。UXP 原生 UI 只承担 Host 壳、连接状态和无法进入 WebView 时的恢复入口。
 
-- WebView 入口使用 CCX 内嵌的 `plugin:/webui/index.html`，不依赖公网页面才能启动。
+- WebView 入口固定为 `https://mugen.catrefuse.com/webui/`，CCX 发行物不包含 WebUI 静态文件。
 - Photoshop API、文件 token、SecureStorage、imaging 与 modal execution 只由 Host 执行。
-- WebView 通过受信任 local-only bridge 和版本化协议调用 Host。
+- WebView 通过只授权正式 Origin 的 `localAndRemote` bridge 和版本化协议调用 Host。
 - 普通浏览器选择 Browser adapter，不提供 Photoshop 能力。
 - 大图通过 asset ID 或受控传输处理，不在消息桥反复复制完整 RGBA。
 - 打包、安全、协议和双运行时门禁以 `docs/inner-webui-prd.md` 为准。

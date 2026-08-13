@@ -13,13 +13,13 @@
 
 ## CCX Host 壳与 WebView
 
-`plug-in/src/ccx/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和本地 WebView。工作台 Vue 应用来自 CCX 内嵌的 `plugin:/webui/index.html`，并与普通浏览器使用同源 WebUI 构建。
+`plug-in/src/ccx/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和 WebView。工作台 Vue 应用来自 `https://mugen.catrefuse.com/webui/`，与普通浏览器使用同一云端部署页面。
 
 Host 壳负责：
 
 - 创建和销毁 WebView 会话。
 - 校验 `inner-host` 消息信封、会话和命令白名单。
-- 把 Photoshop、资产、Provider、存储与确认能力暴露给受信任本地 WebView。
+- 把 Photoshop、资产、Provider、存储与确认能力暴露给受信任云端 Origin 的 WebView。
 - 在断连时释放会话与资产。
 
 早期把 Vue 直接挂载到 UXP DOM 的方案已归档，不作为 vNext 工作台架构。

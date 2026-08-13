@@ -7,11 +7,12 @@
 ## 生命周期与版本规则
 
 - Electron 桌面端源码已删除（2026-08-12），不得恢复桌面入口、electron 依赖或桌面发行脚本。
-- 修改 Inner WebUI 版本时，确认 `webui/package.json`、兼容信息、构建元数据和 CCX 内嵌版本一致。
-- 本地 `verify:ccx` 接受干净或脏工作树，但 Inner WebUI `0.2.0` 的源码构建与 CCX 内嵌副本必须绑定当前 HEAD，且两份 `release.json` 的 `dirty` 必须与实际工作树状态一致；内容哈希和逐字节目录比较仍须通过。
-- 正式 `package:ccx` 只接受干净工作树及两份 `dirty: false` 元数据。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 必须与同一干净 WebUI 构建提交一致。
+- 修改 Inner WebUI 版本时，确认 `webui/package.json`、兼容信息和构建元数据一致；兼容 `inner-host/v1` 的 WebUI 可以独立发布，无需重新打包 CCX。
+- 本地 `verify:ccx` 接受干净或脏工作树，必须确认 Host 只注入 `https://mugen.catrefuse.com/webui/`、Manifest 只授权该 Origin，且 `dist/ccx-host/` 不包含 `webui/` 静态目录。
+- 正式 `package:ccx` 只接受干净工作树。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 绑定 CCX Host 的干净提交。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
 - 修改 CCX 版本时，确认 `plug-in/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
+- CCX 发布前确认 `https://mugen.catrefuse.com/webui/` 和 `compatibility.json` 可访问，并兼容 `inner-host/v1`；该检查不要求云端文件与当前 CCX 仓库提交一致。
 - 每次 CCX 发布必须依次完成当前版本打包、官网首页与两份 LLM 文本的版本化下载信息更新、`npm run build:site` 和公网读回。官网 `下载 CCX` 必须指向本次 `dist/ccx-release.json` 的文件名；仍指向任一旧版本时停止站点构建和部署。
 - Windows CCX 由仓库打包脚本生成，归档格式必须对齐 Adobe UXP Developer Tools 的 `Package` 产物特征；不得使用 PowerShell `Compress-Archive` 或系统右键压缩直接充当发行包。资源管理器双击安装及 Photoshop 可用性由分发验收确认，命令行安装不能代替该结果。
 - 代码生成的 CCX 必须在归档根目录直接包含 Manifest 与运行资源，使用 UDT 一致的文件条目、Manifest 首项、Deflate、数据描述符和 Unix `0644` 权限；`manifest.json` 只移除末尾单个换行，其他条目必须与 `dist/ccx-host/` 逐字节一致。完整特征见 `docs/ref/framework-build.md`。
@@ -23,6 +24,7 @@
 - 工作台、消息流、输入 Dock、设置、Provider、预设、结果卡片和主题均为当前仓库直接实现（原 Electron UI 迁移已完成并删除桌面源码）。
 - WebUI bundle 不得依赖 Electron preload、IPC、本地 Bridge、桌面窗口或自动更新模块。
 - CCX 与浏览器从同一 WebUI 源码构建，运行时差异通过 adapter 或 capability contract 实现。
+- CCX 通过云端地址加载当前 WebUI，WebUI 发布链不复制进入 CCX 发行物。
 - 普通浏览器必须能完成配置、配置测试、真实网络生成、任务轮询、取消和结果查看。
 - 普通浏览器的 DOM、焦点顺序、菜单和快捷键中不得存在 Photoshop 画布、选区、图层读取或置入入口。
 - CCX 必须保留画布读取和结果置入；Photoshop 文档修改必须进入 `core.executeAsModal()`。
@@ -65,6 +67,7 @@
 - [ ] WebUI 单元、Provider、协议、浏览器 E2E 和生产构建通过。
 - [ ] 浏览器 APIMart 冒烟通过，固定小猫与无 Photoshop 入口断言通过。
 - [ ] `npm run verify:ccx` 通过。
+- [ ] CCX 产物只包含 Host 资源，WebView URL、Manifest Origin 和远程消息桥权限校验通过，归档中没有 `webui/` 目录。
 - [ ] UDT 格式兼容的 CCX 已在 Windows 资源管理器完成双击安装验收，并在 Photoshop 中可用。
 - [ ] CCX 已在真实 Photoshop 完成抓取、请求、取图、置入完整闭环。
 - [ ] 官网单屏视觉、交互、性能、可访问性与静态兜底通过。

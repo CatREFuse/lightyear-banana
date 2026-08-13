@@ -19,16 +19,16 @@ Vue Inner WebUI
 
 | 维度 | 普通 Web | CCX + Inner WebUI |
 | --- | --- | --- |
-| 页面运行环境 | 浏览器 | 浏览器或 CCX 本地 WebView |
+| 页面运行环境 | 浏览器 | 浏览器或 CCX 远程 WebView |
 | 宿主能力 | Web API | Photoshop UXP，只能由 CCX Host 调用 |
-| 通信 | HTTP、WebSocket | 受信任本地 message bridge + 版本化协议 |
+| 通信 | HTTP、WebSocket | 受信任云端 Origin 的 message bridge + 版本化协议 |
 | 文件访问 | `<input>`、File API | WebView File API 或 UXP `localFileSystem` |
 | 剪贴板 | Clipboard API、paste 事件 | WebView paste 事件更稳定；Host API 受 Photoshop/UXP 版本影响 |
 | 文档写入 | 无宿主文档 | 必须进入 `core.executeAsModal()` |
 | 图片预览 | URL、Blob URL、data URL | UXP DOM 解码能力有限；Host 侧优先走 Photoshop imaging |
 | 存储 | localStorage、IndexedDB | WebUI 设置状态 + Host 文件存储 + SecureStorage |
 | 调试 | 单个 DevTools | UDT、Host DevTools、WebView DevTools、Photoshop 日志 |
-| 发布 | 构建静态站点 | 构建 WebUI、嵌入 CCX、校验协议、打 CCX、部署 WebUI 与官网 |
+| 发布 | 构建静态站点 | WebUI 与 CCX 独立构建发布，通过协议兼容信息协作 |
 
 关键原则：Vue 组件只表达界面和用户动作；WebUI adapter 只表达 Host 合同；CCX Host 管理会话、存储和 Photoshop 能力；Photoshop descriptor 与像素操作留在 `plug-in/src/ccx/`。
 
@@ -94,7 +94,7 @@ Photoshop 细节放进 `canvasPrimitives.ts`，文件、资产、历史、诊断
 
 ### 4.1 WebView 启动与握手
 
-1. CCX panel 创建本地 WebView，入口固定为 `plugin:/webui/index.html`。
+1. CCX panel 创建 WebView，入口固定为 `https://mugen.catrefuse.com/webui/`。
 2. WebUI 发送 `host.handshake`，携带协议版本、WebUI 版本和 nonce。
 3. Host 校验来源、消息信封、协议兼容和会话 ID。
 4. 握手完成后才开放普通命令。
@@ -246,7 +246,7 @@ WebView DOM 在 Photoshop 外层辅助功能树中可能不可见。真实验收
 | 下载导致 WebView 退出 | 是否在 WebView 生成大 Blob；CCX 应交给 Host save command |
 | 一个任务完成后其他任务消失 | 是否按 taskId 更新、是否覆盖 turns 或共享 loading 状态 |
 | 重启后历史为空 | Host 历史文件、schema 迁移、资产 retain/restore |
-| Reload 后行为仍旧 | UDT 加载路径、内嵌 WebUI hash、是否需要 Unload/Load |
+| Reload 后行为仍旧 | UDT 加载路径、云端 WebUI 缓存、是否需要 Unload/Load |
 
 ## 9. 已验证的坑
 

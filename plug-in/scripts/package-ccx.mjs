@@ -12,10 +12,6 @@ import {
   normalizeUdtManifestBytes,
   verifyArchiveMatchesDirectory
 } from './package-archive-integrity.mjs'
-import {
-  assertCcxReleaseMatchesInnerWebUiProvenance,
-  verifyEmbeddedInnerWebUiProvenance
-} from './inner-webui-provenance.mjs'
 import { createUdtCompatibleZip } from './udt-compatible-zip.mjs'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -27,11 +23,6 @@ const builtManifestPath = path.join(sourceDir, 'manifest.json')
 if (!existsSync(builtManifestPath)) {
   throw new Error('CCX build not found. Run npm run verify:ccx first.')
 }
-verifyEmbeddedInnerWebUiProvenance({
-  projectRoot,
-  provenance,
-  requireClean: true
-})
 
 const builtManifest = JSON.parse(readFileSync(builtManifestPath, 'utf8'))
 if (typeof builtManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(builtManifest.version)) {
@@ -55,17 +46,22 @@ function readKeyEnvironment() {
   )
 }
 
-const webviewDomains = builtManifest.requiredPermissions?.webview?.domains
-if (
-  !Array.isArray(webviewDomains) || webviewDomains.length !== 0 ||
-  builtManifest.requiredPermissions?.webview?.allowLocalRendering !== 'yes' ||
-  builtManifest.requiredPermissions?.webview?.enableMessageBridge !== 'localOnly'
-) {
-  throw new Error('Built CCX manifest must use only the bundled local WebUI bridge.')
-}
 const keyEnvironment = readKeyEnvironment()
 const hostedWebUiUrl = new URL(process.env.INNER_WEBUI_URL ?? keyEnvironment.INNER_WEBUI_URL ?? 'https://mugen.catrefuse.com/webui/')
+if (hostedWebUiUrl.href !== 'https://mugen.catrefuse.com/webui/') {
+  throw new Error('Production CCX packaging requires https://mugen.catrefuse.com/webui/.')
+}
 const webviewOrigin = assertProductionOrigin(hostedWebUiUrl.origin, 'Published WebUI origin')
+const webview = builtManifest.requiredPermissions?.webview
+if (
+  webview?.allow !== 'yes' ||
+  !Array.isArray(webview.domains) ||
+  JSON.stringify(webview.domains) !== JSON.stringify([webviewOrigin]) ||
+  'allowLocalRendering' in webview ||
+  webview.enableMessageBridge !== 'localAndRemote'
+) {
+  throw new Error('Built CCX manifest must use only the hosted WebUI origin and remote message bridge.')
+}
 
 const releaseUrl = resolveReleaseUrl({
   processEnvironment: process.env,
@@ -87,7 +83,6 @@ const temporaryMetadataPath = path.join(projectRoot, 'dist', `.ccx-release-${tem
 const temporaryChecksumPath = path.join(projectRoot, 'dist', `.${path.basename(archivePath)}-${temporarySuffix}.sha256`)
 const stagingRoot = path.join(projectRoot, 'dist', `.ccx-package-stage-${temporarySuffix}`)
 const stagedSourceDir = path.join(stagingRoot, 'ccx-host')
-const stagedWebUiSourceDir = path.join(stagingRoot, 'inner-webui')
 const archiveBackupPath = path.join(projectRoot, 'dist', `.${path.basename(archivePath)}-${temporarySuffix}.backup`)
 const checksumBackupPath = path.join(projectRoot, 'dist', `.${path.basename(archiveChecksumPath)}-${temporarySuffix}.backup`)
 const metadataBackupPath = path.join(projectRoot, 'dist', `.ccx-release-${temporarySuffix}.backup`)
@@ -103,17 +98,6 @@ try {
   createVerifiedDirectorySnapshot({
     sourceDirectory: sourceDir,
     stagingDirectory: stagedSourceDir
-  })
-  createVerifiedDirectorySnapshot({
-    sourceDirectory: path.join(projectRoot, 'webui', 'dist'),
-    stagingDirectory: stagedWebUiSourceDir
-  })
-  const stagedInnerWebUiProvenance = verifyEmbeddedInnerWebUiProvenance({
-    projectRoot,
-    sourceDirectory: stagedWebUiSourceDir,
-    embeddedDirectory: path.join(stagedSourceDir, 'webui'),
-    provenance,
-    requireClean: true
   })
 
   createUdtCompatibleZip({
@@ -157,7 +141,6 @@ try {
     sourceCommit: provenance.sourceCommit,
     dirty: provenance.dirty
   })
-  assertCcxReleaseMatchesInnerWebUiProvenance(releaseMetadata, stagedInnerWebUiProvenance)
   writeFileSync(
     temporaryMetadataPath,
     `${JSON.stringify(releaseMetadata, null, 2)}\n`,
@@ -179,13 +162,6 @@ try {
   if (finalProvenance.sourceCommit !== provenance.sourceCommit) {
     throw new Error('Git HEAD changed while the CCX archive was being packaged.')
   }
-  verifyEmbeddedInnerWebUiProvenance({
-    projectRoot,
-    sourceDirectory: stagedWebUiSourceDir,
-    embeddedDirectory: path.join(stagedSourceDir, 'webui'),
-    provenance: finalProvenance,
-    requireClean: true
-  })
 
   const cleanupErrors = publishReleaseFileSet([
     {

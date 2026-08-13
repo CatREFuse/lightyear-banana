@@ -1,7 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { verifyEmbeddedInnerWebUiProvenance } from './inner-webui-provenance.mjs'
 import { assertProductionCcxArtifactsClean } from './ccx-production-artifact-policy.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -14,6 +13,8 @@ const assetsDir = path.join(pluginDir, 'assets')
 const iconsDir = path.join(pluginDir, 'icons')
 const webUiDir = path.join(pluginDir, 'webui')
 const sourceManifestPath = path.join(projectRoot, 'plug-in', 'manifest.json')
+const productionInnerWebUiUrl = 'https://mugen.catrefuse.com/webui/'
+const productionInnerWebUiOrigin = new URL(productionInnerWebUiUrl).origin
 
 async function assertFile(filePath, label) {
   const info = await stat(filePath)
@@ -33,16 +34,16 @@ await assertFile(path.join(iconsDir, 'icon_D@1x.png'), 'dark 1x icon')
 await assertFile(path.join(iconsDir, 'icon_D@2x.png'), 'dark 2x icon')
 await assertFile(path.join(iconsDir, 'icon_N@1x.png'), 'light 1x icon')
 await assertFile(path.join(iconsDir, 'icon_N@2x.png'), 'light 2x icon')
-await assertFile(path.join(webUiDir, 'index.html'), 'bundled WebUI index')
-
-const innerWebUiProvenance = verifyEmbeddedInnerWebUiProvenance({
-  projectRoot,
-  requireClean: false
-})
-
 try {
   await stat(browserPreviewPath)
   throw new Error('Production CCX builds must not contain browser-preview.html.')
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error
+}
+
+try {
+  await stat(webUiDir)
+  throw new Error('Production CCX builds must not contain a bundled webui directory.')
 } catch (error) {
   if (error?.code !== 'ENOENT') throw error
 }
@@ -71,12 +72,12 @@ if (
 const webview = manifest.requiredPermissions?.webview
 if (
   webview?.allow !== 'yes' ||
-  webview.allowLocalRendering !== 'yes' ||
-  webview.enableMessageBridge !== 'localOnly' ||
+  'allowLocalRendering' in webview ||
+  webview.enableMessageBridge !== 'localAndRemote' ||
   !Array.isArray(webview.domains) ||
-  webview.domains.length !== 0
+  JSON.stringify(webview.domains) !== JSON.stringify([productionInnerWebUiOrigin])
 ) {
-  throw new Error('manifest.requiredPermissions.webview must allow only the bundled local WebUI bridge.')
+  throw new Error('manifest.requiredPermissions.webview must allow only the hosted WebUI origin and remote message bridge.')
 }
 
 if (manifest.host?.app !== 'PS') {
@@ -127,15 +128,18 @@ if (assets.some((file) => file.endsWith('.map'))) {
   throw new Error('Production CCX assets must not contain source maps.')
 }
 
-let hasEmbeddedWebviewUrl = false
+let hasHostedWebviewUrl = false
 let hasInnerHostProtocol = false
 let hasPanelResizeSync = false
 
 for (const scriptFile of scriptFiles) {
   const source = await readFile(path.join(assetsDir, scriptFile), 'utf8')
-  hasEmbeddedWebviewUrl ||= source.includes('plugin:/webui/index.html')
+  hasHostedWebviewUrl ||= source.includes(productionInnerWebUiUrl)
   hasInnerHostProtocol ||= source.includes('inner-host/v1')
   hasPanelResizeSync ||= source.includes('data-mugen-fill-panel') && source.includes('innerHeight') && source.includes('innerWidth')
+  if (source.includes('plugin:/webui/')) {
+    throw new Error(`${scriptFile} still contains a local WebUI URL.`)
+  }
   if (source.includes('new MutationObserver')) {
     throw new Error(`${scriptFile} contains Vite modulepreload polyfill.`)
   }
@@ -147,8 +151,8 @@ for (const scriptFile of scriptFiles) {
   }
 }
 
-if (!hasEmbeddedWebviewUrl) {
-  throw new Error('The bundled Host must load plugin:/webui/index.html.')
+if (!hasHostedWebviewUrl) {
+  throw new Error(`The bundled Host must load ${productionInnerWebUiUrl}`)
 }
 if (!hasInnerHostProtocol) {
   throw new Error('The bundled Host does not contain the inner-host/v1 protocol marker.')
@@ -157,18 +161,10 @@ if (!hasPanelResizeSync) {
   throw new Error('The bundled Host must synchronize the WebView pixel size with the Photoshop panel.')
 }
 
-const webUiAssets = await readdir(path.join(webUiDir, 'assets'))
-if (!webUiAssets.some((file) => file.endsWith('.js')) || !webUiAssets.some((file) => file.endsWith('.css'))) {
-  throw new Error('The bundled WebUI must contain its JavaScript and CSS assets.')
-}
-if (webUiAssets.some((file) => file.endsWith('.map'))) {
-  throw new Error('The bundled WebUI must not contain source maps.')
-}
-
 const productionArtifactScan = await assertProductionCcxArtifactsClean(pluginDir)
 
 console.log(
-  `CCX ${manifest.version} build verified with bundled Inner WebUI ${innerWebUiProvenance.version} ` +
-  `from ${innerWebUiProvenance.sourceCommit} and ${productionArtifactScan.scannedFileCount} scanned artifacts: ` +
+  `CCX ${manifest.version} build verified with hosted WebUI ${productionInnerWebUiUrl} ` +
+  `and ${productionArtifactScan.scannedFileCount} scanned artifacts: ` +
   path.relative(projectRoot, pluginDir)
 )

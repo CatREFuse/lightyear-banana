@@ -75,22 +75,6 @@ function resolveInnerWebUiUrl(mode: string) {
   return url
 }
 
-function copyDirectorySync(source: string, target: string) {
-  mkdirSync(target, { recursive: true })
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    const sourcePath = path.join(source, entry.name)
-    const targetPath = path.join(target, entry.name)
-    if (entry.isDirectory()) {
-      copyDirectorySync(sourcePath, targetPath)
-      continue
-    }
-    if (!entry.isFile()) {
-      throw new Error(`Unsupported Inner WebUI build entry: ${entry.name}`)
-    }
-    copyFileSync(sourcePath, targetPath)
-  }
-}
-
 function ccxPostBuildPlugin(innerWebUiUrl: URL): Plugin {
   return {
     name: 'ccx-post-build',
@@ -99,8 +83,6 @@ function ccxPostBuildPlugin(innerWebUiUrl: URL): Plugin {
       const manifestTarget = path.join(ccxHostOutDir, 'manifest.json')
       const iconsSource = path.join(projectRoot, 'icons')
       const iconsTarget = path.join(ccxHostOutDir, 'icons')
-      const webUiSource = path.join(projectRoot, '..', 'webui', 'dist')
-      const webUiTarget = path.join(ccxHostOutDir, 'webui')
 
       let html = readFileSync(panelPath, 'utf8')
       html = html
@@ -120,9 +102,9 @@ function ccxPostBuildPlugin(innerWebUiUrl: URL): Plugin {
       const manifest = readSourceManifest()
       const origin = innerWebUiUrl.origin
       if (manifest.requiredPermissions?.webview) {
-        manifest.requiredPermissions.webview.domains = []
-        manifest.requiredPermissions.webview.allowLocalRendering = 'yes'
-        manifest.requiredPermissions.webview.enableMessageBridge = 'localOnly'
+        manifest.requiredPermissions.webview.domains = [origin]
+        delete manifest.requiredPermissions.webview.allowLocalRendering
+        manifest.requiredPermissions.webview.enableMessageBridge = 'localAndRemote'
       }
       const networkDomains = manifest.requiredPermissions?.network?.domains
       if (Array.isArray(networkDomains) && !networkDomains.includes(origin)) {
@@ -134,11 +116,6 @@ function ccxPostBuildPlugin(innerWebUiUrl: URL): Plugin {
       for (const iconFile of readdirSync(iconsSource)) {
         copyFileSync(path.join(iconsSource, iconFile), path.join(iconsTarget, iconFile))
       }
-      if (!existsSync(path.join(webUiSource, 'index.html'))) {
-        throw new Error('Inner WebUI build not found. Run npm run build:inner-webui first.')
-      }
-      rmSync(webUiTarget, { recursive: true, force: true })
-      copyDirectorySync(webUiSource, webUiTarget)
     }
   }
 }
@@ -163,7 +140,7 @@ export default defineConfig(({ mode }) => {
     base: './',
     define: {
       __MUGEN_APP_ENV__: JSON.stringify(mugenEnvironment),
-      __INNER_WEBUI_URL__: JSON.stringify('plugin:/webui/index.html'),
+      __INNER_WEBUI_URL__: JSON.stringify(innerWebUiUrl.href),
       __INNER_RELEASE_URL__: JSON.stringify(releaseUrl.href),
       __CCX_VERSION__: JSON.stringify(ccxVersion)
     },

@@ -43,7 +43,7 @@ npm run verify:ccx
 1. `npm run verify:ccx`
 2. Adobe UXP Developer Tools 加载 `dist/ccx-host/manifest.json`
 3. Photoshop 菜单 command 可执行
-4. panel 可以打开 Host 壳并加载内嵌 WebUI
+4. panel 可以打开 Host 壳并加载 `https://mugen.catrefuse.com/webui/`
 5. Host 握手与 runtime capability 正确
 6. 目标 Photoshop 能力在真实文档里执行
 7. Photoshop UXP log 没有 fatal error

@@ -121,7 +121,8 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host �
 
 ### 5.4 CCX 规则
 
-- CCX 内的 WebUI 与浏览器版同源构建，不依赖公网 WebUI 才能启动。
+- CCX WebView 固定加载正式云端 WebUI，浏览器和 CCX 使用同一份已部署页面；CCX 发行物不打包 WebUI 静态文件。
+- WebUI 可以在保持 `inner-host/v1` 兼容时独立发布，CCX 只在 Host 能力、Manifest 或协议兼容性变化时发布新版。
 - WebUI 通过受信任消息桥请求 Host 能力，不直接调用 Photoshop API。
 - 大图使用 asset ID、受控缩略图或分块策略，避免在消息桥重复复制完整 RGBA。
 - API Key 只保存在 UXP SecureStorage，不把明文回传 WebUI。

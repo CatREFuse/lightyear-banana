@@ -76,8 +76,10 @@ npm run deploy:inner-webui -- --rollback
 
 ## 发布顺序
 
-先发布并校验 WebUI，随后运行 `npm run package:ccx`。正式 CCX 打包入口会再次把公网 WebUI 与本地发布快照逐字节比对，并要求 Git 工作区干净。CCX 校验会确认 Manifest 版本、local-only WebView 边界，并扫描构建产物中的旧域名和占位域名。最终产物为 `dist/mugen-$VERSION.ccx`，同目录的 `ccx-release.json` 和 SHA256 sidecar 用于发布追踪。
+WebUI 与 CCX 使用独立发布链。WebUI 部署会校验公网文件与本次 WebUI 构建；CCX 打包不读取、不复制 `webui/dist/`，也不要求两者来自同一 Git 提交。CCX 校验会确认固定云端 URL、精确 WebView Origin、`localAndRemote` 消息桥、Host 协议标记，并拒绝归档中的 `webui/` 目录。最终产物为 `dist/mugen-$VERSION.ccx`，同目录的 `ccx-release.json` 和 SHA256 sidecar 用于发布追踪。
+
+保持 `inner-host/v1` 兼容的 WebUI 可以独立部署。协议不兼容时，更新兼容元数据并发布对应 CCX，完成真实 Photoshop 握手和业务闭环后再切换云端 WebUI。
 
 安装 CCX 后，在真实 Photoshop 中验证握手、画布抓取、参考图、生成、取消、落图、保存、历史和诊断导出。完成这些验证后，才能按 `docs/build-todo-list.md` 门禁进入正式发布。
 
-正式 Manifest 的 Provider 网络权限使用 `all`，用于用户自定义 HTTPS Base URL 和 loopback 本地服务。Host 会拒绝带凭据的 URL、非 loopback HTTP 和无效 Provider；WebView 权限仍只允许 `INNER_WEBUI_URL` 的精确 HTTPS Origin。该权限决策需要随每次 CCX 安全审查复核。
+正式 Manifest 的 Provider 网络权限使用 `all`，用于用户自定义 HTTPS Base URL 和 loopback 本地服务。Host 会拒绝带凭据的 URL、非 loopback HTTP 和无效 Provider；WebView 权限只允许 `INNER_WEBUI_URL` 的精确 HTTPS Origin，并使用 `localAndRemote` 消息桥。该权限决策需要随每次 CCX 安全审查复核。

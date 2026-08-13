@@ -81,9 +81,8 @@ export function createWebViewShell(options: {
   startupLog: StartupLog
   onMessage: (event: WebViewMessageEvent) => void
 }): WebViewShell {
-  const localWebView = INNER_WEBUI_URL.startsWith('plugin:')
-  const expectedOrigin = localWebView ? 'plugin:' : new URL(INNER_WEBUI_URL).origin
-  const embeddedWebUiUrl = new URL(INNER_WEBUI_URL)
+  const webUiUrl = new URL(INNER_WEBUI_URL)
+  const expectedOrigin = webUiUrl.origin
   const root = options.mountNode
   const webview = document.createElement('webview') as WebViewElement
   let destroyed = false
@@ -142,7 +141,7 @@ export function createWebViewShell(options: {
   const postMessage = (message: BridgeEnvelope) => {
     if (destroyed) return
     options.startupLog.record('ccx', 'webui', 'bridge.send', message)
-    webview.postMessage?.(message, localWebView ? '*' : expectedOrigin)
+    webview.postMessage?.(message, expectedOrigin)
   }
   const postReady = () => {
     postMessage({
@@ -167,13 +166,13 @@ export function createWebViewShell(options: {
     waitingForLoad = true
     options.startupLog.record('ccx', 'webui', 'webview.load.start', {
       attempt,
-      url: embeddedWebUiUrl.href,
+      url: webUiUrl.href,
       expectedOrigin
     })
     syncWebViewSize()
     replaceRoot(webview)
     try {
-      webview.setAttribute('src', embeddedWebUiUrl.href)
+      webview.setAttribute('src', webUiUrl.href)
     } catch (error) {
       showFailure('工作台地址无法打开', 'webview.load.exception', toStartupErrorDetails(error))
       return
@@ -187,9 +186,7 @@ export function createWebViewShell(options: {
     const loadedUrl = (event as WebViewLoadEvent).url
     if (loadedUrl) {
       try {
-        const trusted = localWebView
-          ? loadedUrl.startsWith('plugin:/webui/')
-          : new URL(loadedUrl).origin === expectedOrigin
+        const trusted = new URL(loadedUrl).origin === expectedOrigin
         if (!trusted) {
           showFailure('工作台加载地址未获授权', 'webview.load.untrusted', { loadedUrl })
           return
@@ -222,9 +219,7 @@ export function createWebViewShell(options: {
   }
   const handleWindowMessage = (event: Event) => {
     const messageEvent = event as WebViewMessageEvent
-    const trustedOrigin = localWebView
-      ? messageEvent.origin === 'plugin:' || messageEvent.origin === 'null' || Boolean(messageEvent.origin?.startsWith('plugin:/webui/'))
-      : messageEvent.origin === expectedOrigin
+    const trustedOrigin = messageEvent.origin === expectedOrigin
     options.startupLog.record('webui', 'ccx', 'bridge.receive', {
       trusted: trustedOrigin && messageEvent.source === webview,
       origin: messageEvent.origin,
@@ -244,9 +239,7 @@ export function createWebViewShell(options: {
   return {
     postMessage,
     isTrustedMessage(event) {
-      const trustedOrigin = localWebView
-        ? event.origin === 'plugin:' || event.origin === 'null' || Boolean(event.origin?.startsWith('plugin:/webui/'))
-        : event.origin === expectedOrigin
+      const trustedOrigin = event.origin === expectedOrigin
       return trustedOrigin && event.source === webview
     },
     markReady() {

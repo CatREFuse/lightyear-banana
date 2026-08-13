@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StartupLog } from './startupLog'
+import type { WebViewMessageEvent } from './webviewShell'
 
 type Listener = (event: Record<string, unknown>) => void
 
@@ -104,13 +105,14 @@ describe('createWebViewShell startup failure UI', () => {
       mountNode: root as unknown as HTMLElement,
       sessionId: 'session-1',
       hostNonce: 'host-1',
-      hostVersion: '1.1.1',
+      hostVersion: '1.1.4',
       startupLog: log as unknown as StartupLog,
       onMessage: vi.fn()
     })
     const webview = created.find((element) => element.tagName === 'webview')!
 
-    webview.dispatch('loaderror', { message: 'ERR_CONNECTION_REFUSED', url: 'plugin:/webui/index.html' })
+    expect(webview.attributes.get('src')).toBe('https://mugen.catrefuse.com/webui/')
+    webview.dispatch('loaderror', { message: 'ERR_CONNECTION_REFUSED', url: 'https://mugen.catrefuse.com/webui/' })
 
     const failureUi = flatten(root)
     expect(failureUi.map((element) => element.textContent)).toContain('工作台启动失败')
@@ -130,13 +132,17 @@ describe('createWebViewShell startup failure UI', () => {
       mountNode: root as unknown as HTMLElement,
       sessionId: 'session-1',
       hostNonce: 'host-1',
-      hostVersion: '1.1.1',
+      hostVersion: '1.1.4',
       startupLog: log as unknown as StartupLog,
       onMessage: vi.fn()
     })
     const shell = makeShell()
     const webview = created.find((element) => element.tagName === 'webview')!
-    webview.dispatch('loadstop', { url: 'plugin:/webui/index.html' })
+    webview.dispatch('loadstop', { url: 'https://mugen.catrefuse.com/webui/#/' })
+    expect(webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ command: 'host.ready' }),
+      'https://mugen.catrefuse.com'
+    )
     await vi.advanceTimersByTimeAsync(15_000)
     expect(flatten(root).map((element) => element.textContent)).toContain('工作台与 Photoshop 连接超时（15 秒）')
     shell.destroy()
@@ -145,11 +151,47 @@ describe('createWebViewShell startup failure UI', () => {
     created = []
     const readyShell = makeShell()
     const readyWebview = created.find((element) => element.tagName === 'webview')!
-    readyWebview.dispatch('loadstop', { url: 'plugin:/webui/index.html' })
+    readyWebview.dispatch('loadstop', { url: 'https://mugen.catrefuse.com/webui/#/' })
+    expect(readyShell.isTrustedMessage({
+      origin: 'https://mugen.catrefuse.com',
+      source: readyWebview
+    } as unknown as WebViewMessageEvent)).toBe(true)
+    expect(readyShell.isTrustedMessage({
+      origin: 'https://example.com',
+      source: readyWebview
+    } as unknown as WebViewMessageEvent)).toBe(false)
     readyShell.markReady()
     expect(log.finish).toHaveBeenCalledWith({ attempt: 1 })
     await vi.advanceTimersByTimeAsync(15_000)
     expect(root.children[0]?.tagName).toBe('webview')
     readyShell.destroy()
+  })
+
+  it('rejects local files and other remote origins', async () => {
+    const { createWebViewShell } = await import('./webviewShell')
+    const shell = createWebViewShell({
+      mountNode: root as unknown as HTMLElement,
+      sessionId: 'session-1',
+      hostNonce: 'host-1',
+      hostVersion: '1.1.4',
+      startupLog: log as unknown as StartupLog,
+      onMessage: vi.fn()
+    })
+    const webview = created.find((element) => element.tagName === 'webview')!
+
+    webview.dispatch('loadstop', { url: 'file:///C:/Program Files/Adobe/Mugen/webui/index.html' })
+
+    expect(flatten(root).map((element) => element.textContent)).toContain('工作台加载地址未获授权')
+    expect(log.record).toHaveBeenCalledWith(
+      'ccx',
+      'ccx',
+      'webview.load.untrusted',
+      expect.objectContaining({ attempt: 1 })
+    )
+    expect(shell.isTrustedMessage({
+      origin: 'https://example.com',
+      source: webview
+    } as unknown as WebViewMessageEvent)).toBe(false)
+    shell.destroy()
   })
 })
