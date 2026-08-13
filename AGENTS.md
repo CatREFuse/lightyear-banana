@@ -105,6 +105,7 @@ WebUI 部署:
 - 改 manifest、entrypoint、icon、权限后运行 `npm run verify:ccx`，再在 Adobe UXP Developer Tools 中 `Unload` / `Load`。
 - 完成 CCX 相关改动后至少运行 `npm run verify:ccx`。
 - 共享业务改动进 `packages/mugen-core`，改完运行 `npm run test:capabilities`；不要在 webui/plug-in 之间互相引用对方源码。
+- 每次修复问题后，必须把本次开发中经过复现与验证的 CCX 插件经验同步到 `docs/ref/ccx-inner-webui-cookbook.md`，覆盖 CCX Host、Photoshop/UXP 宿主环境以及 CCX WebView 内 Inner WebUI 的新踩坑、成因、正确做法、验证方式与可复用最佳实践；不得写入未经验证的猜测，也不得遗漏本次修复形成的新经验。
 
 ## 拒绝 Comment 内容直接出现在最终产物文案中
 
