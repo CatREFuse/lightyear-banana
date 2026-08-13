@@ -6,6 +6,7 @@ const referenceJpegMinQuality = 0.5
 const referenceJpegQualityStep = 0.08
 const referenceImportMaxBytes = 128 * 1024 * 1024
 const referenceRequestDataUrlBudget = 22 * 1024 * 1024
+const conversationThumbnailMaxEdge = 1024
 
 const imageMimeTypes: Record<string, string> = {
   gif: 'image/gif',
@@ -75,6 +76,30 @@ async function loadImage(previewUrl: string) {
     image.addEventListener('error', () => reject(new Error('无法读取图片')))
     image.src = previewUrl
   })
+}
+
+export async function createConversationThumbnail(previewUrl: string) {
+  const image = await loadImage(previewUrl)
+  const sourceWidth = Math.max(1, Math.round(image.naturalWidth || image.width))
+  const sourceHeight = Math.max(1, Math.round(image.naturalHeight || image.height))
+  const dimensions = readResizedDimensions(sourceWidth, sourceHeight, conversationThumbnailMaxEdge)
+  if (dimensions.width === sourceWidth && dimensions.height === sourceHeight) {
+    return { previewUrl, ...dimensions }
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = dimensions.width
+  canvas.height = dimensions.height
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('无法生成对话缩略图')
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, dimensions.width, dimensions.height)
+  context.drawImage(image, 0, 0, dimensions.width, dimensions.height)
+
+  return {
+    previewUrl: await readBlobAsDataUrl(await canvasToJpegBlob(canvas, 0.9)),
+    ...dimensions
+  }
 }
 
 function readResizedDimensions(width: number, height: number, maxEdge: number) {

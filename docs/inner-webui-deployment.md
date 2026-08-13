@@ -2,7 +2,7 @@
 
 发布门禁以 `docs/build-todo-list.md` 为准。
 
-Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.2.2`，CCX 使用自身 Manifest 版本。
+Inner WebUI 与 CCX 独立发布。WebUI 使用 `0.2.3`，CCX 使用自身 Manifest 版本。
 
 ## 部署配置
 

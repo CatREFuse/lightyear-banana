@@ -1,4 +1,4 @@
-import { computed, reactive, shallowRef, watch } from 'vue'
+import { computed, reactive, shallowReactive, shallowRef, watch } from 'vue'
 import { createDefaultComfyUiSettings } from '@mugen/core'
 import {
   providerCapabilities,
@@ -26,6 +26,7 @@ import type {
 } from '@mugen/core'
 import type { CapturedCanvasImage } from '@mugen/core'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
+import { createConversationThumbnail } from '../utils/referenceImages'
 import type {
   GenerationSnapshot,
   HostAssetRef,
@@ -117,14 +118,14 @@ function sourceBounds(asset: HostAssetRef) {
   }
 }
 
-function assetToCanvasImage(asset: HostAssetRef): CapturedCanvasImage {
+function assetToCanvasImage(asset: HostAssetRef, previewUrl = asset.previewUrl): CapturedCanvasImage {
   return {
     id: asset.assetId,
     label: asset.label,
     width: asset.width,
     height: asset.height,
     sourceBounds: sourceBounds(asset),
-    previewUrl: asset.previewUrl,
+    previewUrl,
     previewStatus: asset.previewStatus,
     previewError: asset.previewError,
     originalAvailable: asset.originalAvailable,
@@ -141,9 +142,9 @@ function assetToReference(asset: HostAssetRef): ReferenceImage {
   }
 }
 
-function assetToGenerated(asset: HostAssetRef, snapshot: GenerationSnapshot, modelName: string): GeneratedImage {
+function assetToGenerated(asset: HostAssetRef, snapshot: GenerationSnapshot, modelName: string, previewUrl?: string): GeneratedImage {
   return {
-    ...assetToCanvasImage(asset),
+    ...assetToCanvasImage(asset, previewUrl),
     modelConfigId: snapshot.configId,
     modelName
   }
@@ -217,7 +218,9 @@ export function useInnerMugen(): MugenController {
   const canvasOperation = shallowRef<CanvasOperationState>({ type: 'idle', label: '' })
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
   const diagnosticExportState = shallowRef<DiagnosticExportState>({ status: 'idle', message: '最近 24 小时' })
+  const generatedThumbnails = shallowReactive<Record<string, string>>({})
   const settingsDraft = reactive<ModelConfig>(makeEmptyConfig())
+  const requestedGeneratedThumbnails = new Set<string>()
   let toastTimer: ReturnType<typeof setTimeout> | undefined
 
   const configs = computed(() => store.configs.map(hostConfigToUi))
@@ -281,7 +284,7 @@ export function useInnerMugen(): MugenController {
       elapsedLabel: turn.status === 'failed' ? `失败 · ${Math.max(1, Math.round(turn.elapsed))}s` : `耗费 ${Math.max(1, Math.round(turn.elapsed))}s`,
       repeatRequest: snapshot,
       requestLogs: turn.logs.map(requestLogToUi),
-      results: turn.results.map((asset) => assetToGenerated(asset, turn.snapshot, modelName)),
+      results: turn.results.map((asset) => assetToGenerated(asset, turn.snapshot, modelName, generatedThumbnails[asset.assetId])),
       tone: turn.status === 'failed' ? 'error' : turn.status === 'cancelled' ? 'canceled' : 'normal'
     }
   }
@@ -438,6 +441,18 @@ export function useInnerMugen(): MugenController {
     if (image.originalAvailable === false) throw new Error('原图已失效')
     const previewUrl = await store.host.readOriginalAsset(image.id)
     return { ...image, previewUrl, previewStatus: 'ready' as const, previewError: undefined }
+  }
+
+  async function upgradeGeneratedThumbnail(image: GeneratedImage) {
+    if (generatedThumbnails[image.id] || requestedGeneratedThumbnails.has(image.id) || image.originalAvailable === false) return
+    requestedGeneratedThumbnails.add(image.id)
+    try {
+      const originalUrl = await store.host.readOriginalAsset(image.id)
+      const thumbnail = await createConversationThumbnail(originalUrl)
+      generatedThumbnails[image.id] = thumbnail.previewUrl
+    } catch (reason) {
+      showToast(reason instanceof Error ? `缩略图升级失败：${reason.message}` : '缩略图升级失败，请点击查看原图')
+    }
   }
 
   async function useResultAsReference(image: GeneratedImage) {
@@ -680,6 +695,7 @@ export function useInnerMugen(): MugenController {
     upscaleImage,
     updateSettingsDraft,
     updatePromptPresets,
+    upgradeGeneratedThumbnail,
     useResultAsReference
   } as unknown as MugenController
 }

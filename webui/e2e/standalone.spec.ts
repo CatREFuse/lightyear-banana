@@ -156,7 +156,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   expect(await page.evaluate(() => Boolean(window.uxpHost))).toBe(false)
 
   await page.getByRole('button', { name: '设置' }).click()
-  await expect(page.getByText('v0.2.2', { exact: true })).toBeVisible()
+  await expect(page.getByText('v0.2.3', { exact: true })).toBeVisible()
   await expect(page.getByText(/0\.3\.19/)).toHaveCount(0)
   await expect(page.getByText(/Build/)).toHaveCount(0)
   await page.getByRole('button', { name: '新建配置' }).click()

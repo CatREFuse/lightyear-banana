@@ -84,6 +84,7 @@ const {
   upscaleImage,
   updateSettingsDraft,
   updatePromptPresets,
+  upgradeGeneratedThumbnail,
   useResultAsReference
 } = props.controller
 
@@ -303,6 +304,7 @@ function handleManageModels() {
           @reference="useResultAsReference"
           @retry="retryGeneration"
           @save="saveGeneratedImage"
+          @thumbnail-low-resolution="upgradeGeneratedThumbnail?.($event)"
           @upscale="upscaleImage"
         />
 

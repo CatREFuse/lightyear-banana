@@ -282,6 +282,22 @@ test('shows a thumbnail error, advances the timer, and opens the original image'
   await context.close()
 })
 
+test('upgrades a low-resolution generated thumbnail to a 1K conversation preview', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
+  const page = await context.newPage()
+  await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, lowResolutionResultThumbnail: true })
+  await page.goto('/')
+
+  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).fill('高清缩略图验证')
+  await page.getByRole('button', { name: '发送', exact: true }).click()
+  const thumbnail = page.getByRole('img', { name: '生成结果 1' })
+  await expect(thumbnail).toBeVisible({ timeout: 10_000 })
+  await expect.poll(() => thumbnail.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(1024)
+  await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(true)
+
+  await context.close()
+})
+
 test('keeps concurrent generation tasks visible until both complete', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
   const page = await context.newPage()

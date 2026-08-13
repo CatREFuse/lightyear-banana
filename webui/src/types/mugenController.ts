@@ -85,5 +85,6 @@ export type MugenController = {
   upscaleImage: (image: GeneratedImage) => ControllerResult
   updateSettingsDraft: (patch: Partial<ModelConfig>) => ControllerResult
   updatePromptPresets: (presets: PromptPreset[]) => ControllerResult
+  upgradeGeneratedThumbnail?: (image: GeneratedImage) => ControllerResult
   useResultAsReference: (image: GeneratedImage) => ControllerResult
 }

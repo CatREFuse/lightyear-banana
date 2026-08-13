@@ -30,6 +30,7 @@ const emit = defineEmits<{
   reference: [image: GeneratedImage]
   retry: [turnId: string]
   save: [image: GeneratedImage]
+  thumbnailLowResolution: [image: GeneratedImage]
   upscale: [image: GeneratedImage]
 }>()
 
@@ -74,6 +75,9 @@ function handleResultImageLoad(event: Event, image: GeneratedImage) {
   if (width <= 0 || height <= 0) {
     return
   }
+
+  const requiredEdge = Math.min(1024, Math.max(image.width, image.height))
+  if (Math.max(width, height) < requiredEdge) emit('thumbnailLowResolution', image)
 
   renderedImageRatios.value = {
     ...renderedImageRatios.value,

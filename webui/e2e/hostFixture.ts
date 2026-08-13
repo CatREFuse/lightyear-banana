@@ -7,8 +7,8 @@ export type TestHostTrace = {
   placements: Array<{ assetId: string; target: unknown; previewUrl: string; layerName: string }>
 }
 
-export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; generationDelayMs?: number; thumbnailUnavailable?: boolean } = {}) {
-  await page.addInitScript(({ apimartBaseUrl, apiKey, generationDelayMs, thumbnailUnavailable }) => {
+export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; generationDelayMs?: number; lowResolutionResultThumbnail?: boolean; thumbnailUnavailable?: boolean } = {}) {
+  await page.addInitScript(({ apimartBaseUrl, apiKey, generationDelayMs, lowResolutionResultThumbnail, thumbnailUnavailable }) => {
     const protocol = 'inner-host/v1'
     const sessionId = 'e2e-session'
     const hostNonce = 'e2e-host-nonce'
@@ -57,15 +57,15 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     function emit(kind: 'response' | 'event', command: string, payload: unknown, messageId: string) {
       window.dispatchEvent(new MessageEvent('message', { data: envelope(kind, command, payload, messageId), source: window }))
     }
-    function asset(assetId: string, source: string, label: string, previewUrl = canvasImage) {
-      originals.set(assetId, previewUrl)
+    function asset(assetId: string, source: string, label: string, previewUrl = canvasImage, originalUrl = previewUrl, dimensions = { width: 640, height: 480 }) {
+      originals.set(assetId, originalUrl)
       const value = {
         assetId,
         source,
         label,
         mimeType: previewUrl.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/jpeg',
-        width: 640,
-        height: 480,
+        width: dimensions.width,
+        height: dimensions.height,
         previewUrl,
         status: 'available',
         documentId: 'e2e-document'
@@ -184,7 +184,11 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         throw new Error('APIMart fixture returned an invalid cat image')
       }
 
-      const result = asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', catUrl)
+      const highResolutionResult = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221600%22 height=%221200%22 viewBox=%220 0 1600 1200%22%3E%3Crect width=%221600%22 height=%221200%22 fill=%22%23181818%22/%3E%3Ccircle cx=%22800%22 cy=%22600%22 r=%22480%22 fill=%22%23f3ead7%22/%3E%3C/svg%3E'
+      const lowResolutionResult = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22256%22 height=%22192%22 viewBox=%220 0 256 192%22%3E%3Crect width=%22256%22 height=%22192%22 fill=%22%23181818%22/%3E%3Ccircle cx=%22128%22 cy=%2296%22 r=%2276%22 fill=%22%23f3ead7%22/%3E%3C/svg%3E'
+      const result = lowResolutionResultThumbnail
+        ? asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', lowResolutionResult, highResolutionResult, { width: 1600, height: 1200 })
+        : asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', catUrl)
       const logs = trace.network.map((entry) => ({
         id: `e2e-log-${entry.sequence}`,
         method: entry.method,
@@ -307,6 +311,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     apimartBaseUrl: options.apimartBaseUrl ?? 'http://127.0.0.1:38323',
     apiKey: options.apiKey ?? 'mock-apimart-good',
     generationDelayMs: options.generationDelayMs ?? 0,
+    lowResolutionResultThumbnail: options.lowResolutionResultThumbnail ?? false,
     thumbnailUnavailable: options.thumbnailUnavailable ?? false
   })
 }
