@@ -2,6 +2,19 @@ import { expect, test } from '@playwright/test'
 import { createApimartFixtureServer, expectedApiKey } from '../../utils/apimart-smoke-server.mjs'
 import { installTestHost, readTestHostTrace } from './hostFixture'
 
+const providerNames = [
+  'OpenAI',
+  'i-mini',
+  'Google Gemini',
+  'APIMart',
+  'ByteDance Seedream',
+  'Alibaba Qwen',
+  'Kuaishou Kling',
+  'Black Forest Labs',
+  '本地 ComfyUI',
+  'Codex Image Server',
+  '自定义模型'
+]
 let apimartFixture: ReturnType<typeof createApimartFixtureServer>
 let apimartBaseUrl = ''
 
@@ -102,12 +115,29 @@ test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })
 
+test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
+  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' }).click()
+  const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
+  await providerField.locator('.select-trigger').click()
+
+  await expect(providerField.locator('.option-label')).toHaveText(providerNames)
+})
+
 test('adds uploaded, pasted, and dropped images as references through the CCX host', async ({ page }, testInfo) => {
+  await page.getByRole('button', { name: '添加参考' }).click()
+  await expect(page.getByRole('button', { name: '剪贴板', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '上传文件', exact: true })).toBeVisible()
+  await page.getByRole('region', { name: '当前对话' }).click()
+  await expect(page.getByRole('button', { name: '上传文件', exact: true })).toBeHidden()
+
   await page.getByRole('button', { name: '添加参考' }).click()
   await page.getByRole('button', { name: '上传文件', exact: true }).click()
   await expect(page.getByRole('img', { name: '上传图片' })).toBeVisible()
 
-  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).evaluate((target) => {
+  const prompt = page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' })
+  await prompt.fill('保留的提示词')
+  await prompt.evaluate((target) => {
     const transfer = new DataTransfer()
     transfer.items.add(new File([
       '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="#d97706"/></svg>'
@@ -115,6 +145,68 @@ test('adds uploaded, pasted, and dropped images as references through the CCX ho
     target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer }))
   })
   await expect(page.getByRole('img', { name: '剪贴板图片' })).toBeVisible()
+  await expect(prompt).toHaveValue('保留的提示词')
+
+  const htmlImagePastePrevented = await prompt.evaluate((target) => {
+    const imageUrl = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64"><rect width="96" height="64" fill="#16a34a"/></svg>')}`
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        files: [],
+        getData: () => '',
+        items: [{
+          kind: 'string',
+          type: 'text/html',
+          getAsString: (callback: (value: string) => void) => callback(`<img src="${imageUrl}">`)
+        }]
+      }
+    })
+    target.dispatchEvent(event)
+    return event.defaultPrevented
+  })
+  expect(htmlImagePastePrevented).toBe(true)
+  await expect(page.locator('.reference-thumb')).toHaveCount(3)
+  await expect(prompt).toHaveValue('保留的提示词')
+
+  const plainTextPastePrevented = await prompt.evaluate((target) => {
+    const transfer = new DataTransfer()
+    transfer.setData('text/plain', '普通文本')
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer })
+    target.dispatchEvent(event)
+    return event.defaultPrevented
+  })
+  expect(plainTextPastePrevented).toBe(false)
+
+  const deferredPlainTextPastePrevented = await prompt.evaluate((target) => {
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        files: [],
+        getData: () => '',
+        items: [{
+          kind: 'string',
+          type: 'text/plain',
+          getAsString: (callback: (value: string) => void) => callback('补充文本')
+        }]
+      }
+    })
+    target.dispatchEvent(event)
+    return event.defaultPrevented
+  })
+  expect(deferredPlainTextPastePrevented).toBe(true)
+  await expect(prompt).toHaveValue('保留的提示词补充文本')
+
+  const unreadableImagePastePrevented = await prompt.evaluate((target) => {
+    const transfer = new DataTransfer()
+    transfer.setData('text/html', '<img src="data:text/plain,not-an-image">')
+    transfer.setData('text/plain', 'https://example.com/pasted-image.png')
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer })
+    target.dispatchEvent(event)
+    return event.defaultPrevented
+  })
+  expect(unreadableImagePastePrevented).toBe(true)
+  await expect(page.getByRole('alert')).toHaveText('无法读取剪贴板图片，请重新复制图片或保存后拖入')
+  await expect(prompt).toHaveValue('保留的提示词补充文本')
 
   const composer = page.locator('.composer')
   await composer.evaluate((target) => {
@@ -133,7 +225,7 @@ test('adds uploaded, pasted, and dropped images as references through the CCX ho
     target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }))
   })
   await expect(page.getByRole('img', { name: '上传图片：拖入图片.svg' })).toBeVisible()
-  await expect(page.locator('.reference-thumb')).toHaveCount(3)
+  await expect(page.locator('.reference-thumb')).toHaveCount(4)
   await page.screenshot({ path: testInfo.outputPath('ccx-reference-images.png') })
 
   const commands = (await readTestHostTrace(page)).commands.map((entry) => entry.command)

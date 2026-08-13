@@ -158,11 +158,14 @@ describe('shared provider capability declarations', () => {
 
   it('removes Photoshop canvas ratios from every browser capability without changing CCX', () => {
     const browserCapabilities = readProviderCapabilitiesForRuntime('browser')
+    const ccxCapabilities = readProviderCapabilitiesForRuntime('photoshop-ccx')
     const ccxCapability = readProviderCapabilityForRuntime(
       { provider: 'codex-image-server', model: 'gpt-image-2' },
       'photoshop-ccx'
     )
 
+    expect(Object.keys(browserCapabilities)).toEqual([...CAPABILITY_PROVIDER_IDS])
+    expect(Object.keys(ccxCapabilities)).toEqual([...CAPABILITY_PROVIDER_IDS])
     for (const capability of Object.values(browserCapabilities)) {
       expect(capability.ratioOptions).not.toContain('画布比例')
     }

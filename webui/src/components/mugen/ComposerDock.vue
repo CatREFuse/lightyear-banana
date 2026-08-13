@@ -259,21 +259,159 @@ function imageFileFromTransfer(transfer: DataTransfer | null) {
   return imageFileFromItems(transfer?.items) ?? Array.from(transfer?.files ?? []).find((file) => file.type.startsWith('image/'))
 }
 
-async function importImageFile(file: File, source: 'upload' | 'clipboard') {
-  if (!props.canAddReference) return
+type ClipboardTextPayload = {
+  html: string
+  plain: string
+  uriList: string
+}
+
+function readImmediateClipboardText(transfer: DataTransfer): ClipboardTextPayload {
+  return {
+    html: transfer.getData('text/html'),
+    plain: transfer.getData('text/plain'),
+    uriList: transfer.getData('text/uri-list')
+  }
+}
+
+function readClipboardStringItem(transfer: DataTransfer, type: string) {
+  const immediate = transfer.getData(type)
+  if (immediate) return Promise.resolve(immediate)
+  const item = Array.from(transfer.items).find((candidate) => candidate.kind === 'string' && candidate.type === type)
+  if (!item) return Promise.resolve('')
+  return new Promise<string>((resolve) => item.getAsString(resolve))
+}
+
+async function readClipboardText(transfer: DataTransfer): Promise<ClipboardTextPayload> {
+  const [html, plain, uriList] = await Promise.all([
+    readClipboardStringItem(transfer, 'text/html'),
+    readClipboardStringItem(transfer, 'text/plain'),
+    readClipboardStringItem(transfer, 'text/uri-list')
+  ])
+  return { html, plain, uriList }
+}
+
+function readHtmlImageSource(html: string) {
+  if (!html) return ''
+  return new DOMParser().parseFromString(html, 'text/html').querySelector('img[src]')?.getAttribute('src')?.trim() ?? ''
+}
+
+function readFirstUri(value: string) {
+  return value.split(/\r?\n/).map((line) => line.trim()).find((line) => line && !line.startsWith('#')) ?? ''
+}
+
+function looksLikeImageUrl(value: string) {
+  const source = value.trim()
+  if (/^(?:data:image\/|blob:)/i.test(source)) return true
+  try {
+    return /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(new URL(source).pathname)
+  } catch {
+    return false
+  }
+}
+
+function readClipboardImageSource(payload: ClipboardTextPayload) {
+  const htmlSource = readHtmlImageSource(payload.html)
+  if (htmlSource) return htmlSource
+  const uriSource = readFirstUri(payload.uriList)
+  if (looksLikeImageUrl(uriSource)) return uriSource
+  const plainSource = payload.plain.trim()
+  return looksLikeImageUrl(plainSource) ? plainSource : ''
+}
+
+function hasDeferredClipboardText(transfer: DataTransfer, payload: ClipboardTextPayload) {
+  if (payload.html || payload.plain || payload.uriList) return false
+  return Array.from(transfer.items).some((item) => item.kind === 'string' && ['text/html', 'text/plain', 'text/uri-list'].includes(item.type))
+}
+
+function readPlainText(payload: ClipboardTextPayload) {
+  if (payload.plain) return payload.plain
+  if (payload.uriList) return readFirstUri(payload.uriList)
+  if (!payload.html) return ''
+  return new DOMParser().parseFromString(payload.html, 'text/html').body.textContent ?? ''
+}
+
+function insertPlainText(target: HTMLTextAreaElement, value: string) {
+  if (!value) return
+  target.setRangeText(value, target.selectionStart, target.selectionEnd, 'end')
+  updatePromptInput(target.value)
+}
+
+async function importImageBlob(blob: Blob, name: string, source: 'upload' | 'clipboard') {
+  if (!props.canAddReference) {
+    referenceImportError.value = '当前模型无法添加更多参考图'
+    return
+  }
   referenceImportError.value = ''
   try {
-    emit('importReference', await createReferenceImportFromBlob(file, file.name || '剪贴板图片.png', source))
+    emit('importReference', await createReferenceImportFromBlob(blob, name, source))
   } catch (reason) {
     referenceImportError.value = reason instanceof Error ? reason.message : '无法读取图片'
   }
 }
 
+function readImageDataUrl(source: string) {
+  const separator = source.indexOf(',')
+  if (separator < 0) throw new Error('invalid clipboard image data')
+  const metadata = source.slice(5, separator)
+  const mimeType = metadata.split(';')[0]?.toLowerCase() ?? ''
+  if (!mimeType.startsWith('image/')) throw new Error('clipboard data is not an image')
+  const encoded = source.slice(separator + 1)
+  if (!metadata.split(';').some((value) => value.toLowerCase() === 'base64')) return new Blob([decodeURIComponent(encoded)], { type: mimeType })
+  const binary = atob(encoded)
+  return new Blob([Uint8Array.from(binary, (character) => character.charCodeAt(0))], { type: mimeType })
+}
+
+async function importClipboardImageSource(source: string) {
+  try {
+    const resolvedSource = source.startsWith('//') ? `https:${source}` : source
+    const protocol = new URL(resolvedSource).protocol
+    if (!['blob:', 'data:', 'http:', 'https:'].includes(protocol)) throw new Error('unsupported clipboard image URL')
+    let blob: Blob
+    if (protocol === 'data:') {
+      blob = readImageDataUrl(resolvedSource)
+    } else {
+      const response = await fetch(resolvedSource, { credentials: 'omit', referrerPolicy: 'no-referrer' })
+      if (!response.ok) throw new Error(`clipboard image returned ${response.status}`)
+      blob = await response.blob()
+    }
+    if (blob.type && !blob.type.toLowerCase().startsWith('image/')) throw new Error('clipboard URL is not an image')
+    await importImageBlob(blob, '剪贴板图片.png', 'clipboard')
+  } catch {
+    referenceImportError.value = '无法读取剪贴板图片，请重新复制图片或保存后拖入'
+  }
+}
+
+async function handleDeferredClipboardPaste(transfer: DataTransfer, target: HTMLTextAreaElement | undefined) {
+  const payload = await readClipboardText(transfer)
+  const imageSource = readClipboardImageSource(payload)
+  if (imageSource) {
+    await importClipboardImageSource(imageSource)
+    return
+  }
+  if (target) insertPlainText(target, readPlainText(payload))
+}
+
 function handlePaste(event: ClipboardEvent) {
-  const file = imageFileFromItems(event.clipboardData?.items)
-  if (!file) return
+  const transfer = event.clipboardData
+  if (!transfer) return
+  const file = imageFileFromTransfer(transfer)
+  if (file) {
+    event.preventDefault()
+    void importImageBlob(file, file.name || '剪贴板图片.png', 'clipboard')
+    return
+  }
+
+  const payload = readImmediateClipboardText(transfer)
+  const imageSource = readClipboardImageSource(payload)
+  if (imageSource) {
+    event.preventDefault()
+    void importClipboardImageSource(imageSource)
+    return
+  }
+
+  if (!hasDeferredClipboardText(transfer, payload)) return
   event.preventDefault()
-  void importImageFile(file, 'clipboard')
+  void handleDeferredClipboardPaste(transfer, event.target instanceof HTMLTextAreaElement ? event.target : undefined)
 }
 
 function handleDragOver(event: DragEvent) {
@@ -293,7 +431,7 @@ function handleDrop(event: DragEvent) {
   referenceDragActive.value = false
   if (!file) return
   event.preventDefault()
-  void importImageFile(file, 'upload')
+  void importImageBlob(file, file.name, 'upload')
 }
 
 useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'reference')

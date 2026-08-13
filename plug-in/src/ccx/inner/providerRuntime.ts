@@ -10,6 +10,7 @@ import { providerRequiresApiKey } from '@mugen/core'
 import { createCanvasImageFromApiAsset } from '@mugen/core'
 import { canUseDevelopmentApimartBaseUrl } from '@mugen/core'
 import { getHostRequire } from '../photoshopHost'
+import { createProviderReferencePreview, type CapturedCanvasImage } from '../canvasPrimitives'
 import { AssetStore } from './assetStore'
 import { getCredential, getSettings } from './storage'
 import { toHostAssetPointer, type GenerationSnapshot, type HistoryUpsertEntry, type RequestLog, type TaskPhase } from '@mugen/inner-protocol'
@@ -49,6 +50,8 @@ const localPreviewProviders = new Set<ImageProviderId>(['comfyui', 'codex-image-
 const redirectStatuses = new Set([301, 302, 303, 307, 308])
 const maxPreviewRedirects = 5
 const maxPreviewBytes = 128 * 1024 * 1024
+const apimartReferenceMaxBytes = 9 * 1024 * 1024
+const apimartReferenceMaxEdge = 4096
 const reservedRemoteDomains = [
   'localhost',
   'localdomain',
@@ -377,6 +380,44 @@ function toReference(asset: Awaited<ReturnType<AssetStore['getOrRestore']>>): Re
   }
 }
 
+function readInlinePreviewByteLength(previewUrl: string) {
+  const match = /^data:[^,]*;base64,(.*)$/s.exec(previewUrl)
+  if (!match) return undefined
+  const payload = (match[1] ?? '').replace(/\s/g, '')
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor(payload.length * 3 / 4) - padding)
+}
+
+export function shouldNormalizeApimartReference(image: CapturedCanvasImage) {
+  const previewBytes = readInlinePreviewByteLength(image.previewUrl)
+  return Math.max(image.width, image.height) > apimartReferenceMaxEdge
+    || previewBytes !== undefined && previewBytes > apimartReferenceMaxBytes
+}
+
+async function toProviderReference(
+  asset: Awaited<ReturnType<AssetStore['getOrRestore']>>,
+  provider: ImageProviderId
+): Promise<ReferenceImage> {
+  const reference = toReference(asset)
+  if (provider !== 'apimart' || !shouldNormalizeApimartReference(reference.image)) {
+    return reference
+  }
+
+  const previewUrl = await createProviderReferencePreview(
+    reference.image,
+    apimartReferenceMaxBytes,
+    apimartReferenceMaxEdge
+  )
+  return {
+    ...reference,
+    image: {
+      ...reference.image,
+      previewUrl,
+      rgba: new Uint8Array()
+    }
+  }
+}
+
 export class ProviderRuntime {
   private readonly runningTasks = new Map<string, RunningTask>()
   private readonly pendingStarts = new Set<Promise<unknown>>()
@@ -466,7 +507,9 @@ export class ProviderRuntime {
       this.emitProgress(taskId, running, 'waiting', '准备生成')
       config = await readConfig(snapshot.configId)
       validateHostGenerationRequest(config, snapshot)
-      const references = await Promise.all(snapshot.references.map(async (reference) => toReference(await this.options.assets.getOrRestore(reference.assetId))))
+      const references = await Promise.all(snapshot.references.map(async (reference) => (
+        toProviderReference(await this.options.assets.getOrRestore(reference.assetId), config!.provider)
+      )))
       let canvasSize: { width: number; height: number } | undefined
       try {
         const hostRequire = getHostRequire()

@@ -3,6 +3,19 @@ import { fileURLToPath } from 'node:url'
 import { createApimartFixtureServer, expectedApiKey } from '../../utils/apimart-smoke-server.mjs'
 
 const catFixturePath = fileURLToPath(new URL('../public/mock-images/cats/cat-01.jpg', import.meta.url))
+const providerNames = [
+  'OpenAI',
+  'i-mini',
+  'Google Gemini',
+  'APIMart',
+  'ByteDance Seedream',
+  'Alibaba Qwen',
+  'Kuaishou Kling',
+  'Black Forest Labs',
+  '本地 ComfyUI',
+  'Codex Image Server',
+  '自定义模型'
+]
 let apimartFixture: ReturnType<typeof createApimartFixtureServer>
 let apimartBaseUrl = ''
 
@@ -128,6 +141,15 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
   await page.getByRole('button', { name: /Browser Runtime Boundary/ }).click()
   const detail = page.getByLabel('配置详情')
   await expect(detail.getByText('画布比例', { exact: true })).toHaveCount(0)
+})
+
+test('browser exposes the complete shared Provider catalog', async ({ page }) => {
+  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '新建配置' }).click()
+  const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
+  await providerField.locator('.select-trigger').click()
+
+  await expect(providerField.locator('.option-label')).toHaveText(providerNames)
 })
 
 test('browser creates and reloads APIMart config, then completes the network flow without Photoshop controls', async ({ page }) => {

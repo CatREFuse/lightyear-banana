@@ -101,7 +101,7 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - 应用组件只消费明确的能力合同，不直接访问 Electron IPC、UXP `require()` 或全局 Host 对象。
 - CCX 中所有 Photoshop 文档修改继续由 CCX Host 在 `core.executeAsModal()` 内执行。
 - CCX 中 API Key 保存在 UXP SecureStorage；浏览器中的凭据由浏览器适配层保存，并明确仅留在当前浏览器配置中。
-- 两种运行时共享 Provider 请求语义和错误映射。因跨域策略无法使用的自定义服务必须给出可操作错误。
+- 两种运行时展示同一套 11 个 Provider 目录，共享 Provider 请求语义和错误映射；已保存配置与凭据由各自 adapter 独立保管。因跨域策略无法使用的自定义服务必须给出可操作错误。
 - 生产 bundle 不自动启用 Mock Server，不包含自动注入的 Mock Host。
 - CCX 每次面板启动建立一份仅覆盖启动阶段的内存日志。WebView 资源加载失败、20 秒加载超时或页面加载后 15 秒未完成 Host 握手时，原生失败页显示可读错误、`重试` 与 `下载启动日志`。
 - 启动日志按时间记录 Photoshop、CCX、WebUI 三端的消息方向、命令、消息 ID、响应与错误；完成 Host 握手后停止采集。导出为 JSONL 前必须移除 API Key、Authorization、Cookie、Token、完整提示词、图片正文、URL 查询参数和本地路径。
@@ -111,7 +111,8 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - WebUI 在提交生成请求前创建稳定任务 ID，CCX Host 沿用该 ID；并发任务的进度、完成和失败事件不得互相覆盖或因响应先后顺序而丢失。
 - CCX 内的生成计时由 WebUI 本地时钟持续更新，Host 阶段事件用于校准时间；轮询期间没有新阶段事件时，秒数仍需继续增长。
 - CCX Host 持久保存最近 30 条终态生成记录及其生成结果，超过 30 条时淘汰最早记录。历史文件使用可恢复备份，当前文件损坏且没有有效备份时停止写入并显示错误。
-- 上传附件、用户主动粘贴图片、拖入图片和本地保存属于用户交互操作，不使用普通 Host 命令的 12 秒等待上限。文件选择使用 UXP `localFileSystem.getFileForOpening()`，取消选择不改变参考图；上传缩略图从用户选中的原文件由 Photoshop 原生像素接口生成。主动粘贴与拖入在 WebView 读取图片，生成受控缩略图并通过分片协议导入 CCX Host，不依赖宿主剪贴板读取。
+- 上传附件、快捷键粘贴图片、拖入图片和本地保存属于用户交互操作，不使用普通 Host 命令的 12 秒等待上限。文件选择使用 UXP `localFileSystem.getFileForOpening()`，取消选择不改变参考图；上传缩略图从用户选中的原文件由 Photoshop 原生像素接口生成。粘贴与拖入由 WebView 响应用户事件，生成受控缩略图并通过分片协议导入 CCX Host，不调用宿主剪贴板读取。
+- APIMart 请求保留原始参考资产用于历史、预览和置入；CCX 仅在上传前按需生成最长边不超过 4096、正文不超过 9 MB 的 JPEG 网络副本。上传使用带明确 boundary 的字节级 multipart，并在发出请求前校验 MIME、图片签名和大小。
 - 缩略图生成失败、体积超限或资源失效时显示明确异常状态，不生成替代结果图。原图仍可用时，异常状态允许继续打开原图、置入或保存。
 - CCX 消息流只传输受控缩略图；打开结果时通过分块协议载入原图，预览窗口展示原图。原图过大时提示保存后查看。
 - CCX 预览窗口的保存操作必须调用 Host 文件保存能力，不使用 WebView 下载链接或页面导航。
@@ -143,6 +144,7 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 | 兼容 facade | `packages/mugen-core/src/data/providerCapabilities.ts`、`packages/mugen-core/src/services/imageApiClient.ts` | 保持旧 import 和公开导出稳定 |
 
 - 11 个 Provider ID 必须同时出现在能力定义和静态注册表中。
+- 普通浏览器与 Photoshop CCX 的 Provider 选择器必须以相同顺序展示全部 11 个 Provider；运行时差异只调整 Photoshop 专属能力，不得删减 Provider。
 - 未注册 Provider、Provider 不匹配、缺少模型、必填 API Key 或 Base URL 时不进入 wire 层。
 - `supportsBaseUrl` 只表示界面允许编辑地址；`requiresBaseUrl` 单独决定地址是否必填。
 - iMini、ComfyUI 和 Codex Image Server 可以使用 wire 层默认地址；自定义 OpenAI 配置必须填写 Base URL。
@@ -170,6 +172,7 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - 本地测试服务按 APIMart 接口格式提供模型列表、参考图上传、生图提交、任务查询和图片获取。
 - 成功响应中的所有图片固定使用同一张小猫 fixture，确保断言稳定；同一任务在提交、轮询和下载阶段必须引用同一内容。
 - 服务提供状态重置和请求记录，使测试可以断言上传、生成、轮询和图片下载的调用次数与关键参数。
+- 参考图上传测试必须校验 multipart boundary、文件字段、Content-Type、图片签名和原始图片字节，覆盖 UXP TypedArray 请求正文。
 - 测试 Key、Base URL 和返回内容只用于本地验证，不进入正式默认配置。
 
 ### 浏览器冒烟

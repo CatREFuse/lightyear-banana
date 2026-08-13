@@ -7,6 +7,7 @@ import {
   materializeProviderPreviewUrl,
   redactUrl,
   reduceProviderTimingProgress,
+  shouldNormalizeApimartReference,
   validateHostGenerationRequest,
   validateProviderPreviewNetworkUrl
 } from './providerRuntime'
@@ -89,6 +90,30 @@ describe('Host generation parameter validation', () => {
     [{ ...snapshot, references: Array.from({ length: 17 }, (_, index) => ({ assetId: `asset-${index}`, label: `参考图 ${index + 1}`, source: 'upload' as const, width: 32, height: 32 })) }, '16 张参考图']
   ])('rejects an untrusted WebUI payload before a Provider request', (candidate, message) => {
     expect(() => validateHostGenerationRequest(config, candidate)).toThrow(message)
+  })
+})
+
+describe('APIMart Host reference normalization', () => {
+  const image = {
+    id: 'reference-1',
+    label: '参考图',
+    width: 2048,
+    height: 1024,
+    sourceBounds: { left: 0, top: 0, right: 2048, bottom: 1024 },
+    previewUrl: 'data:image/jpeg;base64,/9j/2Q==',
+    rgba: new Uint8Array()
+  }
+
+  it('keeps a supported reference already inside the APIMart network budget', () => {
+    expect(shouldNormalizeApimartReference(image)).toBe(false)
+  })
+
+  it('normalizes references above the edge or byte budget', () => {
+    expect(shouldNormalizeApimartReference({ ...image, width: 4097 })).toBe(true)
+    expect(shouldNormalizeApimartReference({
+      ...image,
+      previewUrl: `data:image/jpeg;base64,${'A'.repeat(12 * 1024 * 1024 + 4)}`
+    })).toBe(true)
   })
 })
 

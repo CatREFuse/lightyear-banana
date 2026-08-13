@@ -87,6 +87,7 @@ const iMiniPollMaxIntervalMs = 30000
 const iMiniRateLimitIntervalMs = 5000
 const iMiniImageTimeoutMs = 600000
 const iMiniTransientRetryCount = 3
+const apimartReferenceMaxBytes = 9 * 1024 * 1024
 export const maxImageRequestRetryCount = 2
 const originalRatioOption = '原图比例'
 const legacyAutoRatioOption = '自动'
@@ -1232,6 +1233,37 @@ function dataUrlToBlob(value: string) {
   return new Blob([bytes], { type: parts.mimeType })
 }
 
+function dataUrlToBytes(value: string) {
+  const parts = readDataUrlParts(value)
+  if (!parts) {
+    throw new ImageApiError('参考图内容无效，请重新添加图片', 400)
+  }
+
+  if (!parts.isBase64) {
+    try {
+      return {
+        bytes: new TextEncoder().encode(decodeURIComponent(parts.data)),
+        mimeType: parts.mimeType.toLowerCase()
+      }
+    } catch {
+      throw new ImageApiError('参考图内容无效，请重新添加图片', 400)
+    }
+  }
+
+  let binary: string
+  try {
+    binary = atob(parts.data.replace(/\s/g, ''))
+  } catch {
+    throw new ImageApiError('参考图内容无效，请重新添加图片', 400)
+  }
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+
+  return { bytes, mimeType: parts.mimeType.toLowerCase() }
+}
+
 function readBflImageInput(value: string) {
   const parts = readDataUrlParts(value)
   return parts?.isBase64 ? parts.data : value
@@ -1320,12 +1352,68 @@ function readImageExtensionFromMimeType(mimeType: string) {
   return 'png'
 }
 
-async function readReferenceImageBlob(reference: ReferenceImage, signal?: AbortSignal) {
-  if (readDataUrlParts(reference.image.previewUrl)) {
-    return dataUrlToBlob(reference.image.previewUrl)
+function hasBytes(bytes: Uint8Array, offset: number, expected: number[]) {
+  return expected.every((value, index) => bytes[offset + index] === value)
+}
+
+function isValidImageSignature(bytes: Uint8Array, mimeType: string) {
+  if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+    return hasBytes(bytes, 0, [0xff, 0xd8, 0xff])
+  }
+  if (mimeType === 'image/png') {
+    return hasBytes(bytes, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  }
+  if (mimeType === 'image/webp') {
+    return hasBytes(bytes, 0, [0x52, 0x49, 0x46, 0x46]) && hasBytes(bytes, 8, [0x57, 0x45, 0x42, 0x50])
+  }
+  if (mimeType === 'image/gif') {
+    return hasBytes(bytes, 0, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61])
+      || hasBytes(bytes, 0, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
   }
 
-  return fetchBlob(reference.image.previewUrl, { method: 'GET', signal })
+  return false
+}
+
+function concatByteArrays(parts: Uint8Array[]) {
+  const output = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0))
+  let offset = 0
+  for (const part of parts) {
+    output.set(part, offset)
+    offset += part.byteLength
+  }
+  return output
+}
+
+function createApimartMultipartBoundary() {
+  return `mugen-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`
+}
+
+export function createApimartReferenceUpload(previewUrl: string, index: number, boundary = createApimartMultipartBoundary()) {
+  if (!/^[a-z0-9-]{1,70}$/i.test(boundary)) {
+    throw new ImageApiError('APIMart 上传边界无效', 500)
+  }
+
+  const { bytes, mimeType: sourceMimeType } = dataUrlToBytes(previewUrl)
+  const mimeType = sourceMimeType === 'image/jpg' ? 'image/jpeg' : sourceMimeType
+  if (!isValidImageSignature(bytes, mimeType)) {
+    throw new ImageApiError('参考图内容无效，请重新添加图片', 400)
+  }
+  if (bytes.byteLength > apimartReferenceMaxBytes) {
+    throw new ImageApiError('参考图超过 9 MB，请缩小后重试', 400)
+  }
+
+  const extension = readImageExtensionFromMimeType(mimeType)
+  const filename = `mugen-reference-${index + 1}.${extension}`
+  const header = new TextEncoder().encode(
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`
+  )
+  const footer = new TextEncoder().encode(`\r\n--${boundary}--\r\n`)
+
+  return {
+    body: concatByteArrays([header, bytes, footer]),
+    contentType: `multipart/form-data; boundary=${boundary}`,
+    filename
+  }
 }
 
 async function uploadApimartReferenceImage(baseUrl: string, config: ModelConfig, reference: ReferenceImage, index: number, timing: TimingContext, signal?: AbortSignal) {
@@ -1333,16 +1421,16 @@ async function uploadApimartReferenceImage(baseUrl: string, config: ModelConfig,
     return reference.image.previewUrl
   }
 
-  const blob = await readReferenceImageBlob(reference, signal)
-  const form = new FormData()
-  const extension = readImageExtensionFromMimeType(blob.type || 'image/png')
-  form.append('file', blob, `mugen-reference-${index + 1}.${extension}`)
+  const upload = createApimartReferenceUpload(reference.image.previewUrl, index)
 
   const payload = await fetchJson(joinUrl(baseUrl, '/v1/uploads/images'), {
     method: 'POST',
-    headers: createMultipartAuthHeaders(config),
+    headers: {
+      ...createMultipartAuthHeaders(config),
+      'Content-Type': upload.contentType
+    },
     signal,
-    body: form
+    body: upload.body
   }, timing)
 
   const url = (payload as any).url
