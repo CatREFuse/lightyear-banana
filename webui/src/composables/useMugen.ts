@@ -43,6 +43,7 @@ import type { CapturedCanvasImage } from '@mugen/core'
 import { createCanvasImageFromApiAsset } from '@mugen/core'
 import {
   createReferenceCanvasImage,
+  prepareBrowserReferencesForRequest,
   pickBrowserReferenceImage,
   readBrowserClipboardReferenceImage
 } from '../utils/referenceImages'
@@ -1239,7 +1240,6 @@ function readHighestQuality(options: string[]): string {
     }
 
     const requestPrompt = cleanPrompt || '根据参考图生成'
-    const sentReferences = references.value.map((reference) => ({ ...reference }))
     const requestConfig = cloneModelConfig(activeConfig.value)
     const requestCapability = readProviderCapabilityForRuntime(requestConfig, runtime)
     const requestCount = readRequestCountForCapability(count.value, requestCapability)
@@ -1255,6 +1255,16 @@ function readHighestQuality(options: string[]): string {
     const configValidation = validateProviderConfig(requestConfig)
     if (!configValidation.valid) {
       const message = configValidation.issues[0]?.message ?? '模型配置不可用'
+      status.value = message
+      showToast(message)
+      return
+    }
+
+    let sentReferences: ReferenceImage[]
+    try {
+      sentReferences = await prepareBrowserReferencesForRequest(references.value)
+    } catch (error) {
+      const message = readErrorMessage(error, '无法压缩参考图')
       status.value = message
       showToast(message)
       return

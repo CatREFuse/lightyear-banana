@@ -76,6 +76,7 @@ const expandedPresetContent = shallowRef<string | null>(null)
 const referenceImportError = shallowRef('')
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
 const promptInputRef = useTemplateRef<HTMLTextAreaElement>('promptInput')
+const browserUploadInputRef = useTemplateRef<HTMLInputElement>('browserUploadInput')
 const customSizeValue = '__mugen_custom_resolution__'
 let shouldRestorePromptFocus = false
 let promptFocusFrame: number | undefined
@@ -150,7 +151,22 @@ const countOptions = computed<SelectOption[]>(() =>
 function addReference(source: ReferenceSource) {
   openPanel.value = ''
   emit('menuOpen', '')
+  if (source === 'upload' && !props.photoshopIntegrationAvailable) {
+    const input = browserUploadInputRef.value
+    if (input) {
+      input.value = ''
+      input.click()
+    }
+    return
+  }
   emit('addReference', source)
+}
+
+function handleBrowserUploadChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) void importImageBlob(file, file.name, 'upload')
 }
 
 function togglePanel(panel: string) {
@@ -522,6 +538,15 @@ watch(
     @drop="handleDrop"
     @paste="handlePaste"
   >
+    <input
+      v-if="!photoshopIntegrationAvailable"
+      ref="browserUploadInput"
+      data-browser-reference-input
+      type="file"
+      accept="image/png,image/jpeg,image/webp,image/gif"
+      hidden
+      @change="handleBrowserUploadChange"
+    />
     <p v-if="referenceImportError" class="reference-import-error" role="alert">{{ referenceImportError }}</p>
     <div class="reference-header">
       <span>参考图 {{ referenceCountText }}</span>

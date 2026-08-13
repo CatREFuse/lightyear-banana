@@ -197,6 +197,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await expect(page.getByRole('button', { name: '当前选中图层', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '上传文件', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '剪贴板', exact: true })).toHaveCount(0)
+  await expect(page.locator('input[data-browser-reference-input]')).toHaveCount(1)
 
   const chooserPromise = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: '上传文件', exact: true }).click()
@@ -291,6 +292,51 @@ test('browser tests an official iMini config through the same-origin proxy', asy
       pathname: '/webui-api/imini/v1/images/tasks/browser-imini-task'
     }
   ])
+})
+
+test('browser compresses combined inline references below the request-body budget', async ({ page }) => {
+  const sizes = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 2048
+    canvas.height = 2048
+    const context = canvas.getContext('2d')!
+    const pixels = context.createImageData(canvas.width, canvas.height)
+    let value = 0x12345678
+    for (let index = 0; index < pixels.data.length; index += 4) {
+      value ^= value << 13
+      value ^= value >>> 17
+      value ^= value << 5
+      pixels.data[index] = value & 0xff
+      pixels.data[index + 1] = value >>> 8 & 0xff
+      pixels.data[index + 2] = value >>> 16 & 0xff
+      pixels.data[index + 3] = 255
+    }
+    context.putImageData(pixels, 0, 0)
+    const previewUrl = canvas.toDataURL('image/png')
+    const references = [1, 2].map((index) => ({
+      id: `large-${index}`,
+      source: 'upload' as const,
+      label: `Large ${index}`,
+      image: {
+        id: `large-image-${index}`,
+        label: `Large ${index}`,
+        width: canvas.width,
+        height: canvas.height,
+        sourceBounds: { left: 0, top: 0, right: canvas.width, bottom: canvas.height },
+        previewUrl,
+        rgba: new Uint8Array()
+      }
+    }))
+    const { prepareBrowserReferencesForRequest } = await import('../src/utils/referenceImages')
+    const prepared = await prepareBrowserReferencesForRequest(references)
+    return {
+      before: references.reduce((total, reference) => total + reference.image.previewUrl.length, 0),
+      after: prepared.reduce((total, reference) => total + reference.image.previewUrl.length, 0)
+    }
+  })
+
+  expect(sizes.before).toBeGreaterThan(32 * 1024 * 1024)
+  expect(sizes.after).toBeLessThanOrEqual(22 * 1024 * 1024)
 })
 
 test('browser surfaces a recoverable APIMart network error and retries it from the keyboard-submitted turn', async ({ page }) => {

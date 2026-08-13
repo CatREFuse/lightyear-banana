@@ -1,10 +1,11 @@
-import type { CapturedCanvasImage } from '@mugen/core'
+import type { CapturedCanvasImage, ReferenceImage } from '@mugen/core'
 
 const referenceJpegMaxEdge = 4096
 const referenceJpegMaxBytes = 9 * 1024 * 1024
 const referenceJpegMinQuality = 0.5
 const referenceJpegQualityStep = 0.08
 const referenceImportMaxBytes = 128 * 1024 * 1024
+const referenceRequestDataUrlBudget = 22 * 1024 * 1024
 
 const imageMimeTypes: Record<string, string> = {
   gif: 'image/gif',
@@ -87,12 +88,12 @@ function readResizedDimensions(width: number, height: number, maxEdge: number) {
   }
 }
 
-async function compressReferencePreview(previewUrl: string) {
+async function compressReferencePreview(previewUrl: string, maxBytes = referenceJpegMaxBytes) {
   const image = await loadImage(previewUrl)
   let dimensions = readResizedDimensions(image.naturalWidth || image.width, image.naturalHeight || image.height, referenceJpegMaxEdge)
   let lastBlob: Blob | null = null
 
-  for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
+  for (let resizeAttempt = 0; resizeAttempt < 10; resizeAttempt += 1) {
     const canvas = document.createElement('canvas')
     canvas.width = dimensions.width
     canvas.height = dimensions.height
@@ -107,7 +108,7 @@ async function compressReferencePreview(previewUrl: string) {
 
     for (let quality = 0.9; quality >= referenceJpegMinQuality; quality -= referenceJpegQualityStep) {
       lastBlob = await canvasToJpegBlob(canvas, quality)
-      if (lastBlob.size <= referenceJpegMaxBytes) {
+      if (lastBlob.size <= maxBytes) {
         return {
           previewUrl: await readBlobAsDataUrl(lastBlob),
           width: dimensions.width,
@@ -123,8 +124,8 @@ async function compressReferencePreview(previewUrl: string) {
     throw new Error('无法压缩参考图')
   }
 
-  if (lastBlob.size > referenceJpegMaxBytes) {
-    throw new Error('参考图压缩后仍超过 9MB')
+  if (lastBlob.size > maxBytes) {
+    throw new Error('参考图压缩后仍超过请求限制')
   }
 
   return {
@@ -132,6 +133,43 @@ async function compressReferencePreview(previewUrl: string) {
     width: dimensions.width,
     height: dimensions.height
   }
+}
+
+function isInlineReference(previewUrl: string) {
+  return /^data:image\/[^;,]+;base64,/i.test(previewUrl)
+}
+
+export async function prepareBrowserReferencesForRequest(references: ReferenceImage[]) {
+  const inlineReferences = references.filter((reference) => isInlineReference(reference.image.previewUrl))
+  const currentDataUrlBytes = inlineReferences.reduce((total, reference) => total + reference.image.previewUrl.length, 0)
+  if (currentDataUrlBytes <= referenceRequestDataUrlBudget) return references.map((reference) => ({ ...reference }))
+
+  const maxJpegBytes = Math.min(
+    referenceJpegMaxBytes,
+    Math.floor(referenceRequestDataUrlBudget / inlineReferences.length * 0.75) - 256
+  )
+  const compressedById = new Map<string, string>()
+  for (const reference of inlineReferences) {
+    const compressed = await compressReferencePreview(reference.image.previewUrl, maxJpegBytes)
+    compressedById.set(reference.id, compressed.previewUrl)
+  }
+
+  const prepared = references.map((reference) => {
+    const previewUrl = compressedById.get(reference.id)
+    if (!previewUrl) return { ...reference }
+    return {
+      ...reference,
+      image: {
+        ...reference.image,
+        previewUrl
+      }
+    }
+  })
+  const preparedDataUrlBytes = prepared.reduce((total, reference) => (
+    total + (isInlineReference(reference.image.previewUrl) ? reference.image.previewUrl.length : 0)
+  ), 0)
+  if (preparedDataUrlBytes > referenceRequestDataUrlBudget) throw new Error('参考图总大小超过请求限制')
+  return prepared
 }
 
 export async function createReferenceCanvasImage(input: {

@@ -149,6 +149,7 @@ test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
 })
 
 test('adds uploaded, pasted, and dropped images as references through the CCX host', async ({ page }, testInfo) => {
+  await expect(page.locator('input[data-browser-reference-input]')).toHaveCount(0)
   await page.getByRole('button', { name: '添加参考' }).click()
   await expect(page.getByRole('button', { name: '剪贴板', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '上传文件', exact: true })).toBeVisible()
