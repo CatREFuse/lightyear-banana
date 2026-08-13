@@ -89,7 +89,7 @@ WebUI 部署:
 | WebUI、CCX 与官网的统一官方发行顺序和完成标准 | `docs/release-sop.md` |
 | 版本号、CCX、WebUI、官网发布的强制检查清单 | `docs/build-todo-list.md` |
 | WebUI 与 CCX 的构建、部署、回滚流程 | `docs/inner-webui-deployment.md` |
-| 官网单屏站点的部署、验收、回滚流程 | `docs/site-deployment.md` |
+| 官网与 CCX 的运维发布、验收、临时 SSH 凭据清理和回滚流程 | `docs/site-deployment.md` |
 | Nginx 安全策略切换操作手册 | `docs/nginx-security-policy-rollout.md` |
 | Mock 生图 API Server 使用手册 | `docs/mock-image-api-server.md` |
 | WebUI 产品需求与双运行时规格 | `docs/inner-webui-prd.md`、`docs/mugen-interaction-spec.md`、`docs/mugen-prototype-requirements.md` |

@@ -2,6 +2,8 @@
 
 本流程用于将 WebUI、Photoshop CCX 和单屏官网发布到正式地址。`npm run package:ccx` 只生成本地 CCX 发行物；只有官网部署完成且公网下载文件逐字节回读通过，CCX 才算正式发布。
 
+CCX 的运维执行步骤、密码登录时的临时公钥流程和公网验收命令同时收录在 `docs/site-deployment.md` 的“CCX 官方发布 SOP”。
+
 ## 发行范围
 
 - WebUI：`https://mugen.catrefuse.com/webui/`

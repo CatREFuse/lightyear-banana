@@ -45,6 +45,77 @@ form-action 'none';
 
 首页与 `download/` CCX 必须返回有效的正数 `max-age` HSTS 和 `X-Content-Type-Options: nosniff`。CCX 使用受支持的二进制 MIME。迁移期回滚仍会校验旧快照的发布证明，但新首页、构建和下载入口不消费该证明。部署脚本只验证响应头，不修改 Nginx 配置。
 
+## CCX 官方发布 SOP
+
+CCX 必须随官网不可变快照发布。`npm run package:ccx` 只生成本地产物，官网切换完成并且公网 CCX 的完整字节与 SHA256 验证通过后，才能记录为正式发布。
+
+### 1. 打包 CCX
+
+从已提交的干净工作树执行：
+
+```bash
+TMPDIR=/private/tmp npm run package:ccx
+```
+
+核对 `plug-in/manifest.json`、`dist/ccx-host/manifest.json`、`dist/ccx-release.json` 和 `dist/mugen-<version>.ccx` 的版本一致，`.sha256` 与实际文件一致，`dist/ccx-release.json` 为 `dirty: false`。
+
+### 2. 更新官网发行信息
+
+使用 `dist/ccx-release.json` 和实际 CCX 文件更新以下字段：
+
+- `homesite/site/index.html`：下载 URL 与 CCX 标本号。
+- `homesite/site/llms.txt`：版本、打包时间、下载 URL、SHA256 和文件大小。
+- `homesite/site/LLM.TXT`：内容与 `llms.txt` 保持一致。
+
+提交发行信息后，从干净工作树生成官网快照：
+
+```bash
+npm run build:site
+npm run deploy:site -- --dry-run
+```
+
+`dist/site/download/mugen-<version>.ccx` 必须与 `dist/mugen-<version>.ccx` 逐字节一致，`dist/site/site-release.json` 必须绑定当前 Git HEAD。
+
+### 3. 连接生产服务器
+
+生产部署脚本只接受 SSH 公钥。`key.env` 已配置可用公钥时，直接进入下一步。
+
+只有服务器名称和密码时，使用 `$ssh-skill` 中的服务器别名进行密码登录，为本次发行添加一把临时公钥；不要把密码传给部署脚本，也不要把密码或私钥写入仓库。临时公钥添加成功后，创建不含密码的临时部署环境文件，设置 `DEPLOY_SSH_HOST`、`DEPLOY_SSH_USER`、`DEPLOY_SSH_PORT`、`DEPLOY_SSH_IDENTITY_FILE`、`server_ip` 和 `domain`。
+
+### 4. 发布官网与 CCX
+
+已有公钥配置时执行：
+
+```bash
+npm run deploy:site
+```
+
+使用临时部署环境文件时执行：
+
+```bash
+npm run deploy:site -- --env=/private/tmp/<release-runtime>/deploy.env
+```
+
+部署器会生成唯一站点快照，上传并校验全部文件，原子切换 `current`，然后从公网逐文件读回。输出 `Official site <site-id> verified` 才表示站点部署流程完成。
+
+### 5. 公网验收
+
+```bash
+curl -fsSL https://mugen.catrefuse.com/ --output /private/tmp/mugen-home.html
+curl -fsSL -D /private/tmp/mugen-ccx.headers \
+  https://mugen.catrefuse.com/download/mugen-<version>.ccx \
+  --output /private/tmp/mugen-<version>.ccx
+shasum -a 256 dist/mugen-<version>.ccx /private/tmp/mugen-<version>.ccx
+```
+
+验收结果必须满足：
+
+- 官网首页显示本次标本号，下载链接指向本次版本。
+- 本地与公网 CCX 的文件大小和 SHA256 完全一致。
+- CCX 返回 HTTP `200`、`application/octet-stream`、HSTS 和 `X-Content-Type-Options: nosniff`。
+
+使用临时公钥时，公网验收通过后立即通过 `$ssh-skill` 从 root 的 `~/.ssh/authorized_keys` 删除该公钥并读回确认，再删除本机临时私钥、临时部署环境文件和隔离运行环境。
+
 ## 本地检查
 
 发布新版 CCX 时，先从干净提交生成 `dist/mugen-<version>.ccx`、`.sha256` 和 `dist/ccx-release.json`，再把 `homesite/site/index.html`、`homesite/site/llms.txt`、`homesite/site/LLM.TXT` 中的下载 URL、标本号、打包时间、文件大小和 SHA256 更新为这份发行元数据。任何字段仍属于旧版本时，站点构建必须失败。
