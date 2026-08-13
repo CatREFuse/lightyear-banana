@@ -12,7 +12,7 @@ Mugen 是一个同时运行在普通浏览器和 Photoshop CCX 中的图像生�
 | 组件 | 状态 | 说明 |
 | --- | --- | --- |
 | 官方单屏站点 vNext | 开发中 | 毛笔书法 `Mugen`、Three.js 三棱镜折射、液态玻璃按钮、CCX 标本号 |
-| Inner WebUI vNext `0.2.1` | 开发中 | 从 Electron UI 源码平移，支持 CCX 与独立浏览器 |
+| Inner WebUI vNext `0.2.2` | 开发中 | 从 Electron UI 源码平移，支持 CCX 与独立浏览器 |
 | Photoshop CCX `1.1.6` | 活动 | 插件 ID `com.tanshow.mugen`；固定加载云端 WebUI；继续提供画布、置入、Adobe SecureStorage、原生权限和启动故障日志 |
 | APIMart 本地测试夹具 | 活动 | 双运行时冒烟；所有成功图片固定为同一张小猫 |
 | Electron 桌面端 `0.3.19` | 已废弃 | 根版本被冻结，不再开发或发布；UI 源码仅作迁移来源与历史证据 |

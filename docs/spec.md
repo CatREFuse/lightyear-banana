@@ -10,7 +10,7 @@
 - Electron 桌面端已整体移除（2026-08-12），不再有桌面入口或打包流程。
 - 旧官网实现与旧官网内容已废弃。正式站点重构为单屏 Mugen 品牌页。
 - Inner WebUI `0.1.x` 已废弃，不作为 vNext 的兼容目标或发布基线。
-- Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.1`，可在 CCX 内和普通浏览器中运行。
+- Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.2`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
 - 当前 CCX 版本为 `1.1.7`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
