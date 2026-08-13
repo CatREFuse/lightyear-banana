@@ -9,6 +9,7 @@ import type {
   ReferenceImage
 } from '../types/mugen'
 import type { ImageGenerationParams, NormalizedImageResult } from './contracts'
+import { encodeUtf8 } from '../utils/utf8'
 import { normalizeCustomModelFormat, providerCapabilities } from './definitions'
 
 type TimingContext = {
@@ -1242,7 +1243,7 @@ function dataUrlToBytes(value: string) {
   if (!parts.isBase64) {
     try {
       return {
-        bytes: new TextEncoder().encode(decodeURIComponent(parts.data)),
+        bytes: encodeUtf8(decodeURIComponent(parts.data)),
         mimeType: parts.mimeType.toLowerCase()
       }
     } catch {
@@ -1404,10 +1405,10 @@ export function createApimartReferenceUpload(previewUrl: string, index: number, 
 
   const extension = readImageExtensionFromMimeType(mimeType)
   const filename = `mugen-reference-${index + 1}.${extension}`
-  const header = new TextEncoder().encode(
+  const header = encodeUtf8(
     `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`
   )
-  const footer = new TextEncoder().encode(`\r\n--${boundary}--\r\n`)
+  const footer = encodeUtf8(`\r\n--${boundary}--\r\n`)
 
   return {
     body: concatByteArrays([header, bytes, footer]),

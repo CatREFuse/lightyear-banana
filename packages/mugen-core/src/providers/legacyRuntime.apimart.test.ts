@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createApimartReferenceUpload } from './legacyRuntime'
 
 const pngBytes = Uint8Array.from([
@@ -31,6 +31,17 @@ describe('APIMart reference upload body', () => {
     expect(includesBytes(upload.body, encoder.encode('Content-Type: image/png'))).toBe(true)
     expect(includesBytes(upload.body, pngBytes)).toBe(true)
     expect(upload.body.subarray(-footer.byteLength)).toEqual(footer)
+  })
+
+  it('builds the multipart body when the host does not provide TextEncoder', () => {
+    vi.stubGlobal('TextEncoder', undefined)
+    try {
+      const upload = createApimartReferenceUpload(toDataUrl('image/png', pngBytes), 0, 'mugen-test-boundary')
+      expect(upload.filename).toBe('mugen-reference-1.png')
+      expect(upload.body.byteLength).toBeGreaterThan(pngBytes.byteLength)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('rejects a MIME/signature mismatch before starting the request', () => {
