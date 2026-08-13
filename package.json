@@ -51,7 +51,7 @@
     "mock:apimart": "node utils/mock-image-api-server.mjs --profile apimart --fixture cats/cat-01.jpg --delay-min-ms 20 --delay-max-ms 50",
     "smoke:apimart-server": "node utils/apimart-smoke-server.mjs",
     "build:site": "npm run test:site-optics && npm run test:site-deploy && npm --workspace @mugen/homesite run build",
-    "deploy:site": "npm --workspace @mugen/homesite run deploy",
+    "deploy:site": "npm --workspace @mugen/homesite run deploy --",
     "repair:codex:win": "powershell -NoProfile -ExecutionPolicy Bypass -File utils/rebuild-codex-windows.ps1",
     "repair:codex:win:apply": "powershell -NoProfile -ExecutionPolicy Bypass -File utils/rebuild-codex-windows.ps1 -Apply",
     "test:regressions": "node utils/regression-smoke.mjs",

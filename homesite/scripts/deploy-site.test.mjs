@@ -90,6 +90,11 @@ function createSiteFixture(context) {
   return root
 }
 
+test('root deploy command forwards release arguments to the homesite script', () => {
+  const rootPackage = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'))
+  assert.equal(rootPackage.scripts['deploy:site'], 'npm --workspace @mugen/homesite run deploy --')
+})
+
 test('creates a stable full site snapshot with one versioned download', (context) => {
   const source = createSiteFixture(context)
   const destination = path.join(temporaryRoot(context), 'snapshot')
