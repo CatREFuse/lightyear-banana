@@ -13,7 +13,7 @@
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.0`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
-- 当前 CCX 版本为 `1.1.4`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
+- 当前 CCX 版本为 `1.1.5`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
 
 ## 官方单屏站点
 
@@ -198,6 +198,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 - 当前阶段允许在 WebUI、单屏官网和 CCX 各自门禁通过后部署正式入口。官网使用 `download/mugen-<version>.ccx` 直连标准，CCX 随站点快照发布并纳入全站逐字节校验；`releases/latest.json` 已废弃。
 - 旧官网、Electron 桌面端与 Inner WebUI 0.1 只保留历史记录；独立 UXP 原型代码已删除，均不进入新首页、WebUI 入口或活动发布说明。
 - CCX WebView 固定加载 `https://mugen.catrefuse.com/webui/`，CCX 包不包含 WebUI HTML、JavaScript、CSS 或其他 `webui/` 静态目录。
+- CCX 接收 WebView 消息时，将 UXP 提供的内容 URL 解析后按协议、主机和端口校验同源，并继续要求消息 `source` 为当前 WebView；不得把包含 `/webui/` 路径的合法内容 URL 当作非可信来源，也不得放宽到其他 Origin。
 - WebUI 与 CCX 独立构建、部署和更新；两者通过 `inner-host/v1` 协议和兼容元数据维持兼容，只有协议不兼容时才需要协同升级。
 - 云端 WebUI 不可达、加载超时或消息桥握手失败时，CCX Host 壳显示重试与启动日志入口。
 - CCX 必须由仓库发布脚本从已验证的 `dist/ccx-host` 生成，并对齐 Adobe UXP Developer Tools `Package` 产物的 ZIP 条目、权限和 Manifest 处理特征；不得使用 PowerShell `Compress-Archive` 或系统右键压缩直接创建发行包。

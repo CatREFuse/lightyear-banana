@@ -64,6 +64,9 @@ class FakeWindow {
   removeEventListener(name: string, listener: Listener) {
     this.listeners.set(name, (this.listeners.get(name) ?? []).filter((candidate) => candidate !== listener))
   }
+  dispatch(name: string, event: Record<string, unknown> = {}) {
+    for (const listener of this.listeners.get(name) ?? []) listener({ type: name, ...event })
+  }
 }
 
 function flatten(root: FakeElement): FakeElement[] {
@@ -105,7 +108,7 @@ describe('createWebViewShell startup failure UI', () => {
       mountNode: root as unknown as HTMLElement,
       sessionId: 'session-1',
       hostNonce: 'host-1',
-      hostVersion: '1.1.4',
+      hostVersion: '1.1.5',
       startupLog: log as unknown as StartupLog,
       onMessage: vi.fn()
     })
@@ -128,13 +131,14 @@ describe('createWebViewShell startup failure UI', () => {
 
   it('reports a missing Host handshake and cancels the failure timer after readiness', async () => {
     const { createWebViewShell } = await import('./webviewShell')
+    const onMessage = vi.fn()
     const makeShell = () => createWebViewShell({
       mountNode: root as unknown as HTMLElement,
       sessionId: 'session-1',
       hostNonce: 'host-1',
-      hostVersion: '1.1.4',
+      hostVersion: '1.1.5',
       startupLog: log as unknown as StartupLog,
-      onMessage: vi.fn()
+      onMessage
     })
     const shell = makeShell()
     const webview = created.find((element) => element.tagName === 'webview')!
@@ -153,12 +157,37 @@ describe('createWebViewShell startup failure UI', () => {
     const readyWebview = created.find((element) => element.tagName === 'webview')!
     readyWebview.dispatch('loadstop', { url: 'https://mugen.catrefuse.com/webui/#/' })
     expect(readyShell.isTrustedMessage({
-      origin: 'https://mugen.catrefuse.com',
+      origin: 'https://mugen.catrefuse.com/webui/',
       source: readyWebview
     } as unknown as WebViewMessageEvent)).toBe(true)
     expect(readyShell.isTrustedMessage({
-      origin: 'https://example.com',
+      origin: 'https://mugen.catrefuse.com/webui/?runtime=uxp#/workspace',
       source: readyWebview
+    } as unknown as WebViewMessageEvent)).toBe(true)
+    const fakeWindow = window as unknown as FakeWindow
+    fakeWindow.dispatch('message', {
+      origin: 'https://mugen.catrefuse.com/webui/',
+      source: readyWebview,
+      data: { command: 'host.handshake' }
+    })
+    expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({
+      origin: 'https://mugen.catrefuse.com/webui/',
+      source: readyWebview
+    }))
+    for (const origin of [
+      'https://mugen.catrefuse.com.evil.example/webui/',
+      'http://mugen.catrefuse.com/webui/',
+      'https://mugen.catrefuse.com:444/webui/',
+      'not a url'
+    ]) {
+      expect(readyShell.isTrustedMessage({
+        origin,
+        source: readyWebview
+      } as unknown as WebViewMessageEvent)).toBe(false)
+    }
+    expect(readyShell.isTrustedMessage({
+      origin: 'https://mugen.catrefuse.com/webui/',
+      source: new FakeElement('webview')
     } as unknown as WebViewMessageEvent)).toBe(false)
     readyShell.markReady()
     expect(log.finish).toHaveBeenCalledWith({ attempt: 1 })
@@ -173,7 +202,7 @@ describe('createWebViewShell startup failure UI', () => {
       mountNode: root as unknown as HTMLElement,
       sessionId: 'session-1',
       hostNonce: 'host-1',
-      hostVersion: '1.1.4',
+      hostVersion: '1.1.5',
       startupLog: log as unknown as StartupLog,
       onMessage: vi.fn()
     })

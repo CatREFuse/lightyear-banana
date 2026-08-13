@@ -28,6 +28,15 @@ export type WebViewShell = {
   destroy: () => void
 }
 
+function isTrustedMessageOrigin(candidate: string | undefined, expectedOrigin: string) {
+  if (!candidate) return false
+  try {
+    return new URL(candidate).origin === expectedOrigin
+  } catch {
+    return false
+  }
+}
+
 function readableLoadError(event?: Event) {
   const loadEvent = event as WebViewLoadEvent | undefined
   const candidate = [loadEvent?.message, loadEvent?.description, loadEvent?.error, loadEvent?.status]
@@ -219,7 +228,7 @@ export function createWebViewShell(options: {
   }
   const handleWindowMessage = (event: Event) => {
     const messageEvent = event as WebViewMessageEvent
-    const trustedOrigin = messageEvent.origin === expectedOrigin
+    const trustedOrigin = isTrustedMessageOrigin(messageEvent.origin, expectedOrigin)
     options.startupLog.record('webui', 'ccx', 'bridge.receive', {
       trusted: trustedOrigin && messageEvent.source === webview,
       origin: messageEvent.origin,
@@ -239,7 +248,7 @@ export function createWebViewShell(options: {
   return {
     postMessage,
     isTrustedMessage(event) {
-      const trustedOrigin = event.origin === expectedOrigin
+      const trustedOrigin = isTrustedMessageOrigin(event.origin, expectedOrigin)
       return trustedOrigin && event.source === webview
     },
     markReady() {
