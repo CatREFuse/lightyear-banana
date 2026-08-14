@@ -100,6 +100,7 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - WebUI 启动时通过能力探测选择 CCX Host adapter 或 Browser adapter，不依赖 URL 参数伪造运行时。
 - 应用组件只消费明确的能力合同，不直接访问 Electron IPC、UXP `require()` 或全局 Host 对象。
 - CCX 中所有 Photoshop 文档修改继续由 CCX Host 在 `core.executeAsModal()` 内执行。
+- CCX 读取可见画布时优先绑定当前活动历史状态；该状态无法由 Photoshop Imaging API 渲染时，省略 `historyStateID` 并按当前文档状态重试一次，不切换到文档复制合并链路。
 - CCX 中 API Key 保存在 UXP SecureStorage；浏览器中的凭据由浏览器适配层保存，并明确仅留在当前浏览器配置中。
 - 两种运行时展示同一套 11 个 Provider 目录，共享 Provider 请求语义和错误映射；已保存配置与凭据由各自 adapter 独立保管。因跨域策略无法使用的自定义服务必须给出可操作错误。
 - 生产 bundle 不自动启用 Mock Server，不包含自动注入的 Mock Host。

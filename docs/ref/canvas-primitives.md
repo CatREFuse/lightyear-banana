@@ -89,7 +89,7 @@ await canvasPrimitiveService.insertImage(image, {
 
 - `getPixels()` 用于读取可见合成图或指定图层。
 - `getSelection()` 用于读取选区 mask。
-- 可见图像直接对当前文档调用 `imaging.getPixels({ documentID, historyStateID })`，其中 `historyStateID` 每次读取都来自当前活动历史状态；不传 `layerID`，避免沿用 Camera Raw 文档首次打开时的状态，也避免复制含临时来源智能对象的文档。
+- 可见图像优先对当前文档调用 `imaging.getPixels({ documentID, historyStateID })`，其中 `historyStateID` 每次读取都来自当前活动历史状态；该状态无法渲染时，省略 `historyStateID` 并按当前文档状态重试一次。两次调用都不传 `layerID`，也不复制文档，避免复制含临时来源智能对象的文档。
 - 选区图像从临时文档副本的合并可见图层读取，避免宿主把当前选中图层误当作文档合成结果。
 - `putPixels()` 用于写入像素。
 - `encodeImageData()` 用于生成面板预览。
@@ -121,4 +121,3 @@ await canvasPrimitiveService.insertImage(image, {
 - 抓取指定画板范围。
 - 导出画板到文件。
 - 从用户选择的文件置入图片。
-

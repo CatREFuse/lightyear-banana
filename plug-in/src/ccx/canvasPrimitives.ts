@@ -1021,17 +1021,42 @@ async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: CcxDiagno
       colorSpace: 'RGB',
       componentSize: 8
     })
-    await emitTrace(trace, 'composite.getPixels', 'success', {
-      durationMs: Date.now() - requestStartedAt,
-      width: result.imageData.width,
-      height: result.imageData.height,
-      components: result.imageData.components,
-      returnedBounds: imageResultBounds(result, sourceBounds)
-    })
   } catch (error) {
     await emitTrace(trace, 'composite.getPixels', 'error', { durationMs: Date.now() - requestStartedAt }, error)
-    throw error
+    if (typeof historyStateId !== 'number') throw error
+
+    const retryStartedAt = Date.now()
+    await emitTrace(trace, 'composite.getPixels.currentStateRetry', 'start', {
+      documentId: document.id,
+      requestedBounds: sourceBounds,
+      colorSpace: 'RGB',
+      componentSize: 8
+    })
+    try {
+      result = await photoshop.imaging.getPixels({
+        documentID: document.id,
+        sourceBounds,
+        colorSpace: 'RGB',
+        componentSize: 8
+      })
+      await emitTrace(trace, 'composite.getPixels.currentStateRetry', 'success', {
+        durationMs: Date.now() - retryStartedAt
+      })
+    } catch (retryError) {
+      await emitTrace(trace, 'composite.getPixels.currentStateRetry', 'error', {
+        durationMs: Date.now() - retryStartedAt
+      }, retryError)
+      throw retryError
+    }
   }
+
+  await emitTrace(trace, 'composite.getPixels', 'success', {
+    durationMs: Date.now() - requestStartedAt,
+    width: result.imageData.width,
+    height: result.imageData.height,
+    components: result.imageData.components,
+    returnedBounds: imageResultBounds(result, sourceBounds)
+  })
 
   try {
     const dataStartedAt = Date.now()

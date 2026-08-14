@@ -123,7 +123,7 @@ WebView 主动粘贴或拖入图片时：
 
 ### 5.1 从 Photoshop 可见画布、选区和图层抓图
 
-可见画布使用 `imaging.getPixels()`；选区先读 mask、计算有效边界，再与合成像素相乘；图层读取 active layer 并用 `boundsNoEffects` 或 `bounds` 与文档边界求交。返回的 image data 用完立即 `dispose()`。
+可见画布使用 `imaging.getPixels()`；优先绑定当前活动 `historyStateID`，Camera Raw 等文档状态拒绝该读取时，省略历史状态参数并按当前文档状态重试一次。回退仍读取当前文档合成，不复制或合并文档，避免重新触发临时来源智能对象的更新错误。选区先读 mask、计算有效边界，再与合成像素相乘；图层读取 active layer 并用 `boundsNoEffects` 或 `bounds` 与文档边界求交。返回的 image data 用完立即 `dispose()`。
 
 成功结果进入 AssetStore，桥上只返回资产指针和受控缩略图。Provider 需要参考图时由 Host 从资产读取原图，避免 WebUI 长期持有 RGBA。
 
