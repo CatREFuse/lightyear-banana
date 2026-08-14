@@ -1,6 +1,7 @@
 {
   "name": "@mugen/plug-in",
   "version": "1.1.7",
+  "buildNumber": "2608140002",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +9,7 @@
     "build:watch": "vite build --config vite.ccx.config.ts --watch",
     "typecheck": "vue-tsc -b",
     "test:unit": "vitest run",
-    "test:policies": "node --test scripts/ccx-environment-policy.test.mjs scripts/ccx-production-artifact-policy.test.mjs scripts/ccx-release-metadata.test.mjs scripts/release-file-set.test.mjs scripts/release-provenance.test.mjs scripts/package-archive-integrity.test.mjs",
+    "test:policies": "node --test scripts/bump-ccx-build.test.mjs scripts/ccx-environment-policy.test.mjs scripts/ccx-production-artifact-policy.test.mjs scripts/ccx-release-metadata.test.mjs scripts/release-file-set.test.mjs scripts/release-provenance.test.mjs scripts/package-archive-integrity.test.mjs",
     "test": "npm run test:unit && npm run test:policies"
   },
   "dependencies": {

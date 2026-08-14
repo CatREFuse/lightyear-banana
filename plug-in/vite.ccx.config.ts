@@ -17,11 +17,20 @@ type SourceManifest = {
   }
 }
 
+type SourcePackage = {
+  version?: unknown
+  buildNumber?: unknown
+}
+
 const fallbackDevelopmentWebUiUrl = 'http://localhost:4173/'
 const productionInnerWebUiUrl = 'https://mugen.catrefuse.com/webui/'
 
 function readSourceManifest(): SourceManifest {
   return JSON.parse(readFileSync(path.join(projectRoot, 'manifest.json'), 'utf8')) as SourceManifest
+}
+
+function readSourcePackage(): SourcePackage {
+  return JSON.parse(readFileSync(path.join(projectRoot, 'package.json'), 'utf8')) as SourcePackage
 }
 
 function resolveCcxVersion() {
@@ -30,6 +39,14 @@ function resolveCcxVersion() {
     throw new Error('plugin/manifest.json must contain a semantic version such as 1.0.0.')
   }
   return version
+}
+
+function resolveCcxBuildNumber() {
+  const buildNumber = readSourcePackage().buildNumber
+  if (typeof buildNumber !== 'string' || !/^\d{6}(?!0000)\d{4}$/.test(buildNumber)) {
+    throw new Error('plug-in/package.json must contain a YYMMDDnnnn buildNumber with a non-zero daily counter.')
+  }
+  return buildNumber
 }
 
 function readKeyEnv() {
@@ -75,7 +92,7 @@ function resolveInnerWebUiUrl(mode: string) {
   return url
 }
 
-function ccxPostBuildPlugin(innerWebUiUrl: URL): Plugin {
+function ccxPostBuildPlugin(innerWebUiUrl: URL, ccxVersion: string, ccxBuildNumber: string): Plugin {
   return {
     name: 'ccx-post-build',
     closeBundle() {
@@ -111,6 +128,11 @@ function ccxPostBuildPlugin(innerWebUiUrl: URL): Plugin {
         networkDomains.unshift(origin)
       }
       writeFileSync(manifestTarget, `${JSON.stringify(manifest, null, 2)}\n`)
+      writeFileSync(path.join(ccxHostOutDir, 'ccx-build.json'), `${JSON.stringify({
+        version: ccxVersion,
+        buildNumber: ccxBuildNumber,
+        releaseId: `${ccxVersion}+${ccxBuildNumber}`
+      }, null, 2)}\n`)
       rmSync(iconsTarget, { recursive: true, force: true })
       mkdirSync(iconsTarget, { recursive: true })
       for (const iconFile of readdirSync(iconsSource)) {
@@ -135,6 +157,7 @@ export default defineConfig(({ mode }) => {
     production: mode === 'production'
   })
   const ccxVersion = resolveCcxVersion()
+  const ccxBuildNumber = resolveCcxBuildNumber()
 
   return {
     base: './',
@@ -142,10 +165,11 @@ export default defineConfig(({ mode }) => {
       __MUGEN_APP_ENV__: JSON.stringify(mugenEnvironment),
       __INNER_WEBUI_URL__: JSON.stringify(innerWebUiUrl.href),
       __INNER_RELEASE_URL__: JSON.stringify(releaseUrl.href),
-      __CCX_VERSION__: JSON.stringify(ccxVersion)
+      __CCX_VERSION__: JSON.stringify(ccxVersion),
+      __CCX_BUILD_NUMBER__: JSON.stringify(ccxBuildNumber)
     },
     publicDir: false,
-    plugins: [vue(), ccxPostBuildPlugin(innerWebUiUrl)],
+    plugins: [vue(), ccxPostBuildPlugin(innerWebUiUrl, ccxVersion, ccxBuildNumber)],
     build: {
       modulePreload: {
         polyfill: false

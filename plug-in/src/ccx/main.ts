@@ -7,6 +7,7 @@ import { createPanelLifecycle } from './panelLifecycle'
 import { createNamedLayer } from './photoshopHost'
 
 const CCX_VERSION = __CCX_VERSION__
+const CCX_RELEASE_ID = `${CCX_VERSION}+${__CCX_BUILD_NUMBER__}`
 
 type AdobeUxpRequire = (name: string) => any
 type PanelRuntime = {
@@ -62,11 +63,11 @@ function mountPanel(rootNode?: unknown) {
   destroyPanel()
 
   const session = new SessionManager()
-  const startupLog = new StartupLog(CCX_VERSION, session.sessionId)
+  const startupLog = new StartupLog(CCX_RELEASE_ID, session.sessionId)
   startupLog.record('photoshop', 'ccx', 'panel.mount')
   const smokeEvents: DevelopmentSmokeEvent[] = []
   let shell: WebViewShell
-  const registry = new CommandRegistry(CCX_VERSION, session, (command, payload) => {
+  const registry = new CommandRegistry(CCX_RELEASE_ID, session, (command, payload) => {
     if (__MUGEN_APP_ENV__ !== 'production') {
       smokeEvents.push({ command, payload })
       if (smokeEvents.length > 100) smokeEvents.splice(0, smokeEvents.length - 100)
@@ -79,7 +80,7 @@ function mountPanel(rootNode?: unknown) {
     mountNode,
     sessionId: session.sessionId,
     hostNonce: session.hostNonce,
-    hostVersion: CCX_VERSION,
+    hostVersion: CCX_RELEASE_ID,
     startupLog,
     onMessage: async (event) => {
       const raw = event.data

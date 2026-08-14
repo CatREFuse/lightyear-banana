@@ -78,7 +78,7 @@ function createSiteFixture(context) {
     'vendor/three.module.min.js'
   ]) write(root, file, `fixture:${file}`)
   write(root, 'vendor/THREE-LICENSE.txt', 'license')
-  write(root, 'download/mugen-1.0.2.ccx', 'current download')
+  write(root, 'download/mugen-1.0.2-2608140002.ccx', 'current download')
   const release = createSiteReleaseMetadata({
     builtAt: '2026-08-12T03:04:05.000Z',
     commit: '1'.repeat(40),
@@ -101,7 +101,7 @@ test('creates a stable full site snapshot with one versioned download', (context
   const result = createSiteSnapshot(source, destination)
 
   assert.ok(result.records.length >= 8)
-  assert.equal(result.records.some((record) => record.path === 'download/mugen-1.0.2.ccx'), true)
+  assert.equal(result.records.some((record) => record.path === 'download/mugen-1.0.2-2608140002.ccx'), true)
   assert.equal(existsSync(path.join(destination, 'releases')), false)
   assert.equal(readFileSync(path.join(destination, 'index.html'), 'utf8'), 'fixture:index.html')
   assert.equal(result.snapshotHash, calculateSnapshotHash(createFileRecords(destination)))
@@ -110,7 +110,7 @@ test('creates a stable full site snapshot with one versioned download', (context
 
 test('refuses a build without the versioned download CCX', (context) => {
   const source = createSiteFixture(context)
-  rmSync(path.join(source, 'download', 'mugen-1.0.2.ccx'))
+  rmSync(path.join(source, 'download', 'mugen-1.0.2-2608140002.ccx'))
   assert.throws(
     () => createSiteSnapshot(source, path.join(temporaryRoot(context), 'snapshot')),
     /exactly one versioned CCX/

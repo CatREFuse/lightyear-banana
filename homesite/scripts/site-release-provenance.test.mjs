@@ -41,7 +41,7 @@ test('binds every deployable site file to commit, content hash, build ID, and fu
   const root = temporarySite(context)
   write(root, 'index.html', '<!doctype html>')
   write(root, 'assets/app.js', 'app')
-  write(root, 'download/mugen-1.0.2.ccx', 'ccx')
+  write(root, 'download/mugen-1.0.2-2608140002.ccx', 'ccx')
   const expected = stamp(root)
 
   assert.deepEqual(validateSiteReleaseMetadata({
@@ -53,7 +53,7 @@ test('binds every deployable site file to commit, content hash, build ID, and fu
   assert.equal(expected.release.buildId, `site-${expected.release.contentHash.slice(7, 19)}`)
   assert.deepEqual(expected.manifest.files.map((file) => file.path), [
     'assets/app.js',
-    'download/mugen-1.0.2.ccx',
+    'download/mugen-1.0.2-2608140002.ccx',
     'index.html',
     'site-release.json'
   ])
@@ -77,7 +77,7 @@ test('download files stay inside the content hash while legacy releases and roll
   const root = temporarySite(context)
   write(root, 'index.html', 'site')
   const before = calculateSiteContentHash(root)
-  write(root, 'download/mugen-1.0.0.ccx', 'ccx')
+  write(root, 'download/mugen-1.0.0-2608140002.ccx', 'ccx')
   assert.notEqual(calculateSiteContentHash(root), before)
   write(root, 'releases/latest.json', 'old latest')
   assert.throws(() => calculateSiteContentHash(root), /deprecated releases tree/)

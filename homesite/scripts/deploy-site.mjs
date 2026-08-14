@@ -327,7 +327,7 @@ export function validateSiteBuild(directory = defaultSiteDirectory) {
   ]) {
     if (!allFiles.includes(requiredFile)) throw new Error(`Official site build is missing ${requiredFile}.`)
   }
-  const downloadFiles = allFiles.filter((relative) => /^download\/mugen-\d+\.\d+\.\d+\.ccx$/.test(relative))
+  const downloadFiles = allFiles.filter((relative) => /^download\/mugen-\d+\.\d+\.\d+-\d{10}\.ccx$/.test(relative))
   if (downloadFiles.length !== 1) {
     throw new Error('Official site build must contain exactly one versioned CCX in download/.')
   }

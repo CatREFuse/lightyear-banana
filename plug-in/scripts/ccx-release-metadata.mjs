@@ -3,6 +3,7 @@ import { assertProductionOrigin, resolveReleaseUrl } from '../../utils/productio
 
 export function createCcxReleaseMetadata({
   ccxVersion,
+  buildNumber,
   filename,
   sha256,
   webviewOrigin,
@@ -12,10 +13,12 @@ export function createCcxReleaseMetadata({
   dirty
 }) {
   if (!/^\d+\.\d+\.\d+$/.test(ccxVersion || '')) throw new Error('CCX release metadata has an invalid version.')
+  if (!/^\d{6}(?!0000)\d{4}$/.test(buildNumber || '')) throw new Error('CCX release metadata has an invalid build number.')
+  const expectedFilename = `mugen-${ccxVersion}-${buildNumber}.ccx`
   if (
     typeof filename !== 'string'
     || filename !== path.basename(filename)
-    || !filename.endsWith('.ccx')
+    || filename !== expectedFilename
   ) throw new Error('CCX release metadata has an invalid filename.')
   if (!/^[a-f0-9]{64}$/.test(sha256 || '')) throw new Error('CCX release metadata has an invalid SHA256.')
 
@@ -37,8 +40,9 @@ export function createCcxReleaseMetadata({
   if (dirty !== false) throw new Error('CCX release metadata must come from a clean Git worktree.')
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     ccxVersion,
+    buildNumber,
     filename,
     sha256,
     webviewOrigin: normalizedWebviewOrigin,

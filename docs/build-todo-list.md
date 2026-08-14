@@ -8,12 +8,14 @@
 
 ## 生命周期与版本规则
 
+- CCX 语义版本与 build 号独立管理。`plug-in/manifest.json` 保持 `x.y.z`；`plug-in/package.json#buildNumber` 使用 `YYMMDDnnnn`，其中日期按 Asia/Shanghai 计算，`nnnn` 是当天从 `0001` 开始的正式构建序号。
+- 每次正式 CCX 构建都必须运行 `npm run bump:ccx-build`、提交新的 build 号，再从该干净提交执行 `package:ccx`。同一语义版本重新构建也必须产生新的 build 号和 `mugen-<version>-<build>.ccx` 文件名。
 - Electron 桌面端源码已删除（2026-08-12），不得恢复桌面入口、electron 依赖或桌面发行脚本。
 - 修改 Inner WebUI 版本时，确认 `webui/package.json`、兼容信息和构建元数据一致；兼容 `inner-host/v1` 的 WebUI 可以独立发布，无需重新打包 CCX。
 - 本地 `verify:ccx` 接受干净或脏工作树，必须确认 Host 只注入 `https://mugen.catrefuse.com/webui/`、Manifest 只授权该 Origin，且 `dist/ccx-host/` 不包含 `webui/` 静态目录。
 - 正式 `package:ccx` 只接受干净工作树。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 绑定 CCX Host 的干净提交。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
-- 修改 CCX 版本时，确认 `plug-in/manifest.json`、构建后的 `dist/ccx-host/manifest.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
+- 修改 CCX 版本或 build 号时，确认 `plug-in/manifest.json`、`plug-in/package.json`、构建后的 `dist/ccx-host/manifest.json`、`dist/ccx-host/ccx-build.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
 - CCX 发布前确认 `https://mugen.catrefuse.com/webui/` 和 `compatibility.json` 可访问，并兼容 `inner-host/v1`；该检查不要求云端文件与当前 CCX 仓库提交一致。
 - 每次 CCX 发布必须依次完成当前版本打包、官网首页与两份 LLM 文本的版本化下载信息更新、`npm run build:site` 和公网读回。官网 `下载 CCX` 必须指向本次 `dist/ccx-release.json` 的文件名；仍指向任一旧版本时停止站点构建和部署。
 - `npm run package:ccx` 完成只代表本地发行物可用。`npm run deploy:site` 完成原子切换且公网版本化 CCX 的逐字节回读通过后，才允许记录为 CCX 正式发布。

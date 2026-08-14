@@ -19,14 +19,24 @@ const provenance = resolveReleaseProvenance(projectRoot)
 const packageJson = JSON.parse(readFileSync(path.join(projectRoot, 'package.json'), 'utf8'))
 const sourceDir = path.join(projectRoot, 'dist', 'ccx-host')
 const builtManifestPath = path.join(sourceDir, 'manifest.json')
+const builtBuildPath = path.join(sourceDir, 'ccx-build.json')
 
 if (!existsSync(builtManifestPath)) {
   throw new Error('CCX build not found. Run npm run verify:ccx first.')
 }
 
 const builtManifest = JSON.parse(readFileSync(builtManifestPath, 'utf8'))
+const builtBuild = JSON.parse(readFileSync(builtBuildPath, 'utf8'))
 if (typeof builtManifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(builtManifest.version)) {
   throw new Error('Built CCX manifest must contain a semantic version.')
+}
+if (
+  builtBuild.version !== builtManifest.version
+  || typeof builtBuild.buildNumber !== 'string'
+  || !/^\d{6}(?!0000)\d{4}$/.test(builtBuild.buildNumber)
+  || builtBuild.releaseId !== `${builtManifest.version}+${builtBuild.buildNumber}`
+) {
+  throw new Error('Built CCX build metadata is invalid or does not match the manifest.')
 }
 
 function readKeyEnvironment() {
@@ -70,14 +80,14 @@ const releaseUrl = resolveReleaseUrl({
   production: true
 }).href
 
-const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${builtManifest.version}.ccx`)
+const archivePath = path.join(projectRoot, 'dist', `${packageJson.name}-${builtManifest.version}-${builtBuild.buildNumber}.ccx`)
 const archiveChecksumPath = `${archivePath}.sha256`
 const releaseMetadataPath = path.join(projectRoot, 'dist', 'ccx-release.json')
 const temporarySuffix = `${process.pid}-${randomBytes(4).toString('hex')}`
 const temporaryArchivePath = path.join(
   projectRoot,
   'dist',
-  `.${packageJson.name}-${builtManifest.version}-${temporarySuffix}.zip`
+  `.${packageJson.name}-${builtManifest.version}-${builtBuild.buildNumber}-${temporarySuffix}.zip`
 )
 const temporaryMetadataPath = path.join(projectRoot, 'dist', `.ccx-release-${temporarySuffix}.json`)
 const temporaryChecksumPath = path.join(projectRoot, 'dist', `.${path.basename(archivePath)}-${temporarySuffix}.sha256`)
@@ -133,6 +143,7 @@ try {
   })
   const releaseMetadata = createCcxReleaseMetadata({
     ccxVersion: builtManifest.version,
+    buildNumber: builtBuild.buildNumber,
     filename: path.basename(archivePath),
     sha256,
     webviewOrigin,

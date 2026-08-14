@@ -7,12 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '../..')
 const pluginDir = path.join(projectRoot, 'dist', 'ccx-host')
 const manifestPath = path.join(pluginDir, 'manifest.json')
+const buildMetadataPath = path.join(pluginDir, 'ccx-build.json')
 const panelPath = path.join(pluginDir, 'ccx-panel.html')
 const browserPreviewPath = path.join(pluginDir, 'browser-preview.html')
 const assetsDir = path.join(pluginDir, 'assets')
 const iconsDir = path.join(pluginDir, 'icons')
 const webUiDir = path.join(pluginDir, 'webui')
 const sourceManifestPath = path.join(projectRoot, 'plug-in', 'manifest.json')
+const sourcePackagePath = path.join(projectRoot, 'plug-in', 'package.json')
 const productionInnerWebUiUrl = 'https://mugen.catrefuse.com/webui/'
 const productionInnerWebUiOrigin = new URL(productionInnerWebUiUrl).origin
 
@@ -24,7 +26,9 @@ async function assertFile(filePath, label) {
 }
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+const buildMetadata = JSON.parse(await readFile(buildMetadataPath, 'utf8'))
 const sourceManifest = JSON.parse(await readFile(sourceManifestPath, 'utf8'))
+const sourcePackage = JSON.parse(await readFile(sourcePackagePath, 'utf8'))
 await assertFile(panelPath, 'ccx-panel.html')
 await assertFile(path.join(iconsDir, 'dark@1x.png'), 'panel dark 1x icon')
 await assertFile(path.join(iconsDir, 'dark@2x.png'), 'panel dark 2x icon')
@@ -58,6 +62,16 @@ if (typeof manifest.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(manifest.ver
 
 if (sourceManifest.version !== manifest.version) {
   throw new Error('Source and built CCX manifests must use the same version.')
+}
+
+if (
+  typeof sourcePackage.buildNumber !== 'string'
+  || !/^\d{6}(?!0000)\d{4}$/.test(sourcePackage.buildNumber)
+  || buildMetadata.version !== manifest.version
+  || buildMetadata.buildNumber !== sourcePackage.buildNumber
+  || buildMetadata.releaseId !== `${manifest.version}+${sourcePackage.buildNumber}`
+) {
+  throw new Error('Source and built CCX build metadata must use the same YYMMDDnnnn build number.')
 }
 
 if (
@@ -131,12 +145,14 @@ if (assets.some((file) => file.endsWith('.map'))) {
 let hasHostedWebviewUrl = false
 let hasInnerHostProtocol = false
 let hasPanelResizeSync = false
+let hasCcxReleaseId = false
 
 for (const scriptFile of scriptFiles) {
   const source = await readFile(path.join(assetsDir, scriptFile), 'utf8')
   hasHostedWebviewUrl ||= source.includes(productionInnerWebUiUrl)
   hasInnerHostProtocol ||= source.includes('inner-host/v1')
   hasPanelResizeSync ||= source.includes('data-mugen-fill-panel') && source.includes('innerHeight') && source.includes('innerWidth')
+  hasCcxReleaseId ||= source.includes(buildMetadata.releaseId)
   if (source.includes('plugin:/webui/')) {
     throw new Error(`${scriptFile} still contains a local WebUI URL.`)
   }
@@ -160,11 +176,14 @@ if (!hasInnerHostProtocol) {
 if (!hasPanelResizeSync) {
   throw new Error('The bundled Host must synchronize the WebView pixel size with the Photoshop panel.')
 }
+if (!hasCcxReleaseId) {
+  throw new Error('The bundled Host must expose the CCX version and build number as its release ID.')
+}
 
 const productionArtifactScan = await assertProductionCcxArtifactsClean(pluginDir)
 
 console.log(
-  `CCX ${manifest.version} build verified with hosted WebUI ${productionInnerWebUiUrl} ` +
+  `CCX ${buildMetadata.releaseId} build verified with hosted WebUI ${productionInnerWebUiUrl} ` +
   `and ${productionArtifactScan.scannedFileCount} scanned artifacts: ` +
   path.relative(projectRoot, pluginDir)
 )

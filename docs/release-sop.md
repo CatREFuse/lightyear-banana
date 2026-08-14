@@ -7,14 +7,14 @@ CCX 的运维执行步骤、密码登录时的临时公钥流程和公网验收�
 ## 发行范围
 
 - WebUI：`https://mugen.catrefuse.com/webui/`
-- CCX：`https://mugen.catrefuse.com/download/mugen-<version>.ccx`
+- CCX：`https://mugen.catrefuse.com/download/mugen-<version>-<build>.ccx`
 - 官网：`https://mugen.catrefuse.com/`
 
 WebUI 与 CCX 独立构建，CCX 固定加载云端 WebUI。一次同时包含 WebUI 和 CCX 改动的发行必须完成两条部署链，并由官网快照分发本次版本化 CCX。
 
 ## 发行前提
 
-- 版本号、协议兼容信息、Spec 和 `docs/build-todo-list.md` 已同步。
+- 版本号、build 号、协议兼容信息、Spec 和 `docs/build-todo-list.md` 已同步。
 - 代码与官网发行元数据均已提交，工作树干净。
 - `key.env` 提供正式 URL、部署目录和 SSH 公钥身份；密码字段必须为空，部署脚本不接受密码认证。
 - macOS 使用规范物理临时目录：`TMPDIR=/private/tmp`。
@@ -33,14 +33,22 @@ npm run verify:inner-webui:public
 
 ## 2. CCX 正式打包
 
+每次正式构建都更新并提交 build 号；同一天自动递增 `nnnn`，跨天从 `0001` 开始：
+
+```bash
+npm run bump:ccx-build
+```
+
+本次 build 号提交且工作树恢复干净后执行：
+
 ```bash
 TMPDIR=/private/tmp npm run package:ccx
 ```
 
 核对以下内容：
 
-- `plug-in/manifest.json`、`dist/ccx-host/manifest.json` 和 `dist/ccx-release.json` 版本一致。
-- `dist/mugen-<version>.ccx` 与 `.sha256` 一致。
+- `plug-in/manifest.json`、`plug-in/package.json`、`dist/ccx-host/manifest.json`、`dist/ccx-host/ccx-build.json` 和 `dist/ccx-release.json` 的版本与 build 号一致。
+- `dist/mugen-<version>-<build>.ccx` 与 `.sha256` 一致。
 - `dist/ccx-release.json` 为 `dirty: false`，`sourceCommit` 指向本次 CCX 代码提交。
 - 归档只包含 CCX Host 资源，不包含 `webui/` 静态文件。
 
@@ -73,8 +81,8 @@ npm run deploy:site
 
 ```bash
 npm run verify:inner-webui:public
-curl -fsSL https://mugen.catrefuse.com/download/mugen-<version>.ccx --output /private/tmp/mugen-<version>.ccx
-shasum -a 256 /private/tmp/mugen-<version>.ccx
+curl -fsSL https://mugen.catrefuse.com/download/mugen-<version>-<build>.ccx --output /private/tmp/mugen-<version>-<build>.ccx
+shasum -a 256 /private/tmp/mugen-<version>-<build>.ccx
 ```
 
 最终证据必须同时包含：

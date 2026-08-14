@@ -98,7 +98,12 @@ function requireSemver(value, label) {
 
 export async function verifyCcxRelease({ root = rootFromScript } = {}) {
   const pluginManifest = JSON.parse(await readFile(join(root, "plug-in", "manifest.json"), "utf8"))
+  const pluginPackage = JSON.parse(await readFile(join(root, "plug-in", "package.json"), "utf8"))
   const ccxVersion = requireSemver(pluginManifest.version, "plugin manifest version")
+  const buildNumber = pluginPackage.buildNumber
+  if (typeof buildNumber !== "string" || !/^\d{6}(?!0000)\d{4}$/.test(buildNumber)) {
+    fail("plugin package buildNumber must use YYMMDDnnnn with a non-zero daily counter")
+  }
 
   const ccxMetadataPath = join(root, "dist", "ccx-release.json")
   let ccxMetadata
@@ -108,9 +113,10 @@ export async function verifyCcxRelease({ root = rootFromScript } = {}) {
     fail(`cannot read ${ccxMetadataPath}: ${error.message}`)
   }
   requireObject(ccxMetadata, "dist/ccx-release.json")
-  requireEqual(ccxMetadata.schemaVersion, 1, "ccx-release.json schemaVersion")
+  requireEqual(ccxMetadata.schemaVersion, 2, "ccx-release.json schemaVersion")
   requireEqual(ccxMetadata.ccxVersion, ccxVersion, "ccx-release.json ccxVersion")
-  requireEqual(ccxMetadata.filename, `mugen-${ccxVersion}.ccx`, "ccx-release.json filename")
+  requireEqual(ccxMetadata.buildNumber, buildNumber, "ccx-release.json buildNumber")
+  requireEqual(ccxMetadata.filename, `mugen-${ccxVersion}-${buildNumber}.ccx`, "ccx-release.json filename")
   requireEqual(ccxMetadata.dirty, false, "ccx-release.json dirty")
   if (typeof ccxMetadata.sourceCommit !== "string" || !/^[a-fA-F0-9]{40}$/.test(ccxMetadata.sourceCommit)) {
     fail("ccx-release.json sourceCommit must contain 40 hexadecimal characters")
@@ -153,6 +159,8 @@ export async function verifyCcxRelease({ root = rootFromScript } = {}) {
   return {
     version: ccxVersion,
     ccxVersion,
+    buildNumber,
+    releaseId: `${ccxVersion}+${buildNumber}`,
     releaseDir: join(root, "dist"),
     checksumPath,
     ccxMetadataPath,
@@ -233,6 +241,7 @@ export async function verifySiteMetadata({
   requireEqual(readHref(webUiAnchor, "site/index.html WebUI link"), "./webui/", "site/index.html WebUI href")
   requireEqual(webUiAnchor.replace(/<[^>]*>/g, "").trim(), "Open WebUI", "site/index.html WebUI label")
   requireEqual(readElementText(html, "data-ccx-version", "site/index.html specimen version"), version, "site/index.html specimen version")
+  requireEqual(readElementText(html, "data-ccx-build", "site/index.html specimen build"), ccxMetadata.buildNumber, "site/index.html specimen build")
 
   const llmsLowerRaw = materializeReleaseOrigin(await readFile(join(siteDir, "llms.txt"), "utf8"), releaseOrigin)
   const llmsUpperRaw = materializeReleaseOrigin(await readFile(join(siteDir, "LLM.TXT"), "utf8"), releaseOrigin)
@@ -240,6 +249,7 @@ export async function verifySiteMetadata({
   const llms = normalizeNewlines(llmsLowerRaw)
 
   requireEqual(readLabeledValue(llms, "Current version:"), version, "llms.txt current version")
+  requireEqual(readLabeledValue(llms, "Current build:"), ccxMetadata.buildNumber, "llms.txt current build")
   requireEqual(readLabeledValue(llms, "Packaged at:"), ccxMetadata.builtAt, "llms.txt packaged timestamp")
   const block = readDownloadBlock(llms, "Adobe Photoshop plugin:")
   requireEqual(block.url, downloadUrl, "llms.txt CCX URL")

@@ -9,7 +9,7 @@
 └── previous -> releases/<previous-site-id>
 ```
 
-Nginx 从 `current` 提供首页。当前 CCX 固定放在 `current/download/mugen-<version>.ccx`，与 HTML、JavaScript 和图片一起进入站点清单、内容哈希、原子切换和回滚。首页不读取版本清单，`releases/latest.json` 已退出构建与用户下载链。部署器在迁移期仍会原字节保留旧快照中的 `releases/`，只用于既有回滚兼容，不作为当前版本来源。
+Nginx 从 `current` 提供首页。当前 CCX 固定放在 `current/download/mugen-<version>-<build>.ccx`，与 HTML、JavaScript 和图片一起进入站点清单、内容哈希、原子切换和回滚。首页不读取版本清单，`releases/latest.json` 已退出构建与用户下载链。部署器在迁移期仍会原字节保留旧快照中的 `releases/`，只用于既有回滚兼容，不作为当前版本来源。
 
 ## 环境
 
@@ -50,6 +50,8 @@ form-action 'none';
 CCX 必须随官网不可变快照发布。`npm run package:ccx` 只生成本地产物，官网切换完成并且公网 CCX 的完整字节与 SHA256 验证通过后，才能记录为正式发布。
 
 ### 1. 打包 CCX
+
+运行 `npm run bump:ccx-build`，确认 `plug-in/package.json#buildNumber` 按 Asia/Shanghai 日期使用 `YYMMDDnnnn` 并提交。每次正式构建都必须生成新的 build 号，语义版本不变时也不得复用旧 build。
 
 从已提交的干净工作树执行：
 
@@ -103,9 +105,9 @@ npm run deploy:site -- --env=/private/tmp/<release-runtime>/deploy.env
 ```bash
 curl -fsSL https://mugen.catrefuse.com/ --output /private/tmp/mugen-home.html
 curl -fsSL -D /private/tmp/mugen-ccx.headers \
-  https://mugen.catrefuse.com/download/mugen-<version>.ccx \
-  --output /private/tmp/mugen-<version>.ccx
-shasum -a 256 dist/mugen-<version>.ccx /private/tmp/mugen-<version>.ccx
+  https://mugen.catrefuse.com/download/mugen-<version>-<build>.ccx \
+  --output /private/tmp/mugen-<version>-<build>.ccx
+shasum -a 256 dist/mugen-<version>-<build>.ccx /private/tmp/mugen-<version>-<build>.ccx
 ```
 
 验收结果必须满足：
@@ -118,7 +120,7 @@ shasum -a 256 dist/mugen-<version>.ccx /private/tmp/mugen-<version>.ccx
 
 ## 本地检查
 
-发布新版 CCX 时，先从干净提交生成 `dist/mugen-<version>.ccx`、`.sha256` 和 `dist/ccx-release.json`，再把 `homesite/site/index.html`、`homesite/site/llms.txt`、`homesite/site/LLM.TXT` 中的下载 URL、标本号、打包时间、文件大小和 SHA256 更新为这份发行元数据。任何字段仍属于旧版本时，站点构建必须失败。
+发布新版 CCX 时，先从干净提交生成 `dist/mugen-<version>-<build>.ccx`、`.sha256` 和 `dist/ccx-release.json`，再把 `homesite/site/index.html`、`homesite/site/llms.txt`、`homesite/site/LLM.TXT` 中的下载 URL、标本号、build 号、打包时间、文件大小和 SHA256 更新为这份发行元数据。任何字段仍属于旧构建时，站点构建必须失败。
 
 完成发行信息更新后构建站点，再运行定向测试和只读 dry-run：
 
@@ -130,7 +132,7 @@ npm run deploy:site -- --dry-run
 
 `test:site-deploy` 包含状态转换与失败注入测试。日常发行使用当前开发环境完成构建和 dry-run；无需额外启动 Docker 或触发 Linux CI。服务器仍需满足上文列出的 GNU/Linux 远端契约。
 
-`build:site` 从 `plug-in/manifest.json` 和 `dist/ccx-release.json` 读取当前 CCX 版本；两者必须一致。站点文件固定为 `dist/site/download/mugen-<ccx-version>.ccx`，其字节、大小与 SHA256 必须和根目录打包产物一致。`--include-ccx` 属于旧发布树兼容参数，新标准不使用。
+`build:site` 从 `plug-in/manifest.json`、`plug-in/package.json` 和 `dist/ccx-release.json` 读取当前 CCX 版本与 build 号；三者必须一致。站点文件固定为 `dist/site/download/mugen-<ccx-version>-<build>.ccx`，其字节、大小与 SHA256 必须和根目录打包产物一致。`--include-ccx` 属于旧发布树兼容参数，新标准不使用。
 
 `build:site` 会生成 `site-release.json` 和 `site-manifest.json`。前者记录当前完整 Git SHA、dirty 状态、构建时间、全站内容哈希和 build ID；后者列出每个可部署静态文件的路径、大小与 SHA256。部署只接受干净工作树、`dirty: false`、与当前 `HEAD` 一致的构建，并重新计算全站内容哈希和清单。
 
