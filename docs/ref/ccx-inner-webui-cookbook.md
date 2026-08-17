@@ -100,6 +100,8 @@ Photoshop 细节放进 `canvasPrimitives.ts`，文件、资产、历史、诊断
 4. 握手完成后才开放普通命令。
 5. WebView 销毁或重载时释放会话和临时资产。
 
+WebView 使用 `width="100%"`、`height="100%"` 与 Host 的确定高度链填满面板。不要在 Host `window.resize` 回调中反复把面板 `clientWidth`、`clientHeight` 写回 WebView 原生属性；Windows Photoshop 的 UXP WebView 会因此重复触发布局与边框重绘，表现为打开插件后界面闪动或抽搐。
+
 排查启动失败时按顺序查看：Manifest entrypoint、Host bundle、WebView URL、bridge 权限、握手日志、协议版本。启动诊断文件应覆盖 Photoshop、CCX Host、message bridge 与 WebUI 的同一次会话。
 
 ### 4.2 交互命令的等待时间
@@ -244,6 +246,7 @@ WebView DOM 在 Photoshop 外层辅助功能树中可能不可见。真实验收
 | 拖入无提示 | dragover 是否调用 preventDefault、是否只在 drop 读取 File |
 | 预览只显示小图 | 是否调用 `asset.readOriginal`、资产原图是否仍受历史持有 |
 | 下载导致 WebView 退出 | 是否在 WebView 生成大 Blob；CCX 应交给 Host save command |
+| 打开面板后界面持续闪动 | Host 是否监听 `window.resize` 并反复写入 WebView 像素宽高；应使用百分比尺寸填充 |
 | 一个任务完成后其他任务消失 | 是否按 taskId 更新、是否覆盖 turns 或共享 loading 状态 |
 | 重启后历史为空 | Host 历史文件、schema 迁移、资产 retain/restore |
 | Reload 后行为仍旧 | UDT 加载路径、云端 WebUI 缓存、是否需要 Unload/Load |

@@ -104,7 +104,7 @@ export function createWebViewShell(options: {
   root.style.display = 'flex'
   root.style.flex = '1 1 auto'
   root.style.width = '100%'
-  root.style.height = '100vh'
+  root.style.height = '100%'
   root.style.minWidth = '0'
   root.style.minHeight = '0'
   root.style.overflow = 'hidden'
@@ -134,18 +134,10 @@ export function createWebViewShell(options: {
   }
 
   webview.setAttribute('data-mugen-fill-panel', 'true')
-  webview.style.cssText = 'display:block;flex:1 1 auto;min-width:0;min-height:0;border:0;background:var(--uxp-host-background-color,#11161f);'
-
-  const syncWebViewSize = () => {
-    const width = Math.max(1, Math.floor(root.clientWidth || window.innerWidth || 1))
-    const height = Math.max(1, Math.floor(root.clientHeight || window.innerHeight || 1))
-    const cssWidth = `${width}px`
-    const cssHeight = `${height}px`
-    webview.setAttribute('width', cssWidth)
-    webview.setAttribute('height', cssHeight)
-    webview.style.width = cssWidth
-    webview.style.height = cssHeight
-  }
+  webview.setAttribute('data-mugen-size-mode', 'css-fill')
+  webview.setAttribute('width', '100%')
+  webview.setAttribute('height', '100%')
+  webview.style.cssText = 'display:block;flex:1 1 auto;width:100%;height:100%;min-width:0;min-height:0;border:0;background:var(--uxp-host-background-color,#11161f);'
 
   const postMessage = (message: BridgeEnvelope) => {
     if (destroyed) return
@@ -178,7 +170,6 @@ export function createWebViewShell(options: {
       url: webUiUrl.href,
       expectedOrigin
     })
-    syncWebViewSize()
     replaceRoot(webview)
     try {
       webview.setAttribute('src', webUiUrl.href)
@@ -240,9 +231,7 @@ export function createWebViewShell(options: {
 
   webview.addEventListener('loadstop', handleLoadStop)
   webview.addEventListener('loaderror', handleLoadError)
-  window.addEventListener('resize', syncWebViewSize)
   window.addEventListener('message', handleWindowMessage)
-  syncWebViewSize()
   load()
 
   return {
@@ -262,7 +251,6 @@ export function createWebViewShell(options: {
       clearLoadTimer()
       clearHandshakeTimer()
       options.startupLog.record('ccx', 'ccx', 'startup.destroy', { attempt })
-      window.removeEventListener('resize', syncWebViewSize)
       window.removeEventListener('message', handleWindowMessage)
       webview.removeEventListener('loadstop', handleLoadStop)
       webview.removeEventListener('loaderror', handleLoadError)

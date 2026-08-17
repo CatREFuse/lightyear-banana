@@ -129,6 +129,31 @@ describe('createWebViewShell startup failure UI', () => {
     expect(root.children).toHaveLength(0)
   })
 
+  it('fills the panel without rewriting WebView pixels from window resize events', async () => {
+    const { createWebViewShell } = await import('./webviewShell')
+    const shell = createWebViewShell({
+      mountNode: root as unknown as HTMLElement,
+      sessionId: 'session-1',
+      hostNonce: 'host-1',
+      hostVersion: '1.1.8',
+      startupLog: log as unknown as StartupLog,
+      onMessage: vi.fn()
+    })
+    const webview = created.find((element) => element.tagName === 'webview')!
+    const fakeWindow = window as unknown as FakeWindow
+
+    expect(root.style.height).toBe('100%')
+    expect(webview.attributes.get('data-mugen-size-mode')).toBe('css-fill')
+    expect(webview.attributes.get('width')).toBe('100%')
+    expect(webview.attributes.get('height')).toBe('100%')
+    expect(webview.style.cssText).toContain('width:100%;height:100%')
+    expect(fakeWindow.listeners.has('resize')).toBe(false)
+    expect(fakeWindow.listeners.get('message')).toHaveLength(1)
+
+    shell.destroy()
+    expect(fakeWindow.listeners.get('message')).toHaveLength(0)
+  })
+
   it('reports a missing Host handshake and cancels the failure timer after readiness', async () => {
     const { createWebViewShell } = await import('./webviewShell')
     const onMessage = vi.fn()

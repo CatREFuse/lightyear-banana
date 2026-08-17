@@ -144,14 +144,14 @@ if (assets.some((file) => file.endsWith('.map'))) {
 
 let hasHostedWebviewUrl = false
 let hasInnerHostProtocol = false
-let hasPanelResizeSync = false
+let hasStablePanelFill = false
 let hasCcxReleaseId = false
 
 for (const scriptFile of scriptFiles) {
   const source = await readFile(path.join(assetsDir, scriptFile), 'utf8')
   hasHostedWebviewUrl ||= source.includes(productionInnerWebUiUrl)
   hasInnerHostProtocol ||= source.includes('inner-host/v1')
-  hasPanelResizeSync ||= source.includes('data-mugen-fill-panel') && source.includes('innerHeight') && source.includes('innerWidth')
+  hasStablePanelFill ||= source.includes('data-mugen-fill-panel') && source.includes('data-mugen-size-mode') && source.includes('css-fill')
   hasCcxReleaseId ||= source.includes(buildMetadata.releaseId)
   if (source.includes('plugin:/webui/')) {
     throw new Error(`${scriptFile} still contains a local WebUI URL.`)
@@ -173,8 +173,8 @@ if (!hasHostedWebviewUrl) {
 if (!hasInnerHostProtocol) {
   throw new Error('The bundled Host does not contain the inner-host/v1 protocol marker.')
 }
-if (!hasPanelResizeSync) {
-  throw new Error('The bundled Host must synchronize the WebView pixel size with the Photoshop panel.')
+if (!hasStablePanelFill) {
+  throw new Error('The bundled Host must fill the Photoshop panel without a window resize feedback loop.')
 }
 if (!hasCcxReleaseId) {
   throw new Error('The bundled Host must expose the CCX version and build number as its release ID.')

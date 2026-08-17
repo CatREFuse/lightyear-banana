@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.tanshow.mugen",
   "name": "Mugen",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "main": "ccx-panel.html",
   "host": {
     "app": "PS",
