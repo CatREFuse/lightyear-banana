@@ -465,16 +465,6 @@ function parseNodeIds(value: string) {
               @input="updateComfyUiSettings({ timeoutMs: Number(($event.target as HTMLInputElement).value) })"
             />
           </label>
-          <label>
-            <span>轮询间隔（ms）</span>
-            <input
-              :value="comfyUiSettings.pollIntervalMs"
-              type="number"
-              min="250"
-              step="250"
-              @input="updateComfyUiSettings({ pollIntervalMs: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </label>
         </div>
       </section>
 

@@ -280,6 +280,10 @@ UXP Host 剪贴板 API 可能存在但读取立即失败，也可能无法返回
 
 组件中的异步预处理、HostClient、协议、Host 服务和 Photoshop 原子操作都可能失败。每层补上下文后继续抛出，最终由 composable/store 转为用户状态；禁止空 catch、只写 console 或用占位图遮盖错误。
 
+### 9.10 异步 Provider 不应各自维护轮询节奏
+
+APIMart、iMini、Kling、FLUX 与 ComfyUI 的任务状态和失败结构各不相同，查询时机属于共享运行时能力。各 Provider 在提交后把任务查询与状态解析交给共享轮询器，任务开始后的前 180 秒每 5 秒查询一次，180 秒后每 10 秒查询一次；Provider 仅保留任务超时、终态映射和错误详情。ComfyUI 的旧 `pollIntervalMs` 字段继续用于协议和存储兼容，WebUI 不再展示无效的轮询间隔输入。回归测试需覆盖 180 秒边界、超时末段等待裁剪、Provider 冒烟、双视口 WebUI 和取消路径。
+
 ## 10. 测试矩阵
 
 | 层级 | 重点 |

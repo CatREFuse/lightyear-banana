@@ -9,6 +9,7 @@ import type {
   ReferenceImage
 } from '../types/mugen'
 import type { ImageGenerationParams, NormalizedImageResult } from './contracts'
+import { pollAsyncTask } from '../services/asyncTaskPolling'
 import { encodeUtf8 } from '../utils/utf8'
 import { normalizeCustomModelFormat, providerCapabilities } from './definitions'
 
@@ -79,13 +80,12 @@ const providerBaseUrls: Partial<Record<ImageProviderId, string>> = {
   flux: 'https://api.bfl.ai'
 }
 
-const pollIntervalMs = 2000
-const pollAttempts = 99
-const apimartPollIntervalMs = 5000
-const apimartPollAttempts = 99
-const iMiniPollStartIntervalMs = 2000
-const iMiniPollMaxIntervalMs = 30000
-const iMiniRateLimitIntervalMs = 5000
+const apimartPollTimeoutMs = 495000
+const klingPollTimeoutMs = 198000
+const fluxPollTimeoutMs = 198000
+const iMiniSubmitStartIntervalMs = 2000
+const iMiniSubmitMaxIntervalMs = 30000
+const iMiniSubmitRateLimitIntervalMs = 5000
 const iMiniImageTimeoutMs = 600000
 const iMiniTransientRetryCount = 3
 const apimartReferenceMaxBytes = 9 * 1024 * 1024
@@ -2060,38 +2060,41 @@ async function requestApimart(params: ImageGenerationParams) {
     return normalizeApimartResultPayload(params, payload)
   }
 
-  for (let attempt = 0; attempt < apimartPollAttempts; attempt += 1) {
-    let result: any
-    try {
-      result = await fetchJson(joinUrl(baseUrl, `/v1/tasks/${encodeURIComponent(taskId)}?language=zh`), {
-        method: 'GET',
-        headers: createAuthHeaders(params.config),
-        signal: params.signal
-      }, readTimingContext(params, 'poll', { taskId, attempt: attempt + 1 }))
-    } catch (error) {
-      if (params.signal?.aborted || (error instanceof ImageApiError && error.status === 499)) {
+  return pollAsyncTask({
+    timeoutMs: apimartPollTimeoutMs,
+    signal: params.signal,
+    poll: async (attempt) => {
+      let result: any
+      try {
+        result = await fetchJson(joinUrl(baseUrl, `/v1/tasks/${encodeURIComponent(taskId)}?language=zh`), {
+          method: 'GET',
+          headers: createAuthHeaders(params.config),
+          signal: params.signal
+        }, readTimingContext(params, 'poll', { taskId, attempt }))
+      } catch (error) {
+        if (params.signal?.aborted || (error instanceof ImageApiError && error.status === 499)) {
+          throw error
+        }
+
+        if (error instanceof ImageApiError && error.status === 0) {
+          return { done: false }
+        }
+
         throw error
       }
 
-      if (error instanceof ImageApiError && error.status === 0 && attempt < apimartPollAttempts - 1) {
-        await wait(apimartPollIntervalMs, params.signal)
-        continue
+      const status = readApimartTaskStatus(result)
+      if (!status || status === 'completed' || status === 'succeeded' || status === 'success') {
+        return { done: true, value: normalizeApimartResultPayload(params, result) }
       }
-
-      throw error
-    }
-
-    const status = readApimartTaskStatus(result)
-    if (!status || status === 'completed' || status === 'succeeded' || status === 'success') {
-      return normalizeApimartResultPayload(params, result)
-    }
-    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
-      throw new ImageApiError(readApimartTaskError(result) || 'APIMart 任务失败', 502)
-    }
-    await wait(apimartPollIntervalMs, params.signal)
-  }
-
-  throw new ImageApiError(`APIMart 任务超时：${taskId}`, 504)
+      if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
+        throw new ImageApiError(readApimartTaskError(result) || 'APIMart 任务失败', 502)
+      }
+      return { done: false }
+    },
+    createAbortError: () => new ImageApiError('请求已取消', 499),
+    createTimeoutError: () => new ImageApiError(`APIMart 任务超时：${taskId}`, 504)
+  })
 }
 
 function readIMiniTaskId(payload: any) {
@@ -2130,7 +2133,7 @@ function readIMiniJitteredDelay(intervalMs: number) {
 }
 
 async function submitIMini(params: ImageGenerationParams, deadline: number) {
-  let intervalMs = iMiniPollStartIntervalMs
+  let intervalMs = iMiniSubmitStartIntervalMs
 
   for (let attempt = 0; attempt <= iMiniTransientRetryCount; attempt += 1) {
     try {
@@ -2152,14 +2155,14 @@ async function submitIMini(params: ImageGenerationParams, deadline: number) {
       }
 
       if (error.status === 429) {
-        intervalMs = Math.max(intervalMs, iMiniRateLimitIntervalMs)
+        intervalMs = Math.max(intervalMs, iMiniSubmitRateLimitIntervalMs)
       }
       const remainingMs = deadline - Date.now()
       if (remainingMs <= 0) {
         throw new ImageApiError('i-mini 任务超时', 504)
       }
       await wait(Math.min(readIMiniJitteredDelay(intervalMs), remainingMs), params.signal)
-      intervalMs = Math.min(intervalMs * 1.5, iMiniPollMaxIntervalMs)
+      intervalMs = Math.min(intervalMs * 1.5, iMiniSubmitMaxIntervalMs)
     }
   }
 
@@ -2176,35 +2179,32 @@ async function requestIMini(params: ImageGenerationParams) {
     throw new ImageApiError('i-mini 未返回 task_id', 502)
   }
 
-  let attempt = 0
-  let intervalMs = iMiniPollStartIntervalMs
-  while (Date.now() < deadline) {
-    attempt += 1
-    let result: any
-    try {
-      result = await fetchJson(joinUrl(baseUrl, `/v1/images/tasks/${encodeURIComponent(taskId)}`), {
-        method: 'GET',
-        headers: createAuthHeaders(params.config),
-        signal: params.signal
-      }, readTimingContext(params, 'poll', { taskId, attempt }))
-    } catch (error) {
-      if (params.signal?.aborted || (error instanceof ImageApiError && error.status === 499)) {
-        throw error
+  return pollAsyncTask({
+    timeoutMs: Math.max(0, deadline - Date.now()),
+    signal: params.signal,
+    poll: async (attempt) => {
+      let result: any
+      try {
+        result = await fetchJson(joinUrl(baseUrl, `/v1/images/tasks/${encodeURIComponent(taskId)}`), {
+          method: 'GET',
+          headers: createAuthHeaders(params.config),
+          signal: params.signal
+        }, readTimingContext(params, 'poll', { taskId, attempt }))
+      } catch (error) {
+        if (params.signal?.aborted || (error instanceof ImageApiError && error.status === 499)) {
+          throw error
+        }
+
+        if (!(error instanceof ImageApiError) || !error.retryable) {
+          throw error instanceof ImageApiError ? readIMiniHttpError(error) : error
+        }
+
+        return { done: false }
       }
 
-      if (!(error instanceof ImageApiError) || !error.retryable) {
-        throw error instanceof ImageApiError ? readIMiniHttpError(error) : error
-      }
-
-      if (error.status === 429) {
-        intervalMs = Math.max(intervalMs, iMiniRateLimitIntervalMs)
-      }
-    }
-
-    if (result) {
       const status = readIMiniTaskStatus(result)
       if (status === 'succeeded') {
-        return normalizeIMiniResultPayload(params, result)
+        return { done: true, value: normalizeIMiniResultPayload(params, result) }
       }
       if (status === 'failed') {
         throw new ImageApiError(
@@ -2218,17 +2218,11 @@ async function requestIMini(params: ImageGenerationParams) {
       if (status !== 'queued' && status !== 'processing') {
         throw new ImageApiError(`i-mini 返回了未知任务状态：${status || '空'}`, 502)
       }
-    }
-
-    const remainingMs = deadline - Date.now()
-    if (remainingMs <= 0) {
-      break
-    }
-    await wait(Math.min(readIMiniJitteredDelay(intervalMs), remainingMs), params.signal)
-    intervalMs = Math.min(intervalMs * 1.5, iMiniPollMaxIntervalMs)
-  }
-
-  throw new ImageApiError(`i-mini 任务超时：${taskId}`, 504)
+      return { done: false }
+    },
+    createAbortError: () => new ImageApiError('请求已取消', 499),
+    createTimeoutError: () => new ImageApiError(`i-mini 任务超时：${taskId}`, 504)
+  })
 }
 
 async function requestCodexImageServer(params: ImageGenerationParams) {
@@ -2317,23 +2311,27 @@ async function requestDashScope(params: ImageGenerationParams) {
     return payload
   }
 
-  for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
-    const result = await fetchJson(joinUrl(resolveBaseUrl(params.config), `/api/v1/tasks/${taskId}`), {
-      method: 'GET',
-      headers: createAuthHeaders(params.config),
-      signal: params.signal
-    }, readTimingContext(params, 'poll', { taskId, attempt: attempt + 1 }))
-    const status = (result as KlingTaskResponse).output?.task_status
-    if (!status || status === 'SUCCEEDED') {
-      return result
-    }
-    if (status === 'FAILED' || status === 'CANCELED') {
-      throw new ImageApiError('Kling 任务失败', 502)
-    }
-    await wait(pollIntervalMs, params.signal)
-  }
-
-  throw new ImageApiError('Kling 任务超时', 504)
+  return pollAsyncTask({
+    timeoutMs: klingPollTimeoutMs,
+    signal: params.signal,
+    poll: async (attempt) => {
+      const result = await fetchJson(joinUrl(resolveBaseUrl(params.config), `/api/v1/tasks/${taskId}`), {
+        method: 'GET',
+        headers: createAuthHeaders(params.config),
+        signal: params.signal
+      }, readTimingContext(params, 'poll', { taskId, attempt }))
+      const status = (result as KlingTaskResponse).output?.task_status
+      if (!status || status === 'SUCCEEDED') {
+        return { done: true, value: result }
+      }
+      if (status === 'FAILED' || status === 'CANCELED') {
+        throw new ImageApiError('Kling 任务失败', 502)
+      }
+      return { done: false }
+    },
+    createAbortError: () => new ImageApiError('请求已取消', 499),
+    createTimeoutError: () => new ImageApiError('Kling 任务超时', 504)
+  })
 }
 
 async function requestSeedream(params: ImageGenerationParams) {
@@ -2367,23 +2365,27 @@ async function requestFlux(params: ImageGenerationParams) {
     return payload
   }
 
-  for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
-    const result = await fetchJson(pollingUrl, {
-      method: 'GET',
-      headers: createAuthHeaders(params.config),
-      signal: params.signal
-    }, readTimingContext(params, 'poll', { attempt: attempt + 1 }))
-    const status = (result as any).status
-    if (!status || status === 'Ready') {
-      return result
-    }
-    if (status === 'Error' || status === 'Failed') {
-      throw new ImageApiError('FLUX 任务失败', 502)
-    }
-    await wait(pollIntervalMs, params.signal)
-  }
-
-  throw new ImageApiError('FLUX 任务超时', 504)
+  return pollAsyncTask({
+    timeoutMs: fluxPollTimeoutMs,
+    signal: params.signal,
+    poll: async (attempt) => {
+      const result = await fetchJson(pollingUrl, {
+        method: 'GET',
+        headers: createAuthHeaders(params.config),
+        signal: params.signal
+      }, readTimingContext(params, 'poll', { attempt }))
+      const status = (result as any).status
+      if (!status || status === 'Ready') {
+        return { done: true, value: result }
+      }
+      if (status === 'Error' || status === 'Failed') {
+        throw new ImageApiError('FLUX 任务失败', 502)
+      }
+      return { done: false }
+    },
+    createAbortError: () => new ImageApiError('请求已取消', 499),
+    createTimeoutError: () => new ImageApiError('FLUX 任务超时', 504)
+  })
 }
 
 async function requestComfyUi(params: ImageGenerationParams) {
@@ -2417,21 +2419,26 @@ async function requestComfyUi(params: ImageGenerationParams) {
     body: JSON.stringify({ prompt: workflow, client_id: clientId })
   }, readTimingContext(params, 'submit', { clientId }))) as ComfyUiPromptResponse
 
-  if (!task.prompt_id) {
+  const taskId = task.prompt_id
+  if (!taskId) {
     throw new ImageApiError('ComfyUI 未返回任务 ID', 502)
   }
 
   const timeoutMs = Math.max(1000, settings.timeoutMs)
-  const pollMs = Math.max(250, settings.pollIntervalMs)
-  const startedAt = Date.now()
-  while (Date.now() - startedAt < timeoutMs) {
-    const history = await fetchJson(joinUrl(baseUrl, `/history/${task.prompt_id}`), {
-      method: 'GET',
-      headers: createAuthHeaders(params.config),
-      signal: params.signal
-    }, readTimingContext(params, 'poll', { taskId: task.prompt_id }))
-    const images = readComfyUiHistoryImages(baseUrl, history, task.prompt_id)
-    if (images.length) {
+  return pollAsyncTask({
+    timeoutMs,
+    signal: params.signal,
+    poll: async (attempt) => {
+      const history = await fetchJson(joinUrl(baseUrl, `/history/${taskId}`), {
+        method: 'GET',
+        headers: createAuthHeaders(params.config),
+        signal: params.signal
+      }, readTimingContext(params, 'poll', { taskId, attempt }))
+      const images = readComfyUiHistoryImages(baseUrl, history, taskId)
+      if (!images.length) {
+        return { done: false }
+      }
+
       const normalizedImages = await Promise.all(
         images.map(async (image) => ({
           ...image,
@@ -2444,13 +2451,11 @@ async function requestComfyUi(params: ImageGenerationParams) {
           )
         }))
       )
-      return { data: normalizedImages }
-    }
-
-    await wait(pollMs, params.signal)
-  }
-
-  throw new ImageApiError('ComfyUI 任务超时', 504)
+      return { done: true, value: { data: normalizedImages } }
+    },
+    createAbortError: () => new ImageApiError('请求已取消', 499),
+    createTimeoutError: () => new ImageApiError('ComfyUI 任务超时', 504)
+  })
 }
 
 function readOpenAiImages(payload: any): NormalizedImageResult[] {

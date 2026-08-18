@@ -156,7 +156,8 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - iMini 使用 `https://openapi.imini.ai/imini/router` 和 Bearer API Key；图片任务提交到 `POST /v1/images/generate`，随后查询 `GET /v1/images/tasks/{task_id}`。
 - 浏览器运行时使用同源 `/webui-api/imini/` 转发 iMini 请求，避免 iMini 官方接口缺少 CORS 响应头导致浏览器拦截；本地 Vite 与正式 Nginx 必须把该路径固定转发到 `https://openapi.imini.ai/imini/router/`。自定义 iMini Base URL 保持直连，Photoshop CCX 始终使用配置中的地址。
 - Photoshop CCX 的配置测试通过 Host Bridge 执行；测试请求必须允许 iMini 完成最长 10 分钟的异步任务，WebView 等待上限为 610 秒，不得复用普通宿主命令的 12 秒超时。
-- iMini 只处理 `queued`、`processing`、`succeeded`、`failed` 四种任务状态；图片任务使用 10 分钟总超时、1.5 倍指数退避、30 秒上限与正负 20% 抖动，429 的等待下限为 5 秒。
+- APIMart、iMini、Kling、FLUX 与 ComfyUI 获取异步任务 ID 后统一使用共享轮询器：任务开始后的前 180 秒固定每 5 秒查询一次，180 秒后固定每 10 秒查询一次；Provider 只负责提交请求、解析状态和返回结果，不定义轮询频率。ComfyUI 保留旧 `pollIntervalMs` 配置字段用于协议与存储兼容，WebUI 不再提供轮询间隔设置。
+- iMini 只处理 `queued`、`processing`、`succeeded`、`failed` 四种任务状态，图片任务总超时保持 10 分钟；提交阶段的瞬时网络错误、429 与服务端错误最多重试 3 次。
 - iMini 错误保留 `error.code`、`error.message` 和 `request_id`，发布验证必须运行独立的 iMini Provider 冒烟。
 - iMini Provider 冒烟从 monorepo 的 `packages/mugen-core` 编译输出加载共享能力和请求实现，目录重构后仍必须通过发布门禁。
 - 配置结构、Provider ID、请求语义和旧公开函数在源码平移中保持兼容，运行时存储由 adapter 接管。
