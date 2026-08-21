@@ -38,7 +38,14 @@ body {
 
 body {
   min-width: 260px;
-  background: var(--mugen-bg);
+  background: #ffffff;
+}
+
+#app > .app-shell {
+  background-color: #ffffff;
+  background-image: radial-gradient(circle, #d4d4d8 1px, transparent 1px);
+  background-position: center top;
+  background-size: 12px 12px;
 }
 
 button,

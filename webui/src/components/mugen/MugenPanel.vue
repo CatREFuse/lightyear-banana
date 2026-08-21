@@ -228,8 +228,7 @@ function handleManageModels() {
     :class="[
       `theme-${resolvedColorMode}`,
       `design-${visualTheme}`,
-      `mode-${resolvedColorMode}`,
-      { 'is-settings-view': activeView === 'settings' }
+      `mode-${resolvedColorMode}`
     ]"
   >
     <PanelHeader

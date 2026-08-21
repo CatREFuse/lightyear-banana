@@ -578,23 +578,6 @@
   box-sizing: border-box;
 }
 
-.mugen-shell.mugen-shell .settings-panel::after {
-  position: absolute;
-  z-index: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 176px;
-  background-image: radial-gradient(circle, var(--mugen-border-strong) 1px, transparent 1px);
-  background-position: center bottom;
-  background-size: 12px 12px;
-  content: "";
-  opacity: 0.42;
-  pointer-events: none;
-  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.72) 46%, transparent 100%);
-  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.72) 46%, transparent 100%);
-}
-
 .mugen-shell.mugen-shell .settings-group {
   display: grid;
   gap: 8px;
@@ -712,7 +695,7 @@
 }
 
 @media (min-width: 435px) {
-  .mugen-shell.mugen-shell.mugen-shell.is-settings-view {
+  .mugen-shell.mugen-shell.mugen-shell {
     width: 402px;
     min-width: 402px;
     height: min(874px, calc(100dvh - 32px));
@@ -724,8 +707,8 @@
     box-shadow: none;
   }
 
-  .mugen-shell.mugen-shell.is-settings-view .panel-header.is-settings,
-  .mugen-shell.mugen-shell.is-settings-view .settings-page {
+  .mugen-shell.mugen-shell .panel-header.is-settings,
+  .mugen-shell.mugen-shell .settings-page {
     width: 100%;
   }
 }
