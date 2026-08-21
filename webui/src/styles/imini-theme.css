@@ -85,6 +85,27 @@
   background: var(--mugen-workspace);
 }
 
+.mugen-shell.mugen-shell .panel-header.is-settings {
+  width: min(100%, 402px);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+.mugen-shell.mugen-shell .panel-header.is-settings h1 {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.mugen-shell.mugen-shell .panel-header.is-settings .header-back {
+  width: 24px;
+  min-height: 24px;
+}
+
+.mugen-shell.mugen-shell .panel-header.is-settings .header-back svg {
+  width: 24px;
+  height: 24px;
+}
+
 .mugen-shell.mugen-shell .thread {
   gap: 16px;
   padding: 12px 16px 8px;
@@ -540,7 +561,10 @@
   align-content: start;
   gap: 24px;
   min-height: 100%;
+  width: min(100%, 402px);
+  margin: 0 auto;
   padding: 16px;
+  box-sizing: border-box;
 }
 
 .mugen-shell.mugen-shell .settings-group {
@@ -550,56 +574,60 @@
 
 .mugen-shell.mugen-shell .settings-group > h2 {
   margin: 0;
-  padding: 0 4px;
+  padding: 0;
   color: var(--mugen-secondary);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
+  line-height: 16px;
 }
 
 .mugen-shell.mugen-shell .data-card,
 .mugen-shell.mugen-shell .diagnostic-card,
-.mugen-shell.mugen-shell .config-list,
+.mugen-shell.mugen-shell .api-card,
 .mugen-shell.mugen-shell .field-card,
 .mugen-shell.mugen-shell .capability-box,
 .mugen-shell.mugen-shell .comfy-panel {
-  border: 0;
+  border: 1px solid var(--mugen-border);
   border-radius: 16px;
   background: var(--mugen-card);
 }
 
 .mugen-shell.mugen-shell .data-card {
-  min-height: 64px;
-  padding: 12px 16px;
+  min-height: 62px;
+  padding: 16px;
 }
 
-.mugen-shell.mugen-shell .data-card strong {
+.mugen-shell.mugen-shell .settings-row-copy strong {
   color: var(--mugen-text);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
+  line-height: 16px;
 }
 
-.mugen-shell.mugen-shell .data-card small {
+.mugen-shell.mugen-shell .settings-row-copy small {
   color: var(--mugen-muted);
   font-size: 10px;
+  line-height: 1;
 }
 
-.mugen-shell.mugen-shell .data-card button {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 4px;
-  padding: 0 4px;
+.mugen-shell.mugen-shell .settings-card-row {
+  padding: 0;
   border: 0;
   background: transparent;
-  color: var(--mugen-secondary);
-  font-size: 11px;
 }
 
-.mugen-shell.mugen-shell .data-card .danger-action {
+.mugen-shell.mugen-shell .history-card .danger-action {
   color: var(--mugen-danger-text);
 }
 
+.mugen-shell.mugen-shell .api-card {
+  padding: 16px;
+}
+
 .mugen-shell.mugen-shell .config-list {
+  border: 0;
+  border-radius: 0 0 16px 16px;
+  background: transparent;
   overflow: hidden;
 }
 

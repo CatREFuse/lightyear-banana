@@ -72,6 +72,7 @@ const iMiniQuickStatusTone = computed(() => {
   return iMiniConfig.value || props.iMiniQuickAccessState.status === 'success' ? 'success' : 'idle'
 })
 const clearConversationArmed = shallowRef(false)
+const customApiExpanded = shallowRef(false)
 let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
 const configRows = computed(() =>
   props.configs.map((config) => ({
@@ -155,27 +156,29 @@ onUnmounted(() => {
       <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
         <section class="settings-group" aria-labelledby="common-settings-title">
           <h2 id="common-settings-title">常用设置</h2>
-          <section class="data-card preset-entry" aria-label="常用提示词">
-            <div>
+          <button class="data-card settings-card-row preset-entry" type="button" @click="emit('openPromptPresets')">
+            <AppIcon class="settings-row-icon" name="code-s-fill" size="16" />
+            <span class="settings-row-copy">
               <strong>常用提示词</strong>
               <small>{{ promptPresets.length }} 条 · 输入 / 进行调用</small>
-            </div>
-            <button type="button" @click="emit('openPromptPresets')">
-              管理
-              <AppIcon name="arrow-right-s-line" size="16" />
-            </button>
-          </section>
+            </span>
+            <AppIcon class="settings-row-arrow" name="arrow-right-s-line" size="16" />
+          </button>
         </section>
 
         <section class="settings-group" aria-labelledby="history-settings-title">
           <h2 id="history-settings-title">对话记录</h2>
-          <section class="data-card" aria-label="清空历史记录">
-            <div>
-              <strong>清空历史记录</strong>
-              <small>删除生成消息和图片记录</small>
+          <section class="data-card history-card" aria-label="对话记录">
+            <div class="settings-card-row history-summary">
+              <AppIcon class="settings-row-icon" name="list-ordered" size="16" />
+              <span class="settings-row-copy">
+                <strong>生成记录</strong>
+                <small>保存生成消息和图片记录</small>
+              </span>
             </div>
             <button class="danger-action" type="button" @click="requestClearConversationData">
-              {{ clearConversationLabel }}
+              <AppIcon name="delete-bin-6-line" size="16" />
+              {{ clearConversationLabel }}生成记录
             </button>
           </section>
         </section>
@@ -188,71 +191,96 @@ onUnmounted(() => {
 
         <section class="settings-group" aria-labelledby="api-settings-title">
           <h2 id="api-settings-title">生图 API</h2>
-          <section class="imini-quick-card" aria-labelledby="imini-api-key-title">
-            <div class="imini-quick-heading">
-              <AppIcon name="shining-fill" size="18" />
-              <strong id="imini-api-key-title">iMini API Key</strong>
-              <span>推荐</span>
-            </div>
-            <p>在 iMini → 个人设置 → API 中可找到</p>
-            <form class="imini-quick-form" @submit.prevent="submitIMiniQuickAccess">
-              <input
-                v-model="iMiniApiKey"
-                data-imini-quick-access
-                type="password"
-                autocomplete="new-password"
-                spellcheck="false"
-                :placeholder="iMiniConfig ? '输入新 Key 可替换' : '输入 iMini API Key'"
-                aria-label="iMini API Key"
-              />
-              <button
-                type="submit"
-                :disabled="!iMiniApiKey.trim() || iMiniQuickAccessState.status === 'testing'"
-              >
-                {{ iMiniQuickAccessState.status === 'testing' ? '保存中' : iMiniConfig ? '更新' : '接入' }}
-              </button>
-            </form>
-            <div class="imini-quick-footer">
-              <a href="https://imini.ai/pricing" target="_blank" rel="noopener noreferrer">
-                订阅 iMini，享受 7.9 折起折扣
-                <AppIcon name="arrow-right-s-line" size="16" />
-              </a>
-              <small v-if="iMiniQuickStatus" :class="`is-${iMiniQuickStatusTone}`" role="status">
-                {{ iMiniQuickStatus }}
-              </small>
-            </div>
-          </section>
-          <div class="config-list">
-            <div class="section-header">
-              <span>接口配置</span>
-              <button type="button" @click="emit('create')">
-                <AppIcon name="add-large-fill" size="15" />
-                <span>添加</span>
-              </button>
-            </div>
+          <section class="api-card" aria-label="生图 API 配置">
+            <section class="imini-quick-card" aria-labelledby="imini-api-key-title">
+              <AppIcon class="imini-quick-icon" name="shining-fill" size="16" />
+              <div class="imini-quick-body">
+                <div class="imini-quick-heading">
+                  <strong id="imini-api-key-title">iMini API Key</strong>
+                  <span>推荐</span>
+                </div>
+                <p>在 iMini → 个人设置 → API 中可找到</p>
+                <form class="imini-quick-form" @submit.prevent="submitIMiniQuickAccess">
+                  <input
+                    v-model="iMiniApiKey"
+                    data-imini-quick-access
+                    type="password"
+                    autocomplete="new-password"
+                    spellcheck="false"
+                    :placeholder="iMiniConfig ? '输入新 Key 可替换' : '输入 iMini API Key'"
+                    aria-label="iMini API Key"
+                  />
+                  <button
+                    type="submit"
+                    :disabled="!iMiniApiKey.trim() || iMiniQuickAccessState.status === 'testing'"
+                  >
+                    {{ iMiniQuickAccessState.status === 'testing' ? '保存中' : iMiniConfig ? '更新' : '接入' }}
+                  </button>
+                </form>
+                <div class="imini-quick-footer">
+                  <a href="https://imini.ai/pricing" target="_blank" rel="noopener noreferrer">
+                    订阅 iMini，享受 7.9 折起折扣
+                    <AppIcon name="arrow-right-s-line" size="16" />
+                  </a>
+                  <small v-if="iMiniQuickStatus" :class="`is-${iMiniQuickStatusTone}`" role="status">
+                    {{ iMiniQuickStatus }}
+                  </small>
+                </div>
+              </div>
+            </section>
 
             <button
-              v-for="row in configRows"
-              :key="row.config.id"
-              class="config-row"
-              :class="{ selected: row.config.id === editingConfigId }"
+              class="custom-api-entry settings-card-row"
               type="button"
-              @click="emit('edit', row.config.id)"
+              :aria-expanded="customApiExpanded"
+              aria-controls="custom-api-configs"
+              @click="customApiExpanded = !customApiExpanded"
             >
-              <AppIcon class="config-icon" name="key-2-line" size="17" />
-              <span>
-                <strong>{{ row.config.name }}</strong>
-                <small>
-                  {{ providerCapabilities[row.config.provider].name }} ·
-                  {{ row.config.model }}
-                </small>
+              <AppIcon class="settings-row-icon" name="code-s-fill" size="16" />
+              <span class="settings-row-copy">
+                <strong>自定义 API</strong>
+                <small>已有 {{ configs.length }} 个</small>
               </span>
-              <em class="status-badge" :class="`is-${row.status.tone}`">
-                {{ row.status.label }}
-              </em>
-              <AppIcon class="row-arrow" name="arrow-right-s-line" size="16" />
+              <AppIcon
+                class="settings-row-arrow custom-api-arrow"
+                :class="{ 'is-expanded': customApiExpanded }"
+                name="arrow-right-s-line"
+                size="16"
+              />
             </button>
-          </div>
+
+            <div v-show="customApiExpanded" id="custom-api-configs" class="config-list">
+              <div class="section-header">
+                <span>接口配置</span>
+                <button type="button" @click="emit('create')">
+                  <AppIcon name="add-large-fill" size="15" />
+                  <span>添加</span>
+                </button>
+              </div>
+
+              <button
+                v-for="row in configRows"
+                :key="row.config.id"
+                class="config-row"
+                :class="{ selected: row.config.id === editingConfigId }"
+                type="button"
+                @click="emit('edit', row.config.id)"
+              >
+                <AppIcon class="config-icon" name="key-2-line" size="17" />
+                <span>
+                  <strong>{{ row.config.name }}</strong>
+                  <small>
+                    {{ providerCapabilities[row.config.provider].name }} ·
+                    {{ row.config.model }}
+                  </small>
+                </span>
+                <em class="status-badge" :class="`is-${row.status.tone}`">
+                  {{ row.status.label }}
+                </em>
+                <AppIcon class="row-arrow" name="arrow-right-s-line" size="16" />
+              </button>
+            </div>
+          </section>
         </section>
 
         <footer class="settings-meta" aria-label="版本信息">
@@ -302,7 +330,10 @@ onUnmounted(() => {
   align-content: start;
   gap: 12px;
   min-height: 100%;
+  width: min(100%, 402px);
+  margin: 0 auto;
   padding: 12px;
+  box-sizing: border-box;
 }
 
 .settings-intro {
@@ -373,9 +404,6 @@ onUnmounted(() => {
 
 .data-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--mugen-border);
@@ -383,13 +411,26 @@ onUnmounted(() => {
   background: var(--mugen-card);
 }
 
-.data-card div {
+.settings-card-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mugen-text);
+  text-align: left;
+}
+
+.settings-row-copy {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.data-card strong {
+.settings-row-copy strong {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -401,7 +442,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.data-card small {
+.settings-row-copy small {
   overflow: hidden;
   color: var(--mugen-muted);
   font-size: 11px;
@@ -409,77 +450,122 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.data-card button {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--mugen-danger-border);
-  border-radius: 8px;
-  background: var(--mugen-danger-bg);
+.settings-row-icon {
+  align-self: start;
+  color: var(--mugen-text);
+}
+
+.settings-row-arrow {
+  color: var(--mugen-muted);
+}
+
+.history-card {
+  display: grid;
+  gap: 16px;
+}
+
+.history-summary {
+  grid-template-columns: 16px minmax(0, 1fr);
+}
+
+.history-card .danger-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  min-height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--mugen-danger-text);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 600;
+  line-height: 16px;
 }
 
-.data-card button:hover {
-  background: rgba(236, 81, 93, 0.18);
+.api-card {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 16px;
+  background: var(--mugen-card);
 }
 
 .imini-quick-card {
   display: grid;
-  gap: 9px;
-  padding: 12px;
-  border: 1px solid var(--mugen-border);
-  border-radius: 8px;
-  background: var(--mugen-card);
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.imini-quick-icon {
+  color: var(--mugen-accent);
+}
+
+.imini-quick-body {
+  display: grid;
+  gap: 2px;
+  width: min(100%, 304px);
+  min-width: 0;
 }
 
 .imini-quick-heading {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-self: start;
+  gap: 2px;
   color: var(--mugen-text);
 }
 
 .imini-quick-heading strong {
   min-width: 0;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 400;
+  line-height: 16px;
 }
 
 .imini-quick-heading > span {
-  margin-left: auto;
-  padding: 2px 6px;
-  border-radius: 999px;
+  padding: 2px 4px;
+  border-radius: 4px;
   background: var(--mugen-accent-soft);
   color: var(--mugen-accent);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .imini-quick-card p {
   margin: 0;
   color: var(--mugen-muted);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1;
 }
 
 .imini-quick-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.imini-quick-form:has(button:disabled) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .imini-quick-form input {
   min-width: 0;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--mugen-border);
-  border-radius: 7px;
-  background: var(--mugen-surface-2);
+  height: 35px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mugen-field);
   color: var(--mugen-text);
-  font: inherit;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .imini-quick-form input::placeholder {
@@ -488,7 +574,7 @@ onUnmounted(() => {
 
 .imini-quick-form button {
   min-width: 54px;
-  min-height: 34px;
+  height: 35px;
   padding: 0 10px;
   border: 0;
   border-radius: 7px;
@@ -500,23 +586,23 @@ onUnmounted(() => {
 }
 
 .imini-quick-form button:disabled {
-  cursor: default;
-  opacity: 0.45;
+  display: none;
 }
 
 .imini-quick-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
 }
 
 .imini-quick-footer a {
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  color: var(--mugen-secondary);
-  font-size: 11px;
+  color: var(--mugen-accent);
+  font-size: 12px;
+  line-height: 16px;
   text-decoration: none;
 }
 
@@ -526,7 +612,7 @@ onUnmounted(() => {
 
 .imini-quick-footer small {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .imini-quick-footer small.is-success {
@@ -537,11 +623,26 @@ onUnmounted(() => {
   color: var(--mugen-danger-muted);
 }
 
+.custom-api-entry {
+  min-height: 28px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.custom-api-arrow {
+  transition: transform 160ms ease;
+}
+
+.custom-api-arrow.is-expanded {
+  transform: rotate(90deg);
+}
+
 .config-list {
   display: grid;
-  border: 1px solid var(--mugen-border);
-  border-radius: 8px;
-  background: var(--mugen-card);
+  margin: 0 -16px -16px;
+  border: 0;
+  border-radius: 0 0 16px 16px;
+  background: transparent;
   overflow: hidden;
 }
 
