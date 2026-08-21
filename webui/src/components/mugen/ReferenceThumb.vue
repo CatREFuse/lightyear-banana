@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
 import type { ReferenceImage } from '@mugen/core'
-import BoxIcon from './BoxIcon.vue'
+import AppIcon from './AppIcon.vue'
 
 defineProps<{
   index: number
@@ -37,7 +37,7 @@ const thumbnailFailed = shallowRef(false)
       <span v-else class="preview-error">预览不可用</span>
       <span class="badge">{{ index }}</span>
       <button v-if="removable" class="remove-button" type="button" @click.stop="emit('remove', reference.id)">
-        <BoxIcon name="x" size="13" />
+        <AppIcon name="close-line" size="13" />
       </button>
     </div>
     <figcaption>{{ reference.label }}</figcaption>

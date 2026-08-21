@@ -48,6 +48,7 @@ import {
   readBrowserClipboardReferenceImage
 } from '../utils/referenceImages'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
+import { createIMiniQuickAccessConfig } from '../utils/iminiQuickAccess'
 import { canUseDevelopmentApimartBaseUrl } from '@mugen/core'
 
 const referenceLabels: Record<ReferenceSource, string> = {
@@ -590,6 +591,7 @@ export function useMugen(runtime: DirectRuntimeName) {
   const installPluginUrl = shallowRef('')
   const editingConfigId = shallowRef(activeConfigId.value)
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
+  const iMiniQuickAccessState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
   const diagnosticExportState = shallowRef<DiagnosticExportState>({
     status: 'idle',
     message: '最近 24 小时'
@@ -1770,6 +1772,30 @@ function readHighestQuality(options: string[]): string {
     showToast('保存成功')
   }
 
+  async function saveIMiniQuickAccess(apiKey: string) {
+    iMiniQuickAccessState.value = { status: 'testing', message: '正在保存' }
+    await Promise.resolve()
+
+    try {
+      const existing = configs.value.find((config) => config.provider === 'iMini')
+      const next = createIMiniQuickAccessConfig(existing, apiKey, createId('config'))
+      configs.value = existing
+        ? configs.value.map((config) => config.id === existing.id ? cloneModelConfig(next) : config)
+        : [...configs.value, cloneModelConfig(next)]
+      activeConfigId.value = next.id
+      editingConfigId.value = next.id
+      settingsDraftIsNew.value = false
+      Object.assign(settingsDraft, cloneModelConfig(next))
+      iMiniQuickAccessState.value = { status: 'success', message: 'iMini 已接入' }
+      status.value = 'iMini 已接入'
+      showToast('iMini 已接入')
+    } catch (reason) {
+      const message = readErrorMessage(reason, 'iMini 接入失败')
+      iMiniQuickAccessState.value = { status: 'error', message }
+      showToast(message)
+    }
+  }
+
   function toggleConfigEnabled(enabled: boolean) {
     settingsDraft.enabled = enabled
     setSettingsTestState({ status: 'idle', message: '' })
@@ -1939,6 +1965,7 @@ function readHighestQuality(options: string[]): string {
     enabledConfigs,
     generationLoading,
     installPluginUrl,
+    iMiniQuickAccessState,
     diagnosticExportState,
     exportDiagnostics,
     openPromptPresets,
@@ -1956,6 +1983,7 @@ function readHighestQuality(options: string[]): string {
     retryGeneration,
     resolutionMode,
     saveConfig,
+    saveIMiniQuickAccess,
     saveGeneratedImage,
     selectConfig,
     selectModel,

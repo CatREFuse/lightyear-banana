@@ -13,7 +13,7 @@
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.3`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
-- 当前 dev CCX 版本为 `1.2.0`，build 号为 `2608210002`，Photoshop 插件 ID 保持 `com.tanshow.mugen`，发行文件名为 `imini-ps-1.2.0-2608210002.ccx`。
+- 当前 dev CCX 版本为 `1.2.0`，build 号为 `2608210003`，Photoshop 插件 ID 保持 `com.tanshow.mugen`，发行文件名为 `imini-ps-1.2.0-2608210003.ccx`。
 
 ## dev 测试发布线
 
@@ -21,9 +21,12 @@
 - CCX WebView 和 WebUI 发布脚本固定使用 `https://imini-test.catrefuse.com/`，Manifest 只授权该 Origin。
 - WebUI 视觉以 Figma `Mugen Design System` 的 `2061:14306` 节点为基线，覆盖主工作台、生成设置二级面板与设置页。
 - 主界面使用 56px 顶栏、暖灰工作区、白色浮动输入面、天蓝主动作和 16px 主要圆角；深色模式保持相同层级和对比度。
+- 界面图标直接使用 `@remixicon/vue` 与 `@boxicons/vue`，组件键与 Figma 标注一致；不得在业务组件中维护手绘 SVG path 表。
 - 输入面只展示提示词、参考图入口、生成设置入口、当前参数摘要和发送动作；供应商、模型、尺寸、比例、数量与质量沿用原 controller 数据和事件，收纳进可从外部点击关闭的生成设置面板。
+- 提示词输入框聚焦时不显示外凸蓝色高亮框，按钮、普通输入框、下拉框等其他可交互控件继续保留清楚的键盘焦点提示。
 - 设置页按常用设置、对话记录和生图 API 分组，配置详情、Provider 测试、诊断导出和预设提示词功能保持原行为。
-- 本次 dev 包不修改 Provider 请求、任务轮询、历史、Photoshop 画布读取、置入协议或官网视觉资产，也不执行公网部署。
+- 生图 API 分组提供 `iMini API Key` 快速接入卡片。首次保存创建官方 iMini 配置，再次保存更新同一配置；两种运行时都自动启用并选中该配置，浏览器沿用本地配置存储，CCX 沿用 UXP SecureStorage 凭据通道，不在界面回显 Key。
+- 本次 dev 包不修改 Provider 请求、任务轮询、历史、Photoshop 画布读取、置入协议或官网视觉资产；完整 WebUI 发布到 `https://imini-test.catrefuse.com/`，CCX 作为本地测试发行物放入下载目录。
 
 ## 官方单屏站点
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import type { ColorMode, DesktopPlatform, ResolvedColorMode } from '@mugen/core'
-import BoxIcon from './BoxIcon.vue'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps<{
   activeMenuOwner?: string
@@ -79,7 +79,7 @@ watch(
     </div>
 
     <button v-if="inSettings" class="icon-button header-back" type="button" aria-label="返回" @click="emit('back')">
-      <BoxIcon name="arrow-back" size="18" />
+      <AppIcon name="bx-arrow-back" size="18" />
     </button>
 
     <div class="title-block">
@@ -101,7 +101,7 @@ watch(
           :aria-expanded="themeMenuOpen"
           @click="toggleThemeMenu"
         >
-          <BoxIcon :name="resolvedColorMode === 'dark' ? 'sun' : 'moon'" size="18" />
+          <AppIcon :name="resolvedColorMode === 'dark' ? 'sun-line' : 'moon-line'" size="18" />
         </button>
         <Transition name="menu-pop">
           <div v-if="themeMenuOpen" class="theme-menu" aria-label="外观设置" @click.stop>
@@ -113,13 +113,13 @@ watch(
               @click="selectColorMode(mode)"
             >
               <span>{{ mode === 'system' ? '跟随系统' : mode === 'light' ? '浅色' : '深色' }}</span>
-              <BoxIcon v-if="colorMode === mode" name="check-circle" size="15" />
+              <AppIcon v-if="colorMode === mode" name="checkbox-circle-fill" size="15" />
             </button>
           </div>
         </Transition>
       </div>
       <button v-if="!inSettings" class="icon-button icon-only" type="button" title="设置" aria-label="设置" @click="emit('openSettings')">
-        <BoxIcon name="slider-alt" size="18" />
+        <AppIcon name="settings-line" size="18" />
       </button>
     </div>
   </header>

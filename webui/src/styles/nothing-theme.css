@@ -37,6 +37,7 @@
   --mugen-empty-bg: transparent;
   --mugen-accent: #ffffff;
   --mugen-accent-soft: #1a1a1a;
+  --mugen-on-accent: #000000;
   --mugen-danger: #d71921;
   --mugen-danger-bg: transparent;
   --mugen-danger-border: #d71921;
@@ -75,6 +76,7 @@
   --mugen-empty-bg: transparent;
   --mugen-accent: #000000;
   --mugen-accent-soft: #f0f0f0;
+  --mugen-on-accent: #ffffff;
   --mugen-danger: #d71921;
   --mugen-danger-bg: transparent;
   --mugen-danger-border: #d71921;

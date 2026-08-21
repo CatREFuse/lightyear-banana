@@ -4,8 +4,8 @@ import type { CanvasOperationState, ModelConfig, PromptPreset, ReferenceImage, R
 import type { ProviderCapability } from '@mugen/core'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
 import { providerSupportsQuality, validateProviderConfig } from '@mugen/core'
-import BoxIcon from './BoxIcon.vue'
-import type { BoxIconName } from './boxIcons'
+import AppIcon from './AppIcon.vue'
+import type { AppIconName } from './appIcons'
 import ControlSelect from './ControlSelect.vue'
 import RatioPicker from './RatioPicker.vue'
 import ReferenceThumb from './ReferenceThumb.vue'
@@ -13,7 +13,7 @@ import PromptPresetMenu from './PromptPresetMenu.vue'
 import { createReferenceImportFromBlob } from '../../utils/referenceImages'
 
 type SelectOption = {
-  icon?: BoxIconName
+  icon?: AppIconName
   value: string
   label: string
   meta?: string
@@ -83,11 +83,11 @@ const customSizeValue = '__mugen_custom_resolution__'
 let shouldRestorePromptFocus = false
 let promptFocusFrame: number | undefined
 
-const allReferenceActions: Array<{ icon: BoxIconName; source: ReferenceSource; label: string }> = [
-  { icon: 'image', source: 'visible', label: '可见图层' },
-  { icon: 'selection', source: 'selection', label: '选区' },
-  { icon: 'layer', source: 'layer', label: '当前选中图层' },
-  { icon: 'upload', source: 'upload', label: '上传文件' }
+const allReferenceActions: Array<{ icon: AppIconName; source: ReferenceSource; label: string }> = [
+  { icon: 'picture-in-picture-fill', source: 'visible', label: '可见图层' },
+  { icon: 'focus-3-line', source: 'selection', label: '选区' },
+  { icon: 'bx-layer', source: 'layer', label: '当前选中图层' },
+  { icon: 'upload-line', source: 'upload', label: '上传文件' }
 ]
 const photoshopReferenceSources = new Set<ReferenceSource>(['visible', 'selection', 'layer'])
 const referenceActions = computed(() => allReferenceActions.filter((action) => (
@@ -111,7 +111,7 @@ const configOptions = computed<SelectOption[]>(() =>
     const status = readModelStatus(config)
 
     return {
-      icon: 'key',
+      icon: 'hard-drive-3-line',
       value: config.id,
       label: config.name,
       meta: `${config.provider}${config.customFormat ? ` · ${config.customFormat}` : ''}`,
@@ -125,13 +125,13 @@ const modelOptions = computed<SelectOption[]>(() => {
 
   return [
     ...models.map((model) => ({
-      icon: 'slider-alt' as BoxIconName,
+      icon: 'shining-line' as AppIconName,
       value: model,
       label: model,
       meta: activeConfig.value?.name
     })),
     {
-      icon: 'plus' as BoxIconName,
+      icon: 'add-large-fill' as AppIconName,
       value: manageModelsValue,
       label: '管理模型',
       meta: '设置'
@@ -142,7 +142,7 @@ const sizeOptions = computed<SelectOption[]>(() =>
   [
     ...props.activeCapability.sizeOptions.map((option) => ({ value: option, label: option })),
     {
-      icon: 'crop' as BoxIconName,
+      icon: 'aspect-ratio-line' as AppIconName,
       value: customSizeValue,
       label: '宽高输入'
     }
@@ -576,7 +576,7 @@ watch(
     <div v-if="hasReferences" class="reference-header">
       <span>参考图 {{ referenceCountText }}</span>
       <button class="clear-reference" type="button" @click="emit('clearReferences')">
-        <BoxIcon name="x" size="13" />
+        <AppIcon name="close-line" size="13" />
         清空
       </button>
     </div>
@@ -627,7 +627,7 @@ watch(
             @click="togglePanel('reference')"
           >
             <span v-if="referenceBusy" class="inline-spinner" aria-hidden="true"></span>
-            <BoxIcon v-else name="plus" size="18" />
+            <AppIcon v-else name="add-large-fill" size="18" />
             <span v-if="hasReferences" class="tool-count">{{ references.length }}</span>
           </button>
           <Transition name="menu-pop">
@@ -638,7 +638,7 @@ watch(
                 type="button"
                 @click="addReference(action.source)"
               >
-                <BoxIcon :name="action.icon" size="15" />
+                <AppIcon :name="action.icon" size="15" />
                 {{ action.label }}
               </button>
             </div>
@@ -653,20 +653,20 @@ watch(
             :aria-expanded="parameterPanelOpen"
             @click="toggleParameterPanel"
           >
-            <BoxIcon name="layer" size="18" />
+            <AppIcon name="bx-layer" size="18" />
           </button>
           <Transition name="parameter-pop">
             <section v-if="parameterPanelOpen" class="parameter-panel" aria-label="生成设置" @click.stop>
               <header class="parameter-header">
                 <strong>生成设置</strong>
                 <button type="button" aria-label="关闭生成设置" @click="closeParameterPanel">
-                  <BoxIcon name="x" size="16" />
+                  <AppIcon name="close-line" size="16" />
                 </button>
               </header>
               <div class="control-grid">
                 <ControlSelect
                   class="config-control"
-                  icon="key"
+                  icon="hard-drive-3-line"
                   label="供应商"
                   direction="down"
                   :options="configOptions"
@@ -679,7 +679,7 @@ watch(
                 />
                 <ControlSelect
                   class="model-control"
-                  icon="slider-alt"
+                  icon="shining-line"
                   label="模型"
                   direction="down"
                   :open="openPanel === 'model'"
@@ -692,7 +692,7 @@ watch(
                 />
                 <ControlSelect
                   v-if="resolutionMode === 'preset'"
-                  icon="image"
+                  icon="picture-in-picture-fill"
                   label="尺寸"
                   direction="down"
                   :open="openPanel === 'size'"
@@ -724,7 +724,7 @@ watch(
                   @toggle="togglePanel('ratio')"
                 />
                 <ControlSelect
-                  icon="grid-alt"
+                  icon="hashtag"
                   label="数量"
                   direction="down"
                   :open="openPanel === 'count'"
@@ -736,7 +736,7 @@ watch(
                 />
                 <ControlSelect
                   v-if="showsQualityControl"
-                  icon="check-circle"
+                  icon="sparkling-2-line"
                   label="质量"
                   direction="down"
                   :open="openPanel === 'quality'"
@@ -756,7 +756,7 @@ watch(
         {{ parameterSummary }}
       </button>
       <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" aria-label="发送" @click="requestSend">
-        <BoxIcon name="send" size="17" />
+        <AppIcon name="arrow-up-line" size="17" />
       </button>
     </div>
   </section>

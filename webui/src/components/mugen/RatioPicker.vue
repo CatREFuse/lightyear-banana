@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, useTemplateRef } from 'vue'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
-import BoxIcon from './BoxIcon.vue'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps<{
   open?: boolean
@@ -91,9 +91,9 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
     <span class="ratio-label">比例</span>
     <div class="ratio-anchor">
       <button class="ratio-trigger" type="button" @click="toggleOpen">
-        <BoxIcon name="crop" size="14" />
+        <AppIcon name="aspect-ratio-line" size="14" />
         <span>{{ displayValue }}</span>
-        <BoxIcon class="ratio-chevron" name="chevron-down" size="16" />
+        <AppIcon class="ratio-chevron" name="arrow-down-s-line" size="16" />
       </button>
 
       <Transition name="menu-pop">

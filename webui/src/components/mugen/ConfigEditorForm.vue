@@ -13,8 +13,8 @@ import type {
   ProviderCapability,
   SettingsTestState
 } from '@mugen/core'
-import BoxIcon from './BoxIcon.vue'
-import type { BoxIconName } from './boxIcons'
+import AppIcon from './AppIcon.vue'
+import type { AppIconName } from './appIcons'
 import ControlSelect from './ControlSelect.vue'
 
 type SelectOption = {
@@ -116,16 +116,16 @@ const showsQualityCapability = computed(() => providerSupportsQuality(props.sett
 const comfyUiSettings = computed(() => normalizeComfyUiSettings(props.settingsDraft.comfyUi))
 const showNewModelInput = shallowRef(false)
 const testIsRunning = computed(() => props.settingsTestState.status === 'testing')
-const testButtonIcon = computed<BoxIconName>(() => {
+const testButtonIcon = computed<AppIconName>(() => {
   if (props.settingsTestState.status === 'testing') {
-    return 'refresh'
+    return 'refresh-line'
   }
 
   if (props.settingsTestState.status === 'error') {
-    return 'x'
+    return 'close-line'
   }
 
-  return 'check-circle'
+  return 'checkbox-circle-fill'
 })
 const testButtonLabel = computed(() => {
   if (props.settingsTestState.status === 'testing') {
@@ -258,7 +258,7 @@ function parseNodeIds(value: string) {
     <div class="field-card">
       <label>
         <span class="label-heading">
-          <BoxIcon name="key" size="14" />
+          <AppIcon name="key-2-line" size="14" />
           配置名称
         </span>
         <input
@@ -271,7 +271,7 @@ function parseNodeIds(value: string) {
       <div class="form-control">
         <ControlSelect
           direction="down"
-          icon="grid-alt"
+          icon="hard-drive-3-line"
           label="供应商"
           :open="openField === 'provider'"
           :options="providerOptions"
@@ -286,7 +286,7 @@ function parseNodeIds(value: string) {
       <div v-if="isCustomProvider" class="form-control">
         <ControlSelect
           direction="down"
-          icon="grid-alt"
+          icon="hard-drive-3-line"
           label="API 格式"
           :open="openField === 'custom-format'"
           :options="customFormatOptions"
@@ -300,7 +300,7 @@ function parseNodeIds(value: string) {
 
       <label v-if="isComfyUi">
         <span class="label-heading">
-          <BoxIcon name="slider-alt" size="14" />
+          <AppIcon name="shining-line" size="14" />
           调用方式
         </span>
         <input value="Workflow API JSON" type="text" disabled />
@@ -308,7 +308,7 @@ function parseNodeIds(value: string) {
 
       <div v-if="!isComfyUi" class="model-list" aria-label="模型">
         <span class="label-heading">
-          <BoxIcon name="slider-alt" size="14" />
+          <AppIcon name="shining-line" size="14" />
           模型
         </span>
         <div class="model-list-items">
@@ -321,10 +321,10 @@ function parseNodeIds(value: string) {
             @click="emit('updateDraft', { model })"
           >
             <span>{{ model }}</span>
-            <BoxIcon name="x" size="12" @click.stop="removeModel(model)" />
+            <AppIcon name="close-line" size="12" @click.stop="removeModel(model)" />
           </button>
           <button v-if="!showNewModelInput" class="model-chip add-model-chip" type="button" @click="showModelInput">
-            <BoxIcon name="plus" size="13" />
+            <AppIcon name="add-large-fill" size="13" />
           </button>
           <span v-else class="model-inline-add">
             <input
@@ -336,10 +336,10 @@ function parseNodeIds(value: string) {
               @keydown.esc.prevent="cancelModelInput"
             />
             <button type="button" :disabled="!newModelDraft.trim()" @click="addModel()">
-              <BoxIcon name="check-circle" size="13" />
+              <AppIcon name="checkbox-circle-fill" size="13" />
             </button>
             <button type="button" @click="cancelModelInput">
-              <BoxIcon name="x" size="13" />
+              <AppIcon name="close-line" size="13" />
             </button>
           </span>
         </div>
@@ -347,7 +347,7 @@ function parseNodeIds(value: string) {
 
       <label v-if="showsBaseUrlField">
         <span class="label-heading">
-          <BoxIcon name="grid-alt" size="14" />
+          <AppIcon name="hard-drive-3-line" size="14" />
           Base URL
         </span>
         <input
@@ -361,7 +361,7 @@ function parseNodeIds(value: string) {
 
       <label v-if="showApiKeyField">
         <span class="label-heading">
-          <BoxIcon name="key" size="14" />
+          <AppIcon name="key-2-line" size="14" />
           {{ isComfyUi || isCodexImageServer ? 'API Key（可选）' : 'API Key' }}
         </span>
         <input
@@ -373,25 +373,25 @@ function parseNodeIds(value: string) {
       </label>
 
       <a v-if="isCodexImageServer" class="guide-link" :href="codexImageServerGuideUrl" target="_blank" rel="noreferrer">
-        <BoxIcon name="copy-alt" size="14" />
+        <AppIcon name="bx-copy" size="14" />
         Codex Image Server 改造说明
       </a>
 
       <section v-if="isComfyUi" class="comfy-panel" aria-label="ComfyUI">
         <div class="comfy-heading">
           <strong>
-            <BoxIcon name="grid-alt" size="14" />
+            <AppIcon name="hard-drive-3-line" size="14" />
             Workflow 绑定
           </strong>
           <button type="button" @click="addComfyUiNode">
-            <BoxIcon name="plus" size="14" />
+            <AppIcon name="add-large-fill" size="14" />
             添加绑定
           </button>
         </div>
 
         <label>
           <span class="label-heading">
-            <BoxIcon name="copy-alt" size="14" />
+            <AppIcon name="bx-copy" size="14" />
             API Workflow JSON
           </span>
           <textarea
@@ -412,7 +412,7 @@ function parseNodeIds(value: string) {
           >
             <ControlSelect
               direction="down"
-              icon="slider-alt"
+              icon="shining-line"
               label="类型"
               :open="openField === `comfy-type-${index}`"
               :options="comfyNodeTypeOptions"
@@ -449,7 +449,7 @@ function parseNodeIds(value: string) {
               />
             </label>
             <button class="node-remove" type="button" @click="removeComfyUiNode(index)">
-              <BoxIcon name="trash" size="14" />
+              <AppIcon name="delete-bin-6-line" size="14" />
             </button>
           </section>
         </div>
@@ -470,23 +470,23 @@ function parseNodeIds(value: string) {
 
       <div class="capability-box">
         <div>
-          <span><BoxIcon name="image-add" size="13" />参考图</span>
+          <span><AppIcon name="image-add-line" size="13" />参考图</span>
           <strong>{{ editingCapability.referenceLimit }} 张</strong>
         </div>
         <div>
-          <span><BoxIcon name="image" size="13" />尺寸</span>
+          <span><AppIcon name="picture-in-picture-fill" size="13" />尺寸</span>
           <strong>{{ editingCapability.sizeOptions.join(' / ') }}</strong>
         </div>
         <div v-if="showsQualityCapability">
-          <span><BoxIcon name="check-circle" size="13" />质量</span>
+          <span><AppIcon name="sparkling-2-line" size="13" />质量</span>
           <strong>{{ editingCapability.qualityOptions.join(' / ') }}</strong>
         </div>
         <div>
-          <span><BoxIcon name="grid-alt" size="13" />数量</span>
+          <span><AppIcon name="hashtag" size="13" />数量</span>
           <strong>{{ editingCapability.countOptions.join(' / ') }}</strong>
         </div>
         <div>
-          <span><BoxIcon name="crop" size="13" />比例</span>
+          <span><AppIcon name="aspect-ratio-line" size="13" />比例</span>
           <strong>{{ editingCapability.ratioOptions.join(' / ') }}</strong>
         </div>
       </div>
@@ -501,22 +501,22 @@ function parseNodeIds(value: string) {
         >
           <Transition name="test-button-content" mode="out-in">
             <span :key="`${settingsTestState.status}-${testButtonLabel}`" class="test-button-content">
-              <BoxIcon :class="{ spinning: testIsRunning }" :name="testButtonIcon" size="15" />
+              <AppIcon :class="{ spinning: testIsRunning }" :name="testButtonIcon" size="15" />
               {{ testButtonLabel }}
             </span>
           </Transition>
         </button>
         <button v-if="!settingsDraftIsNew" class="copy-button" type="button" @click="emit('duplicate')">
-          <BoxIcon name="copy-alt" size="15" />
+          <AppIcon name="bx-copy" size="15" />
           复制
         </button>
         <button class="primary" type="button" @click="emit('save')">
-          <BoxIcon name="check-circle" size="15" />
+          <AppIcon name="checkbox-circle-fill" size="15" />
           保存
         </button>
         <button class="danger" type="button" @click="emit('delete')">
-          <BoxIcon v-if="settingsDraftIsNew" name="x" size="15" />
-          <BoxIcon v-else name="trash" size="15" />
+          <AppIcon v-if="settingsDraftIsNew" name="close-line" size="15" />
+          <AppIcon v-else name="delete-bin-6-line" size="15" />
           {{ settingsDraftIsNew ? '取消' : '删除' }}
         </button>
       </div>

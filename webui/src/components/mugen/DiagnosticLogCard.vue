@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { DiagnosticExportState } from '@mugen/core'
-import BoxIcon from './BoxIcon.vue'
+import AppIcon from './AppIcon.vue'
 
 const props = withDefaults(defineProps<{
   label?: string
@@ -24,7 +24,7 @@ const isExporting = computed(() => props.state.status === 'exporting')
   <section class="diagnostic-card" :aria-label="props.label">
     <div class="diagnostic-copy">
       <strong>
-        <BoxIcon name="download" size="14" />
+        <AppIcon name="download-line" size="14" />
         {{ props.label }}
       </strong>
       <small :class="`is-${props.state.status}`" aria-live="polite">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, shallowRef } from 'vue'
+import { computed, onUnmounted, shallowRef, watch } from 'vue'
 import type {
   DiagnosticExportState,
   ImageProviderId,
@@ -10,13 +10,13 @@ import type {
   SettingsView
 } from '@mugen/core'
 import { validateProviderConfig } from '@mugen/core'
-import BoxIcon from './BoxIcon.vue'
+import AppIcon from './AppIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
 import DiagnosticLogCard from './DiagnosticLogCard.vue'
 import PromptPresetSettings from './PromptPresetSettings.vue'
 
 type ConfigStatus = {
-  icon: 'check-circle' | 'x'
+  icon: 'checkbox-circle-fill' | 'close-line'
   label: string
   tone: 'enabled' | 'disabled' | 'unavailable'
 }
@@ -27,6 +27,7 @@ const props = defineProps<{
   editingConfigId: string
   diagnosticExportAvailable: boolean
   diagnosticExportState: DiagnosticExportState
+  iMiniQuickAccessState: SettingsTestState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   promptPresets: PromptPreset[]
   settingsDraftIsNew: boolean
@@ -46,6 +47,7 @@ const emit = defineEmits<{
   downloadDiagnostics: []
   openPromptPresets: []
   save: []
+  saveIMiniQuickAccess: [apiKey: string]
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
@@ -53,6 +55,22 @@ const emit = defineEmits<{
 }>()
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
+const iMiniConfig = computed(() => props.configs.find((config) => config.provider === 'iMini'))
+const iMiniApiKey = shallowRef('')
+const iMiniQuickStatus = computed(() => {
+  if (props.iMiniQuickAccessState.status !== 'idle') {
+    return props.iMiniQuickAccessState.message
+  }
+
+  return iMiniConfig.value ? '已接入' : ''
+})
+const iMiniQuickStatusTone = computed(() => {
+  if (props.iMiniQuickAccessState.status === 'error') {
+    return 'error'
+  }
+
+  return iMiniConfig.value || props.iMiniQuickAccessState.status === 'success' ? 'success' : 'idle'
+})
 const clearConversationArmed = shallowRef(false)
 let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
 const configRows = computed(() =>
@@ -67,7 +85,7 @@ const clearConversationLabel = computed(() => (clearConversationArmed.value ? '�
 function readConfigStatus(config: ModelConfig): ConfigStatus {
   if (!config.enabled) {
     return {
-      icon: 'check-circle',
+      icon: 'checkbox-circle-fill',
       label: '未启用',
       tone: 'disabled'
     }
@@ -75,14 +93,14 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
 
   if (!validateProviderConfig(config).valid) {
     return {
-      icon: 'x',
+      icon: 'close-line',
       label: 'API 不可用',
       tone: 'unavailable'
     }
   }
 
   return {
-    icon: 'check-circle',
+    icon: 'checkbox-circle-fill',
     label: '启用',
     tone: 'enabled'
   }
@@ -106,6 +124,24 @@ function requestClearConversationData() {
   emit('clearConversationData')
 }
 
+function submitIMiniQuickAccess() {
+  const apiKey = iMiniApiKey.value.trim()
+  if (!apiKey || props.iMiniQuickAccessState.status === 'testing') {
+    return
+  }
+
+  emit('saveIMiniQuickAccess', apiKey)
+}
+
+watch(
+  () => props.iMiniQuickAccessState.status,
+  (status) => {
+    if (status === 'success') {
+      iMiniApiKey.value = ''
+    }
+  }
+)
+
 onUnmounted(() => {
   if (clearConversationTimer) {
     clearTimeout(clearConversationTimer)
@@ -126,7 +162,7 @@ onUnmounted(() => {
             </div>
             <button type="button" @click="emit('openPromptPresets')">
               管理
-              <BoxIcon name="chevron-right" size="16" />
+              <AppIcon name="arrow-right-s-line" size="16" />
             </button>
           </section>
         </section>
@@ -152,11 +188,45 @@ onUnmounted(() => {
 
         <section class="settings-group" aria-labelledby="api-settings-title">
           <h2 id="api-settings-title">生图 API</h2>
+          <section class="imini-quick-card" aria-labelledby="imini-api-key-title">
+            <div class="imini-quick-heading">
+              <AppIcon name="shining-fill" size="18" />
+              <strong id="imini-api-key-title">iMini API Key</strong>
+              <span>推荐</span>
+            </div>
+            <p>在 iMini → 个人设置 → API 中可找到</p>
+            <form class="imini-quick-form" @submit.prevent="submitIMiniQuickAccess">
+              <input
+                v-model="iMiniApiKey"
+                data-imini-quick-access
+                type="password"
+                autocomplete="new-password"
+                spellcheck="false"
+                :placeholder="iMiniConfig ? '输入新 Key 可替换' : '输入 iMini API Key'"
+                aria-label="iMini API Key"
+              />
+              <button
+                type="submit"
+                :disabled="!iMiniApiKey.trim() || iMiniQuickAccessState.status === 'testing'"
+              >
+                {{ iMiniQuickAccessState.status === 'testing' ? '保存中' : iMiniConfig ? '更新' : '接入' }}
+              </button>
+            </form>
+            <div class="imini-quick-footer">
+              <a href="https://imini.ai/pricing" target="_blank" rel="noopener noreferrer">
+                订阅 iMini，享受 7.9 折起折扣
+                <AppIcon name="arrow-right-s-line" size="16" />
+              </a>
+              <small v-if="iMiniQuickStatus" :class="`is-${iMiniQuickStatusTone}`" role="status">
+                {{ iMiniQuickStatus }}
+              </small>
+            </div>
+          </section>
           <div class="config-list">
             <div class="section-header">
               <span>接口配置</span>
               <button type="button" @click="emit('create')">
-                <BoxIcon name="plus" size="15" />
+                <AppIcon name="add-large-fill" size="15" />
                 <span>添加</span>
               </button>
             </div>
@@ -169,7 +239,7 @@ onUnmounted(() => {
               type="button"
               @click="emit('edit', row.config.id)"
             >
-              <BoxIcon class="config-icon" name="key" size="17" />
+              <AppIcon class="config-icon" name="key-2-line" size="17" />
               <span>
                 <strong>{{ row.config.name }}</strong>
                 <small>
@@ -180,7 +250,7 @@ onUnmounted(() => {
               <em class="status-badge" :class="`is-${row.status.tone}`">
                 {{ row.status.label }}
               </em>
-              <BoxIcon class="row-arrow" name="chevron-right" size="16" />
+              <AppIcon class="row-arrow" name="arrow-right-s-line" size="16" />
             </button>
           </div>
         </section>
@@ -354,6 +424,117 @@ onUnmounted(() => {
 
 .data-card button:hover {
   background: rgba(236, 81, 93, 0.18);
+}
+
+.imini-quick-card {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 8px;
+  background: var(--mugen-card);
+}
+
+.imini-quick-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--mugen-text);
+}
+
+.imini-quick-heading strong {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.imini-quick-heading > span {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--mugen-accent-soft);
+  color: var(--mugen-accent);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.imini-quick-card p {
+  margin: 0;
+  color: var(--mugen-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.imini-quick-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.imini-quick-form input {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 7px;
+  background: var(--mugen-surface-2);
+  color: var(--mugen-text);
+  font: inherit;
+}
+
+.imini-quick-form input::placeholder {
+  color: var(--mugen-muted);
+}
+
+.imini-quick-form button {
+  min-width: 54px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--mugen-accent);
+  color: var(--mugen-on-accent);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.imini-quick-form button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.imini-quick-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.imini-quick-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--mugen-secondary);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.imini-quick-footer a:hover {
+  color: var(--mugen-text);
+}
+
+.imini-quick-footer small {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.imini-quick-footer small.is-success {
+  color: var(--mugen-success);
+}
+
+.imini-quick-footer small.is-error {
+  color: var(--mugen-danger-muted);
 }
 
 .config-list {

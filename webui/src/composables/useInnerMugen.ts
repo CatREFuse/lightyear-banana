@@ -26,6 +26,7 @@ import type {
 } from '@mugen/core'
 import type { CapturedCanvasImage } from '@mugen/core'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
+import { createIMiniQuickAccessConfig } from '../utils/iminiQuickAccess'
 import { createConversationThumbnail } from '../utils/referenceImages'
 import type {
   GenerationSnapshot,
@@ -217,6 +218,7 @@ export function useInnerMugen(): MugenController {
   const toastMessage = shallowRef('')
   const canvasOperation = shallowRef<CanvasOperationState>({ type: 'idle', label: '' })
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
+  const iMiniQuickAccessState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
   const diagnosticExportState = shallowRef<DiagnosticExportState>({ status: 'idle', message: '最近 24 小时' })
   const generatedThumbnails = shallowReactive<Record<string, string>>({})
   const settingsDraft = reactive<ModelConfig>(makeEmptyConfig())
@@ -568,6 +570,25 @@ export function useInnerMugen(): MugenController {
     }
   }
 
+  async function saveIMiniQuickAccess(apiKey: string) {
+    iMiniQuickAccessState.value = { status: 'testing', message: '正在保存' }
+
+    try {
+      const existing = configs.value.find((config) => config.provider === 'iMini')
+      const next = createIMiniQuickAccessConfig(existing, apiKey, createMessageId('config'))
+      const saved = await store.saveConfig(uiConfigToHost(next, false), next.apiKey)
+      editingConfigId.value = saved.id
+      settingsDraftIsNew.value = false
+      Object.assign(settingsDraft, hostConfigToUi(saved))
+      iMiniQuickAccessState.value = { status: 'success', message: 'iMini 已接入' }
+      showToast('iMini 已接入')
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'iMini 接入失败'
+      iMiniQuickAccessState.value = { status: 'error', message }
+      showToast(message)
+    }
+  }
+
   async function toggleConfigEnabled(enabled: boolean) {
     settingsDraft.enabled = enabled
     if (settingsDraftIsNew.value) return
@@ -659,6 +680,7 @@ export function useInnerMugen(): MugenController {
     enabledConfigs,
     generationLoading,
     installPluginUrl: shallowRef(''),
+    iMiniQuickAccessState,
     loadOriginalImage,
     diagnosticExportState,
     exportDiagnostics,
@@ -677,6 +699,7 @@ export function useInnerMugen(): MugenController {
     retryGeneration,
     resolutionMode,
     saveConfig,
+    saveIMiniQuickAccess,
     saveGeneratedImage,
     selectConfig,
     selectModel,

@@ -5,7 +5,7 @@ import { useThemePreferences, type ThemePreferencesController } from '../../comp
 import type { DesktopPlatform, RuntimeName } from '@mugen/core'
 import type { CapturedCanvasImage } from '@mugen/core'
 import ComposerDock from './ComposerDock.vue'
-import BoxIcon from './BoxIcon.vue'
+import AppIcon from './AppIcon.vue'
 import MessageThread from './MessageThread.vue'
 import PanelHeader from './PanelHeader.vue'
 import SettingsPanel from './SettingsPanel.vue'
@@ -52,6 +52,7 @@ const {
   editingConfigId,
   enabledConfigs,
   generationLoading,
+  iMiniQuickAccessState,
   installPluginUrl,
   openPromptPresets,
   openSettings,
@@ -66,6 +67,7 @@ const {
   retryGeneration,
   resolutionMode,
   saveConfig,
+  saveIMiniQuickAccess,
   saveGeneratedImage,
   selectConfig,
   selectModel,
@@ -259,6 +261,7 @@ function handleManageModels() {
         :diagnostic-export-available="props.diagnosticExportAvailable ?? false"
         :diagnostic-export-state="diagnosticExportState"
         :provider-capabilities="providerCapabilities"
+        :i-mini-quick-access-state="iMiniQuickAccessState"
         :prompt-presets="promptPresets"
         :settings-draft-is-new="settingsDraftIsNew"
         :settings-draft="settingsDraft"
@@ -274,6 +277,7 @@ function handleManageModels() {
         @edit="editConfig"
         @open-prompt-presets="openPromptPresets"
         @save="saveConfig"
+        @save-i-mini-quick-access="saveIMiniQuickAccess"
         @test="testConfig"
         @toggle-enabled="toggleConfigEnabled"
         @update-draft="updateSettingsDraft"
@@ -360,7 +364,7 @@ function handleManageModels() {
                   <button v-if="props.runtime === 'browser'" type="button" @click="downloadPreviewImage">下载</button>
                   <button v-else type="button" @click="downloadPreviewImage">下载</button>
                   <button type="button" aria-label="关闭预览" @click="closePreview">
-                    <BoxIcon name="x" size="16" />
+                    <AppIcon name="close-line" size="16" />
                   </button>
                 </div>
               </header>

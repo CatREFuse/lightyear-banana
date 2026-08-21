@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, shallowRef, useTemplateRef } from 'vue'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
-import BoxIcon from './BoxIcon.vue'
-import type { BoxIconName } from './boxIcons'
+import AppIcon from './AppIcon.vue'
+import type { AppIconName } from './appIcons'
 
 type SelectOption = {
-  icon?: BoxIconName
+  icon?: AppIconName
   value: string
   label: string
   meta?: string
@@ -16,7 +16,7 @@ type SelectOption = {
 const props = withDefaults(
   defineProps<{
     direction?: 'up' | 'down'
-    icon?: BoxIconName
+    icon?: AppIconName
     label: string
     open?: boolean
     options: SelectOption[]
@@ -74,14 +74,14 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
     <span class="select-label">{{ label }}</span>
     <div class="select-anchor">
       <button class="select-trigger" :class="{ 'has-icon': icon, 'has-status': selectedOption?.status }" type="button" @click="toggleOpen">
-        <BoxIcon v-if="icon" :name="icon" size="14" />
+        <AppIcon v-if="icon" :name="icon" size="14" />
         <span class="select-value">{{ selectedOption?.label ?? value }}</span>
         <span
           v-if="selectedOption?.status"
           class="select-status"
           :class="`is-${selectedOption.statusTone ?? 'muted'}`"
         >{{ selectedOption.status }}</span>
-        <BoxIcon class="select-chevron" name="chevron-down" size="16" />
+        <AppIcon class="select-chevron" name="arrow-down-s-line" size="16" />
       </button>
 
       <Transition name="menu-pop">
@@ -93,7 +93,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
             :class="{ selected: option.value === value, 'has-option-icon': option.icon, 'has-option-status': option.status }"
             @click="selectOption(option.value)"
           >
-            <BoxIcon v-if="option.icon" :name="option.icon" size="15" />
+            <AppIcon v-if="option.icon" :name="option.icon" size="15" />
             <span class="option-main">
               <span class="option-label">{{ option.label }}</span>
               <span

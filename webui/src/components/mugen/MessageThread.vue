@@ -9,7 +9,8 @@ import type {
   PlacementTarget
 } from '@mugen/core'
 import type { CapturedCanvasImage } from '@mugen/core'
-import BoxIcon from './BoxIcon.vue'
+import AppIcon from './AppIcon.vue'
+import type { AppIconName } from './appIcons'
 import ReferenceThumb from './ReferenceThumb.vue'
 
 const props = defineProps<{
@@ -35,7 +36,7 @@ const emit = defineEmits<{
 }>()
 
 type PlacementOption = {
-  icon: 'selection' | 'image' | 'crop' | 'expand-alt'
+  icon: AppIconName
   id: string
   label: string
   triggerLabel: string
@@ -154,7 +155,7 @@ function openImageContextMenu(event: MouseEvent, image: GeneratedImage) {
 
 function readReferenceSelectionOption(reference: ChatTurn['references'][number], index: number): PlacementOption {
   return {
-    icon: 'selection',
+    icon: 'focus-3-line',
     id: `reference-selection-${reference.id}`,
     label: `参考图片 ${index + 1} 的选区`,
     triggerLabel: index === 0 ? '首图选区' : `参考 ${index + 1} 选区`,
@@ -171,7 +172,7 @@ function readDefaultPlacementOption(turn: ChatTurn): PlacementOption {
   const firstReference = turn.references[0]
   if (!firstReference) {
     return {
-      icon: 'image',
+      icon: 'picture-in-picture-fill',
       id: 'default',
       label: '默认置入',
       triggerLabel: '默认置入',
@@ -181,7 +182,7 @@ function readDefaultPlacementOption(turn: ChatTurn): PlacementOption {
 
   if (firstReference.source === 'visible' || firstReference.source === 'layer') {
     return {
-      icon: 'image',
+      icon: 'picture-in-picture-fill',
       id: 'full-canvas',
       label: '全画布置入',
       triggerLabel: '全画布置入',
@@ -194,7 +195,7 @@ function readDefaultPlacementOption(turn: ChatTurn): PlacementOption {
   }
 
   return {
-    icon: 'expand-alt',
+    icon: 'bx-fullscreen',
     id: 'original-size',
     label: '原尺寸置入',
     triggerLabel: '原尺寸置入',
@@ -211,21 +212,21 @@ function readPlacementOptions(turn: ChatTurn): PlacementOption[] {
   const options: PlacementOption[] = [
     readDefaultPlacementOption(turn),
     {
-      icon: 'image',
+      icon: 'picture-in-picture-fill',
       id: 'full-canvas',
       label: '全画布置入',
       triggerLabel: '全画布置入',
       target: { type: 'full-canvas' }
     },
     {
-      icon: 'expand-alt',
+      icon: 'bx-fullscreen',
       id: 'original-size',
       label: '原尺寸（置入）',
       triggerLabel: '原尺寸置入',
       target: { type: 'original-size' }
     },
     {
-      icon: 'crop',
+      icon: 'aspect-ratio-line',
       id: 'current-selection',
       label: '当前选区',
       triggerLabel: '当前选区',
@@ -434,7 +435,7 @@ watch(
   <section ref="thread" class="thread" aria-label="当前对话" @click="closeThreadMenus">
     <Transition name="empty-fade">
       <div v-if="turns.length === 0 && loading.length === 0" class="empty-state">
-        <BoxIcon name="image" size="15" />
+        <AppIcon name="picture-in-picture-fill" size="15" />
         <span>开始创作</span>
         <small>{{ photoshopIntegrationAvailable ? '描述想法，或从 Photoshop 添加参考图' : '描述想法，或添加参考图' }}</small>
       </div>
@@ -552,7 +553,7 @@ watch(
                     @click="placeImage(image, readActivePlacementOption(turn, image).target)"
                   >
                     <span v-if="isPlacingImage(image)" class="action-spinner" aria-hidden="true"></span>
-                    <BoxIcon v-else :name="readActivePlacementOption(turn, image).icon" size="14" />
+                    <AppIcon v-else :name="readActivePlacementOption(turn, image).icon" size="14" />
                     <span class="place-label">{{ isPlacingImage(image) ? '置入中' : readActivePlacementOption(turn, image).triggerLabel }}</span>
                   </button>
                   <div class="place-menu-wrap">
@@ -565,7 +566,7 @@ watch(
                       title="切换置入方式"
                       @click.stop="togglePlacementMenu(turn.id, image.id)"
                     >
-                      <BoxIcon name="chevron-down" size="16" />
+                      <AppIcon name="arrow-down-s-line" size="16" />
                     </button>
                     <Transition name="menu-pop">
                       <div
@@ -580,7 +581,7 @@ watch(
                           :class="{ selected: option.id === readActivePlacementOption(turn, image).id }"
                           @click="selectPlacementOption(turn, image, option)"
                         >
-                          <BoxIcon :name="option.icon" size="14" />
+                          <AppIcon :name="option.icon" size="14" />
                           {{ option.label }}
                         </button>
                       </div>
@@ -588,10 +589,10 @@ watch(
                   </div>
                 </div>
                 <button class="result-icon-action action-tooltip" type="button" aria-label="超分" data-tooltip="超分" title="超分" @click="emit('upscale', image)">
-                  <BoxIcon name="zoom-in" size="15" />
+                  <AppIcon name="zoom-in-line" size="15" />
                 </button>
                 <button class="result-icon-action action-tooltip" type="button" aria-label="添加参考" data-tooltip="添加参考" title="添加参考" @click="emit('reference', image)">
-                  <BoxIcon name="image-add" size="15" />
+                  <AppIcon name="image-add-line" size="15" />
                 </button>
               </div>
             </article>
@@ -675,7 +676,7 @@ watch(
         @click.stop
       >
         <button type="button" role="menuitem" @click="saveContextMenuImage">
-          <BoxIcon name="download" size="14" />
+          <AppIcon name="download-line" size="14" />
           下载到本地
         </button>
       </div>

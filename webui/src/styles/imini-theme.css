@@ -5,6 +5,7 @@
   --mugen-accent: #0ea5e9;
   --mugen-accent-hover: #0284c7;
   --mugen-accent-soft: rgba(14, 165, 233, 0.12);
+  --mugen-on-accent: #ffffff;
   --mugen-success: #16a34a;
   --mugen-success-bg: rgba(22, 163, 74, 0.1);
   --mugen-danger: #ef4444;
@@ -646,6 +647,10 @@
 .mugen-shell.mugen-shell :is(button, input, textarea, select):focus-visible {
   outline: 2px solid var(--mugen-accent);
   outline-offset: 2px;
+}
+
+.mugen-shell.mugen-shell .prompt-input:focus-visible {
+  outline: 0;
 }
 
 .parameter-pop-enter-active,
