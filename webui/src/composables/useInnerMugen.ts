@@ -232,6 +232,7 @@ export function useInnerMugen(): MugenController {
   const activeCapability = computed(() => readProviderCapability(activeConfig.value))
   const editingCapability = computed(() => readProviderCapability(settingsDraft))
   const enabledConfigs = computed(() => configs.value.filter((config) => config.enabled))
+  const historyLimit = computed(() => store.historyLimit)
   const referenceLimit = computed(() => activeCapability.value.referenceLimit)
   const references = computed(() => store.references.map(assetToReference))
   const canAddReference = computed(() => store.canAddReference)
@@ -624,6 +625,15 @@ export function useInnerMugen(): MugenController {
     showToast('记录已清除')
   }
 
+  async function updateHistoryLimit(value: number) {
+    try {
+      await store.setHistoryLimit(value)
+      showToast(`保留最近 ${store.historyLimit} 条生成记录`)
+    } catch (reason) {
+      showToast(reason instanceof Error ? reason.message : '记录条数保存失败')
+    }
+  }
+
   async function exportDiagnostics() {
     diagnosticExportState.value = { status: 'exporting', message: '正在整理最近 24 小时的日志' }
     try {
@@ -667,6 +677,7 @@ export function useInnerMugen(): MugenController {
     editingConfigId,
     enabledConfigs,
     generationLoading,
+    historyLimit,
     installPluginUrl: shallowRef(''),
     loadOriginalImage,
     diagnosticExportState,
@@ -704,6 +715,7 @@ export function useInnerMugen(): MugenController {
     upscaleImage,
     updateSettingsDraft,
     updatePromptPresets,
+    updateHistoryLimit,
     upgradeGeneratedThumbnail,
     useResultAsReference
   } as unknown as MugenController

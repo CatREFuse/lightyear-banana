@@ -1,4 +1,11 @@
-import type { PromptPreset, PublicModelConfig, SettingsSnapshot, ThemePreferences } from '@mugen/inner-protocol'
+import {
+  DEFAULT_HISTORY_LIMIT,
+  normalizeHistoryLimit,
+  type PromptPreset,
+  type PublicModelConfig,
+  type SettingsSnapshot,
+  type ThemePreferences
+} from '@mugen/inner-protocol'
 import { providerCapabilities, providerRequiresApiKey } from '@mugen/core'
 import { getHostRequire } from '../photoshopHost'
 import { decodeUtf8, encodeUtf8, utf8ByteLength } from './utf8'
@@ -9,6 +16,7 @@ type SettingsState = {
   schemaVersion: 1
   activeConfigId?: string
   configs: StoredModelConfig[]
+  historyLimit: number
   promptPresets?: PromptPreset[]
   themePreferences?: ThemePreferences
 }
@@ -244,13 +252,13 @@ function validateThemePreferences(value: unknown): ThemePreferences | undefined 
 
 async function readState(): Promise<SettingsState> {
   const localFileSystem = getStorage().localFileSystem
-  if (!localFileSystem) return { schemaVersion: 1, configs: [] }
+  if (!localFileSystem) return { schemaVersion: 1, configs: [], historyLimit: DEFAULT_HISTORY_LIMIT }
   let serialized: string
   try {
     const file = await (await localFileSystem.getDataFolder()).getEntry(SETTINGS_FILE)
     serialized = await file.read()
   } catch {
-    return { schemaVersion: 1, configs: [] }
+    return { schemaVersion: 1, configs: [], historyLimit: DEFAULT_HISTORY_LIMIT }
   }
   if (serializedBytes(serialized) > MAX_SETTINGS_BYTES) throw new Error('本地模型配置超过大小限制，请缩小 ComfyUI 工作流')
   let parsed: Partial<SettingsState>
@@ -267,7 +275,14 @@ async function readState(): Promise<SettingsState> {
     : configs.find((config) => config.enabled)?.id
   const promptPresets = validatePromptPresets(parsed.promptPresets)
   const themePreferences = validateThemePreferences(parsed.themePreferences)
-  return { schemaVersion: 1, ...(activeConfigId ? { activeConfigId } : {}), configs, ...(promptPresets.length ? { promptPresets } : {}), ...(themePreferences ? { themePreferences } : {}) }
+  return {
+    schemaVersion: 1,
+    ...(activeConfigId ? { activeConfigId } : {}),
+    configs,
+    historyLimit: normalizeHistoryLimit(parsed.historyLimit),
+    ...(promptPresets.length ? { promptPresets } : {}),
+    ...(themePreferences ? { themePreferences } : {})
+  }
 }
 
 async function writeState(state: SettingsState) {
@@ -287,6 +302,7 @@ export async function getSettings(): Promise<SettingsSnapshot> {
   const state = await readState()
   return {
     activeConfigId: state.activeConfigId,
+    historyLimit: state.historyLimit,
     ...(state.promptPresets?.length ? { promptPresets: state.promptPresets } : {}),
     ...(state.themePreferences ? { themePreferences: state.themePreferences } : {}),
     configs: await Promise.all(state.configs.map(async (config) => {
@@ -311,6 +327,9 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
   const themePreferences = payload.themePreferences === undefined
     ? previous.themePreferences
     : validateThemePreferences(payload.themePreferences)
+  const historyLimit = payload.historyLimit === undefined
+    ? previous.historyLimit
+    : normalizeHistoryLimit(payload.historyLimit)
   const nextConfigs = new Map(configs.map((config) => [config.id, config]))
   const invalidatedIds = previous.configs
     .filter((oldConfig) => {
@@ -326,7 +345,14 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
   for (const configId of invalidatedIds) {
     await clearStoredCredential(configId, true)
   }
-  await writeState({ schemaVersion: 1, ...(activeConfigId ? { activeConfigId } : {}), configs, ...(promptPresets.length ? { promptPresets } : {}), ...(themePreferences ? { themePreferences } : {}) })
+  await writeState({
+    schemaVersion: 1,
+    ...(activeConfigId ? { activeConfigId } : {}),
+    configs,
+    historyLimit,
+    ...(promptPresets.length ? { promptPresets } : {}),
+    ...(themePreferences ? { themePreferences } : {})
+  })
   return getSettings()
 }
 

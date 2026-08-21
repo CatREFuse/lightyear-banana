@@ -32,6 +32,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     }
     let settings = {
       activeConfigId: 'e2e-apimart',
+      historyLimit: 30,
       configs: [{
         id: 'e2e-apimart',
         name: 'APIMart',

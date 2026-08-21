@@ -1,4 +1,13 @@
-import { isGenerationSnapshot, type HistoryEntry, type HistoryUpsertEntry, type HostAssetPointer, type RequestLog } from '@mugen/inner-protocol'
+import {
+  DEFAULT_HISTORY_LIMIT,
+  MAX_HISTORY_LIMIT,
+  isGenerationSnapshot,
+  normalizeHistoryLimit,
+  type HistoryEntry,
+  type HistoryUpsertEntry,
+  type HostAssetPointer,
+  type RequestLog
+} from '@mugen/inner-protocol'
 import { getHostRequire } from '../photoshopHost'
 import { AssetStore } from './assetStore'
 import { utf8ByteLength } from './utf8'
@@ -56,7 +65,6 @@ async function deleteDataFile(name: string) {
 
 const HISTORY_FILE = 'mugen-inner-history.v1.json'
 const HISTORY_BACKUP_FILE = 'mugen-inner-history.v1.backup.json'
-const MAX_HISTORY_ITEMS = 30
 const MAX_HISTORY_RESPONSE_BYTES = 700 * 1024
 
 function serializedBytes(value: unknown) {
@@ -201,10 +209,37 @@ function compactHistoryEntry(entry: HistoryEntry) {
 export class HistoryStore {
   private entries?: HistoryUpsertEntry[]
   private readonly assets: AssetStore
+  private limit = DEFAULT_HISTORY_LIMIT
+  private limitInitialized = false
   private mutationQueue: Promise<void> = Promise.resolve()
 
   constructor(assets: AssetStore) {
     this.assets = assets
+  }
+
+  configureLimit(value: unknown) {
+    this.limit = normalizeHistoryLimit(value)
+    this.limitInitialized = true
+  }
+
+  async setLimit(value: unknown) {
+    const nextLimit = normalizeHistoryLimit(value)
+    if (this.limitInitialized && nextLimit === this.limit && this.entries && this.entries.length <= nextLimit) return
+    this.configureLimit(nextLimit)
+
+    return this.mutate(async () => {
+      const entries = await this.load()
+      const next = entries.slice(0, this.limit)
+      if (next.length === entries.length) return
+      await this.writeHistory(next, next)
+      this.entries = next
+      const retained = persistentAssetIds(next)
+      const removed = [...persistentAssetIds(entries)].filter((assetId) => !retained.has(assetId))
+      await this.assets.removePersistent(removed).catch(() => undefined)
+      for (const evicted of entries.slice(next.length)) {
+        this.assets.releaseOwner(historyOwner(evicted.id), true)
+      }
+    })
   }
 
   private async load() {
@@ -232,7 +267,7 @@ export class HistoryStore {
         ? stored
             .filter((item): item is HistoryUpsertEntry => Boolean(item && typeof item === 'object' && typeof (item as HistoryUpsertEntry).id === 'string'))
             .map(sanitizedHistoryEntry)
-            .slice(0, MAX_HISTORY_ITEMS)
+            .slice(0, MAX_HISTORY_LIMIT)
         : []
       for (const entry of this.entries) {
         await this.assets.retainAvailable([...sessionHistoryAssetIds(entry)], historyOwner(entry.id))
@@ -244,7 +279,7 @@ export class HistoryStore {
   async list(cursor?: string, limit = 30) {
     const entries = await this.load()
     const start = cursor ? Math.max(0, Number.parseInt(cursor, 10) || 0) : 0
-    const cleanLimit = Math.min(50, Math.max(1, Math.round(limit)))
+    const cleanLimit = Math.min(this.limit, Math.max(1, Math.round(limit)))
     const items: HistoryEntry[] = []
     for (const entry of entries.slice(start, start + cleanLimit)) {
       const candidate = compactHistoryEntry(await this.hydrate(entry))
@@ -259,7 +294,7 @@ export class HistoryStore {
     return this.mutate(async () => {
       const entries = await this.load()
       const clean = sanitizedHistoryEntry(entry)
-      const next = [clean, ...entries.filter((item) => item.id !== clean.id)].slice(0, MAX_HISTORY_ITEMS)
+      const next = [clean, ...entries.filter((item) => item.id !== clean.id)].slice(0, this.limit)
       const previous = entries.find((item) => item.id === clean.id)
       const previousIds = previous ? historyAssetIds(previous) : new Set<string>()
       const cleanIds = historyAssetIds(clean)
@@ -275,14 +310,14 @@ export class HistoryStore {
         throw error
       }
       this.entries = next
+      const retained = persistentAssetIds(next)
+      const removed = [...persistentAssetIds(entries)].filter((assetId) => !retained.has(assetId))
+      await this.assets.removePersistent(removed).catch(() => undefined)
       for (const assetId of removedIds) this.assets.releaseAssetOwner(assetId, owner, true)
       for (const evicted of entries.filter((item) => !next.some((candidate) => candidate.id === item.id))) {
         this.assets.releaseOwner(historyOwner(evicted.id), true)
       }
       this.assets.releaseOwner(`task:${clean.id}`, true)
-      const retained = persistentAssetIds(next)
-      const removed = [...persistentAssetIds(entries)].filter((assetId) => !retained.has(assetId))
-      await this.assets.removePersistent(removed).catch(() => undefined)
       return { entry: compactHistoryEntry(await this.hydrate(clean)) }
     })
   }
@@ -334,7 +369,7 @@ export class HistoryStore {
   }
 
   private async writeHistory(next: HistoryUpsertEntry[], previous: HistoryUpsertEntry[]) {
-    await writeJsonFile(HISTORY_BACKUP_FILE, previous.slice(0, MAX_HISTORY_ITEMS))
+    await writeJsonFile(HISTORY_BACKUP_FILE, previous.slice(0, this.limit))
     await writeJsonFile(HISTORY_FILE, next)
     const written = await this.readHistoryFile(HISTORY_FILE)
     if (!Array.isArray(written)) throw new Error('生成记录写入校验失败')

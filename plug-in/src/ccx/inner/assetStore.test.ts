@@ -272,6 +272,29 @@ describe('persistent Host assets', () => {
     expect((await history.list(undefined, 50)).items).toHaveLength(30)
   })
 
+  it('applies the configured history limit and deletes evicted generated assets', async () => {
+    const assets = new AssetStore()
+    const history = new HistoryStore(assets)
+    const pointers: Array<{ assetId: string; label: string; source: 'generated'; width: number; height: number }> = []
+    await history.setLimit(2)
+
+    for (let index = 0; index < 3; index += 1) {
+      const asset = await assets.add('generated', { ...image, id: `limited-${index}`, label: `限制记录 ${index + 1}` })
+      const pointer = { assetId: asset.assetId, label: asset.label, source: 'generated' as const, width: asset.width, height: asset.height }
+      pointers.push(pointer)
+      await history.upsert({ ...historyEntry(`turn-limited-${index}`), assets: [pointer] })
+    }
+
+    expect((await history.list(undefined, 50)).items.map((entry) => entry.id)).toEqual(['turn-limited-2', 'turn-limited-1'])
+    expect((await assets.resolvePointer(pointers[0]!)).status).toBe('missing')
+
+    await history.setLimit(1)
+
+    expect((await history.list(undefined, 50)).items.map((entry) => entry.id)).toEqual(['turn-limited-2'])
+    expect((await assets.resolvePointer(pointers[1]!)).status).toBe('missing')
+    expect((await assets.getOrRestore(pointers[2]!.assetId)).ref.status).toBe('available')
+  })
+
   it('treats session-history references as soft owners under the memory limit', async () => {
     const assets = new AssetStore()
     const assetIds: string[] = []

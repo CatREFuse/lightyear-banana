@@ -186,6 +186,20 @@ describe('BYOK credential binding', () => {
     expect((await getSettings()).themePreferences).toEqual({ visualTheme: 'classic', colorMode: 'light' })
   })
 
+  it('persists the history limit and keeps 30 as the legacy default', async () => {
+    expect((await getSettings()).historyLimit).toBe(30)
+
+    const saved = await saveSettings({
+      activeConfigId: 'config-1',
+      configs: [config()],
+      historyLimit: 12
+    })
+
+    expect(saved.historyLimit).toBe(12)
+    expect((await getSettings()).historyLimit).toBe(12)
+    expect((await saveSettings({ activeConfigId: 'config-1', configs: [config()] })).historyLimit).toBe(12)
+  })
+
   it('treats unbound legacy secure-storage values as missing', async () => {
     await save(config())
     runtime.credentials.set('mugen.provider-credential.v1.config-1', new TextEncoder().encode('legacy-secret'))

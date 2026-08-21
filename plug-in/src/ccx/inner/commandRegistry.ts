@@ -176,8 +176,16 @@ export class CommandRegistry {
         await shell.openExternal(OFFICIAL_RELEASE_PAGE)
         return { opened: true }
       },
-      'settings.get': async () => getSettings(),
-      'settings.save': async (payload) => saveSettings(payload ?? {}),
+      'settings.get': async () => {
+        const settings = await getSettings()
+        this.history.configureLimit(settings.historyLimit)
+        return settings
+      },
+      'settings.save': async (payload) => {
+        const settings = await saveSettings(payload ?? {})
+        await this.history.setLimit(settings.historyLimit)
+        return settings
+      },
       'history.list': async (payload) => this.history.list(
         typeof payload?.cursor === 'string' ? payload.cursor : undefined,
         typeof payload?.limit === 'number' ? payload.limit : 30

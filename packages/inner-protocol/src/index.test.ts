@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   INNER_HOST_PROTOCOL,
+  MAX_HISTORY_LIMIT,
   MAX_BRIDGE_MESSAGE_BYTES,
+  MIN_HISTORY_LIMIT,
   PROTOCOL_VERSION,
   createLocationBridgeUrl,
   createRequestEnvelope,
@@ -9,6 +11,7 @@ import {
   isHostEvent,
   isGenerationSnapshot,
   isProtocolCompatible,
+  normalizeHistoryLimit,
   parseBridgeEnvelope,
   readLocationBridgeMessage,
   serializedMessageSize,
@@ -75,6 +78,20 @@ describe('inner-host/v1 envelope', () => {
       configs: [config], activeConfigId: config.id,
       themePreferences: { visualTheme: 'gradient', colorMode: 'dark' }
     })).toThrow('设置参数')
+  })
+
+  it('validates and normalizes the persisted history limit', () => {
+    const config = {
+      id: 'config-1', name: '配置', provider: 'apimart', model: 'gpt-image-1',
+      baseUrl: 'https://api.apimart.ai', enabled: true, credentialState: 'stored'
+    }
+    expect(normalizeHistoryLimit(undefined)).toBe(30)
+    expect(normalizeHistoryLimit(0)).toBe(MIN_HISTORY_LIMIT)
+    expect(normalizeHistoryLimit(99)).toBe(MAX_HISTORY_LIMIT)
+    expect(() => validateCommandPayload('settings.save', { configs: [config], historyLimit: 30 })).not.toThrow()
+    expect(() => validateCommandPayload('settings.save', { configs: [config], historyLimit: 0 })).toThrow('设置参数')
+    expect(() => validateCommandPayload('settings.save', { configs: [config], historyLimit: 51 })).toThrow('设置参数')
+    expect(() => validateCommandPayload('settings.save', { configs: [config], historyLimit: 1.5 })).toThrow('设置参数')
   })
 
   it('validates workspace asset ownership without accepting preview data in the request', () => {

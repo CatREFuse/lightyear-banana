@@ -1,7 +1,19 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { GenerationSnapshot, HistoryEntry, HistoryUpsertEntry, HostAssetRef, HostContext, HostEvent, ModelConfig, PromptPreset, RequestLog, TaskPhase } from '@mugen/inner-protocol'
-import { PROTOCOL_VERSION, createMessageId, isGenerationSnapshot, isProtocolCompatible, providerCapabilities, providerUsesApiKey, readProviderCapability, toHostAssetPointer, toModelConfig } from '@mugen/inner-protocol'
+import {
+  DEFAULT_HISTORY_LIMIT,
+  PROTOCOL_VERSION,
+  createMessageId,
+  isGenerationSnapshot,
+  isProtocolCompatible,
+  normalizeHistoryLimit,
+  providerCapabilities,
+  providerUsesApiKey,
+  readProviderCapability,
+  toHostAssetPointer,
+  toModelConfig
+} from '@mugen/inner-protocol'
 import { createHostClient } from '@/host'
 
 export type ChatTurn = {
@@ -76,6 +88,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const configs = ref<ModelConfig[]>([])
   const references = ref<HostAssetRef[]>([])
   const turns = ref<ChatTurn[]>([])
+  const historyLimit = ref(DEFAULT_HISTORY_LIMIT)
   const promptPresets = ref<PromptPreset[]>([])
   const selectedConfigId = ref('')
   const colorMode = ref<'dark' | 'light' | 'system'>('dark')
@@ -87,6 +100,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const canAddReference = computed(() => references.value.length < currentCapability.value.referenceLimit)
   const resolvedTheme = computed(() => colorMode.value === 'system' ? (context.value?.theme || 'dark') : colorMode.value)
   let activeConfigSave: Promise<void> = Promise.resolve()
+  let historyLimitSave: Promise<void> = Promise.resolve()
   let referenceMutation: Promise<void> = Promise.resolve()
   let themeSave: Promise<void> = Promise.resolve()
   let elapsedTimer: ReturnType<typeof setInterval> | undefined
@@ -115,8 +129,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   function trimTerminalTurns() {
     const terminal = turns.value.filter((turn) => turn.status !== 'running')
-    if (terminal.length <= 30) return
-    const keep = new Set(terminal.slice(-30).map((turn) => turn.id))
+    if (terminal.length <= historyLimit.value) return
+    const keep = new Set(terminal.slice(-historyLimit.value).map((turn) => turn.id))
     turns.value = turns.value.filter((turn) => turn.status === 'running' || keep.has(turn.id))
   }
 
@@ -138,15 +152,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
       const settings = await host.invoke('settings.get', undefined)
       configs.value = settings.configs.map(toModelConfig)
+      historyLimit.value = normalizeHistoryLimit(settings.historyLimit)
       promptPresets.value = settings.promptPresets ?? []
       visualTheme.value = settings.themePreferences?.visualTheme ?? 'nothing'
       colorMode.value = settings.themePreferences?.colorMode ?? 'dark'
       selectedConfigId.value = pickActiveConfigId(configs.value, settings.activeConfigId)
       if (response.context.capabilities.includes('history.list')) {
         try {
-          const history = await host.invoke('history.list', { limit: 30 })
+          const history = await host.invoke('history.list', { limit: historyLimit.value })
           const loaded = history.items
-            .slice(0, 30)
+            .slice(0, historyLimit.value)
             .map(historyEntryToTurn)
             .filter((turn): turn is ChatTurn => Boolean(turn))
           const merged = new Map(loaded.map((turn) => [turn.id, turn]))
@@ -383,6 +398,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       configs.value = []
       references.value = []
       turns.value = []
+      historyLimit.value = DEFAULT_HISTORY_LIMIT
       selectedConfigId.value = ''
       visualTheme.value = 'nothing'
       colorMode.value = 'dark'
@@ -433,6 +449,29 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const settings = await host.invoke('settings.get', undefined)
     const saved = await host.invoke('settings.save', { ...settings, promptPresets: next })
     promptPresets.value = saved.promptPresets ?? []
+  }
+
+  function setHistoryLimit(value: number) {
+    const nextLimit = normalizeHistoryLimit(value)
+    const previousLimit = historyLimit.value
+    historyLimit.value = nextLimit
+    const persist = async () => {
+      try {
+        const settings = await host.invoke('settings.get', undefined)
+        const saved = await host.invoke('settings.save', { ...settings, historyLimit: nextLimit })
+        if (historyLimit.value === nextLimit) {
+          historyLimit.value = normalizeHistoryLimit(saved.historyLimit)
+          trimTerminalTurns()
+        }
+      } catch (reason) {
+        if (historyLimit.value === nextLimit) historyLimit.value = previousLimit
+        error.value = reason instanceof Error ? `记录条数未保存：${reason.message}` : '记录条数暂时无法保存'
+        throw reason
+      }
+    }
+    const run = historyLimitSave.then(persist, persist)
+    historyLimitSave = run.then(() => undefined, () => undefined)
+    return run
   }
 
   function queueTaskEvent(taskId: string, event: HostEvent) {
@@ -497,9 +536,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   host.onEvent(handleHostEvent)
 
   return {
-    host, status, context, error, configs, enabledConfigs, references, turns, promptPresets, selectedConfigId, colorMode, visualTheme, theme, isPreview,
+    host, status, context, error, configs, enabledConfigs, references, turns, historyLimit, promptPresets, selectedConfigId, colorMode, visualTheme, theme, isPreview,
     currentConfig, currentCapability, canAddReference, resolvedTheme, initialize, openReleasePage,
     addReference, importReferenceImage, removeReference, clearReferences, addResultAsReference, applySnapshot, generate, cancel, place, placeToReference,
-    save, retry, canRetryTurn, clearHistory, clearLocalData, saveConfig, deleteConfig, selectConfig, setColorMode, setVisualTheme, setTheme, savePromptPresets
+    save, retry, canRetryTurn, clearHistory, clearLocalData, saveConfig, deleteConfig, selectConfig, setColorMode, setVisualTheme, setTheme, savePromptPresets, setHistoryLimit
   }
 })

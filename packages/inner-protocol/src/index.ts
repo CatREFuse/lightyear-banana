@@ -126,9 +126,19 @@ export type ThemePreferences = {
   colorMode: ThemeMode
 }
 
+export const DEFAULT_HISTORY_LIMIT = 30
+export const MIN_HISTORY_LIMIT = 1
+export const MAX_HISTORY_LIMIT = 50
+
+export function normalizeHistoryLimit(value: unknown) {
+  const numeric = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : DEFAULT_HISTORY_LIMIT
+  return Math.min(MAX_HISTORY_LIMIT, Math.max(MIN_HISTORY_LIMIT, numeric))
+}
+
 export type SettingsSnapshot = {
   activeConfigId?: string
   configs: PublicModelConfig[]
+  historyLimit?: number
   promptPresets?: PromptPreset[]
   themePreferences?: ThemePreferences
 }
@@ -550,6 +560,11 @@ function isPublicModelConfig(value: unknown): value is PublicModelConfig {
 
 function isSettingsSnapshot(value: unknown): value is SettingsSnapshot {
   if (!isRecord(value) || !optionalString(value.activeConfigId) || !Array.isArray(value.configs) || !value.configs.every(isPublicModelConfig)) return false
+  if (value.historyLimit !== undefined && (
+    !Number.isInteger(value.historyLimit)
+    || Number(value.historyLimit) < MIN_HISTORY_LIMIT
+    || Number(value.historyLimit) > MAX_HISTORY_LIMIT
+  )) return false
   if (value.themePreferences !== undefined && (
     !isRecord(value.themePreferences)
     || !['nothing', 'classic'].includes(String(value.themePreferences.visualTheme))

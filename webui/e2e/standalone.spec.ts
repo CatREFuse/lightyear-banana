@@ -341,6 +341,21 @@ test('iMini shortcut opens the legacy configuration draft without changing brows
   })).toBe('')
 })
 
+test('history stepper persists the browser retention limit', async ({ page }) => {
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  const stepper = page.getByRole('group', { name: '生成记录保存条数' })
+  await expect(stepper.locator('output')).toHaveText('30')
+
+  await stepper.getByRole('button', { name: '减少生成记录保存条数' }).click()
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}').historyLimit
+  ))).toBe(29)
+
+  await page.reload()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expect(page.getByRole('group', { name: '生成记录保存条数' }).locator('output')).toHaveText('29')
+})
+
 test('browser compresses combined inline references below the request-body budget', async ({ page }) => {
   const sizes = await page.evaluate(async () => {
     const canvas = document.createElement('canvas')

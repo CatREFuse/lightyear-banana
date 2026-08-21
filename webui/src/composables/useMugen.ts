@@ -49,6 +49,7 @@ import {
 } from '../utils/referenceImages'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
 import { canUseDevelopmentApimartBaseUrl } from '@mugen/core'
+import { DEFAULT_HISTORY_LIMIT, normalizeHistoryLimit } from '@mugen/inner-protocol'
 
 const referenceLabels: Record<ReferenceSource, string> = {
   visible: '可见图层',
@@ -62,11 +63,11 @@ type StoredSettings = {
   activeConfigId: string
   configs: ModelConfig[]
   generationHistory: ChatTurn[]
+  historyLimit: number
   promptPresets: PromptPreset[]
 }
 const settingsStorageKey = 'mugen.settings.v1'
 const legacySettingsStorageKey = 'lightyear-banana.settings.v1'
-const maxStoredTurns = 50
 const apiRetryDelayMs = 800
 const iMiniBrowserProxyPath = '/webui-api/imini'
 const retiredBundledConfigIds = new Set([
@@ -455,7 +456,7 @@ function normalizeStoredRequestSnapshot(value: unknown): GenerationRequestSnapsh
   }
 }
 
-function normalizeStoredTurns(value: unknown): ChatTurn[] {
+function normalizeStoredTurns(value: unknown, historyLimit = DEFAULT_HISTORY_LIMIT): ChatTurn[] {
   if (!Array.isArray(value)) {
     return []
   }
@@ -483,7 +484,7 @@ function normalizeStoredTurns(value: unknown): ChatTurn[] {
       } satisfies ChatTurn
     })
     .filter((turn) => turn !== null)
-    .slice(-maxStoredTurns)
+    .slice(-normalizeHistoryLimit(historyLimit))
 }
 
 function cloneReferenceForStorage(reference: ReferenceImage): ReferenceImage {
@@ -515,8 +516,8 @@ function cloneTurnForStorage(turn: ChatTurn): ChatTurn {
   }
 }
 
-function cloneTurnsForStorage(turns: ChatTurn[]) {
-  return turns.slice(-maxStoredTurns).map(cloneTurnForStorage)
+function cloneTurnsForStorage(turns: ChatTurn[], historyLimit: number) {
+  return turns.slice(-normalizeHistoryLimit(historyLimit)).map(cloneTurnForStorage)
 }
 
 function readStoredSettings(): StoredSettings {
@@ -525,6 +526,7 @@ function readStoredSettings(): StoredSettings {
     activeConfigId: fallbackConfigs[0]?.id ?? '',
     configs: fallbackConfigs,
     generationHistory: [],
+    historyLimit: DEFAULT_HISTORY_LIMIT,
     promptPresets: []
   }
 
@@ -540,11 +542,13 @@ function readStoredSettings(): StoredSettings {
       typeof parsed.activeConfigId === 'string' && configs.some((config) => config.id === parsed.activeConfigId)
         ? parsed.activeConfigId
         : configs[0]?.id ?? ''
+    const historyLimit = normalizeHistoryLimit(parsed.historyLimit)
 
     return {
       activeConfigId,
       configs,
-      generationHistory: normalizeStoredTurns(parsed.generationHistory),
+      generationHistory: normalizeStoredTurns(parsed.generationHistory, historyLimit),
+      historyLimit,
       promptPresets: normalizePromptPresets(parsed.promptPresets)
     }
   } catch {
@@ -577,6 +581,7 @@ export function useMugen(runtime: DirectRuntimeName) {
   const prompt = shallowRef('')
   const references = shallowRef<ReferenceImage[]>([])
   const turns = shallowRef<ChatTurn[]>(storedSettings.generationHistory)
+  const historyLimit = shallowRef(storedSettings.historyLimit)
   const promptPresets = shallowRef<PromptPreset[]>(storedSettings.promptPresets)
   const configs = shallowRef<ModelConfig[]>(storedSettings.configs)
   const activeConfigId = shallowRef(storedSettings.activeConfigId)
@@ -627,12 +632,13 @@ export function useMugen(runtime: DirectRuntimeName) {
     writeStoredSettings({
       activeConfigId: activeConfigId.value,
       configs: configs.value.map(cloneModelConfig),
-      generationHistory: cloneTurnsForStorage(turns.value),
+      generationHistory: cloneTurnsForStorage(turns.value, historyLimit.value),
+      historyLimit: historyLimit.value,
       promptPresets: normalizePromptPresets(promptPresets.value)
     })
   }
 
-  watch([configs, activeConfigId, turns, promptPresets], writeCurrentStoredSettings, { deep: true })
+  watch([configs, activeConfigId, turns, historyLimit, promptPresets], writeCurrentStoredSettings, { deep: true })
 
   watch(activeCapability, (capability) => {
     size.value = capability.sizeOptions.includes(size.value) ? size.value : readDefaultSize(capability.sizeOptions)
@@ -964,6 +970,12 @@ function readHighestQuality(options: string[]): string {
     references.value = []
     status.value = '对话已清空'
     showToast('对话已清空')
+  }
+
+  function updateHistoryLimit(value: number) {
+    historyLimit.value = normalizeHistoryLimit(value)
+    turns.value = turns.value.slice(-historyLimit.value)
+    showToast(`保留最近 ${historyLimit.value} 条生成记录`)
   }
 
   function selectConfig(configId: string) {
@@ -1944,6 +1956,7 @@ function readHighestQuality(options: string[]): string {
     editingConfigId,
     enabledConfigs,
     generationLoading,
+    historyLimit,
     installPluginUrl,
     diagnosticExportState,
     exportDiagnostics,
@@ -1980,6 +1993,7 @@ function readHighestQuality(options: string[]): string {
     upscaleImage,
     updateSettingsDraft,
     updatePromptPresets,
+    updateHistoryLimit,
     useResultAsReference
   }
 }

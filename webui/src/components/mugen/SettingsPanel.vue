@@ -10,6 +10,7 @@ import type {
   SettingsView
 } from '@mugen/core'
 import { validateProviderConfig } from '@mugen/core'
+import { MAX_HISTORY_LIMIT, MIN_HISTORY_LIMIT, normalizeHistoryLimit } from '@mugen/inner-protocol'
 import AppIcon from './AppIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
 import DiagnosticLogCard from './DiagnosticLogCard.vue'
@@ -27,6 +28,7 @@ const props = defineProps<{
   editingConfigId: string
   diagnosticExportAvailable: boolean
   diagnosticExportState: DiagnosticExportState
+  historyLimit: number
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   promptPresets: PromptPreset[]
   settingsDraftIsNew: boolean
@@ -50,6 +52,7 @@ const emit = defineEmits<{
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
+  updateHistoryLimit: [value: number]
   updatePromptPresets: [presets: PromptPreset[]]
 }>()
 
@@ -110,6 +113,10 @@ function requestClearConversationData() {
   emit('clearConversationData')
 }
 
+function adjustHistoryLimit(delta: number) {
+  emit('updateHistoryLimit', normalizeHistoryLimit(props.historyLimit + delta))
+}
+
 function submitIMiniQuickAccess() {
   const apiKey = iMiniApiKey.value.trim()
   if (!apiKey) {
@@ -149,8 +156,29 @@ onUnmounted(() => {
             <div class="settings-card-row history-summary">
               <AppIcon class="settings-row-icon" name="list-ordered" size="16" />
               <span class="settings-row-copy">
-                <strong>生成记录</strong>
-                <small>保存生成消息和图片记录</small>
+                <strong>生成记录保存条数</strong>
+                <small>超过设定上限的生成记录会被删除</small>
+              </span>
+              <span class="history-stepper" role="group" aria-label="生成记录保存条数">
+                <button
+                  class="history-stepper-button is-decrease"
+                  type="button"
+                  aria-label="减少生成记录保存条数"
+                  :disabled="historyLimit <= MIN_HISTORY_LIMIT"
+                  @click="adjustHistoryLimit(-1)"
+                >
+                  <AppIcon name="arrow-right-s-line" size="24" />
+                </button>
+                <output class="history-stepper-value" aria-live="polite">{{ historyLimit }}</output>
+                <button
+                  class="history-stepper-button"
+                  type="button"
+                  aria-label="增加生成记录保存条数"
+                  :disabled="historyLimit >= MAX_HISTORY_LIMIT"
+                  @click="adjustHistoryLimit(1)"
+                >
+                  <AppIcon name="arrow-right-s-line" size="24" />
+                </button>
               </span>
             </div>
             <button class="danger-action" type="button" @click="requestClearConversationData">
@@ -444,7 +472,60 @@ onUnmounted(() => {
 }
 
 .history-summary {
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr) 72px;
+  min-height: 32px;
+}
+
+.history-stepper {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: end;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.history-stepper .history-stepper-button {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mugen-muted);
+  cursor: pointer;
+}
+
+.history-stepper .history-stepper-button:hover,
+.history-stepper .history-stepper-button:focus-visible {
+  color: var(--mugen-text);
+  outline: none;
+}
+
+.history-stepper .history-stepper-button:disabled {
+  color: var(--mugen-border-strong);
+  cursor: default;
+}
+
+.history-stepper-button.is-decrease {
+  transform: rotate(180deg);
+}
+
+.history-stepper-value {
+  display: inline-flex;
+  width: 18px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  background: var(--mugen-field);
+  color: var(--mugen-text);
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .history-card .danger-action {

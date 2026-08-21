@@ -120,6 +120,39 @@ test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })
 
+test('matches the Figma history stepper and saves the Host retention limit', async ({ page }, testInfo) => {
+  await page.getByRole('button', { name: '外观' }).click()
+  await page.getByRole('button', { name: '浅色', exact: true }).click()
+  await expect(page.locator('.mugen-shell')).toHaveClass(/mode-light/)
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+
+  const stepper = page.getByRole('group', { name: '生成记录保存条数' })
+  await expect(page.getByText('超过设定上限的生成记录会被删除')).toBeVisible()
+  await expect(stepper.locator('output')).toHaveText('30')
+  await expect.poll(() => stepper.evaluate((element) => {
+    const value = element.querySelector('output')!
+    const button = element.querySelector('button')!
+    return {
+      width: element.getBoundingClientRect().width,
+      height: element.getBoundingClientRect().height,
+      valueWidth: value.getBoundingClientRect().width,
+      valueHeight: value.getBoundingClientRect().height,
+      buttonWidth: button.getBoundingClientRect().width,
+      buttonHeight: button.getBoundingClientRect().height
+    }
+  })).toEqual({ width: 72, height: 32, valueWidth: 18, valueHeight: 24, buttonWidth: 24, buttonHeight: 24 })
+
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: testInfo.outputPath('figma-history-stepper.png') })
+
+  await stepper.getByRole('button', { name: '减少生成记录保存条数' }).click()
+  await expect(stepper.locator('output')).toHaveText('29')
+  await expect.poll(async () => (await readTestHostTrace(page)).commands
+    .filter((entry) => entry.command === 'settings.save')
+    .at(-1)?.payload).toMatchObject({ historyLimit: 29 })
+
+})
+
 test('iMini shortcut keeps Host settings unchanged until the legacy save action', async ({ page }) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
   await page.getByRole('textbox', { name: 'iMini API Key' }).fill('host-draft-imini-token')
