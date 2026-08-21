@@ -29,3 +29,11 @@
   font-weight: 700;
   src: url("@fontsource/space-mono/files/space-mono-latin-700-normal.woff2") format("woff2");
 }
+
+@font-face {
+  font-family: "Sansita Swashed";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url("@fontsource/sansita-swashed/files/sansita-swashed-latin-700-normal.woff2") format("woff2");
+}

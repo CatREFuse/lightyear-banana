@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { ArrowLeft, Copy, Fullscreen, Layers } from '@boxicons/vue'
+import { ArrowLeftStroke, Copy, Fullscreen, Layers } from '@boxicons/vue'
 import {
   RiAddLargeFill,
   RiArrowDownSLine,
@@ -46,7 +46,7 @@ export const appIcons = {
   'arrow-right-s-line': { component: RiArrowRightSLine, library: 'remix' },
   'arrow-up-line': { component: RiArrowUpLine, library: 'remix' },
   'aspect-ratio-line': { component: RiAspectRatioLine, library: 'remix' },
-  'bx-arrow-back': { component: ArrowLeft, library: 'boxicons' },
+  'bx-arrow-back': { component: ArrowLeftStroke, library: 'boxicons' },
   'bx-copy': { component: Copy, library: 'boxicons' },
   'bx-fullscreen': { component: Fullscreen, library: 'boxicons' },
   'bx-layer': { component: Layers, library: 'boxicons' },

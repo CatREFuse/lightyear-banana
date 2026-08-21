@@ -326,6 +326,8 @@ onUnmounted(() => {
 }
 
 .settings-page {
+  position: relative;
+  z-index: 1;
   display: grid;
   align-content: start;
   gap: 12px;
@@ -506,7 +508,7 @@ onUnmounted(() => {
 
 .imini-quick-body {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   width: min(100%, 304px);
   min-width: 0;
 }
@@ -547,7 +549,6 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 4px;
-  margin-top: 1px;
 }
 
 .imini-quick-form:has(button:disabled) {
@@ -652,7 +653,7 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 8px;
   padding: 10px;
-  box-shadow: inset 0 -1px var(--mugen-hairline);
+  border-bottom: 1px solid var(--mugen-hairline);
 }
 
 h2 {
@@ -691,11 +692,11 @@ h2 {
 }
 
 .section-header + .config-row {
-  box-shadow: none;
+  border-top: 0;
 }
 
 .config-row + .config-row {
-  box-shadow: inset 0 1px var(--mugen-hairline);
+  border-top: 1px solid var(--mugen-hairline);
 }
 
 .config-row:hover {
