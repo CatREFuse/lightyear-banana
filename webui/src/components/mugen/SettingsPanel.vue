@@ -134,10 +134,10 @@ onUnmounted(() => {
         <section class="settings-group" aria-labelledby="common-settings-title">
           <h2 id="common-settings-title">常用设置</h2>
           <button class="data-card settings-card-row preset-entry" type="button" @click="emit('openPromptPresets')">
-            <AppIcon class="settings-row-icon" name="code-s-fill" size="16" />
+            <AppIcon class="settings-row-icon" name="text-block" size="16" />
             <span class="settings-row-copy">
               <strong>常用提示词</strong>
-              <small>{{ promptPresets.length }} 条 · 输入 / 进行调用</small>
+              <small>可在提示词中使用 / 进行调用</small>
             </span>
             <AppIcon class="settings-row-arrow" name="arrow-right-s-line" size="16" />
           </button>

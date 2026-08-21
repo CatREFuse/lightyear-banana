@@ -628,6 +628,15 @@
   background: transparent;
 }
 
+.mugen-shell.mugen-shell .preset-entry {
+  min-height: 62px;
+  padding: 16px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 16px;
+  background: var(--mugen-card);
+  box-shadow: none;
+}
+
 .mugen-shell.mugen-shell .history-card .danger-action {
   color: var(--mugen-danger-text);
 }

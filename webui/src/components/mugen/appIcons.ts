@@ -28,6 +28,7 @@ import {
   RiShiningLine,
   RiSparkling2Line,
   RiSunLine,
+  RiTextBlock,
   RiUploadLine,
   RiZoomInLine
 } from '@remixicon/vue'
@@ -71,6 +72,7 @@ export const appIcons = {
   'shining-line': { component: RiShiningLine, library: 'remix' },
   'sparkling-2-line': { component: RiSparkling2Line, library: 'remix' },
   'sun-line': { component: RiSunLine, library: 'remix' },
+  'text-block': { component: RiTextBlock, library: 'remix' },
   'upload-line': { component: RiUploadLine, library: 'remix' },
   'zoom-in-line': { component: RiZoomInLine, library: 'remix' }
 } as const satisfies Record<string, AppIconDefinition>
