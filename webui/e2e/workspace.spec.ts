@@ -365,6 +365,28 @@ test('constrains completed landscape and portrait thumbnails by orientation', as
     } else {
       expect(rect.width).toBeLessThanOrEqual(160)
     }
+    const layout = await page.locator('.result-card').evaluate((card) => {
+      const grid = card.parentElement
+      const frame = card.querySelector<HTMLElement>('.thumbnail-button')
+      const image = card.querySelector<HTMLImageElement>('img')
+      const message = card.closest<HTMLElement>('.assistant-message')
+      if (!grid || !frame || !image || !message) throw new Error('Completed result layout is incomplete.')
+      return {
+        cardBackground: getComputedStyle(card).backgroundColor,
+        frameBackground: getComputedStyle(frame).backgroundColor,
+        cardWidth: card.getBoundingClientRect().width,
+        frameWidth: frame.getBoundingClientRect().width,
+        gridWidth: grid.getBoundingClientRect().width,
+        imageWidth: image.getBoundingClientRect().width,
+        messageWidth: message.getBoundingClientRect().width
+      }
+    })
+    expect(layout.cardBackground).toBe('rgba(0, 0, 0, 0)')
+    expect(layout.frameBackground).toBe('rgba(0, 0, 0, 0)')
+    expect(Math.abs(layout.frameWidth - layout.imageWidth)).toBeLessThanOrEqual(2)
+    expect(Math.abs(layout.cardWidth - layout.imageWidth)).toBeLessThanOrEqual(2)
+    expect(Math.abs(layout.gridWidth - layout.cardWidth)).toBeLessThanOrEqual(2)
+    expect(layout.gridWidth).toBeLessThan(layout.messageWidth)
     await page.screenshot({ path: testInfo.outputPath(`completed-${orientation}-thumbnail.png`) })
     await context.close()
   }

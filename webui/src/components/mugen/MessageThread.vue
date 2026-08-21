@@ -1215,27 +1215,32 @@ watch(
 }
 
 .result-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-self: start;
   gap: 10px;
 }
 
 .result-card {
   position: relative;
-  border: 1px solid var(--mugen-border);
-  border-radius: 8px;
-  background: var(--mugen-thread-card);
+  display: inline-grid;
+  width: fit-content;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
 }
 
 .thumbnail-button {
   display: grid;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   place-items: center;
   overflow: hidden;
   padding: 0;
   border: 0;
-  border-radius: 7px 7px 0 0;
-  background: var(--mugen-thread-image-bg);
+  background: transparent;
 }
 
 .thumbnail-button img {
@@ -1281,6 +1286,7 @@ watch(
 
 .result-actions {
   display: grid;
+  width: 100%;
   grid-template-columns: minmax(0, 1fr) 30px 30px;
   align-items: stretch;
   min-width: 0;

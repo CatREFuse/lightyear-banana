@@ -204,14 +204,20 @@
 }
 
 .mugen-shell.mugen-shell .result-grid {
-  grid-template-columns: minmax(0, 1fr);
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-self: start;
   gap: 12px;
 }
 
 .mugen-shell.mugen-shell .result-card {
+  display: inline-grid;
+  width: fit-content;
+  max-width: 100%;
   overflow: visible;
   border: 0;
-  border-radius: 8px;
   background: transparent;
 }
 
@@ -221,8 +227,10 @@
 }
 
 .mugen-shell.mugen-shell .thumbnail-button {
+  width: fit-content;
+  max-width: 100%;
   overflow: hidden;
-  background: var(--mugen-thread-image-bg);
+  background: transparent;
 }
 
 .mugen-shell.mugen-shell .result-actions {

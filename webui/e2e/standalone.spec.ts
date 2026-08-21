@@ -163,7 +163,7 @@ test('browser exposes the complete shared Provider catalog', async ({ page }) =>
   await expect(providerField.locator('.option-label')).toHaveText(providerNames)
 })
 
-test('browser creates and reloads APIMart config, then completes the network flow without Photoshop controls', async ({ page }) => {
+test('browser creates and reloads APIMart config, then completes the network flow without Photoshop controls', async ({ page }, testInfo) => {
   expect(await page.evaluate(() => Boolean(window.uxpHost))).toBe(false)
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
@@ -222,7 +222,34 @@ test('browser creates and reloads APIMart config, then completes the network flo
 
   await page.getByPlaceholder('描述你想生成的画面，输入 / 调用常用提示词').fill('浏览器生成一张小猫海报')
   await page.getByRole('button', { name: '发送', exact: true }).click()
-  await expect(page.getByRole('img', { name: '生成图 1' })).toBeVisible({ timeout: 10_000 })
+  const generatedImage = page.getByRole('img', { name: '生成图 1' })
+  await expect(generatedImage).toBeVisible({ timeout: 10_000 })
+
+  const browserResultLayout = await page.locator('.result-card').evaluate((card) => {
+    const grid = card.parentElement
+    const frame = card.querySelector<HTMLElement>('.thumbnail-button')
+    const image = card.querySelector<HTMLImageElement>('img')
+    const actions = card.querySelector<HTMLElement>('.result-actions')
+    const message = card.closest<HTMLElement>('.assistant-message')
+    if (!grid || !frame || !image || !actions || !message) throw new Error('Browser result layout is incomplete.')
+    return {
+      cardBackground: getComputedStyle(card).backgroundColor,
+      frameBackground: getComputedStyle(frame).backgroundColor,
+      cardWidth: card.getBoundingClientRect().width,
+      gridWidth: grid.getBoundingClientRect().width,
+      imageWidth: image.getBoundingClientRect().width,
+      actionsWidth: actions.getBoundingClientRect().width,
+      messageWidth: message.getBoundingClientRect().width
+    }
+  })
+  expect(browserResultLayout.cardBackground).toBe('rgba(0, 0, 0, 0)')
+  expect(browserResultLayout.frameBackground).toBe('rgba(0, 0, 0, 0)')
+  expect(Math.abs(browserResultLayout.cardWidth - browserResultLayout.imageWidth)).toBeLessThanOrEqual(2)
+  expect(Math.abs(browserResultLayout.gridWidth - browserResultLayout.cardWidth)).toBeLessThanOrEqual(6)
+  expect(Math.abs(browserResultLayout.actionsWidth - browserResultLayout.cardWidth)).toBeLessThanOrEqual(2)
+  expect(browserResultLayout.gridWidth).toBeLessThan(browserResultLayout.messageWidth)
+  await generatedImage.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: testInfo.outputPath('browser-completed-result.png') })
 
   await expect(page.getByRole('button', { name: '切换置入方式' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '全画布置入', exact: true })).toHaveCount(0)
