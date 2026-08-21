@@ -579,11 +579,9 @@ watch(
           </section>
           <div v-if="turn.results.length" class="result-grid">
             <article v-for="image in turn.results" :key="image.id" class="result-card">
-              <button
+              <div
                 class="thumbnail-button"
-                type="button"
-                :disabled="image.originalAvailable === false"
-                @click="emit('preview', image)"
+                :class="image.height > image.width ? 'is-portrait' : 'is-landscape'"
                 @contextmenu.prevent.stop="openImageContextMenu($event, image)"
               >
                 <img
@@ -596,9 +594,9 @@ watch(
                 />
                 <span v-else class="thumbnail-error" role="status">
                   <strong>预览不可用</strong>
-                  <small>{{ image.originalAvailable === false ? '原图已失效' : '点击查看原图' }}</small>
+                  <small>{{ image.originalAvailable === false ? '原图已失效' : '原图仍可用' }}</small>
                 </span>
-              </button>
+              </div>
               <div class="result-actions" :class="{ 'without-placement': !photoshopIntegrationAvailable }">
                 <div v-if="photoshopIntegrationAvailable" class="place-control">
                   <button
@@ -1230,8 +1228,10 @@ watch(
 }
 
 .thumbnail-button {
-  display: block;
+  display: grid;
   width: 100%;
+  place-items: center;
+  overflow: hidden;
   padding: 0;
   border: 0;
   border-radius: 7px 7px 0 0;
@@ -1240,10 +1240,20 @@ watch(
 
 .thumbnail-button img {
   display: block;
-  width: 100%;
+  width: auto;
+  height: auto;
+  max-width: 100%;
   border-radius: 7px 7px 0 0;
   object-fit: contain;
   background: transparent;
+}
+
+.thumbnail-button.is-landscape img {
+  max-height: 160px;
+}
+
+.thumbnail-button.is-portrait img {
+  max-width: 160px;
 }
 
 .thumbnail-error {

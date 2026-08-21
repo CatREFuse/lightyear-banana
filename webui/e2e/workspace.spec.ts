@@ -41,25 +41,22 @@ async function expandCustomApiConfigs(page: Page) {
   }
 }
 
-test('CCX bridge completes canvas capture, APIMart generation, cat download, and canvas placement', async ({ page }) => {
+test('CCX bridge completes canvas capture, APIMart generation, context-menu download, and canvas placement', async ({ page }) => {
   await page.getByRole('button', { name: '添加参考图' }).click()
   await page.getByRole('button', { name: '可见图层', exact: true }).click()
   await expect(page.getByRole('img', { name: '可见图层' })).toBeVisible()
 
   await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('一张夏日音乐节海报')
   await page.getByRole('button', { name: '发送', exact: true }).click()
-  const preview = page.getByRole('button', { name: '生成结果 1' })
-  await expect(preview).toBeVisible({ timeout: 10_000 })
-  await preview.click()
+  const thumbnail = page.getByRole('img', { name: '生成结果 1' })
+  await expect(thumbnail).toBeVisible({ timeout: 10_000 })
+  await thumbnail.click()
   const previewRegion = page.getByRole('region', { name: '图片预览' })
-  await expect(previewRegion).toBeVisible()
-  await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(true)
-  await expect(previewRegion.getByRole('img', { name: '生成结果 1' })).toBeVisible()
-  await previewRegion.getByRole('button', { name: '下载' }).click()
-  await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.save')).toBe(true)
-  await expect(previewRegion).toBeVisible()
-  await page.getByRole('button', { name: '关闭预览' }).click()
   await expect(previewRegion).toBeHidden()
+  expect((await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(false)
+  await thumbnail.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: '下载到本地' }).click()
+  await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.save')).toBe(true)
 
   await page.locator('.result-card .place-primary').click()
   await expect(page.getByRole('status').getByText('已置入 Photoshop')).toBeVisible()
@@ -287,7 +284,7 @@ test('adds uploaded, pasted, and dropped images as references through the CCX ho
   expect(commands).not.toContain('reference.readClipboard')
 })
 
-test('shows a thumbnail error, advances the timer, and opens the original image', async ({ browser }, testInfo) => {
+test('shows a thumbnail error without opening the original image on click', async ({ browser }, testInfo) => {
   const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
   const page = await context.newPage()
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 3_500, thumbnailUnavailable: true })
@@ -302,12 +299,42 @@ test('shows a thumbnail error, advances the timer, and opens the original image'
 
   const unavailable = page.getByRole('status').filter({ hasText: '预览不可用' })
   await expect(unavailable).toBeVisible({ timeout: 10_000 })
+  await expect(unavailable).toContainText('原图仍可用')
   await page.screenshot({ path: testInfo.outputPath('thumbnail-unavailable.png') })
-  await page.locator('.thumbnail-button').click()
+  await unavailable.click()
   const previewRegion = page.getByRole('region', { name: '图片预览' })
-  await expect(previewRegion.getByRole('img', { name: '生成结果 1' })).toBeVisible()
-  await page.screenshot({ path: testInfo.outputPath('original-preview.png') })
+  await expect(previewRegion).toBeHidden()
+  expect((await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(false)
   await context.close()
+})
+
+test('constrains completed landscape and portrait thumbnails by orientation', async ({ browser }, testInfo) => {
+  for (const orientation of ['landscape', 'portrait'] as const) {
+    const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
+    const page = await context.newPage()
+    await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generatedResultOrientation: orientation })
+    await page.goto('/')
+
+    await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill(`${orientation} 缩略图验证`)
+    await page.getByRole('button', { name: '发送', exact: true }).click()
+    const thumbnail = page.getByRole('img', { name: '生成结果 1' })
+    await expect(thumbnail).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.loading-turn')).toHaveCount(0)
+    await thumbnail.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(300)
+
+    const rect = await thumbnail.evaluate((image) => {
+      const bounds = image.getBoundingClientRect()
+      return { height: bounds.height, width: bounds.width }
+    })
+    if (orientation === 'landscape') {
+      expect(rect.height).toBeLessThanOrEqual(160)
+    } else {
+      expect(rect.width).toBeLessThanOrEqual(160)
+    }
+    await page.screenshot({ path: testInfo.outputPath(`completed-${orientation}-thumbnail.png`) })
+    await context.close()
+  }
 })
 
 test('matches the Figma loading-state dimensions and hierarchy', async ({ browser }, testInfo) => {

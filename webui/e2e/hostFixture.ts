@@ -7,8 +7,8 @@ export type TestHostTrace = {
   placements: Array<{ assetId: string; target: unknown; previewUrl: string; layerName: string }>
 }
 
-export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; generationDelayMs?: number; lowResolutionResultThumbnail?: boolean; thumbnailUnavailable?: boolean } = {}) {
-  await page.addInitScript(({ apimartBaseUrl, apiKey, generationDelayMs, lowResolutionResultThumbnail, thumbnailUnavailable }) => {
+export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; generatedResultOrientation?: 'landscape' | 'portrait'; generationDelayMs?: number; lowResolutionResultThumbnail?: boolean; thumbnailUnavailable?: boolean } = {}) {
+  await page.addInitScript(({ apimartBaseUrl, apiKey, generatedResultOrientation, generationDelayMs, lowResolutionResultThumbnail, thumbnailUnavailable }) => {
     const protocol = 'inner-host/v1'
     const sessionId = 'e2e-session'
     const hostNonce = 'e2e-host-nonce'
@@ -186,8 +186,13 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
 
       const highResolutionResult = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221600%22 height=%221200%22 viewBox=%220 0 1600 1200%22%3E%3Crect width=%221600%22 height=%221200%22 fill=%22%23181818%22/%3E%3Ccircle cx=%22800%22 cy=%22600%22 r=%22480%22 fill=%22%23f3ead7%22/%3E%3C/svg%3E'
       const lowResolutionResult = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22256%22 height=%22192%22 viewBox=%220 0 256 192%22%3E%3Crect width=%22256%22 height=%22192%22 fill=%22%23181818%22/%3E%3Ccircle cx=%22128%22 cy=%2296%22 r=%2276%22 fill=%22%23f3ead7%22/%3E%3C/svg%3E'
+      const portraitResult = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221200%22 height=%221600%22 viewBox=%220 0 1200 1600%22%3E%3Crect width=%221200%22 height=%221600%22 fill=%22%23181818%22/%3E%3Ccircle cx=%22600%22 cy=%22800%22 r=%22480%22 fill=%22%23f3ead7%22/%3E%3C/svg%3E'
       const result = lowResolutionResultThumbnail
         ? asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', lowResolutionResult, highResolutionResult, { width: 1600, height: 1200 })
+        : generatedResultOrientation === 'landscape'
+          ? asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', highResolutionResult, highResolutionResult, { width: 1600, height: 1200 })
+          : generatedResultOrientation === 'portrait'
+            ? asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', portraitResult, portraitResult, { width: 1200, height: 1600 })
         : asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', catUrl)
       const logs = trace.network.map((entry) => ({
         id: `e2e-log-${entry.sequence}`,
@@ -310,6 +315,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
   }, {
     apimartBaseUrl: options.apimartBaseUrl ?? 'http://127.0.0.1:38323',
     apiKey: options.apiKey ?? 'mock-apimart-good',
+    generatedResultOrientation: options.generatedResultOrientation,
     generationDelayMs: options.generationDelayMs ?? 0,
     lowResolutionResultThumbnail: options.lowResolutionResultThumbnail ?? false,
     thumbnailUnavailable: options.thumbnailUnavailable ?? false
