@@ -57,9 +57,9 @@ function readKeyEnvironment() {
 }
 
 const keyEnvironment = readKeyEnvironment()
-const hostedWebUiUrl = new URL(process.env.INNER_WEBUI_URL ?? keyEnvironment.INNER_WEBUI_URL ?? 'https://imini-test.catefuse.com/')
-if (hostedWebUiUrl.href !== 'https://imini-test.catefuse.com/') {
-  throw new Error('Production CCX packaging requires https://imini-test.catefuse.com/.')
+const hostedWebUiUrl = new URL(process.env.INNER_WEBUI_URL ?? keyEnvironment.INNER_WEBUI_URL ?? 'https://imini-test.catrefuse.com/')
+if (hostedWebUiUrl.href !== 'https://imini-test.catrefuse.com/') {
+  throw new Error('Production CCX packaging requires https://imini-test.catrefuse.com/.')
 }
 const webviewOrigin = assertProductionOrigin(hostedWebUiUrl.origin, 'Published WebUI origin')
 const webview = builtManifest.requiredPermissions?.webview

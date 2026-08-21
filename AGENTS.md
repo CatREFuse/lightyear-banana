@@ -21,7 +21,7 @@ Mugen 是 monorepo,按功能模块组织,npm 配置内聚在各模块目录,根�
 
 ## WebUI 与 CCX 维护边界
 
-- 本仓库文档、需求、任务和对话中的 `WebUI`，统一特指云端 `https://imini-test.catefuse.com/`；该页面同时是 CCX 加载的 Inner WebUI。
+- 本仓库文档、需求、任务和对话中的 `WebUI`，统一特指云端 `https://imini-test.catrefuse.com/`；该页面同时是 CCX 加载的 Inner WebUI。
 - WebUI 通过云端地址独立构建和部署，CCX 发行物不包含 WebUI HTML、JavaScript、CSS 或其他 WebUI 静态文件。
 - 需求不涉及 CCX Host、Photoshop 原生能力、WebView 壳、Manifest、CCX 与 WebUI 通信协议或其他 CCX 功能时，只更新、验证和部署 WebUI，不修改 CCX 版本，不重新打包或发布 CCX。
 - 需求涉及上述 CCX 功能，或协议变更导致现有 CCX 无法兼容时，才更新、验证、打包和发布 CCX；WebUI 仍按自身变更范围独立维护。

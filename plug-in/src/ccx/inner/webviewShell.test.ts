@@ -114,8 +114,8 @@ describe('createWebViewShell startup failure UI', () => {
     })
     const webview = created.find((element) => element.tagName === 'webview')!
 
-    expect(webview.attributes.get('src')).toBe('https://imini-test.catefuse.com/')
-    webview.dispatch('loaderror', { message: 'ERR_CONNECTION_REFUSED', url: 'https://imini-test.catefuse.com/' })
+    expect(webview.attributes.get('src')).toBe('https://imini-test.catrefuse.com/')
+    webview.dispatch('loaderror', { message: 'ERR_CONNECTION_REFUSED', url: 'https://imini-test.catrefuse.com/' })
 
     const failureUi = flatten(root)
     expect(failureUi.map((element) => element.textContent)).toContain('工作台启动失败')
@@ -142,10 +142,10 @@ describe('createWebViewShell startup failure UI', () => {
     })
     const shell = makeShell()
     const webview = created.find((element) => element.tagName === 'webview')!
-    webview.dispatch('loadstop', { url: 'https://imini-test.catefuse.com/#/' })
+    webview.dispatch('loadstop', { url: 'https://imini-test.catrefuse.com/#/' })
     expect(webview.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ command: 'host.ready' }),
-      'https://imini-test.catefuse.com'
+      'https://imini-test.catrefuse.com'
     )
     await vi.advanceTimersByTimeAsync(15_000)
     expect(flatten(root).map((element) => element.textContent)).toContain('工作台与 Photoshop 连接超时（15 秒）')
@@ -155,29 +155,29 @@ describe('createWebViewShell startup failure UI', () => {
     created = []
     const readyShell = makeShell()
     const readyWebview = created.find((element) => element.tagName === 'webview')!
-    readyWebview.dispatch('loadstop', { url: 'https://imini-test.catefuse.com/#/' })
+    readyWebview.dispatch('loadstop', { url: 'https://imini-test.catrefuse.com/#/' })
     expect(readyShell.isTrustedMessage({
-      origin: 'https://imini-test.catefuse.com/',
+      origin: 'https://imini-test.catrefuse.com/',
       source: readyWebview
     } as unknown as WebViewMessageEvent)).toBe(true)
     expect(readyShell.isTrustedMessage({
-      origin: 'https://imini-test.catefuse.com/?runtime=uxp#/workspace',
+      origin: 'https://imini-test.catrefuse.com/?runtime=uxp#/workspace',
       source: readyWebview
     } as unknown as WebViewMessageEvent)).toBe(true)
     const fakeWindow = window as unknown as FakeWindow
     fakeWindow.dispatch('message', {
-      origin: 'https://imini-test.catefuse.com/',
+      origin: 'https://imini-test.catrefuse.com/',
       source: readyWebview,
       data: { command: 'host.handshake' }
     })
     expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({
-      origin: 'https://imini-test.catefuse.com/',
+      origin: 'https://imini-test.catrefuse.com/',
       source: readyWebview
     }))
     for (const origin of [
-      'https://imini-test.catefuse.com.evil.example/webui/',
-      'http://imini-test.catefuse.com/',
-      'https://imini-test.catefuse.com:444/webui/',
+      'https://imini-test.catrefuse.com.evil.example/webui/',
+      'http://imini-test.catrefuse.com/',
+      'https://imini-test.catrefuse.com:444/webui/',
       'not a url'
     ]) {
       expect(readyShell.isTrustedMessage({
@@ -186,7 +186,7 @@ describe('createWebViewShell startup failure UI', () => {
       } as unknown as WebViewMessageEvent)).toBe(false)
     }
     expect(readyShell.isTrustedMessage({
-      origin: 'https://imini-test.catefuse.com/',
+      origin: 'https://imini-test.catrefuse.com/',
       source: new FakeElement('webview')
     } as unknown as WebViewMessageEvent)).toBe(false)
     readyShell.markReady()

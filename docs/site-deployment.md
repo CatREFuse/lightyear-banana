@@ -103,9 +103,9 @@ npm run deploy:site -- --env=/private/tmp/<release-runtime>/deploy.env
 ### 5. 公网验收
 
 ```bash
-curl -fsSL https://imini-test.catefuse.com/ --output /private/tmp/mugen-home.html
+curl -fsSL https://imini-test.catrefuse.com/ --output /private/tmp/mugen-home.html
 curl -fsSL -D /private/tmp/mugen-ccx.headers \
-  https://imini-test.catefuse.com/download/mugen-<version>-<build>.ccx \
+  https://imini-test.catrefuse.com/download/mugen-<version>-<build>.ccx \
   --output /private/tmp/mugen-<version>-<build>.ccx
 shasum -a 256 dist/mugen-<version>-<build>.ccx /private/tmp/mugen-<version>-<build>.ccx
 ```

@@ -94,7 +94,7 @@ Photoshop 细节放进 `canvasPrimitives.ts`，文件、资产、历史、诊断
 
 ### 4.1 WebView 启动与握手
 
-1. CCX panel 创建 WebView，入口固定为 `https://imini-test.catefuse.com/`。
+1. CCX panel 创建 WebView，入口固定为 `https://imini-test.catrefuse.com/`。
 2. WebUI 发送 `host.handshake`，携带协议版本、WebUI 版本和 nonce。
 3. Host 校验来源、消息信封、协议兼容和会话 ID。
 4. 握手完成后才开放普通命令。

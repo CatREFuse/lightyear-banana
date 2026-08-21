@@ -571,8 +571,8 @@ if (
 if (!innerWebUiUrl.pathname.endsWith('/')) {
   throw new Error('INNER_WEBUI_URL must end with /.')
 }
-if (innerWebUiUrl.href !== 'https://imini-test.catefuse.com/') {
-  throw new Error('INNER_WEBUI_URL must be https://imini-test.catefuse.com/.')
+if (innerWebUiUrl.href !== 'https://imini-test.catrefuse.com/') {
+  throw new Error('INNER_WEBUI_URL must be https://imini-test.catrefuse.com/.')
 }
 const innerReleaseUrl = resolveInnerReleaseUrl(environment, innerWebUiUrl.origin)
 const verifyOnly = process.argv.includes('--verify-only')
