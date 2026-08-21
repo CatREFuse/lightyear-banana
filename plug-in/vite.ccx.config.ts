@@ -23,7 +23,7 @@ type SourcePackage = {
 }
 
 const fallbackDevelopmentWebUiUrl = 'http://localhost:4173/'
-const productionInnerWebUiUrl = 'https://mugen.catrefuse.com/webui/'
+const productionInnerWebUiUrl = 'https://imini-test.catefuse.com/'
 
 function readSourceManifest(): SourceManifest {
   return JSON.parse(readFileSync(path.join(projectRoot, 'manifest.json'), 'utf8')) as SourceManifest

@@ -72,9 +72,11 @@ const emit = defineEmits<{
 }>()
 
 const openPanel = shallowRef('')
+const parameterPanelOpen = shallowRef(false)
 const expandedPresetContent = shallowRef<string | null>(null)
 const referenceImportError = shallowRef('')
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
+const parameterMenuRef = useTemplateRef<HTMLElement>('parameterMenu')
 const promptInputRef = useTemplateRef<HTMLTextAreaElement>('promptInput')
 const browserUploadInputRef = useTemplateRef<HTMLInputElement>('browserUploadInput')
 const customSizeValue = '__mugen_custom_resolution__'
@@ -98,6 +100,12 @@ const referenceBusy = computed(() => props.canvasOperation.type === 'capture')
 const referenceDragActive = shallowRef(false)
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.activeConfigId) ?? props.configs[0])
 const activeModel = computed(() => activeConfig.value?.model ?? '')
+const parameterSummary = computed(() => [
+  activeConfig.value?.name || '配置',
+  activeModel.value || '模型',
+  props.resolutionMode === 'preset' ? props.ratio : `${props.customWidth}×${props.customHeight}`,
+  `${props.count} 张`
+].join(' · '))
 const configOptions = computed<SelectOption[]>(() =>
   props.configs.map((config) => {
     const status = readModelStatus(config)
@@ -170,9 +178,23 @@ function handleBrowserUploadChange(event: Event) {
 }
 
 function togglePanel(panel: string) {
+  if (panel === 'reference') parameterPanelOpen.value = false
   const nextPanel = openPanel.value === panel ? '' : panel
   openPanel.value = nextPanel
   emit('menuOpen', nextPanel ? `composer:${nextPanel}` : '')
+}
+
+function toggleParameterPanel() {
+  parameterPanelOpen.value = !parameterPanelOpen.value
+  openPanel.value = ''
+  emit('menuOpen', parameterPanelOpen.value ? 'composer:parameters' : '')
+}
+
+function closeParameterPanel() {
+  if (!parameterPanelOpen.value) return
+  parameterPanelOpen.value = false
+  openPanel.value = ''
+  emit('menuOpen', '')
 }
 
 function closePanel() {
@@ -247,6 +269,7 @@ function updatePromptInput(value: string) {
 function handlePromptFocus() {
   shouldRestorePromptFocus = true
   closePanel()
+  parameterPanelOpen.value = false
 }
 
 function handlePromptBlur(event: FocusEvent) {
@@ -491,6 +514,7 @@ function handleDrop(event: DragEvent) {
 }
 
 useOutsidePointerDown(referenceMenuRef, closePanel, () => openPanel.value === 'reference')
+useOutsidePointerDown(parameterMenuRef, closeParameterPanel, () => parameterPanelOpen.value)
 
 onMounted(() => {
   window.addEventListener('blur', handleWindowBlur)
@@ -513,6 +537,7 @@ watch(
     }
 
     openPanel.value = ''
+    parameterPanelOpen.value = false
   }
 )
 
@@ -548,44 +573,13 @@ watch(
       @change="handleBrowserUploadChange"
     />
     <p v-if="referenceImportError" class="reference-import-error" role="alert">{{ referenceImportError }}</p>
-    <div class="reference-header">
+    <div v-if="hasReferences" class="reference-header">
       <span>参考图 {{ referenceCountText }}</span>
-      <div class="reference-actions">
-        <button v-if="hasReferences" class="clear-reference" type="button" @click="emit('clearReferences')">
-          <BoxIcon name="x" size="13" />
-          清空
-        </button>
-
-        <div ref="referenceMenu" class="add-wrap is-inline">
-          <button
-            class="add-reference-inline"
-            :class="{ 'is-loading': referenceBusy }"
-            type="button"
-            :disabled="busy || !canAddReference"
-            @click="togglePanel('reference')"
-          >
-            <span v-if="referenceBusy" class="inline-spinner" aria-hidden="true"></span>
-            <BoxIcon v-else name="image-add" size="14" />
-            <span>{{ referenceBusy ? '读取中' : '添加参考' }}</span>
-          </button>
-
-          <Transition name="menu-pop">
-            <div v-if="openPanel === 'reference'" class="floating-menu reference-menu">
-              <button
-                v-for="action in referenceActions"
-                :key="action.source"
-                type="button"
-                @click="addReference(action.source)"
-              >
-                <BoxIcon :name="action.icon" size="15" />
-                {{ action.label }}
-              </button>
-            </div>
-          </Transition>
-        </div>
-      </div>
+      <button class="clear-reference" type="button" @click="emit('clearReferences')">
+        <BoxIcon name="x" size="13" />
+        清空
+      </button>
     </div>
-
     <div v-if="hasReferences" class="reference-strip">
       <ReferenceThumb
         v-for="(reference, index) in references"
@@ -612,8 +606,8 @@ watch(
         ref="promptInput"
         class="prompt-input"
         :value="prompt"
-        placeholder="输入提示词，或输入 / 调用预设"
-        rows="3"
+        placeholder="描述你想生成的画面，输入 / 调用常用提示词"
+        rows="2"
         @blur="handlePromptBlur"
         @focus="handlePromptFocus"
         @input="updatePromptInput(($event.target as HTMLTextAreaElement).value)"
@@ -621,104 +615,150 @@ watch(
       />
     </div>
 
-    <div class="control-grid">
-      <ControlSelect
-        class="config-control"
-        icon="key"
-        label="接口"
-        :options="configOptions"
-        :open="openPanel === 'config'"
-        :value="activeConfigId"
-        wide
-        @change="emit('selectConfig', $event); openPanel = ''"
-        @close="closePanel"
-        @toggle="togglePanel('config')"
-      />
-      <ControlSelect
-        class="model-control"
-        icon="slider-alt"
-        label="模型"
-        :open="openPanel === 'model'"
-        :options="modelOptions"
-        :value="activeModel"
-        wide
-        @change="handleModelChange"
-        @close="closePanel"
-        @toggle="togglePanel('model')"
-      />
-      <ControlSelect
-        v-if="resolutionMode === 'preset'"
-        icon="image"
-        label="尺寸"
-        :open="openPanel === 'size'"
-        :options="sizeOptions"
-        :value="size"
-        @change="handleSizeChange"
-        @close="closePanel"
-        @toggle="togglePanel('size')"
-      />
-      <div v-else class="dimension-fields">
-        <label class="dimension-field">
-          <span>宽</span>
-          <input
-            inputmode="numeric"
-            min="1"
-            step="16"
-            type="number"
-            :value="customWidth"
-            @input="emit('updateCustomWidth', readDimensionInput($event))"
-          />
-        </label>
-        <span class="dimension-times">×</span>
-        <label class="dimension-field">
-          <span>高</span>
-          <input
-            inputmode="numeric"
-            min="1"
-            step="16"
-            type="number"
-            :value="customHeight"
-            @input="emit('updateCustomHeight', readDimensionInput($event))"
-          />
-        </label>
-        <button class="dimension-preset-button" type="button" @click="usePresetResolution">预设</button>
-      </div>
-      <RatioPicker
-        v-if="resolutionMode === 'preset'"
-        :open="openPanel === 'ratio'"
-        :options="activeCapability.ratioOptions"
-        :value="ratio"
-        @change="emit('updateRatio', $event); openPanel = ''"
-        @close="closePanel"
-        @toggle="togglePanel('ratio')"
-      />
-      <ControlSelect
-        icon="grid-alt"
-        label="数量"
-        :open="openPanel === 'count'"
-        :options="countOptions"
-        :value="String(count)"
-        @change="emit('updateCount', Number($event)); openPanel = ''"
-        @close="closePanel"
-        @toggle="togglePanel('count')"
-      />
-      <ControlSelect
-        v-if="showsQualityControl"
-        icon="check-circle"
-        label="质量"
-        :open="openPanel === 'quality'"
-        :options="qualityOptions"
-        :value="quality"
-        @change="emit('updateQuality', $event); openPanel = ''"
-        @close="closePanel"
-        @toggle="togglePanel('quality')"
-      />
-    </div>
+    <div class="composer-footer">
+      <div class="composer-tools">
+        <div ref="referenceMenu" class="add-wrap is-inline">
+          <button
+            class="tool-button"
+            :class="{ 'is-loading': referenceBusy }"
+            type="button"
+            :disabled="busy || !canAddReference"
+            :aria-label="referenceBusy ? '正在读取参考图' : '添加参考图'"
+            @click="togglePanel('reference')"
+          >
+            <span v-if="referenceBusy" class="inline-spinner" aria-hidden="true"></span>
+            <BoxIcon v-else name="plus" size="18" />
+            <span v-if="hasReferences" class="tool-count">{{ references.length }}</span>
+          </button>
+          <Transition name="menu-pop">
+            <div v-if="openPanel === 'reference'" class="floating-menu reference-menu">
+              <button
+                v-for="action in referenceActions"
+                :key="action.source"
+                type="button"
+                @click="addReference(action.source)"
+              >
+                <BoxIcon :name="action.icon" size="15" />
+                {{ action.label }}
+              </button>
+            </div>
+          </Transition>
+        </div>
 
-    <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" @click="requestSend">
-      <BoxIcon name="send" size="16" />
-      发送
-    </button>
+        <div ref="parameterMenu" class="parameter-wrap">
+          <button
+            class="tool-button"
+            type="button"
+            aria-label="生成设置"
+            :aria-expanded="parameterPanelOpen"
+            @click="toggleParameterPanel"
+          >
+            <BoxIcon name="layer" size="18" />
+          </button>
+          <Transition name="parameter-pop">
+            <section v-if="parameterPanelOpen" class="parameter-panel" aria-label="生成设置" @click.stop>
+              <header class="parameter-header">
+                <strong>生成设置</strong>
+                <button type="button" aria-label="关闭生成设置" @click="closeParameterPanel">
+                  <BoxIcon name="x" size="16" />
+                </button>
+              </header>
+              <div class="control-grid">
+                <ControlSelect
+                  class="config-control"
+                  icon="key"
+                  label="供应商"
+                  direction="down"
+                  :options="configOptions"
+                  :open="openPanel === 'config'"
+                  :value="activeConfigId"
+                  wide
+                  @change="emit('selectConfig', $event); openPanel = ''"
+                  @close="closePanel"
+                  @toggle="togglePanel('config')"
+                />
+                <ControlSelect
+                  class="model-control"
+                  icon="slider-alt"
+                  label="模型"
+                  direction="down"
+                  :open="openPanel === 'model'"
+                  :options="modelOptions"
+                  :value="activeModel"
+                  wide
+                  @change="handleModelChange"
+                  @close="closePanel"
+                  @toggle="togglePanel('model')"
+                />
+                <ControlSelect
+                  v-if="resolutionMode === 'preset'"
+                  icon="image"
+                  label="尺寸"
+                  direction="down"
+                  :open="openPanel === 'size'"
+                  :options="sizeOptions"
+                  :value="size"
+                  @change="handleSizeChange"
+                  @close="closePanel"
+                  @toggle="togglePanel('size')"
+                />
+                <div v-else class="dimension-fields">
+                  <label class="dimension-field">
+                    <span>宽</span>
+                    <input inputmode="numeric" min="1" step="16" type="number" :value="customWidth" @input="emit('updateCustomWidth', readDimensionInput($event))" />
+                  </label>
+                  <span class="dimension-times">×</span>
+                  <label class="dimension-field">
+                    <span>高</span>
+                    <input inputmode="numeric" min="1" step="16" type="number" :value="customHeight" @input="emit('updateCustomHeight', readDimensionInput($event))" />
+                  </label>
+                  <button class="dimension-preset-button" type="button" @click="usePresetResolution">预设</button>
+                </div>
+                <RatioPicker
+                  v-if="resolutionMode === 'preset'"
+                  :open="openPanel === 'ratio'"
+                  :options="activeCapability.ratioOptions"
+                  :value="ratio"
+                  @change="emit('updateRatio', $event); openPanel = ''"
+                  @close="closePanel"
+                  @toggle="togglePanel('ratio')"
+                />
+                <ControlSelect
+                  icon="grid-alt"
+                  label="数量"
+                  direction="down"
+                  :open="openPanel === 'count'"
+                  :options="countOptions"
+                  :value="String(count)"
+                  @change="emit('updateCount', Number($event)); openPanel = ''"
+                  @close="closePanel"
+                  @toggle="togglePanel('count')"
+                />
+                <ControlSelect
+                  v-if="showsQualityControl"
+                  icon="check-circle"
+                  label="质量"
+                  direction="down"
+                  :open="openPanel === 'quality'"
+                  :options="qualityOptions"
+                  :value="quality"
+                  @change="emit('updateQuality', $event); openPanel = ''"
+                  @close="closePanel"
+                  @toggle="togglePanel('quality')"
+                />
+              </div>
+            </section>
+          </Transition>
+        </div>
+      </div>
+
+      <button class="parameter-summary" type="button" title="生成设置" @click="toggleParameterPanel">
+        {{ parameterSummary }}
+      </button>
+      <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" aria-label="发送" @click="requestSend">
+        <BoxIcon name="send" size="17" />
+      </button>
+    </div>
   </section>
 </template>
 

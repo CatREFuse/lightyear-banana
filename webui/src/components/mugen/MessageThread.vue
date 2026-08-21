@@ -435,8 +435,8 @@ watch(
     <Transition name="empty-fade">
       <div v-if="turns.length === 0 && loading.length === 0" class="empty-state">
         <BoxIcon name="image" size="15" />
-        <span>READY</span>
-        <small>{{ photoshopIntegrationAvailable ? '输入提示词，或从 Photoshop 添加参考图' : '输入提示词，或添加参考图' }}</small>
+        <span>开始创作</span>
+        <small>{{ photoshopIntegrationAvailable ? '描述想法，或从 Photoshop 添加参考图' : '描述想法，或添加参考图' }}</small>
       </div>
     </Transition>
 

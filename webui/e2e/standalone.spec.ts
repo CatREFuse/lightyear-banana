@@ -31,7 +31,7 @@ test.afterAll(async () => {
 test.beforeEach(async ({ page }) => {
   apimartFixture.reset()
   await page.goto('/?host=uxp')
-  await expect(page.getByRole('status', { name: '浏览器模式' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 })
 
 async function useApimartBrowserConfig(page: Page, name: string) {
@@ -54,8 +54,9 @@ async function useApimartBrowserConfig(page: Page, name: string) {
     }))
   }, { apiKey: expectedApiKey, baseUrl: apimartBaseUrl, configName: name })
   await page.reload()
-  await expect(page.getByRole('status', { name: '浏览器模式' })).toBeVisible()
-  await expect(page.locator('.composer .select-field').filter({ hasText: '接口' }).locator('.select-value')).toHaveText(name)
+  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await page.getByRole('button', { name: '生成设置', exact: true }).click()
+  await expect(page.locator('.composer .select-field').filter({ hasText: '供应商' }).locator('.select-value')).toHaveText(name)
 }
 
 async function walkCompleteFocusOrder(page: Page) {
@@ -131,21 +132,22 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
     }))
   })
   await page.reload()
-  await expect(page.getByRole('status', { name: '浏览器模式' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 
+  await page.getByRole('button', { name: '生成设置', exact: true }).click()
   await page.locator('.ratio-trigger').click()
   await expect(page.getByText('画布比例', { exact: true })).toHaveCount(0)
   await expect(page.getByText('跟随当前画布', { exact: true })).toHaveCount(0)
 
-  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   await page.getByRole('button', { name: /Browser Runtime Boundary/ }).click()
   const detail = page.getByLabel('配置详情')
   await expect(detail.getByText('画布比例', { exact: true })).toHaveCount(0)
 })
 
 test('browser exposes the complete shared Provider catalog', async ({ page }) => {
-  await page.getByRole('button', { name: '设置' }).click()
-  await page.getByRole('button', { name: '新建配置' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByRole('button', { name: '添加', exact: true }).click()
   const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
   await providerField.locator('.select-trigger').click()
 
@@ -155,11 +157,11 @@ test('browser exposes the complete shared Provider catalog', async ({ page }) =>
 test('browser creates and reloads APIMart config, then completes the network flow without Photoshop controls', async ({ page }) => {
   expect(await page.evaluate(() => Boolean(window.uxpHost))).toBe(false)
 
-  await page.getByRole('button', { name: '设置' }).click()
-  await expect(page.getByText('v0.2.3', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expect(page.getByText('iMini PS · WebUI 0.2.3', { exact: true })).toBeVisible()
   await expect(page.getByText(/0\.3\.19/)).toHaveCount(0)
   await expect(page.getByText(/Build/)).toHaveCount(0)
-  await page.getByRole('button', { name: '新建配置' }).click()
+  await page.getByRole('button', { name: '添加', exact: true }).click()
   const detail = page.getByLabel('配置详情')
   await detail.getByLabel('配置名称').fill('APIMart Browser')
 
@@ -183,15 +185,16 @@ test('browser creates and reloads APIMart config, then completes the network flo
   })).toBe(true)
 
   await page.reload()
-  await expect(page.getByRole('status', { name: '浏览器模式' })).toBeVisible()
-  await page.getByRole('button', { name: '设置' }).click()
+  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   await expect(page.getByRole('button', { name: /APIMart Browser/ })).toBeVisible()
   await page.getByRole('button', { name: '返回' }).click()
 
-  const configField = page.locator('.composer .select-field').filter({ hasText: '接口' })
+  await page.getByRole('button', { name: '生成设置', exact: true }).click()
+  const configField = page.locator('.composer .select-field').filter({ hasText: '供应商' })
   await expect(configField.locator('.select-value')).toHaveText('APIMart Browser')
 
-  await page.getByRole('button', { name: '添加参考' }).click()
+  await page.getByRole('button', { name: '添加参考图' }).click()
   await expect(page.getByRole('button', { name: '可见图层', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '选区', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '当前选中图层', exact: true })).toHaveCount(0)
@@ -205,7 +208,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await chooser.setFiles(catFixturePath)
   await expect(page.getByRole('img', { name: '上传图片' })).toBeVisible()
 
-  await page.getByPlaceholder('输入提示词，或输入 / 调用预设').fill('浏览器生成一张小猫海报')
+  await page.getByPlaceholder('描述你想生成的画面，输入 / 调用常用提示词').fill('浏览器生成一张小猫海报')
   await page.getByRole('button', { name: '发送', exact: true }).click()
   await expect(page.getByRole('img', { name: '生成图 1' })).toBeVisible({ timeout: 10_000 })
 
@@ -274,7 +277,7 @@ test('browser tests an official iMini config through the same-origin proxy', asy
   })
   await page.reload()
 
-  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   await page.getByRole('button', { name: /iMini Browser/ }).click()
   const detail = page.getByLabel('配置详情')
   await detail.getByRole('button', { name: '测试 API' }).click()
@@ -344,14 +347,14 @@ test('browser surfaces a recoverable APIMart network error and retries it from t
 
   const focusOrder = await walkCompleteFocusOrder(page)
   expect(focusOrder.length).toBeGreaterThan(4)
-  expect(focusOrder.slice(0, 2).map(({ name }) => name)).toEqual(['设置', '主题'])
+  expect(focusOrder.slice(0, 2).map(({ name }) => name)).toEqual(['外观', '设置'])
   expect(focusOrder.map(({ name }) => name).join('\n')).not.toMatch(/Photoshop|可见图层|选区|当前选中图层|置入/)
   await page.keyboard.press('Control+Shift+P')
   await expect(page.getByRole('button', { name: '可见图层', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '全画布置入', exact: true })).toHaveCount(0)
 
   apimartFixture.failNextGeneration({ status: 422, message: 'Fixture generation rejected' })
-  const prompt = page.getByPlaceholder('输入提示词，或输入 / 调用预设')
+  const prompt = page.getByPlaceholder('描述你想生成的画面，输入 / 调用常用提示词')
   await prompt.fill('验证浏览器可恢复网络错误')
   await prompt.press('Enter')
 
@@ -376,7 +379,7 @@ test('browser cancellation aborts the active APIMart poll and leaves no generate
   await useApimartBrowserConfig(page, 'APIMart Cancellation')
   apimartFixture.delayNextPoll()
 
-  await page.getByPlaceholder('输入提示词，或输入 / 调用预设').fill('验证浏览器取消生成')
+  await page.getByPlaceholder('描述你想生成的画面，输入 / 调用常用提示词').fill('验证浏览器取消生成')
   await page.getByRole('button', { name: '发送', exact: true }).click()
   await expect.poll(() => apimartFixture.state.polls).toBe(1)
 

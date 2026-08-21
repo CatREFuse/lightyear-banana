@@ -34,13 +34,13 @@ plugin/                   当前 CCX Manifest 和图标
 
 ## WebUI 构建规则
 
-- WebUI 使用相对资源路径，确保 `https://mugen.catrefuse.com/webui/` 和 Hash Router 可以独立部署。
+- WebUI 使用相对资源路径，确保 `https://imini-test.catefuse.com/` 和 Hash Router 可以独立部署。
 - Browser adapter 与 CCX Host adapter 从同一源码构建。
 - 运行时能力通过受信任 Host 探测选择，不使用 URL 参数伪造。
 - Browser adapter 不注入 Mock Host，也不实现假的 Photoshop API。
 - 生产 bundle 不包含 Electron runtime、preload、IPC 或 Bridge 模块。
 - WebUI 构建和部署独立于 CCX；`webui/dist/` 不复制到 `dist/ccx-host/`。
-- CCX WebView 固定加载 `https://mugen.catrefuse.com/webui/`，云端 WebUI 保持 `inner-host/v1` 兼容时可以独立更新。
+- CCX WebView 固定加载 `https://imini-test.catefuse.com/`，云端 WebUI 保持 `inner-host/v1` 兼容时可以独立更新。
 
 ## CCX Host 构建规则
 
@@ -50,8 +50,8 @@ plugin/                   当前 CCX Manifest 和图标
 - Rollup 使用 IIFE，Host 入口不保留 ESM runtime。
 - Host HTML 使用 classic script。
 - 构建后复制 `plug-in/manifest.json` 和 icons，不复制 WebUI 静态目录。
-- 生产 WebView 入口为 `https://mugen.catrefuse.com/webui/`。
-- WebView Manifest 只授权 `https://mugen.catrefuse.com`，使用 `enableMessageBridge: "localAndRemote"`，不启用本地渲染。
+- 生产 WebView 入口为 `https://imini-test.catefuse.com/`。
+- WebView Manifest 只授权 `https://imini-test.catefuse.com`，使用 `enableMessageBridge: "localAndRemote"`，不启用本地渲染。
 - Host bundle 的协议标记、固定 URL 和 Origin 权限进入静态校验。
 - production mode 固定注入 `__MUGEN_APP_ENV__ = "production"`；设置 `VITE_MUGEN_ENV` 或 `MUGEN_ENV` 为 `development` / `test` 时构建直接失败。
 
@@ -62,7 +62,7 @@ plugin/                   当前 CCX Manifest 和图标
 - `name: "Mugen"`。
 - host 为 Photoshop，版本要求与当前发布策略一致。
 - panel 与 command ID 和 `plug-in/src/ccx/main.ts` 的 `entrypoints.setup()` 一致。
-- WebView 只允许 `https://mugen.catrefuse.com` 通过 `localAndRemote` bridge 通信。
+- WebView 只允许 `https://imini-test.catefuse.com` 通过 `localAndRemote` bridge 通信。
 - 修改 ID、entrypoint、icon、权限或 WebView 配置后重新构建，并在 Adobe UXP Developer Tools 中 Unload/Load。
 
 版本号以 `plug-in/manifest.json` 和 `docs/build-todo-list.md` 的活动发布链为准，不从历史示例复制。

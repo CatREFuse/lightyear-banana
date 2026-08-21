@@ -20,7 +20,7 @@ export function readActiveDocumentLabel() {
   }
 }
 
-export async function createNamedLayer(name = 'Mugen') {
+export async function createNamedLayer(name = 'iMini PS') {
   const hostRequire = getHostRequire()
   if (!hostRequire) {
     throw new Error('Photoshop UXP runtime is unavailable.')
@@ -46,6 +46,6 @@ export async function createNamedLayer(name = 'Mugen') {
         {}
       )
     },
-    { commandName: 'Create Mugen Layer' }
+    { commandName: 'Create iMini PS Layer' }
   )
 }

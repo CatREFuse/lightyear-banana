@@ -831,7 +831,7 @@ async function createBridgeThumbnailFromFile(
     } finally {
       if (!existingDocumentIds.has(document.id)) await closeTemporaryDocument(photoshop, document)
     }
-  }, { commandName: '读取 Mugen 图片缩略图', timeOut: 120 })
+  }, { commandName: '读取 iMini PS 图片缩略图', timeOut: 120 })
 }
 
 export async function createBridgeThumbnailFromLocalFile(file: AdobeUxpFile, maxBytes = 512 * 1024) {
@@ -1148,7 +1148,7 @@ async function getMergedVisiblePixels(bounds: PixelBounds, trace?: CcxDiagnostic
   }
 
   await emitTrace(trace, 'composite.fallback.duplicate', 'start', { documentId: sourceDocument.id, bounds })
-  const mergedDocument = await sourceDocument.duplicate(`Mugen ${Date.now()}`, true)
+  const mergedDocument = await sourceDocument.duplicate(`iMini PS ${Date.now()}`, true)
   await emitTrace(trace, 'composite.fallback.duplicate', 'success', { documentId: mergedDocument.id })
 
   try {
@@ -1412,7 +1412,7 @@ async function placeTemporaryImageFile(
       }
 
       try {
-        layer.name = `Mugen 插入 ${image.label}`
+        layer.name = `iMini PS 插入 ${image.label}`
       } catch {
         // Layer naming should not block a successful native placement.
       }
@@ -1448,7 +1448,7 @@ async function putCapturedImagePixels(image: CapturedCanvasImage, target: Normal
   await photoshop.core.executeAsModal(
     async () => {
       assertActiveDocument(photoshop, expectedDocumentId)
-      const layer = await createPixelLayer(`Mugen 插入 ${image.label}`)
+      const layer = await createPixelLayer(`iMini PS 插入 ${image.label}`)
       const imageData = await photoshop.imaging.createImageDataFromBuffer(pixels, {
         width,
         height,

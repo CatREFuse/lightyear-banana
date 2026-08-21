@@ -31,15 +31,15 @@ test.beforeEach(async ({ page }) => {
   apimartFixture.reset()
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey })
   await page.goto('/')
-  await expect(page.getByText('Photoshop 已连接')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 })
 
 test('CCX bridge completes canvas capture, APIMart generation, cat download, and canvas placement', async ({ page }) => {
-  await page.getByRole('button', { name: '添加参考' }).click()
+  await page.getByRole('button', { name: '添加参考图' }).click()
   await page.getByRole('button', { name: '可见图层', exact: true }).click()
   await expect(page.getByRole('img', { name: '可见图层' })).toBeVisible()
 
-  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).fill('一张夏日音乐节海报')
+  await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('一张夏日音乐节海报')
   await page.getByRole('button', { name: '发送', exact: true }).click()
   const preview = page.getByRole('button', { name: '生成结果 1' })
   await expect(preview).toBeVisible({ timeout: 10_000 })
@@ -83,7 +83,7 @@ test('CCX bridge completes canvas capture, APIMart generation, cat download, and
     assetId: 'e2e-result-1',
     target: { type: 'full-canvas' },
     previewUrl: `${apimartBaseUrl}/fixtures/cat.jpg`,
-    layerName: 'Mugen 生成结果'
+    layerName: 'iMini PS 生成结果'
   })])
 
   const smokeState = await (await fetch(`${apimartBaseUrl}/__smoke/state`)).json()
@@ -103,20 +103,20 @@ test('CCX bridge completes canvas capture, APIMart generation, cat download, and
     'image.download'
   ]))
 
-  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   await page.getByRole('button', { name: '清空' }).click()
   await page.getByRole('button', { name: '再次清空' }).click()
   await page.getByRole('button', { name: '返回' }).click()
-  await expect(page.getByRole('region', { name: '当前对话' }).getByText('READY')).toBeVisible()
+  await expect(page.getByRole('region', { name: '当前对话' }).getByText('开始创作')).toBeVisible()
 })
 
 test('opens the real settings UI through the Host bridge', async ({ page }) => {
-  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })
 
 test('restores prompt editing after the CCX WebView regains window focus', async ({ page }) => {
-  const prompt = page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' })
+  const prompt = page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' })
   await prompt.fill('窗口切换后')
 
   await prompt.evaluate((target) => {
@@ -130,7 +130,7 @@ test('restores prompt editing after the CCX WebView regains window focus', async
   await prompt.pressSequentially('继续输入')
   await expect(prompt).toHaveValue('窗口切换后继续输入')
 
-  await page.getByRole('button', { name: '设置' }).focus()
+  await page.getByRole('button', { name: '设置', exact: true }).focus()
   await page.evaluate(() => {
     window.dispatchEvent(new Event('blur'))
     ;(document.activeElement as HTMLElement | null)?.blur()
@@ -140,7 +140,7 @@ test('restores prompt editing after the CCX WebView regains window focus', async
 })
 
 test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
-  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   await page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' }).click()
   const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
   await providerField.locator('.select-trigger').click()
@@ -150,17 +150,17 @@ test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
 
 test('adds uploaded, pasted, and dropped images as references through the CCX host', async ({ page }, testInfo) => {
   await expect(page.locator('input[data-browser-reference-input]')).toHaveCount(0)
-  await page.getByRole('button', { name: '添加参考' }).click()
+  await page.getByRole('button', { name: '添加参考图' }).click()
   await expect(page.getByRole('button', { name: '剪贴板', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '上传文件', exact: true })).toBeVisible()
   await page.getByRole('region', { name: '当前对话' }).click()
   await expect(page.getByRole('button', { name: '上传文件', exact: true })).toBeHidden()
 
-  await page.getByRole('button', { name: '添加参考' }).click()
+  await page.getByRole('button', { name: '添加参考图' }).click()
   await page.getByRole('button', { name: '上传文件', exact: true }).click()
   await expect(page.getByRole('img', { name: '上传图片' })).toBeVisible()
 
-  const prompt = page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' })
+  const prompt = page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' })
   await prompt.fill('保留的提示词')
   await prompt.evaluate((target) => {
     const transfer = new DataTransfer()
@@ -264,9 +264,9 @@ test('shows a thumbnail error, advances the timer, and opens the original image'
   const page = await context.newPage()
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 3_500, thumbnailUnavailable: true })
   await page.goto('/')
-  await expect(page.getByText('Photoshop 已连接')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 
-  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).fill('异常缩略图验证')
+  await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('异常缩略图验证')
   await page.getByRole('button', { name: '发送', exact: true }).click()
   const loading = page.locator('.loading-turn')
   await expect(loading).toBeVisible()
@@ -288,7 +288,7 @@ test('upgrades a low-resolution generated thumbnail to a 1K conversation preview
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, lowResolutionResultThumbnail: true })
   await page.goto('/')
 
-  await page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' }).fill('高清缩略图验证')
+  await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('高清缩略图验证')
   await page.getByRole('button', { name: '发送', exact: true }).click()
   const thumbnail = page.getByRole('img', { name: '生成结果 1' })
   await expect(thumbnail).toBeVisible({ timeout: 10_000 })
@@ -303,7 +303,7 @@ test('keeps concurrent generation tasks visible until both complete', async ({ b
   const page = await context.newPage()
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 1_000 })
   await page.goto('/')
-  const composer = page.getByRole('textbox', { name: '输入提示词，或输入 / 调用预设' })
+  const composer = page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' })
   await composer.fill('并发任务一')
   await page.getByRole('button', { name: '发送', exact: true }).click()
   await composer.fill('并发任务二')

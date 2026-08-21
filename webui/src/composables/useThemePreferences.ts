@@ -27,10 +27,10 @@ function readStoredPreferences(): Required<StoredThemePreferences> {
       visualTheme: stored.visualTheme === 'classic' ? 'classic' : 'nothing',
       colorMode: stored.colorMode === 'system' || stored.colorMode === 'dark' || stored.colorMode === 'light'
         ? stored.colorMode
-        : 'dark'
+        : 'system'
     }
   } catch {
-    return { visualTheme: 'nothing', colorMode: 'dark' }
+    return { visualTheme: 'nothing', colorMode: 'system' }
   }
 }
 

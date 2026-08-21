@@ -15,7 +15,7 @@ const iconsDir = path.join(pluginDir, 'icons')
 const webUiDir = path.join(pluginDir, 'webui')
 const sourceManifestPath = path.join(projectRoot, 'plug-in', 'manifest.json')
 const sourcePackagePath = path.join(projectRoot, 'plug-in', 'package.json')
-const productionInnerWebUiUrl = 'https://mugen.catrefuse.com/webui/'
+const productionInnerWebUiUrl = 'https://imini-test.catefuse.com/'
 const productionInnerWebUiOrigin = new URL(productionInnerWebUiUrl).origin
 
 async function assertFile(filePath, label) {

@@ -13,7 +13,7 @@
 
 ## CCX Host 壳与 WebView
 
-`plug-in/src/ccx/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和 WebView。工作台 Vue 应用来自 `https://mugen.catrefuse.com/webui/`，与普通浏览器使用同一云端部署页面。
+`plug-in/src/ccx/main.ts` 在 panel `create()` 或 `show()` 时挂载 Host 壳，建立会话、命令注册和 WebView。工作台 Vue 应用来自 `https://imini-test.catefuse.com/`，与普通浏览器使用同一云端部署页面。
 
 Host 壳负责：
 

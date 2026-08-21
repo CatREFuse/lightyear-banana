@@ -92,7 +92,6 @@ const {
   colorMode,
   resolvedColorMode,
   setColorMode,
-  setVisualTheme,
   visualTheme
 } = props.themeController ?? localThemeController!
 const activeWorkspaceMenu = shallowRef('')
@@ -123,7 +122,7 @@ const previewDialogStyle = computed(() => {
 const activeVersion = computed(() => props.version)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return `无幻 v${activeVersion.value}`
+    return 'iMini PS'
   }
 
   if (settingsView.value === 'list') {
@@ -173,7 +172,7 @@ function readPreviewFileName(image: CapturedCanvasImage) {
   const cleanLabel = image.label
     .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
     .replace(/\s+/g, ' ')
-    .trim() || 'mugen-image'
+    .trim() || 'imini-ps-image'
 
   return `${cleanLabel}-${image.width}x${image.height}.png`
 }
@@ -240,13 +239,12 @@ function handleManageModels() {
       :show-window-controls="props.showWindowControls"
       :color-mode="colorMode"
       :resolved-color-mode="resolvedColorMode"
-      :visual-theme="visualTheme"
       :title="navigationTitle"
+      :version="activeVersion"
       @back="handleHeaderBack"
       @menu-open="setWorkspaceMenu"
       @open-settings="handleOpenSettings"
       @set-color-mode="setColorMode"
-      @set-visual-theme="setVisualTheme"
     />
 
     <div class="route-shell" :class="{ 'is-settings-active': activeView === 'settings' }">

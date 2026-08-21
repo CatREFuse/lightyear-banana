@@ -94,7 +94,7 @@ Photoshop 细节放进 `canvasPrimitives.ts`，文件、资产、历史、诊断
 
 ### 4.1 WebView 启动与握手
 
-1. CCX panel 创建 WebView，入口固定为 `https://mugen.catrefuse.com/webui/`。
+1. CCX panel 创建 WebView，入口固定为 `https://imini-test.catefuse.com/`。
 2. WebUI 发送 `host.handshake`，携带协议版本、WebUI 版本和 nonce。
 3. Host 校验来源、消息信封、协议兼容和会话 ID。
 4. 握手完成后才开放普通命令。
@@ -284,6 +284,10 @@ UXP Host 剪贴板 API 可能存在但读取立即失败，也可能无法返回
 
 APIMart、iMini、Kling、FLUX 与 ComfyUI 的任务状态和失败结构各不相同，查询时机属于共享运行时能力。各 Provider 在提交后把任务查询与状态解析交给共享轮询器，任务开始后的前 180 秒每 5 秒查询一次，180 秒后每 10 秒查询一次；Provider 仅保留任务超时、终态映射和错误详情。ComfyUI 的旧 `pollIntervalMs` 字段继续用于协议和存储兼容，WebUI 不再展示无效的轮询间隔输入。回归测试需覆盖 180 秒边界、超时末段等待裁剪、Provider 冒烟、双视口 WebUI 和取消路径。
 
+### 9.11 WebView 浮层需要在最窄面板中校验
+
+生成参数等浮层使用视口定位时，宽度必须同时受左右安全间距约束，并在 260 px 面板宽度下检查 `scrollWidth`。图标仍会受到壳层视觉主题类控制，换品牌后应同时检查填充和描边两套路径；本轮以独立的滑杆图标区分外观与设置入口，并验证浅色、深色、402 px 和 260 px 视口。
+
 ## 10. 测试矩阵
 
 | 层级 | 重点 |
@@ -317,7 +321,7 @@ APIMart、iMini、Kling、FLUX 与 ComfyUI 的任务状态和失败结构各不�
 - 运行 protocol、core、CCX Host、WebUI 和 E2E 测试。
 - 运行 `npm run verify:ccx`，在真实 Photoshop 验证受影响路径。
 - 提交源码，确保正式 `package:ccx` 从干净工作树运行。
-- 生成 `dist/mugen-<version>.ccx`、SHA-256 和 `dist/ccx-release.json`。
+- 生成 `dist/imini-ps-<version>-<build>.ccx`、SHA-256 和 `dist/ccx-release.json`。
 - 构建官网，确认最新版 CCX 已进入 `download/` 且下载链接、大小、哈希一致。
 - 部署 Inner WebUI 与官网，回读生产 release、页面链接和 CCX 文件哈希。
 - 任何门禁失败都停止发布，修正后重新从对应门禁执行。

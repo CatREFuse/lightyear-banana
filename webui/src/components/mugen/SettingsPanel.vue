@@ -117,17 +117,31 @@ onUnmounted(() => {
   <main class="settings-panel">
     <Transition :name="transitionName" mode="out-in">
       <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
-        <section class="data-card" aria-label="对话记录">
-          <div>
-            <strong>
-              <BoxIcon name="trash" size="14" />
-              对话记录
-            </strong>
-            <small>清除生成消息和图片记录</small>
-          </div>
-          <button type="button" @click="requestClearConversationData">
-            {{ clearConversationLabel }}
-          </button>
+        <section class="settings-group" aria-labelledby="common-settings-title">
+          <h2 id="common-settings-title">常用设置</h2>
+          <section class="data-card preset-entry" aria-label="常用提示词">
+            <div>
+              <strong>常用提示词</strong>
+              <small>{{ promptPresets.length }} 条 · 输入 / 进行调用</small>
+            </div>
+            <button type="button" @click="emit('openPromptPresets')">
+              管理
+              <BoxIcon name="chevron-right" size="16" />
+            </button>
+          </section>
+        </section>
+
+        <section class="settings-group" aria-labelledby="history-settings-title">
+          <h2 id="history-settings-title">对话记录</h2>
+          <section class="data-card" aria-label="清空历史记录">
+            <div>
+              <strong>清空历史记录</strong>
+              <small>删除生成消息和图片记录</small>
+            </div>
+            <button class="danger-action" type="button" @click="requestClearConversationData">
+              {{ clearConversationLabel }}
+            </button>
+          </section>
         </section>
 
         <DiagnosticLogCard
@@ -136,49 +150,43 @@ onUnmounted(() => {
           @download="emit('downloadDiagnostics')"
         />
 
-        <section class="data-card preset-entry" aria-label="预设提示词">
-          <div>
-            <strong>预设提示词</strong>
-            <small>{{ promptPresets.length }} 条 · 输入 /名称 调用</small>
-          </div>
-          <button type="button" @click="emit('openPromptPresets')">管理</button>
-        </section>
+        <section class="settings-group" aria-labelledby="api-settings-title">
+          <h2 id="api-settings-title">生图 API</h2>
+          <div class="config-list">
+            <div class="section-header">
+              <span>接口配置</span>
+              <button type="button" @click="emit('create')">
+                <BoxIcon name="plus" size="15" />
+                <span>添加</span>
+              </button>
+            </div>
 
-        <div class="config-list">
-          <div class="section-header">
-            <h2>配置列表</h2>
-            <button type="button" @click="emit('create')">
-              <BoxIcon name="plus" size="15" />
-              <span>新建配置</span>
+            <button
+              v-for="row in configRows"
+              :key="row.config.id"
+              class="config-row"
+              :class="{ selected: row.config.id === editingConfigId }"
+              type="button"
+              @click="emit('edit', row.config.id)"
+            >
+              <BoxIcon class="config-icon" name="key" size="17" />
+              <span>
+                <strong>{{ row.config.name }}</strong>
+                <small>
+                  {{ providerCapabilities[row.config.provider].name }} ·
+                  {{ row.config.model }}
+                </small>
+              </span>
+              <em class="status-badge" :class="`is-${row.status.tone}`">
+                {{ row.status.label }}
+              </em>
+              <BoxIcon class="row-arrow" name="chevron-right" size="16" />
             </button>
           </div>
-
-          <button
-            v-for="row in configRows"
-            :key="row.config.id"
-            class="config-row"
-            :class="{ selected: row.config.id === editingConfigId }"
-            type="button"
-            @click="emit('edit', row.config.id)"
-          >
-            <BoxIcon class="config-icon" name="key" size="17" />
-            <span>
-              <strong>{{ row.config.name }}</strong>
-              <small>
-                {{ providerCapabilities[row.config.provider].name }} ·
-                {{ row.config.model }}
-              </small>
-            </span>
-            <em class="status-badge" :class="`is-${row.status.tone}`">
-              <BoxIcon :name="row.status.icon" size="13" />
-              {{ row.status.label }}
-            </em>
-            <BoxIcon class="row-arrow" name="chevron-right" size="16" />
-          </button>
-        </div>
+        </section>
 
         <footer class="settings-meta" aria-label="版本信息">
-          <span>v{{ version }}</span>
+          <span>iMini PS · WebUI {{ version }}</span>
         </footer>
       </section>
 

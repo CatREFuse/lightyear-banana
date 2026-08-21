@@ -198,7 +198,7 @@ async function readPreviewBytes(previewUrl: string) {
 }
 
 function sanitizeFileName(value: string) {
-  return value.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120) || 'mugen-image'
+  return value.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120) || 'imini-ps-image'
 }
 
 function withCause(message: string, cause: unknown) {

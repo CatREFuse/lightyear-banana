@@ -1,12 +1,12 @@
-# Mugen WebUI vNext 产品需求与源码迁移规格
+# iMini PS WebUI vNext 产品需求与源码迁移规格
 
 版本：vNext
-日期：2026-08-11
+日期：2026-08-21
 状态：当前实施规格，取代 Inner WebUI 0.1 PRD
 
 ## 1. 决策摘要
 
-Mugen WebUI vNext 继承自原 Electron UI 源码，现已适配 CCX 和普通浏览器两个运行时。Electron 桌面端已于 2026-08-12 整体移除，Inner WebUI 0.1 已废弃，Standalone UXP 产品实现已删除。
+iMini PS WebUI vNext 继承自原 Electron UI 源码，现已适配 CCX 和普通浏览器两个运行时。Electron 桌面端已于 2026-08-12 整体移除，Inner WebUI 0.1 已废弃，Standalone UXP 产品实现已删除。
 
 Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host 获得画布抓取、选区、图层、置入、SecureStorage 和原生权限。普通浏览器独立完成配置与网络生图，不显示任何 Photoshop 读取或置入入口。
 
@@ -19,6 +19,7 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host �
 - 让浏览器用户无需安装任何桌面端即可配置 Provider 并生成图片。
 - 让 Photoshop 用户在共享工作台中完成画布到模型再回到画布的闭环。
 - 用 APIMart 格式本地夹具稳定验证两种运行时。
+- 按 Figma `2061:14306` 重构工作台、生成设置和设置页的 UI 与交互，同时保持 controller、Provider、任务和 Photoshop 能力合同不变。
 
 ### 工程目标
 
@@ -34,7 +35,7 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host �
 - Electron 桌面端已整体移除，不再恢复桌面安装包、自动更新或本地 Bridge。
 - 不把浏览器页面伪装为 Photoshop，也不显示不可用的 Photoshop 按钮。
 - 不恢复已经删除的独立 UXP 产品。
-- 不通过截图、设计图或视觉能力重做已删除的 Electron UI。
+- 不因 UI 重构复制或改写 Provider、任务流、历史、参考图或 Photoshop 功能代码。
 
 ## 3. 源码平移原则
 
@@ -47,7 +48,7 @@ Photoshop CCX 继续保留。CCX 内使用同一套 WebUI，并通过 CCX Host �
 | `packages/mugen-core/src/providers/` | Provider 合同、能力、注册、校验和请求语义 |
 | `packages/mugen-core/src/data/providerCapabilities.ts` | 旧 import 兼容与能力入口 |
 | `packages/mugen-core/src/services/imageApiClient.ts` | 旧请求 facade 与迁移来源 |
-| `webui/src/styles/` | Nothing、经典主题、字体和布局 token |
+| `webui/src/styles/` | iMini PS 明暗主题、字体和布局 token |
 | 原 Electron UI 测试 | 交互与回归行为基线 |
 
 迁移可以移动文件、拆分模块、抽取共享包和改写运行时边界。核心交互必须保留代码与行为来源，不接受根据旧界面外观重新搭建的新组件集合。

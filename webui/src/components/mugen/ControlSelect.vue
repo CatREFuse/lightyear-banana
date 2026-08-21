@@ -80,9 +80,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
           v-if="selectedOption?.status"
           class="select-status"
           :class="`is-${selectedOption.statusTone ?? 'muted'}`"
-          :title="selectedOption.status"
-          :aria-label="selectedOption.status"
-        ></span>
+        >{{ selectedOption.status }}</span>
         <BoxIcon class="select-chevron" name="chevron-down" size="16" />
       </button>
 
@@ -102,9 +100,7 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
                 v-if="option.status"
                 class="select-status"
                 :class="`is-${option.statusTone ?? 'muted'}`"
-                :title="option.status"
-                :aria-label="option.status"
-              ></span>
+              >{{ option.status }}</span>
             </span>
             <small v-if="option.meta">{{ option.meta }}</small>
           </button>
@@ -244,23 +240,22 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
-  min-height: 8px;
-  padding: 0;
-  border-radius: 999px;
+  min-height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
   background: var(--mugen-surface-2);
-  box-shadow: 0 0 0 2px var(--mugen-neutral-ring);
+  color: var(--mugen-muted);
+  font-size: 9px;
 }
 
 .select-status.is-ready {
-  background: var(--mugen-success);
-  box-shadow: 0 0 0 2px var(--mugen-success-ring);
+  background: var(--mugen-success-bg);
+  color: var(--mugen-success);
 }
 
 .select-status.is-warning {
-  background: var(--mugen-warning);
-  box-shadow: 0 0 0 2px var(--mugen-warning-ring);
+  background: var(--mugen-danger-bg);
+  color: var(--mugen-danger-muted);
 }
 
 .select-menu button:hover,

@@ -1,19 +1,29 @@
-# Mugen 当前功能规格
+# iMini PS 当前功能规格
 
 版本：vNext
-日期：2026-08-13
-状态：当前开发基线
+日期：2026-08-21
+状态：dev 测试发布线
 
 ## 产品决策
 
-- 对外品牌名只使用 `Mugen`。
+- dev 测试发布线的 WebUI、CCX 名称、面板标题、用户提示、Photoshop 图层名与发行包名只使用 `iMini PS`；内部 `@mugen/*` 包名、存储键、协议名和插件 ID 保持兼容。
 - Electron 桌面端已整体移除（2026-08-12），不再有桌面入口或打包流程。
 - 旧官网实现与旧官网内容已废弃。正式站点重构为单屏 Mugen 品牌页。
 - Inner WebUI `0.1.x` 已废弃，不作为 vNext 的兼容目标或发布基线。
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.3`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
-- 当前 CCX 版本为 `1.1.7`，Photoshop 插件 ID 为 `com.tanshow.mugen`。不得恢复旧 ID，也不得为 vNext 新建第二个产品插件 ID。
+- 当前 dev CCX 版本为 `1.2.0`，build 号为 `2608210001`，Photoshop 插件 ID 保持 `com.tanshow.mugen`，发行文件名为 `imini-ps-1.2.0-2608210001.ccx`。
+
+## dev 测试发布线
+
+- dev worktree 位于 `/Users/tanshow/Developer/lightyear-banana-dev`，分支为 `codex/dev`。
+- CCX WebView 和 WebUI 发布脚本固定使用 `https://imini-test.catefuse.com/`，Manifest 只授权该 Origin。
+- WebUI 视觉以 Figma `Mugen Design System` 的 `2061:14306` 节点为基线，覆盖主工作台、生成设置二级面板与设置页。
+- 主界面使用 56px 顶栏、暖灰工作区、白色浮动输入面、天蓝主动作和 16px 主要圆角；深色模式保持相同层级和对比度。
+- 输入面只展示提示词、参考图入口、生成设置入口、当前参数摘要和发送动作；供应商、模型、尺寸、比例、数量与质量沿用原 controller 数据和事件，收纳进可从外部点击关闭的生成设置面板。
+- 设置页按常用设置、对话记录和生图 API 分组，配置详情、Provider 测试、诊断导出和预设提示词功能保持原行为。
+- 本次 dev 包不修改 Provider 请求、任务轮询、历史、Photoshop 画布读取、置入协议或官网视觉资产，也不执行公网部署。
 
 ## 官方单屏站点
 
@@ -125,18 +135,14 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 
 ## 保留的工作台规格
 
-### Nothing 主题
+### iMini PS 界面
 
-- 界面主题支持 `Nothing` 和 `经典`，首次使用默认 `Nothing`。
-- 明暗模式支持 `跟随系统`、`深色`、`浅色`，首次使用默认深色。
-- 浏览器偏好写入 `mugen.theme.v1`；CCX 通过 Host 设置存储保存同一语义。
-- Nothing 使用本地打包的 Doto、Space Grotesk 和 Space Mono 字体，不依赖远程字体服务。
-- 生产 bundle 必须将三套字体输出为本地哈希资源，并拒绝未解析的 `@fontsource` 包路径。
-- 深色使用 OLED 黑，浅色使用暖白；经典主题保留原有字体和主体样式。
-- 状态、参数和命令使用等宽字体，主标题和正文使用 Space Grotesk，数字式空状态使用 Doto。
-- 控件使用 4px 技术圆角，菜单可使用 8px 圆角。
-- 不使用渐变、阴影、发光、动画和过渡；红色只承担错误、删除和少量选中标记。
-- Nothing 与经典主题共用组件尺寸、间距、布局和响应式规则，260px 宽度下不产生水平滚动或内容裁切。
+- 明暗模式支持 `跟随系统`、`浅色`、`深色`，首次使用默认跟随系统；浏览器偏好继续写入兼容存储，CCX 通过 Host 设置保存同一语义。
+- 浅色画布使用 `#f4f4f5`，主文字使用 `#27272a`，次级文字使用 `#71717a`，主动作使用 `#0ea5e9`；深色画布使用 `#18181b`，主操作面使用 `#27272a`。
+- 主要操作面使用 16px 圆角，菜单与参数面板使用 12px 圆角，小控件使用 8px 圆角；不使用蓝紫渐变或纯装饰元素。
+- 菜单、生成设置和页面切换提供 140–210ms 的轻量反馈，并在 `prefers-reduced-motion` 下关闭动画。
+- 状态必须以文字表达，不使用颜色点；点击弹出菜单或生成设置之外的区域会关闭当前浮层。
+- 260px 宽度下不产生水平滚动或内容裁切，402×874 为 Figma 对照视口，宽屏保持内容密度而不放大控件。
 
 ### Provider 注册架构
 
@@ -204,10 +210,10 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 
 ## 发布边界
 
-- 当前阶段允许在 WebUI、单屏官网和 CCX 各自门禁通过后部署正式入口。官网使用 `download/mugen-<version>.ccx` 直连标准，CCX 随站点快照发布并纳入全站逐字节校验；`releases/latest.json` 已废弃。
+- 当前 dev 发布线只生成 `imini-ps-<version>-<build>.ccx` 测试包，不执行官网或正式 WebUI 部署；正式站点发布仍按独立生产门禁处理。
 - 官方发行统一执行 `docs/release-sop.md`。CCX 本地打包不构成正式发布，官网原子切换和公网版本化 CCX 逐字节回读通过后才能确认发行完成。
 - 旧官网、Electron 桌面端与 Inner WebUI 0.1 只保留历史记录；独立 UXP 原型代码已删除，均不进入新首页、WebUI 入口或活动发布说明。
-- CCX WebView 固定加载 `https://mugen.catrefuse.com/webui/`，CCX 包不包含 WebUI HTML、JavaScript、CSS 或其他 `webui/` 静态目录。
+- CCX WebView 固定加载 `https://imini-test.catefuse.com/`，CCX 包不包含 WebUI HTML、JavaScript、CSS 或其他 `webui/` 静态目录。
 - CCX 接收 WebView 消息时，将 UXP 提供的内容 URL 解析后按协议、主机和端口校验同源，并继续要求消息 `source` 为当前 WebView；不得把包含 `/webui/` 路径的合法内容 URL 当作非可信来源，也不得放宽到其他 Origin。
 - WebUI 与 CCX 独立构建、部署和更新；两者通过 `inner-host/v1` 协议和兼容元数据维持兼容，只有协议不兼容时才需要协同升级。
 - 云端 WebUI 不可达、加载超时或消息桥握手失败时，CCX Host 壳显示重试与启动日志入口。

@@ -451,7 +451,7 @@ export class DiagnosticStore {
     const records = retainedDiagnostics(await this.load())
     const fileSystem = getLocalFileSystem()
     if (!fileSystem?.getFileForSaving) throw new Error('文件保存器不可用')
-    const fileName = `mugen-diagnostics-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`
+    const fileName = `imini-ps-diagnostics-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`
     const file = await fileSystem.getFileForSaving(fileName, { types: ['jsonl'] })
     if (!file) return { saved: false }
     const jsonl = records.map((record) => JSON.stringify(sanitize(record))).join('\n')

@@ -201,7 +201,7 @@ Spectrum UXP Widgets 是当前项目的默认控件方案。新增控件时先�
 
 Mugen vNext 的完整工作台由 CCX WebView 加载正式云端 WebUI，并与普通浏览器使用同一部署页面。UXP 原生 UI 只承担 Host 壳、连接状态和无法进入 WebView 时的恢复入口。
 
-- WebView 入口固定为 `https://mugen.catrefuse.com/webui/`，CCX 发行物不包含 WebUI 静态文件。
+- WebView 入口固定为 `https://imini-test.catefuse.com/`，CCX 发行物不包含 WebUI 静态文件。
 - Photoshop API、文件 token、SecureStorage、imaging 与 modal execution 只由 Host 执行。
 - WebView 通过只授权正式 Origin 的 `localAndRemote` bridge 和版本化协议调用 Host。
 - 普通浏览器选择 Browser adapter，不提供 Photoshop 能力。

@@ -271,7 +271,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         }
         case 'canvas.placeAsset': {
           const source = assets.get(request.payload.assetId)
-          const layerName = 'Mugen 生成结果'
+          const layerName = 'iMini PS 生成结果'
           trace.placements.push({ assetId: request.payload.assetId, target: safePayload(request).target, previewUrl: source?.previewUrl || '', layerName })
           respond(request, { layerName, target: request.payload.target })
           return
@@ -286,7 +286,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         }
         case 'credential.set': respond(request, { configId: request.payload.configId, credentialState: 'stored' }); return
         case 'credential.remove': respond(request, { configId: request.payload.configId, credentialState: 'missing' }); return
-        case 'diagnostics.export': respond(request, { saved: true, fileName: 'mugen-diagnostics.json' }); return
+        case 'diagnostics.export': respond(request, { saved: true, fileName: 'imini-ps-diagnostics.json' }); return
         case 'storage.clearAll': respond(request, { cleared: true, deleted: ['credentials', 'settings', 'history', 'assets', 'diagnostics'] }); return
         case 'host.openReleasePage': respond(request, { opened: true }); return
         default: throw new Error(`Unhandled E2E host command: ${request.command}`)

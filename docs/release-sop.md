@@ -6,9 +6,9 @@ CCX 的运维执行步骤、密码登录时的临时公钥流程和公网验收�
 
 ## 发行范围
 
-- WebUI：`https://mugen.catrefuse.com/webui/`
-- CCX：`https://mugen.catrefuse.com/download/mugen-<version>-<build>.ccx`
-- 官网：`https://mugen.catrefuse.com/`
+- WebUI：`https://imini-test.catefuse.com/`
+- CCX：`https://imini-test.catefuse.com/download/mugen-<version>-<build>.ccx`
+- 官网：`https://imini-test.catefuse.com/`
 
 WebUI 与 CCX 独立构建，CCX 固定加载云端 WebUI。一次同时包含 WebUI 和 CCX 改动的发行必须完成两条部署链，并由官网快照分发本次版本化 CCX。
 
@@ -81,7 +81,7 @@ npm run deploy:site
 
 ```bash
 npm run verify:inner-webui:public
-curl -fsSL https://mugen.catrefuse.com/download/mugen-<version>-<build>.ccx --output /private/tmp/mugen-<version>-<build>.ccx
+curl -fsSL https://imini-test.catefuse.com/download/mugen-<version>-<build>.ccx --output /private/tmp/mugen-<version>-<build>.ccx
 shasum -a 256 /private/tmp/mugen-<version>-<build>.ccx
 ```
 

@@ -25,10 +25,10 @@ onMounted(store.initialize)
   <main class="app-shell">
     <section v-if="store.status === 'loading'" class="startup">
       <span class="spinner" />
-      正在打开 Mugen
+      正在打开 iMini PS
     </section>
     <section v-else-if="store.status === 'incompatible'" class="startup">
-      <strong>Mugen 插件需要更新</strong>
+      <strong>iMini PS 插件需要更新</strong>
       <button type="button" @click="store.openReleasePage">查看更新</button>
     </section>
     <section v-else-if="store.status === 'error'" class="startup">
