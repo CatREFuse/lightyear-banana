@@ -368,6 +368,40 @@ function readLoadingPhaseLabel(phase: GenerationLoadingPhase) {
   return labels[phase]
 }
 
+function formatElapsedSeconds(seconds: number) {
+  const roundedSeconds = Math.max(0, Math.round(seconds))
+  const minutes = Math.floor(roundedSeconds / 60)
+  const remainingSeconds = roundedSeconds % 60
+
+  if (!minutes) {
+    return `${remainingSeconds} 秒`
+  }
+
+  return remainingSeconds ? `${minutes} 分 ${remainingSeconds} 秒` : `${minutes} 分钟`
+}
+
+function readFailureElapsedSeconds(turn: ChatTurn) {
+  const match = turn.elapsedLabel.match(/([\d.]+)s/i)
+  return match ? Number(match[1]) : 0
+}
+
+function readFailureMessage(turn: ChatTurn) {
+  return turn.responseText.replace(/^API 请求失败[：:]\s*/, '')
+}
+
+function updateLoadingParticleFocus(event: PointerEvent) {
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  target.style.setProperty('--particle-x', `${event.clientX - rect.left}px`)
+  target.style.setProperty('--particle-y', `${event.clientY - rect.top}px`)
+}
+
+function resetLoadingParticleFocus(event: PointerEvent) {
+  const target = event.currentTarget as HTMLElement
+  target.style.removeProperty('--particle-x')
+  target.style.removeProperty('--particle-y')
+}
+
 function readLoadingPhaseRows(task: GenerationLoadingState) {
   return [
     { key: '当前阶段', value: readLoadingPhaseLabel(task.phase) },
@@ -442,7 +476,7 @@ watch(
     </Transition>
 
     <TransitionGroup name="turn-list" tag="div" class="turn-list">
-      <article v-for="turn in turns" :key="turn.id" class="turn">
+      <article v-for="turn in turns" :key="turn.id" class="turn" :class="{ 'is-error-turn': turn.tone === 'error' }">
         <section class="user-message">
           <div v-if="turn.references.length" class="sent-reference-row">
             <ReferenceThumb
@@ -462,6 +496,27 @@ watch(
           :class="{ 'is-error': turn.tone === 'error', 'is-canceled': turn.tone === 'canceled' }"
         >
           <p v-if="turn.tone === 'canceled'" class="canceled-text">{{ turn.responseText }} · {{ turn.elapsedLabel }}</p>
+          <template v-else-if="turn.tone === 'error'">
+            <div class="failure-status-row">
+              <AppIcon name="emotion-sad-line" size="12" />
+              <span>生成失败，{{ formatElapsedSeconds(readFailureElapsedSeconds(turn)) }}</span>
+            </div>
+            <div class="failure-detail-row">
+              <p>{{ readFailureMessage(turn) }}</p>
+              <button
+                class="failure-log-trigger"
+                :class="{ 'is-open': visibleRequestLogs[turn.id] }"
+                type="button"
+                @click.stop="toggleRequestLogs(turn.id)"
+              >
+                查看日志
+              </button>
+            </div>
+            <div v-if="turn.repeatRequest" class="response-actions failure-actions">
+              <button class="append-button" type="button" @click="emit('edit', turn.id)">修改请求</button>
+              <button class="append-button" type="button" @click="emit('retry', turn.id)">重试</button>
+            </div>
+          </template>
           <template v-else>
             <div class="response-header">
               <button
@@ -476,50 +531,52 @@ watch(
               </button>
             </div>
             <p class="response-text">{{ readResponseText(turn) }}</p>
-            <div v-if="turn.repeatRequest && (turn.results.length || turn.tone === 'error')" class="response-actions">
+            <div v-if="turn.repeatRequest && turn.results.length" class="response-actions">
               <button class="append-button" type="button" @click="emit('edit', turn.id)">
                 修改请求
               </button>
               <button v-if="turn.results.length" class="append-button" type="button" @click="emit('append', turn.id)">
                 追加
               </button>
-              <button v-else class="append-button" type="button" @click="emit('retry', turn.id)">
-                重试
-              </button>
             </div>
-            <section v-if="visibleRequestLogs[turn.id]" class="request-log-stack" aria-label="请求日志">
-              <p v-if="!turn.requestLogs?.length" class="request-log-empty">暂无请求日志</p>
-              <article v-for="(requestLog, index) in turn.requestLogs" :key="requestLog.id" class="request-log-item">
-                <div class="request-log-title">
-                  <strong>{{ index + 1 }} · {{ requestLog.method }} · {{ requestLog.status }}</strong>
-                  <small>{{ requestLog.createdAt }}</small>
-                </div>
-                <code>{{ requestLog.url }}</code>
-                <div class="request-log-grid">
-                  <div>
-                    <span>元数据</span>
-                    <dl>
-                      <template v-for="row in readMetadataRows(requestLog)" :key="row.key">
-                        <dt>{{ row.key }}</dt>
-                        <dd>{{ row.value }}</dd>
-                      </template>
-                    </dl>
-                  </div>
-                  <div>
-                    <span>用时</span>
-                    <dl>
-                      <template v-for="row in readStageRows(requestLog)" :key="row.key">
-                        <dt>{{ row.key }}</dt>
-                        <dd>{{ row.value }}</dd>
-                      </template>
-                      <dt>下载量</dt>
-                      <dd>{{ requestLog.contentLength || '-' }}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </article>
-            </section>
           </template>
+          <section
+            v-if="turn.tone !== 'canceled' && visibleRequestLogs[turn.id]"
+            class="request-log-stack"
+            :class="{ 'failure-log-stack': turn.tone === 'error' }"
+            aria-label="请求日志"
+          >
+            <p v-if="!turn.requestLogs?.length" class="request-log-empty">暂无请求日志</p>
+            <article v-for="(requestLog, index) in turn.requestLogs" :key="requestLog.id" class="request-log-item">
+              <div class="request-log-title">
+                <strong>{{ index + 1 }} · {{ requestLog.method }} · {{ requestLog.status }}</strong>
+                <small>{{ requestLog.createdAt }}</small>
+              </div>
+              <code>{{ requestLog.url }}</code>
+              <div class="request-log-grid">
+                <div>
+                  <span>元数据</span>
+                  <dl>
+                    <template v-for="row in readMetadataRows(requestLog)" :key="row.key">
+                      <dt>{{ row.key }}</dt>
+                      <dd>{{ row.value }}</dd>
+                    </template>
+                  </dl>
+                </div>
+                <div>
+                  <span>用时</span>
+                  <dl>
+                    <template v-for="row in readStageRows(requestLog)" :key="row.key">
+                      <dt>{{ row.key }}</dt>
+                      <dd>{{ row.value }}</dd>
+                    </template>
+                    <dt>下载量</dt>
+                    <dd>{{ requestLog.contentLength || '-' }}</dd>
+                  </dl>
+                </div>
+              </div>
+            </article>
+          </section>
           <div v-if="turn.results.length" class="result-grid">
             <article v-for="image in turn.results" :key="image.id" class="result-card">
               <button
@@ -617,7 +674,7 @@ watch(
       </section>
 
       <section class="assistant-message loading-message">
-        <div class="loading-row">
+        <div class="loading-status-row">
           <button
             class="loading-log-trigger"
             :class="{ 'is-open': visibleRequestLogs[task.id], 'has-logs': hasRequestLogs(task) }"
@@ -625,10 +682,31 @@ watch(
             aria-label="查看请求日志"
             @click.stop="handleLogTriggerClick(task.id)"
           >
-            <span class="loading-spinner" aria-hidden="true"></span>
+            <AppIcon name="hourglass-fill" size="12" />
           </button>
-          <span>{{ readLoadingPhaseLabel(task.phase) }} {{ task.elapsedSeconds }}s</span>
+          <span>正在生成... {{ formatElapsedSeconds(task.elapsedSeconds) }}</span>
+          <span class="loading-elapsed-machine">{{ task.elapsedSeconds }}s</span>
           <button class="cancel-generation" type="button" @click="emit('cancel', task.id)">取消</button>
+        </div>
+        <div class="loading-model-row">
+          <AppIcon name="openai-fill" size="12" />
+          <span>{{ task.modelName }}</span>
+          <span>/</span>
+          <span>{{ task.providerName }}</span>
+          <span v-if="task.sizeLabel">{{ task.sizeLabel }}</span>
+          <span v-if="task.qualityLabel">{{ task.qualityLabel }}</span>
+          <span v-if="task.ratioLabel">{{ task.ratioLabel }}</span>
+        </div>
+        <div class="loading-placeholder-grid" aria-hidden="true">
+          <div
+            v-for="index in task.count"
+            :key="index"
+            class="loading-placeholder"
+            @pointermove="updateLoadingParticleFocus"
+            @pointerleave="resetLoadingParticleFocus"
+          >
+            <img src="/imini-loading-placeholder.png" alt="" />
+          </div>
         </div>
         <section v-if="visibleRequestLogs[task.id]" class="request-log-stack loading-log-stack" aria-label="请求日志">
           <p v-if="!task.requestLogs?.length" class="request-log-empty">
@@ -756,28 +834,96 @@ watch(
   gap: 8px;
 }
 
-.loading-message {
-  width: fit-content;
+.thread .assistant-message.loading-message {
+  position: relative;
+  width: min(332px, 100%);
   max-width: 100%;
-  padding: 7px 10px;
-  border: 1px solid var(--mugen-border);
-  border-radius: 999px;
-  background: var(--mugen-thread-card);
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-sizing: border-box;
 }
 
-.loading-row {
+.loading-status-row,
+.loading-model-row {
   display: inline-flex;
   height: 16px;
   align-items: center;
-  gap: 6px;
-  color: var(--mugen-secondary);
+  gap: 4px;
+  color: var(--mugen-muted);
   font-size: 12px;
   line-height: 16px;
   white-space: nowrap;
 }
 
+.loading-status-row {
+  width: fit-content;
+}
+
+.loading-elapsed-machine {
+  display: none;
+}
+
+.loading-model-row {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.loading-model-row span {
+  flex: 0 0 auto;
+}
+
+.loading-placeholder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 160px);
+  gap: 12px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.loading-placeholder {
+  --particle-x: 50%;
+  --particle-y: 50%;
+  position: relative;
+  width: 160px;
+  height: 209px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--mugen-field);
+}
+
+.loading-placeholder img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.72;
+  object-fit: cover;
+  mix-blend-mode: luminosity;
+}
+
+.loading-placeholder::after {
+  position: absolute;
+  inset: -5%;
+  background: url('/imini-loading-placeholder.png') center / cover;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.08);
+  transition: opacity 160ms ease;
+  -webkit-mask-image: radial-gradient(circle 42px at var(--particle-x) var(--particle-y), #000 0%, transparent 100%);
+  mask-image: radial-gradient(circle 42px at var(--particle-x) var(--particle-y), #000 0%, transparent 100%);
+}
+
+.loading-placeholder:hover::after {
+  opacity: 0.92;
+}
+
 .cancel-generation {
+  position: absolute;
+  top: -3px;
+  right: 0;
   display: inline-flex;
   height: 14px;
   max-height: 14px;
@@ -789,22 +935,27 @@ watch(
   font-size: 12px;
   line-height: 16px;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
 
+.loading-message:hover .cancel-generation,
+.cancel-generation:focus-visible,
 .cancel-generation:hover {
   color: var(--mugen-text);
+  opacity: 1;
 }
 
 .loading-log-trigger {
   position: relative;
   display: inline-flex;
-  width: 20px;
-  height: 20px;
+  width: 12px;
+  height: 12px;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--mugen-secondary);
   cursor: pointer;
@@ -818,19 +969,6 @@ watch(
   box-shadow: none;
   color: var(--mugen-secondary);
   outline: none;
-}
-
-.loading-log-trigger.has-logs .loading-spinner {
-  border-top-color: var(--mugen-success, #65d48a);
-}
-
-.loading-spinner {
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid var(--mugen-border-strong);
-  border-top-color: var(--mugen-accent);
-  border-radius: 999px;
-  animation: loading-spin 800ms linear infinite;
 }
 
 .canceled-text {
@@ -1004,22 +1142,78 @@ watch(
   color: var(--mugen-muted);
 }
 
-.assistant-message.is-error {
-  width: fit-content;
+.thread .assistant-message.is-error {
+  position: relative;
+  width: min(245px, 100%);
   max-width: 100%;
-  padding: 9px 10px;
-  border: 1px solid var(--mugen-danger-border);
-  border-radius: 8px;
-  background: var(--mugen-danger-bg);
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
-.assistant-message.is-error .response-header {
-  color: var(--mugen-danger-muted);
+.failure-status-row,
+.failure-detail-row {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 16px;
 }
 
-.assistant-message.is-error .response-text {
-  color: var(--mugen-danger-text);
-  line-height: 1.45;
+.failure-status-row {
+  gap: 4px;
+  color: var(--mugen-danger);
+  white-space: nowrap;
+}
+
+.failure-detail-row {
+  gap: 9px;
+  min-width: 0;
+  color: var(--mugen-muted);
+}
+
+.failure-detail-row p {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.failure-log-trigger {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mugen-accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.failure-log-trigger:hover,
+.failure-log-trigger:focus-visible,
+.failure-log-trigger.is-open {
+  color: var(--mugen-accent-hover);
+  outline: none;
+}
+
+.failure-actions {
+  position: absolute;
+  top: -3px;
+  right: 0;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.assistant-message.is-error:hover .failure-actions,
+.failure-actions:focus-within {
+  opacity: 1;
+}
+
+.failure-log-stack {
+  width: min(370px, calc(100vw - 48px));
 }
 
 .result-grid {
@@ -1341,9 +1535,14 @@ watch(
   }
 
   .turn-list-enter-active .assistant-message,
-  .loading-spinner,
   .turn-list-enter-active .result-card {
     animation: none;
+  }
+
+  .loading-placeholder::after,
+  .cancel-generation,
+  .failure-actions {
+    transition: none;
   }
 }
 </style>

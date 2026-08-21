@@ -245,14 +245,23 @@ export function useInnerMugen(): MugenController {
   })
   const generationLoading = computed<GenerationLoadingState[]>(() => store.turns
     .filter((turn) => turn.status === 'running')
-    .map((turn) => ({
-      id: turn.id,
-      references: turn.references.map(assetToReference),
-      prompt: turn.prompt,
-      elapsedSeconds: turn.elapsed,
-      phase: phaseToLoading(turn.phase),
-      requestLogs: turn.logs.map(requestLogToUi)
-    })))
+    .map((turn) => {
+      const config = configs.value.find((item) => item.id === turn.snapshot.configId)
+      return {
+        id: turn.id,
+        references: turn.references.map(assetToReference),
+        prompt: turn.prompt,
+        elapsedSeconds: turn.elapsed,
+        phase: phaseToLoading(turn.phase),
+        count: turn.snapshot.count,
+        modelName: config?.model || '模型',
+        providerName: config?.provider || 'iMini',
+        qualityLabel: turn.snapshot.quality,
+        ratioLabel: turn.snapshot.ratio,
+        sizeLabel: turn.snapshot.size,
+        requestLogs: turn.logs.map(requestLogToUi)
+      }
+    }))
   const turns = computed<ChatTurn[]>(() => store.turns
     .filter((turn) => turn.status !== 'running')
     .map((turn) => hostTurnToUi(turn)))

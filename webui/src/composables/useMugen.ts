@@ -774,7 +774,7 @@ function readHighestQuality(options: string[]): string {
     generationLoading.value = []
   }
 
-  function startGenerationLoading(cleanPrompt: string, sentReferences: ReferenceImage[]) {
+  function startGenerationLoading(snapshot: GenerationRequestSnapshot) {
     const id = createId('generation')
     const startedAt = Date.now()
     generationStartedAt.set(id, startedAt)
@@ -782,10 +782,16 @@ function readHighestQuality(options: string[]): string {
       ...generationLoading.value,
       {
         id,
-        references: sentReferences,
-        prompt: cleanPrompt,
+        references: snapshot.references,
+        prompt: snapshot.prompt,
         elapsedSeconds: 0,
         phase: 'waiting-connection',
+        count: snapshot.count,
+        modelName: snapshot.config.model,
+        providerName: snapshot.config.provider,
+        qualityLabel: snapshot.quality,
+        ratioLabel: snapshot.ratio,
+        sizeLabel: snapshot.selectedSize || snapshot.resolvedSize,
         requestLogs: []
       }
     ]
@@ -1317,7 +1323,7 @@ function readHighestQuality(options: string[]): string {
     prompt.value = ''
     references.value = []
     const startedAt = Date.now()
-    const taskId = startGenerationLoading(requestPrompt, sentReferences)
+    const taskId = startGenerationLoading(requestSnapshot)
     const abortController = new AbortController()
     const requestLogs: ImageRequestLogEntry[] = []
     generationControllers.set(taskId, abortController)
@@ -1394,7 +1400,7 @@ function readHighestQuality(options: string[]): string {
 
     const requestSnapshot = normalizeGenerationSnapshotForRequest(cloneGenerationRequestSnapshot(sourceTurn.repeatRequest))
     const startedAt = Date.now()
-    const taskId = startGenerationLoading(requestSnapshot.prompt, requestSnapshot.references)
+    const taskId = startGenerationLoading(requestSnapshot)
     const abortController = new AbortController()
     const requestLogs: ImageRequestLogEntry[] = []
     generationControllers.set(taskId, abortController)
@@ -1473,7 +1479,7 @@ function readHighestQuality(options: string[]): string {
 
     const requestSnapshot = normalizeGenerationSnapshotForRequest(cloneGenerationRequestSnapshot(sourceTurn.repeatRequest))
     const startedAt = Date.now()
-    const taskId = startGenerationLoading(requestSnapshot.prompt, requestSnapshot.references)
+    const taskId = startGenerationLoading(requestSnapshot)
     const abortController = new AbortController()
     const requestLogs: ImageRequestLogEntry[] = []
     generationControllers.set(taskId, abortController)

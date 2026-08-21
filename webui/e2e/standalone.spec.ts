@@ -439,3 +439,28 @@ test('browser cancellation aborts the active APIMart poll and leaves no generate
   ]))
   expect(apimartFixture.state.imageDownloads).toBe(0)
 })
+
+test('matches the Figma failed-generation presentation', async ({ page }, testInfo) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await useApimartBrowserConfig(page, 'APIMart Failure UI')
+  apimartFixture.failNextGeneration({ status: 422, message: 'Time out.' })
+
+  const prompt = page.getByPlaceholder('描述你想生成的画面，输入 / 调用常用提示词')
+  await prompt.fill('Figma 失败状态验证')
+  await prompt.press('Enter')
+
+  const failedTurn = page.locator('.assistant-message.is-error').filter({ hasText: 'Time out.' })
+  await expect(failedTurn.locator('.failure-status-row')).toContainText(/生成失败，\d+ 秒/)
+  await expect(failedTurn.locator('.failure-detail-row')).toContainText('Time out.')
+  await expect(failedTurn.getByRole('button', { name: '查看日志' })).toBeVisible()
+  await expect.poll(() => failedTurn.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { background: style.backgroundColor, border: style.borderTopWidth, gap: style.rowGap }
+  })).toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px', gap: '12px' })
+  await expect(page.locator('.operation-status')).toHaveCount(0)
+
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: testInfo.outputPath('figma-failure-state.png') })
+  await failedTurn.getByRole('button', { name: '查看日志' }).click()
+  await expect(failedTurn.getByRole('region', { name: '请求日志' })).toBeVisible()
+})

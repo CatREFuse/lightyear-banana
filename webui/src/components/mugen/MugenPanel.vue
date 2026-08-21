@@ -88,6 +88,16 @@ const {
   useResultAsReference
 } = props.controller
 
+const floatingToastMessage = computed(() => {
+  const message = toastMessage.value
+  if (!message || (generationLoading.value.length && message === '正在生成')) {
+    return ''
+  }
+
+  const latestTurn = turns.value.at(-1)
+  return latestTurn?.tone === 'error' && latestTurn.responseText === message ? '' : message
+})
+
 const {
   colorMode,
   resolvedColorMode,
@@ -319,9 +329,13 @@ function handleManageModels() {
           @upscale="upscaleImage"
         />
 
-        <div v-if="toastMessage" class="operation-status" aria-live="polite" role="status">
-          <span>[STATUS]</span>
-          <strong>{{ toastMessage }}</strong>
+        <div class="toast-anchor">
+          <Transition name="toast-pop">
+            <div v-if="floatingToastMessage" class="toast" aria-live="polite" role="status">
+              <AppIcon name="shining-fill" size="14" />
+              <span>{{ floatingToastMessage }}</span>
+            </div>
+          </Transition>
         </div>
 
         <ComposerDock
@@ -415,31 +429,6 @@ function handleManageModels() {
   overflow: hidden;
   background: var(--mugen-bg);
   color: var(--mugen-text);
-}
-
-.operation-status {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 28px;
-  padding: 4px 12px;
-  border-top: 1px solid var(--mugen-hairline);
-  background: var(--mugen-composer);
-  color: var(--mugen-secondary);
-  font-size: 11px;
-}
-
-.operation-status > span {
-  color: var(--mugen-muted);
-}
-
-.operation-status > strong {
-  overflow: hidden;
-  color: var(--mugen-text);
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .toast-anchor {

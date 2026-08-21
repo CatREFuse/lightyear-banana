@@ -310,6 +310,38 @@ test('shows a thumbnail error, advances the timer, and opens the original image'
   await context.close()
 })
 
+test('matches the Figma loading-state dimensions and hierarchy', async ({ browser }, testInfo) => {
+  const context = await browser.newContext({ viewport: { width: 402, height: 874 }, colorScheme: 'light' })
+  const page = await context.newPage()
+  await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 4_000 })
+  await page.goto('/')
+  await page.getByRole('button', { name: '外观' }).click()
+  await page.getByRole('button', { name: '浅色', exact: true }).click()
+
+  await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('Figma 加载状态验证')
+  await page.getByRole('button', { name: '发送', exact: true }).click()
+
+  const loading = page.locator('.loading-turn')
+  await expect(loading.locator('.loading-status-row')).toContainText('正在生成...')
+  await expect(loading.locator('.loading-model-row')).toContainText('/')
+  const placeholder = loading.locator('.loading-placeholder').first()
+  await expect(placeholder).toBeVisible()
+  await expect.poll(() => placeholder.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return { width: rect.width, height: rect.height, radius: getComputedStyle(element).borderRadius }
+  })).toEqual({ width: 160, height: 209, radius: '8px' })
+  await expect.poll(() => loading.locator('.loading-message').evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { background: style.backgroundColor, border: style.borderTopWidth, gap: style.rowGap }
+  })).toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px', gap: '12px' })
+  await expect(page.locator('.operation-status')).toHaveCount(0)
+
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: testInfo.outputPath('figma-loading-state.png') })
+  await page.getByRole('button', { name: '取消', exact: true }).click()
+  await context.close()
+})
+
 test('upgrades a low-resolution generated thumbnail to a 1K conversation preview', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
   const page = await context.newPage()

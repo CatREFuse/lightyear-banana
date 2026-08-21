@@ -51,6 +51,12 @@ export type GenerationLoadingState = {
   prompt: string
   elapsedSeconds: number
   phase: GenerationLoadingPhase
+  count: number
+  modelName: string
+  providerName: string
+  qualityLabel: string
+  ratioLabel: string
+  sizeLabel: string
   requestLogs?: ImageRequestLogEntry[]
 }
 
