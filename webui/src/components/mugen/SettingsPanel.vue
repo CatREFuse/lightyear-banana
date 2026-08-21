@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, shallowRef, watch } from 'vue'
+import { computed, onUnmounted, shallowRef } from 'vue'
 import type {
   DiagnosticExportState,
   ImageProviderId,
@@ -27,7 +27,6 @@ const props = defineProps<{
   editingConfigId: string
   diagnosticExportAvailable: boolean
   diagnosticExportState: DiagnosticExportState
-  iMiniQuickAccessState: SettingsTestState
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   promptPresets: PromptPreset[]
   settingsDraftIsNew: boolean
@@ -47,7 +46,7 @@ const emit = defineEmits<{
   downloadDiagnostics: []
   openPromptPresets: []
   save: []
-  saveIMiniQuickAccess: [apiKey: string]
+  configureIMini: [apiKey: string]
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
@@ -57,20 +56,6 @@ const emit = defineEmits<{
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
 const iMiniConfig = computed(() => props.configs.find((config) => config.provider === 'iMini'))
 const iMiniApiKey = shallowRef('')
-const iMiniQuickStatus = computed(() => {
-  if (props.iMiniQuickAccessState.status !== 'idle') {
-    return props.iMiniQuickAccessState.message
-  }
-
-  return iMiniConfig.value ? '已接入' : ''
-})
-const iMiniQuickStatusTone = computed(() => {
-  if (props.iMiniQuickAccessState.status === 'error') {
-    return 'error'
-  }
-
-  return iMiniConfig.value || props.iMiniQuickAccessState.status === 'success' ? 'success' : 'idle'
-})
 const clearConversationArmed = shallowRef(false)
 const customApiExpanded = shallowRef(false)
 let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
@@ -127,21 +112,13 @@ function requestClearConversationData() {
 
 function submitIMiniQuickAccess() {
   const apiKey = iMiniApiKey.value.trim()
-  if (!apiKey || props.iMiniQuickAccessState.status === 'testing') {
+  if (!apiKey) {
     return
   }
 
-  emit('saveIMiniQuickAccess', apiKey)
+  emit('configureIMini', apiKey)
+  iMiniApiKey.value = ''
 }
-
-watch(
-  () => props.iMiniQuickAccessState.status,
-  (status) => {
-    if (status === 'success') {
-      iMiniApiKey.value = ''
-    }
-  }
-)
 
 onUnmounted(() => {
   if (clearConversationTimer) {
@@ -212,9 +189,9 @@ onUnmounted(() => {
                   />
                   <button
                     type="submit"
-                    :disabled="!iMiniApiKey.trim() || iMiniQuickAccessState.status === 'testing'"
+                    :disabled="!iMiniApiKey.trim()"
                   >
-                    {{ iMiniQuickAccessState.status === 'testing' ? '保存中' : iMiniConfig ? '更新' : '接入' }}
+                    继续
                   </button>
                 </form>
                 <div class="imini-quick-footer">
@@ -222,8 +199,8 @@ onUnmounted(() => {
                     订阅 iMini，享受 7.9 折起折扣
                     <AppIcon name="arrow-right-s-line" size="16" />
                   </a>
-                  <small v-if="iMiniQuickStatus" :class="`is-${iMiniQuickStatusTone}`" role="status">
-                    {{ iMiniQuickStatus }}
+                  <small v-if="iMiniConfig" class="is-success" role="status">
+                    已配置
                   </small>
                 </div>
               </div>

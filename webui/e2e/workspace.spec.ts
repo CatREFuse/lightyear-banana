@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { createApimartFixtureServer, expectedApiKey } from '../../utils/apimart-smoke-server.mjs'
 import { installTestHost, readTestHostTrace } from './hostFixture'
 
@@ -33,6 +33,13 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 })
+
+async function expandCustomApiConfigs(page: Page) {
+  const toggle = page.getByRole('button', { name: /自定义 API/ })
+  if (await toggle.getAttribute('aria-expanded') === 'false') {
+    await toggle.click()
+  }
+}
 
 test('CCX bridge completes canvas capture, APIMart generation, cat download, and canvas placement', async ({ page }) => {
   await page.getByRole('button', { name: '添加参考图' }).click()
@@ -112,7 +119,27 @@ test('CCX bridge completes canvas capture, APIMart generation, cat download, and
 
 test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expandCustomApiConfigs(page)
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
+})
+
+test('iMini shortcut keeps Host settings unchanged until the legacy save action', async ({ page }) => {
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByRole('textbox', { name: 'iMini API Key' }).fill('host-draft-imini-token')
+  await page.getByRole('button', { name: '继续', exact: true }).click()
+
+  const detail = page.getByLabel('配置详情')
+  await expect(detail.getByLabel('Base URL')).toHaveValue('https://openapi.imini.ai/imini/router')
+  await expect(detail.getByLabel('API Key', { exact: true })).toHaveValue('host-draft-imini-token')
+
+  const commands = (await readTestHostTrace(page)).commands.map((entry) => entry.command)
+  expect(commands).not.toContain('settings.save')
+  expect(commands).not.toContain('credential.set')
+
+  await detail.getByRole('button', { name: '保存', exact: true }).click()
+  await expect.poll(async () => (await readTestHostTrace(page)).commands.map((entry) => entry.command)).toEqual(
+    expect.arrayContaining(['credential.set', 'settings.save'])
+  )
 })
 
 test('restores prompt editing after the CCX WebView regains window focus', async ({ page }) => {
@@ -141,6 +168,7 @@ test('restores prompt editing after the CCX WebView regains window focus', async
 
 test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expandCustomApiConfigs(page)
   await page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' }).click()
   const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
   await providerField.locator('.select-trigger').click()

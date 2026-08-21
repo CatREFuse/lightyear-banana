@@ -52,7 +52,6 @@ const {
   editingConfigId,
   enabledConfigs,
   generationLoading,
-  iMiniQuickAccessState,
   installPluginUrl,
   openPromptPresets,
   openSettings,
@@ -67,7 +66,6 @@ const {
   retryGeneration,
   resolutionMode,
   saveConfig,
-  saveIMiniQuickAccess,
   saveGeneratedImage,
   selectConfig,
   selectModel,
@@ -144,6 +142,18 @@ const navigationTitle = computed(() => {
 
 function setWorkspaceMenu(owner: string) {
   activeWorkspaceMenu.value = owner
+}
+
+function configureIMini(apiKey: string) {
+  const existing = configs.value.find((config) => config.provider === 'iMini')
+  if (existing) {
+    editConfig(existing.id)
+  } else {
+    createConfig()
+  }
+
+  updateSettingsDraft({ provider: 'iMini' })
+  updateSettingsDraft({ apiKey })
 }
 
 async function openPreview(image: CapturedCanvasImage) {
@@ -261,7 +271,6 @@ function handleManageModels() {
         :diagnostic-export-available="props.diagnosticExportAvailable ?? false"
         :diagnostic-export-state="diagnosticExportState"
         :provider-capabilities="providerCapabilities"
-        :i-mini-quick-access-state="iMiniQuickAccessState"
         :prompt-presets="promptPresets"
         :settings-draft-is-new="settingsDraftIsNew"
         :settings-draft="settingsDraft"
@@ -277,7 +286,7 @@ function handleManageModels() {
         @edit="editConfig"
         @open-prompt-presets="openPromptPresets"
         @save="saveConfig"
-        @save-i-mini-quick-access="saveIMiniQuickAccess"
+        @configure-i-mini="configureIMini"
         @test="testConfig"
         @toggle-enabled="toggleConfigEnabled"
         @update-draft="updateSettingsDraft"

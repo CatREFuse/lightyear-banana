@@ -53,7 +53,6 @@ export type MugenController = {
   exportDiagnostics: () => ControllerResult
   generationLoading: ReadonlyState<GenerationLoadingState[]>
   installPluginUrl: ReadonlyState<string>
-  iMiniQuickAccessState: Ref<SettingsTestState>
   loadOriginalImage?: (image: CapturedCanvasImage) => Promise<CapturedCanvasImage>
   openPromptPresets: () => ControllerResult
   openSettings: (configId?: string) => ControllerResult
@@ -68,7 +67,6 @@ export type MugenController = {
   retryGeneration: (turnId: string) => ControllerResult
   resolutionMode: Ref<ResolutionInputMode>
   saveConfig: () => ControllerResult
-  saveIMiniQuickAccess: (apiKey: string) => ControllerResult
   saveGeneratedImage: (image: CapturedCanvasImage) => ControllerResult
   selectConfig: (configId: string) => ControllerResult
   selectModel: (model: string) => ControllerResult

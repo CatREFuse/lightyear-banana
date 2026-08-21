@@ -895,8 +895,8 @@ watch(
 }
 
 .add-wrap.is-inline .reference-menu {
-  right: 0;
-  left: auto;
+  right: auto;
+  left: 0;
 }
 
 .floating-menu button {

@@ -59,6 +59,13 @@ async function useApimartBrowserConfig(page: Page, name: string) {
   await expect(page.locator('.composer .select-field').filter({ hasText: '供应商' }).locator('.select-value')).toHaveText(name)
 }
 
+async function expandCustomApiConfigs(page: Page) {
+  const toggle = page.getByRole('button', { name: /自定义 API/ })
+  if (await toggle.getAttribute('aria-expanded') === 'false') {
+    await toggle.click()
+  }
+}
+
 async function walkCompleteFocusOrder(page: Page) {
   await page.evaluate(() => {
     const selector = [
@@ -140,6 +147,7 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
   await expect(page.getByText('跟随当前画布', { exact: true })).toHaveCount(0)
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expandCustomApiConfigs(page)
   await page.getByRole('button', { name: /Browser Runtime Boundary/ }).click()
   const detail = page.getByLabel('配置详情')
   await expect(detail.getByText('画布比例', { exact: true })).toHaveCount(0)
@@ -147,6 +155,7 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
 
 test('browser exposes the complete shared Provider catalog', async ({ page }) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expandCustomApiConfigs(page)
   await page.getByRole('button', { name: '添加', exact: true }).click()
   const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
   await providerField.locator('.select-trigger').click()
@@ -161,6 +170,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await expect(page.getByText('iMini PS · WebUI 0.2.3', { exact: true })).toBeVisible()
   await expect(page.getByText(/0\.3\.19/)).toHaveCount(0)
   await expect(page.getByText(/Build/)).toHaveCount(0)
+  await expandCustomApiConfigs(page)
   await page.getByRole('button', { name: '添加', exact: true }).click()
   const detail = page.getByLabel('配置详情')
   await detail.getByLabel('配置名称').fill('APIMart Browser')
@@ -187,12 +197,14 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await page.reload()
   await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expandCustomApiConfigs(page)
   await expect(page.getByRole('button', { name: /APIMart Browser/ })).toBeVisible()
   await page.getByRole('button', { name: '返回' }).click()
 
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   const configField = page.locator('.composer .select-field').filter({ hasText: '供应商' })
   await expect(configField.locator('.select-value')).toHaveText('APIMart Browser')
+  await page.getByRole('button', { name: '生成设置', exact: true }).click()
 
   await page.getByRole('button', { name: '添加参考图' }).click()
   await expect(page.getByRole('button', { name: '可见图层', exact: true })).toHaveCount(0)
@@ -278,6 +290,7 @@ test('browser tests an official iMini config through the same-origin proxy', asy
   await page.reload()
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expandCustomApiConfigs(page)
   await page.getByRole('button', { name: /iMini Browser/ }).click()
   const detail = page.getByLabel('配置详情')
   await detail.getByRole('button', { name: '测试 API' }).click()
@@ -295,6 +308,37 @@ test('browser tests an official iMini config through the same-origin proxy', asy
       pathname: '/webui-api/imini/v1/images/tasks/browser-imini-task'
     }
   ])
+})
+
+test('iMini shortcut opens the legacy configuration draft without changing browser defaults', async ({ page }) => {
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByRole('textbox', { name: 'iMini API Key' }).fill('draft-imini-token')
+  await page.getByRole('button', { name: '继续', exact: true }).click()
+
+  const detail = page.getByLabel('配置详情')
+  await expect(detail).toBeVisible()
+  await expect(detail.getByLabel('Base URL')).toHaveValue('https://openapi.imini.ai/imini/router')
+  await expect(detail.getByLabel('API Key', { exact: true })).toHaveValue('draft-imini-token')
+
+  const beforeSave = await page.evaluate(() => JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}'))
+  expect(beforeSave.configs ?? []).toEqual([])
+  expect(beforeSave.activeConfigId ?? '').toBe('')
+
+  await detail.getByRole('button', { name: '保存', exact: true }).click()
+  await expect.poll(async () => page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}')
+    return stored.configs?.[0]
+  })).toMatchObject({
+    provider: 'iMini',
+    model: 'google/nano-banana',
+    baseUrl: 'https://openapi.imini.ai/imini/router',
+    enabled: true
+  })
+
+  expect(await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}')
+    return stored.activeConfigId ?? ''
+  })).toBe('')
 })
 
 test('browser compresses combined inline references below the request-body budget', async ({ page }) => {
