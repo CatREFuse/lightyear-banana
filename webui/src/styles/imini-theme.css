@@ -431,7 +431,7 @@
 }
 
 .mugen-shell.mugen-shell .parameter-wrap {
-  position: static;
+  position: relative;
   display: inline-flex;
 }
 
@@ -450,7 +450,7 @@
 .mugen-shell.mugen-shell .reference-menu {
   right: auto;
   bottom: calc(100% + 8px);
-  left: 0;
+  left: -32px;
   width: 156px;
   padding: 6px;
 }
@@ -467,12 +467,15 @@
 .mugen-shell.mugen-shell .parameter-panel {
   position: absolute;
   z-index: 60;
-  right: 0;
+  right: auto;
   bottom: calc(100% + 8px);
+  left: 0;
   display: grid;
   width: min(239px, 100%);
   gap: 8px;
   padding: 12px;
+  border-width: 0.5px;
+  box-shadow: 0 22.336px 17.869px rgba(0, 0, 0, 0.04);
 }
 
 .mugen-shell.mugen-shell .parameter-header {

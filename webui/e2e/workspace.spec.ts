@@ -45,15 +45,20 @@ async function expectPopupInsideWorkspace(page: Page, selector: string) {
   await expect(page.locator(selector)).toBeVisible()
   await expect.poll(() => page.locator(selector).evaluate((popup) => {
     const shell = popup.closest('.mugen-shell')
-    if (!shell) return false
+    if (!shell) return 'missing-shell'
 
     const popupRect = popup.getBoundingClientRect()
     const shellRect = shell.getBoundingClientRect()
-    return popupRect.left >= shellRect.left
+    const inside = popupRect.left >= shellRect.left
       && popupRect.top >= shellRect.top
       && popupRect.right <= shellRect.right
       && popupRect.bottom <= shellRect.bottom
-  })).toBe(true)
+    if (inside) return 'inside'
+    return JSON.stringify({
+      popup: { left: popupRect.left, top: popupRect.top, right: popupRect.right, bottom: popupRect.bottom },
+      shell: { left: shellRect.left, top: shellRect.top, right: shellRect.right, bottom: shellRect.bottom }
+    })
+  })).toBe('inside')
 }
 
 test('CCX bridge completes canvas capture, APIMart generation, context-menu download, and canvas placement', async ({ page }) => {
@@ -347,11 +352,42 @@ test('keeps composer popups inside the fixed-width workspace', async ({ page }, 
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   await expectPopupInsideWorkspace(page, '.parameter-panel')
 
-  const configField = page.locator('.parameter-panel .select-field').filter({ hasText: '供应商' })
-  await configField.locator('.select-trigger').click()
-  await expectPopupInsideWorkspace(page, '.parameter-panel .select-menu')
+  await page.locator('.parameter-panel [data-route="config"]').click()
+  await expect(page.getByText('选择供应商', { exact: true })).toBeVisible()
+  await expectPopupInsideWorkspace(page, '.parameter-panel')
 
   await page.screenshot({ path: testInfo.outputPath('composer-popups-in-workspace.png') })
+})
+
+test('navigates parameter choices inside the popup menu', async ({ page }, testInfo) => {
+  await page.getByRole('button', { name: '生成设置', exact: true }).click()
+  const menu = page.getByRole('region', { name: '生成设置' })
+  await expect(menu).toBeVisible()
+
+  await menu.getByRole('button', { name: /^比例/ }).click()
+  await expect(menu.getByText('生成图片比例', { exact: true })).toBeVisible()
+  await expect(menu.getByRole('button', { name: '返回', exact: true })).toBeVisible()
+  await expect(menu.locator('.parameter-submenu-option[aria-checked="true"]')).toHaveCount(1)
+  await expect(menu.locator('.select-menu, .ratio-menu')).toHaveCount(0)
+  await expectPopupInsideWorkspace(page, '.parameter-panel')
+  await page.screenshot({ path: testInfo.outputPath('parameter-menu-ratio-route.png') })
+
+  const ratioOption = menu.getByRole('radio', { name: /^4:3/ })
+  await ratioOption.click()
+  const ratioTrigger = menu.getByRole('button', { name: /^比例 4:3/ })
+  await expect(ratioTrigger).toBeVisible()
+  await expect(ratioTrigger).toBeFocused()
+
+  await menu.getByRole('button', { name: /^模型/ }).click()
+  await expect(menu.getByText('选择模型', { exact: true })).toBeVisible()
+  await menu.getByRole('button', { name: '返回', exact: true }).click()
+  const modelTrigger = menu.getByRole('button', { name: /^模型/ })
+  await expect(modelTrigger).toBeVisible()
+  await expect(modelTrigger).toBeFocused()
+
+  await page.screenshot({ path: testInfo.outputPath('parameter-menu-internal-route.png') })
+  await page.locator('.thread').click({ position: { x: 8, y: 8 } })
+  await expect(menu).toBeHidden()
 })
 
 test('shows a thumbnail error without opening the original image on click', async ({ browser }, testInfo) => {

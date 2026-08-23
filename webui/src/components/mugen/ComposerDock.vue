@@ -6,8 +6,7 @@ import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
 import { providerSupportsQuality, validateProviderConfig } from '@mugen/core'
 import AppIcon from './AppIcon.vue'
 import type { AppIconName } from './appIcons'
-import ControlSelect from './ControlSelect.vue'
-import RatioPicker from './RatioPicker.vue'
+import GenerationSettingsMenu from './GenerationSettingsMenu.vue'
 import ReferenceThumb from './ReferenceThumb.vue'
 import PromptPresetMenu from './PromptPresetMenu.vue'
 import { createReferenceImportFromBlob } from '../../utils/referenceImages'
@@ -148,13 +147,7 @@ const sizeOptions = computed<SelectOption[]>(() =>
     }
   ]
 )
-const qualityOptions = computed<SelectOption[]>(() =>
-  props.activeCapability.qualityOptions.map((option) => ({ value: option, label: option }))
-)
 const showsQualityControl = computed(() => Boolean(activeConfig.value && providerSupportsQuality(activeConfig.value) && props.activeCapability.qualityOptions.length))
-const countOptions = computed<SelectOption[]>(() =>
-  props.activeCapability.countOptions.map((option) => ({ value: String(option), label: String(option) }))
-)
 
 function addReference(source: ReferenceSource) {
   openPanel.value = ''
@@ -205,10 +198,6 @@ function closePanel() {
   openPanel.value = ''
 }
 
-function readDimensionInput(event: Event) {
-  return Number((event.target as HTMLInputElement).value)
-}
-
 function readModelStatus(config: ModelConfig): ModelStatus {
   if (!config.enabled) {
     return { label: '停用', tone: 'muted' }
@@ -245,13 +234,10 @@ function handleSizeChange(value: string) {
     return
   }
 
+  if (props.resolutionMode === 'custom') {
+    emit('updateResolutionMode', 'preset')
+  }
   emit('updateSize', value)
-}
-
-function usePresetResolution() {
-  openPanel.value = ''
-  emit('menuOpen', '')
-  emit('updateResolutionMode', 'preset')
 }
 
 function applyPromptPreset(preset: PromptPreset) {
@@ -656,98 +642,35 @@ watch(
             <AppIcon name="bx-layer" size="18" />
           </button>
           <Transition name="parameter-pop">
-            <section v-if="parameterPanelOpen" class="parameter-panel" aria-label="生成设置" @click.stop>
-              <header class="parameter-header">
-                <strong>生成设置</strong>
-                <button type="button" aria-label="关闭生成设置" @click="closeParameterPanel">
-                  <AppIcon name="close-line" size="16" />
-                </button>
-              </header>
-              <div class="control-grid">
-                <ControlSelect
-                  class="config-control"
-                  icon="hard-drive-3-line"
-                  label="供应商"
-                  direction="down"
-                  :options="configOptions"
-                  :open="openPanel === 'config'"
-                  :value="activeConfigId"
-                  wide
-                  @change="emit('selectConfig', $event); openPanel = ''"
-                  @close="closePanel"
-                  @toggle="togglePanel('config')"
-                />
-                <ControlSelect
-                  class="model-control"
-                  icon="shining-line"
-                  label="模型"
-                  direction="down"
-                  :open="openPanel === 'model'"
-                  :options="modelOptions"
-                  :value="activeModel"
-                  wide
-                  @change="handleModelChange"
-                  @close="closePanel"
-                  @toggle="togglePanel('model')"
-                />
-                <ControlSelect
-                  v-if="resolutionMode === 'preset'"
-                  icon="picture-in-picture-fill"
-                  label="尺寸"
-                  direction="down"
-                  :open="openPanel === 'size'"
-                  :options="sizeOptions"
-                  :value="size"
-                  @change="handleSizeChange"
-                  @close="closePanel"
-                  @toggle="togglePanel('size')"
-                />
-                <div v-else class="dimension-fields">
-                  <label class="dimension-field">
-                    <span>宽</span>
-                    <input inputmode="numeric" min="1" step="16" type="number" :value="customWidth" @input="emit('updateCustomWidth', readDimensionInput($event))" />
-                  </label>
-                  <span class="dimension-times">×</span>
-                  <label class="dimension-field">
-                    <span>高</span>
-                    <input inputmode="numeric" min="1" step="16" type="number" :value="customHeight" @input="emit('updateCustomHeight', readDimensionInput($event))" />
-                  </label>
-                  <button class="dimension-preset-button" type="button" @click="usePresetResolution">预设</button>
-                </div>
-                <RatioPicker
-                  v-if="resolutionMode === 'preset'"
-                  :open="openPanel === 'ratio'"
-                  :options="activeCapability.ratioOptions"
-                  :value="ratio"
-                  @change="emit('updateRatio', $event); openPanel = ''"
-                  @close="closePanel"
-                  @toggle="togglePanel('ratio')"
-                />
-                <ControlSelect
-                  icon="hashtag"
-                  label="数量"
-                  direction="down"
-                  :open="openPanel === 'count'"
-                  :options="countOptions"
-                  :value="String(count)"
-                  @change="emit('updateCount', Number($event)); openPanel = ''"
-                  @close="closePanel"
-                  @toggle="togglePanel('count')"
-                />
-                <ControlSelect
-                  v-if="showsQualityControl"
-                  icon="sparkling-2-line"
-                  label="质量"
-                  direction="down"
-                  :open="openPanel === 'quality'"
-                  :options="qualityOptions"
-                  :value="quality"
-                  @change="emit('updateQuality', $event); openPanel = ''"
-                  @close="closePanel"
-                  @toggle="togglePanel('quality')"
-                />
-              </div>
-            </section>
+            <GenerationSettingsMenu
+              v-if="parameterPanelOpen"
+              :active-config-id="activeConfigId"
+              :active-config-name="activeConfig?.name || '配置'"
+              :active-model="activeModel"
+              :config-options="configOptions"
+              :count="count"
+              :count-options="activeCapability.countOptions"
+              :custom-height="customHeight"
+              :custom-width="customWidth"
+              :model-options="modelOptions"
+              :quality="quality"
+              :quality-options="activeCapability.qualityOptions"
+              :ratio="ratio"
+              :ratio-options="activeCapability.ratioOptions"
+              :resolution-mode="resolutionMode"
+              :shows-quality-control="showsQualityControl"
+              :size="size"
+              :size-options="sizeOptions"
+              @close="closeParameterPanel"
+              @select-config="emit('selectConfig', $event)"
+              @select-model="handleModelChange"
+              @update-count="emit('updateCount', $event)"
+              @update-custom-height="emit('updateCustomHeight', $event)"
+              @update-custom-width="emit('updateCustomWidth', $event)"
+              @update-quality="emit('updateQuality', $event)"
+              @update-ratio="emit('updateRatio', $event)"
+              @update-size="handleSizeChange"
+            />
           </Transition>
         </div>
       </div>
