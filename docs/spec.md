@@ -13,7 +13,7 @@
 - Inner WebUI vNext 是当前工作台，当前开发版本为 `0.2.3`，可在 CCX 内和普通浏览器中运行。
 - 独立 UXP 技术原型已删除，不再承载产品功能或参与构建。
 - Photoshop CCX 是当前正式运行层。CCX Host 负责 Photoshop 画布读取、结果置入和需要 Adobe 插件权限的本地能力。
-- 当前 dev CCX 版本为 `1.2.0`，build 号为 `2608210003`，Photoshop 插件 ID 保持 `com.tanshow.mugen`，发行文件名为 `imini-ps-1.2.0-2608210003.ccx`。
+- 当前 dev CCX 版本为 `1.2.0`，build 号为 `2608230001`，Photoshop 插件 ID 保持 `com.tanshow.mugen`，发行文件名为 `imini-ps-1.2.0-2608230001.ccx`。
 
 ## dev 测试发布线
 
