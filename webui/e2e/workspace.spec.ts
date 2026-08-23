@@ -41,6 +41,21 @@ async function expandCustomApiConfigs(page: Page) {
   }
 }
 
+async function expectPopupInsideWorkspace(page: Page, selector: string) {
+  await expect(page.locator(selector)).toBeVisible()
+  await expect.poll(() => page.locator(selector).evaluate((popup) => {
+    const shell = popup.closest('.mugen-shell')
+    if (!shell) return false
+
+    const popupRect = popup.getBoundingClientRect()
+    const shellRect = shell.getBoundingClientRect()
+    return popupRect.left >= shellRect.left
+      && popupRect.top >= shellRect.top
+      && popupRect.right <= shellRect.right
+      && popupRect.bottom <= shellRect.bottom
+  })).toBe(true)
+}
+
 test('CCX bridge completes canvas capture, APIMart generation, context-menu download, and canvas placement', async ({ page }) => {
   await page.getByRole('button', { name: '添加参考图' }).click()
   await page.getByRole('button', { name: '可见图层', exact: true }).click()
@@ -315,6 +330,28 @@ test('adds uploaded, pasted, and dropped images as references through the CCX ho
   expect(commands).toContain('reference.pickFile')
   expect(commands.filter((command) => command === 'reference.importImageChunk').length).toBeGreaterThanOrEqual(2)
   expect(commands).not.toContain('reference.readClipboard')
+})
+
+test('keeps composer popups inside the fixed-width workspace', async ({ page }, testInfo) => {
+  await page.getByRole('button', { name: '外观' }).click()
+  await page.getByRole('button', { name: '浅色', exact: true }).click()
+
+  await page.getByRole('button', { name: '添加参考图' }).click()
+  await expectPopupInsideWorkspace(page, '.reference-menu')
+  await page.getByRole('button', { name: '可见图层', exact: true }).click()
+  await expect(page.getByRole('img', { name: '可见图层' })).toBeVisible()
+  await page.getByRole('button', { name: '添加参考图' }).click()
+  await expectPopupInsideWorkspace(page, '.reference-menu')
+  await page.screenshot({ path: testInfo.outputPath('reference-popup-in-workspace.png') })
+
+  await page.getByRole('button', { name: '生成设置', exact: true }).click()
+  await expectPopupInsideWorkspace(page, '.parameter-panel')
+
+  const configField = page.locator('.parameter-panel .select-field').filter({ hasText: '供应商' })
+  await configField.locator('.select-trigger').click()
+  await expectPopupInsideWorkspace(page, '.parameter-panel .select-menu')
+
+  await page.screenshot({ path: testInfo.outputPath('composer-popups-in-workspace.png') })
 })
 
 test('shows a thumbnail error without opening the original image on click', async ({ browser }, testInfo) => {

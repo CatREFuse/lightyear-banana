@@ -339,6 +339,7 @@
 }
 
 .mugen-shell.mugen-shell .composer-footer {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -424,9 +425,13 @@
   color: var(--mugen-muted);
 }
 
-.mugen-shell.mugen-shell .add-wrap,
-.mugen-shell.mugen-shell .parameter-wrap {
+.mugen-shell.mugen-shell .add-wrap {
   position: relative;
+  display: inline-flex;
+}
+
+.mugen-shell.mugen-shell .parameter-wrap {
+  position: static;
   display: inline-flex;
 }
 
@@ -460,12 +465,12 @@
 }
 
 .mugen-shell.mugen-shell .parameter-panel {
-  position: fixed;
+  position: absolute;
   z-index: 60;
-  right: 16px;
-  bottom: 104px;
+  right: 0;
+  bottom: calc(100% + 8px);
   display: grid;
-  width: min(239px, calc(100vw - 32px));
+  width: min(239px, 100%);
   gap: 8px;
   padding: 12px;
 }
@@ -541,7 +546,7 @@
   right: 0;
   left: auto;
   width: 210px;
-  max-width: calc(100vw - 56px);
+  max-width: 100%;
   padding: 6px;
 }
 
