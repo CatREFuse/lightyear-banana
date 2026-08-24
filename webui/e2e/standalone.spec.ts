@@ -368,6 +368,7 @@ test('iMini shortcut opens the legacy configuration draft without changing brows
     const stored = JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}')
     return stored.activeConfigId ?? ''
   })).toBe('')
+  await expect(page.locator('.parameter-summary-model')).toHaveText('nano-banana')
 })
 
 test('history stepper persists the browser retention limit', async ({ page }) => {

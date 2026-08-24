@@ -100,7 +100,7 @@ const referenceDragActive = shallowRef(false)
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.activeConfigId) ?? props.configs[0])
 const activeModel = computed(() => activeConfig.value?.model ?? '')
 const configuredParameterSummary = computed(() => {
-  if (!props.activeConfigId || activeConfig.value?.id !== props.activeConfigId || !activeModel.value) {
+  if (!activeConfig.value || !activeModel.value) {
     return undefined
   }
 
