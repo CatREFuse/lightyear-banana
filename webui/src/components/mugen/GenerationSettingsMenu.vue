@@ -54,6 +54,8 @@ const lastRoute = shallowRef<Exclude<MenuRoute, 'main'>>('config')
 const pendingFocusRoute = shallowRef<Exclude<MenuRoute, 'main'> | null>(null)
 const menuRef = useTemplateRef<HTMLElement>('menu')
 const customSizeValue = '__mugen_custom_resolution__'
+let routeStartHeight = 0
+let routeHeightAnimation: Animation | null = null
 
 const routeOptions = computed<MenuOption[]>(() => {
   if (route.value === 'config') return props.configOptions
@@ -137,6 +139,31 @@ function restoreRouteFocus() {
   pendingFocusRoute.value = null
 }
 
+function captureRouteHeight() {
+  routeHeightAnimation?.cancel()
+  routeHeightAnimation = null
+  routeStartHeight = menuRef.value?.getBoundingClientRect().height ?? 0
+}
+
+function animateRouteHeight() {
+  const menu = menuRef.value
+  if (!menu || routeStartHeight === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  const routeEndHeight = menu.getBoundingClientRect().height
+  if (Math.abs(routeEndHeight - routeStartHeight) < 1) return
+
+  routeHeightAnimation = menu.animate([
+    { height: `${routeStartHeight}px` },
+    { height: `${routeEndHeight}px` }
+  ], {
+    duration: 180,
+    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+  })
+  routeHeightAnimation.addEventListener('finish', () => {
+    routeHeightAnimation = null
+  }, { once: true })
+}
+
 function selectOption(option: MenuOption) {
   if (route.value === 'config') emit('selectConfig', option.value)
   if (route.value === 'model') emit('selectModel', option.value)
@@ -174,7 +201,13 @@ function handleEscape() {
 
 <template>
   <section ref="menu" class="parameter-panel generation-settings-menu" aria-label="生成设置" @click.stop @keydown.esc.stop="handleEscape">
-    <Transition :name="`parameter-route-${routeDirection}`" mode="out-in" @after-enter="restoreRouteFocus">
+    <Transition
+      :name="`parameter-route-${routeDirection}`"
+      mode="out-in"
+      @before-leave="captureRouteHeight"
+      @before-enter="animateRouteHeight"
+      @after-enter="restoreRouteFocus"
+    >
       <div v-if="route === 'main'" key="main" class="parameter-route parameter-route-main">
         <button class="parameter-menu-row" data-route="config" type="button" @click="openRoute('config')">
           <span class="parameter-row-label"><AppIcon name="hard-drive-3-line" size="16" />供应商</span>

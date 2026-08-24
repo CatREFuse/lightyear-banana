@@ -410,6 +410,11 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   await expect(mainRatioTrigger).toHaveCSS('padding-right', '4px')
   await page.screenshot({ path: testInfo.outputPath('parameter-menu-main-hover.png') })
   await mainRatioTrigger.click()
+  await expect.poll(() => menu.evaluate((element) => element.getAnimations().some((animation) => (
+    animation.effect instanceof KeyframeEffect
+      && animation.effect.getKeyframes().some((keyframe) => typeof keyframe.height === 'string')
+  ))), { intervals: [16], timeout: 1_000 }).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('parameter-menu-height-transition.png') })
   await expect(menu.getByText('生成图片比例', { exact: true })).toBeVisible()
   await expect(menu.getByRole('button', { name: '返回', exact: true })).toBeVisible()
   await expect(menu.locator('.parameter-submenu-option[aria-checked="true"]')).toHaveCount(1)
@@ -419,6 +424,10 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
 
   const ratioOption = menu.getByRole('radio', { name: /^4:3/ })
   await ratioOption.click()
+  await expect.poll(() => menu.evaluate((element) => element.getAnimations().some((animation) => (
+    animation.effect instanceof KeyframeEffect
+      && animation.effect.getKeyframes().some((keyframe) => typeof keyframe.height === 'string')
+  ))), { intervals: [16], timeout: 1_000 }).toBe(true)
   const ratioTrigger = menu.getByRole('button', { name: /^比例 4:3/ })
   await expect(ratioTrigger).toBeVisible()
   await expect(ratioTrigger).toBeFocused()
