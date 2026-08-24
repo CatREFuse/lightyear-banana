@@ -102,6 +102,7 @@ iMini PS vNext 由三个活动交付物组成：
 ### UI-FR-005 Provider 配置与网络
 
 - 两种运行时都支持配置新建、编辑、启停、测试、删除和重载恢复。
+- 设置列表只保留自定义 API 入口与配置数量，配置管理在独立次级页面完成。
 - 配置至少包含名称、Provider、模型、API Key 和适用时的 Base URL。
 - Provider 能力决定参考图上限、尺寸、比例、质量和数量选项。
 - Browser adapter 可以直接执行浏览器允许的 Provider 请求，并正确报告 CORS、网络、鉴权和限流错误。

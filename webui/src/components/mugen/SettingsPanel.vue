@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, shallowRef } from 'vue'
+import { computed, onUnmounted, shallowRef, watch } from 'vue'
 import type {
   DiagnosticExportState,
   ImageProviderId,
@@ -9,18 +9,12 @@ import type {
   SettingsTestState,
   SettingsView
 } from '@mugen/core'
-import { validateProviderConfig } from '@mugen/core'
 import { MAX_HISTORY_LIMIT, MIN_HISTORY_LIMIT, normalizeHistoryLimit } from '@mugen/inner-protocol'
 import AppIcon from './AppIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
+import CustomApiSettings from './CustomApiSettings.vue'
 import DiagnosticLogCard from './DiagnosticLogCard.vue'
 import PromptPresetSettings from './PromptPresetSettings.vue'
-
-type ConfigStatus = {
-  icon: 'checkbox-circle-fill' | 'close-line'
-  label: string
-  tone: 'enabled' | 'disabled' | 'unavailable'
-}
 
 const props = defineProps<{
   configs: ModelConfig[]
@@ -47,6 +41,7 @@ const emit = defineEmits<{
   edit: [id: string]
   downloadDiagnostics: []
   openPromptPresets: []
+  openCustomApis: []
   save: []
   configureIMini: [apiKey: string]
   test: []
@@ -60,40 +55,25 @@ const activeConfig = computed(() => props.configs.find((config) => config.id ===
 const iMiniConfig = computed(() => props.configs.find((config) => config.provider === 'iMini'))
 const iMiniApiKey = shallowRef('')
 const clearConversationArmed = shallowRef(false)
-const customApiExpanded = shallowRef(false)
+const transitionName = shallowRef('settings-forward')
 let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
-const configRows = computed(() =>
-  props.configs.map((config) => ({
-    config,
-    status: readConfigStatus(config)
-  }))
-)
-const transitionName = computed(() => (props.settingsView === 'detail' ? 'settings-forward' : 'settings-back'))
 const clearConversationLabel = computed(() => (clearConversationArmed.value ? '再次清空' : '清空'))
 
-function readConfigStatus(config: ModelConfig): ConfigStatus {
-  if (!config.enabled) {
-    return {
-      icon: 'checkbox-circle-fill',
-      label: '未启用',
-      tone: 'disabled'
-    }
-  }
-
-  if (!validateProviderConfig(config).valid) {
-    return {
-      icon: 'close-line',
-      label: 'API 不可用',
-      tone: 'unavailable'
-    }
-  }
-
-  return {
-    icon: 'checkbox-circle-fill',
-    label: '启用',
-    tone: 'enabled'
-  }
+const settingsDepth: Record<SettingsView, number> = {
+  list: 0,
+  apis: 1,
+  presets: 1,
+  detail: 2
 }
+
+watch(
+  () => props.settingsView,
+  (nextView, previousView) => {
+    transitionName.value = settingsDepth[nextView] > settingsDepth[previousView]
+      ? 'settings-forward'
+      : 'settings-back'
+  }
+)
 
 function requestClearConversationData() {
   if (!clearConversationArmed.value) {
@@ -236,54 +216,15 @@ onUnmounted(() => {
             <button
               class="custom-api-entry settings-card-row"
               type="button"
-              :aria-expanded="customApiExpanded"
-              aria-controls="custom-api-configs"
-              @click="customApiExpanded = !customApiExpanded"
+              @click="emit('openCustomApis')"
             >
               <AppIcon class="settings-row-icon" name="code-s-fill" size="16" />
               <span class="settings-row-copy">
                 <strong>自定义 API</strong>
                 <small>已有 {{ configs.length }} 个</small>
               </span>
-              <AppIcon
-                class="settings-row-arrow custom-api-arrow"
-                :class="{ 'is-expanded': customApiExpanded }"
-                name="arrow-right-s-line"
-                size="16"
-              />
+              <AppIcon class="settings-row-arrow" name="arrow-right-s-line" size="16" />
             </button>
-
-            <div v-show="customApiExpanded" id="custom-api-configs" class="config-list">
-              <div class="section-header">
-                <span>接口配置</span>
-                <button type="button" @click="emit('create')">
-                  <AppIcon name="add-large-fill" size="15" />
-                  <span>添加</span>
-                </button>
-              </div>
-
-              <button
-                v-for="row in configRows"
-                :key="row.config.id"
-                class="config-row"
-                :class="{ selected: row.config.id === editingConfigId }"
-                type="button"
-                @click="emit('edit', row.config.id)"
-              >
-                <AppIcon class="config-icon" name="key-2-line" size="17" />
-                <span>
-                  <strong>{{ row.config.name }}</strong>
-                  <small>
-                    {{ providerCapabilities[row.config.provider].name }} ·
-                    {{ row.config.model }}
-                  </small>
-                </span>
-                <em class="status-badge" :class="`is-${row.status.tone}`">
-                  {{ row.status.label }}
-                </em>
-                <AppIcon class="row-arrow" name="arrow-right-s-line" size="16" />
-              </button>
-            </div>
           </section>
         </section>
 
@@ -296,6 +237,16 @@ onUnmounted(() => {
         <PromptPresetSettings
           :presets="promptPresets"
           @update:presets="emit('updatePromptPresets', $event)"
+        />
+      </section>
+
+      <section v-else-if="settingsView === 'apis'" key="apis" class="settings-page">
+        <CustomApiSettings
+          :configs="configs"
+          :editing-config-id="editingConfigId"
+          :provider-capabilities="providerCapabilities"
+          @create="emit('create')"
+          @edit="emit('edit', $event)"
         />
       </section>
 
@@ -681,128 +632,10 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.custom-api-arrow {
-  transition: transform 160ms ease;
-}
-
-.custom-api-arrow.is-expanded {
-  transform: rotate(90deg);
-}
-
-.config-list {
-  display: grid;
-  margin: 0 -16px -16px;
-  border: 0;
-  border-radius: 0 0 16px 16px;
-  background: transparent;
-  overflow: hidden;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px;
-  border-bottom: 1px solid var(--mugen-hairline);
-}
-
 h2 {
   margin: 0;
   color: var(--mugen-text);
   font-size: 13px;
-}
-
-.section-header button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
-  min-height: 28px;
-  padding: 0 9px;
-  border-color: transparent;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.config-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 52px;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  text-align: left;
-}
-
-.config-icon {
-  color: var(--mugen-muted);
-}
-
-.section-header + .config-row {
-  border-top: 0;
-}
-
-.config-row + .config-row {
-  border-top: 1px solid var(--mugen-hairline);
-}
-
-.config-row:hover {
-  background: var(--mugen-hover);
-}
-
-.config-row.selected {
-  background: var(--mugen-accent-soft);
-}
-
-.config-row span {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.config-row strong,
-.config-row small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.config-row small {
-  color: var(--mugen-muted);
-}
-
-.config-row em {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  min-width: max-content;
-  font-size: 11px;
-  font-style: normal;
-  white-space: nowrap;
-}
-
-.status-badge {
-  padding: 2px 5px;
-  border-radius: 999px;
-}
-
-.status-badge.is-enabled {
-  background: var(--mugen-success-bg);
-  color: var(--mugen-success);
-}
-
-.status-badge.is-disabled {
-  background: rgba(143, 151, 163, 0.12);
-  color: var(--mugen-muted);
-}
-
-.status-badge.is-unavailable {
-  background: var(--mugen-danger-bg);
-  color: var(--mugen-danger-muted);
 }
 
 .settings-meta {
@@ -848,10 +681,6 @@ h2 {
 .settings-meta button:disabled {
   cursor: default;
   opacity: 0.62;
-}
-
-.row-arrow {
-  color: var(--mugen-muted);
 }
 
 .settings-forward-enter-active,

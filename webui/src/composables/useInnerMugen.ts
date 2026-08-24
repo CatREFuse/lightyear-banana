@@ -203,6 +203,7 @@ export function useInnerMugen(): MugenController {
   const store = useWorkspaceStore()
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
+  const settingsDetailReturnView = shallowRef<Extract<SettingsView, 'list' | 'apis'>>('list')
   const settingsDraftIsNew = shallowRef(false)
   const busy = shallowRef(false)
   const prompt = shallowRef('')
@@ -517,6 +518,7 @@ export function useInnerMugen(): MugenController {
 
   function openSettings(configId = activeConfig.value.id) {
     settingsView.value = 'list'
+    settingsDetailReturnView.value = 'list'
     settingsDraftIsNew.value = false
     const config = configs.value.find((item) => item.id === configId) || activeConfig.value
     editingConfigId.value = config.id
@@ -526,7 +528,7 @@ export function useInnerMugen(): MugenController {
 
   function closeSettings() { activeView.value = 'workspace' }
   function closeSettingsDetail() {
-    settingsView.value = 'list'
+    settingsView.value = settingsView.value === 'detail' ? settingsDetailReturnView.value : 'list'
     settingsDraftIsNew.value = false
     const config = configs.value.find((item) => item.id === editingConfigId.value) || activeConfig.value
     Object.assign(settingsDraft, cloneConfig(config))
@@ -552,6 +554,7 @@ export function useInnerMugen(): MugenController {
   function editConfig(configId: string) {
     const config = configs.value.find((item) => item.id === configId)
     if (!config) return
+    settingsDetailReturnView.value = settingsView.value === 'apis' ? 'apis' : 'list'
     editingConfigId.value = config.id
     settingsDraftIsNew.value = false
     Object.assign(settingsDraft, cloneConfig(config))
@@ -561,6 +564,7 @@ export function useInnerMugen(): MugenController {
 
   function createConfig() {
     const config = makeEmptyConfig()
+    settingsDetailReturnView.value = settingsView.value === 'apis' ? 'apis' : 'list'
     editingConfigId.value = config.id
     settingsDraftIsNew.value = true
     Object.assign(settingsDraft, config)
@@ -604,7 +608,7 @@ export function useInnerMugen(): MugenController {
       editingConfigId.value = saved.id
       settingsDraftIsNew.value = false
       Object.assign(settingsDraft, hostConfigToUi(saved))
-      settingsView.value = 'list'
+      settingsView.value = settingsDetailReturnView.value
       showToast('保存成功')
     } catch (reason) {
       showToast(reason instanceof Error ? reason.message : '保存失败')
@@ -626,7 +630,7 @@ export function useInnerMugen(): MugenController {
     }
     try {
       await store.deleteConfig(settingsDraft.id)
-      settingsView.value = 'list'
+      settingsView.value = settingsDetailReturnView.value
       showToast('配置已删除')
     } catch (reason) {
       showToast(reason instanceof Error ? reason.message : '删除失败')

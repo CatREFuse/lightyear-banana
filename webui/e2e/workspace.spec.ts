@@ -55,11 +55,9 @@ test('keeps image previews inside the fixed-width workspace', async ({ page }, t
   await page.screenshot({ path: testInfo.outputPath('image-preview-bounds.png') })
 })
 
-async function expandCustomApiConfigs(page: Page) {
-  const toggle = page.getByRole('button', { name: /自定义 API/ })
-  if (await toggle.getAttribute('aria-expanded') === 'false') {
-    await toggle.click()
-  }
+async function openCustomApiConfigs(page: Page) {
+  await page.getByRole('button', { name: /^自定义 API/ }).click()
+  await expect(page.getByRole('heading', { name: '自定义 API' })).toBeVisible()
 }
 
 async function expectPopupInsideWorkspace(page: Page, selector: string) {
@@ -209,10 +207,22 @@ test('CCX bridge completes canvas capture, APIMart generation, context-menu down
   await expect(page.getByRole('region', { name: '当前对话' }).getByText('开始创作')).toBeVisible()
 })
 
-test('opens the real settings UI through the Host bridge', async ({ page }) => {
+test('opens custom API management as a secondary settings page', async ({ page }, testInfo) => {
+  await page.getByRole('button', { name: '外观' }).click()
+  await page.getByRole('button', { name: '浅色', exact: true }).click()
+  await expect(page.locator('.mugen-shell')).toHaveClass(/mode-light/)
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await expandCustomApiConfigs(page)
+  await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toHaveCount(0)
+  await openCustomApiConfigs(page)
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
+  await page.waitForTimeout(220)
+  await page.screenshot({ path: testInfo.outputPath('custom-api-secondary-page-light.png') })
+  await page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' }).click()
+  await page.getByLabel('配置详情').getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '自定义 API' })).toBeVisible()
+  await page.getByRole('button', { name: '返回' }).click()
+  await expect(page.getByRole('heading', { name: '设置' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toHaveCount(0)
 })
 
 test('matches the Figma history stepper and saves the Host retention limit', async ({ page }, testInfo) => {
@@ -306,7 +316,7 @@ test('restores prompt editing after the CCX WebView regains window focus', async
 
 test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await expandCustomApiConfigs(page)
+  await openCustomApiConfigs(page)
   await page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' }).click()
   const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
   await providerField.locator('.select-trigger').click()

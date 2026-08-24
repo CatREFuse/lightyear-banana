@@ -7,7 +7,7 @@ export type DesktopPlatform = 'darwin' | 'win32'
 
 export type AppView = 'workspace' | 'settings'
 
-export type SettingsView = 'list' | 'detail' | 'presets'
+export type SettingsView = 'list' | 'apis' | 'detail' | 'presets'
 
 export type VisualTheme = 'classic' | 'nothing'
 

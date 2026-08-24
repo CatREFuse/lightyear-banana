@@ -128,6 +128,10 @@ const navigationTitle = computed(() => {
     return '预设提示词'
   }
 
+  if (settingsView.value === 'apis') {
+    return '自定义 API'
+  }
+
   if (settingsDraftIsNew.value) {
     return '新建配置'
   }
@@ -220,6 +224,10 @@ function handleOpenSettings() {
   openSettings()
 }
 
+function openCustomApis() {
+  settingsView.value = 'apis'
+}
+
 function handleManageModels() {
   activeWorkspaceMenu.value = ''
   openSettings()
@@ -281,6 +289,7 @@ function handleManageModels() {
         @download-diagnostics="exportDiagnostics"
         @edit="editConfig"
         @open-prompt-presets="openPromptPresets"
+        @open-custom-apis="openCustomApis"
         @save="saveConfig"
         @configure-i-mini="configureIMini"
         @test="testConfig"

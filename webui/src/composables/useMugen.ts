@@ -575,6 +575,7 @@ export function useMugen(runtime: DirectRuntimeName) {
   const initialGenerationPreferences = readGenerationPreferences(initialConfig.id)
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
+  const settingsDetailReturnView = shallowRef<Extract<SettingsView, 'list' | 'apis'>>('list')
   const settingsDraftIsNew = shallowRef(false)
   const status = shallowRef('iMini PS WebUI')
   const connectionStatus = shallowRef('浏览器模式')
@@ -1743,6 +1744,7 @@ function readHighestQuality(options: string[]): string {
 
   function openSettings(configId = activeConfig.value.id) {
     settingsView.value = 'list'
+    settingsDetailReturnView.value = 'list'
     settingsDraftIsNew.value = false
     if (configId) {
       const source = configs.value.find((config) => config.id === configId) ?? activeConfig.value
@@ -1768,7 +1770,7 @@ function readHighestQuality(options: string[]): string {
   }
 
   function closeSettingsDetail() {
-    settingsView.value = 'list'
+    settingsView.value = settingsView.value === 'detail' ? settingsDetailReturnView.value : 'list'
     settingsDraftIsNew.value = false
     resetSettingsDraft()
   }
@@ -1779,6 +1781,7 @@ function readHighestQuality(options: string[]): string {
       return
     }
 
+    settingsDetailReturnView.value = settingsView.value === 'apis' ? 'apis' : 'list'
     editingConfigId.value = source.id
     Object.assign(settingsDraft, cloneModelConfig(source))
     settingsDraftIsNew.value = false
@@ -1800,6 +1803,7 @@ function readHighestQuality(options: string[]): string {
       comfyUi: undefined
     }
 
+    settingsDetailReturnView.value = settingsView.value === 'apis' ? 'apis' : 'list'
     editingConfigId.value = next.id
     Object.assign(settingsDraft, next)
     settingsDraftIsNew.value = true
@@ -1844,7 +1848,7 @@ function readHighestQuality(options: string[]): string {
         config.id === editingConfigId.value ? cloneModelConfig({ ...settingsDraft, id: editingConfigId.value }) : config
       )
     }
-    settingsView.value = 'list'
+    settingsView.value = settingsDetailReturnView.value
     status.value = '保存成功'
     showToast('保存成功')
   }
@@ -1886,7 +1890,7 @@ function readHighestQuality(options: string[]): string {
     activeConfigId.value = nextActiveConfigId
     editingConfigId.value = nextActiveConfigId
     resetSettingsDraft(nextActiveConfigId)
-    settingsView.value = 'list'
+    settingsView.value = settingsDetailReturnView.value
   }
 
   async function testConfig() {
