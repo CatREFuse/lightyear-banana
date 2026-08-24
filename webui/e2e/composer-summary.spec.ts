@@ -56,14 +56,16 @@ test('matches the Figma input surface in light and dark themes', async ({ page }
       inputHeight: Math.round(input.height),
       inputWidth: Math.round(input.width),
       overlap: Math.round(status.bottom - input.top),
+      statusCenterDelta: Math.abs((status.left + status.right - input.left - input.right) / 2),
       statusLeftInset: Math.round(status.left - input.left),
       statusRightInset: Math.round(input.right - status.right),
       statusWidth: Math.round(status.width)
     }
   })
+  expect(layout.statusCenterDelta).toBeLessThanOrEqual(0.5)
   expect(layout).toEqual(testInfo.project.name === 'panel-280'
-    ? { inputHeight: 138, inputWidth: 264, overlap: 17, statusLeftInset: 12, statusRightInset: 12, statusWidth: 240 }
-    : { inputHeight: 138, inputWidth: 380, overlap: 17, statusLeftInset: 13, statusRightInset: 16, statusWidth: 351 })
+    ? { inputHeight: 138, inputWidth: 264, overlap: 17, statusCenterDelta: 0, statusLeftInset: 12, statusRightInset: 12, statusWidth: 240 }
+    : { inputHeight: 138, inputWidth: 380, overlap: 17, statusCenterDelta: 0, statusLeftInset: 15, statusRightInset: 15, statusWidth: 351 })
 
   await page.getByRole('button', { name: '外观' }).click()
   await page.getByRole('button', { name: '浅色', exact: true }).click()

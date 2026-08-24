@@ -426,15 +426,16 @@
 
 .mugen-shell.mugen-shell .composer-status.parameter-summary {
   display: inline-flex;
-  width: auto;
+  width: calc(100% - 29px);
   min-width: 0;
   height: 47px;
   min-height: 47px;
   align-items: flex-start;
   justify-content: flex-start;
+  justify-self: center;
   gap: 4px;
   overflow: hidden;
-  margin: 0 16px -17px 13px;
+  margin: 0 0 -17px;
   padding: 8px 12px 12px;
   border: 0;
   border-radius: 12px;
@@ -841,7 +842,7 @@
   .mugen-shell.mugen-shell .thread { padding-inline: 12px; }
   .mugen-shell.mugen-shell .composer { margin-inline: 8px; }
   .mugen-shell.mugen-shell .composer-surface { padding-inline: 12px; }
-  .mugen-shell.mugen-shell .composer-status.parameter-summary { margin-right: 12px; margin-left: 12px; }
+  .mugen-shell.mugen-shell .composer-status.parameter-summary { width: calc(100% - 24px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
