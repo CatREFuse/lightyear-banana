@@ -3,6 +3,7 @@ import { computed, shallowRef, useTemplateRef } from 'vue'
 import type { ResolutionInputMode } from '@mugen/core'
 import AppIcon from './AppIcon.vue'
 import type { AppIconName } from './appIcons'
+import DiscreteSlider from './DiscreteSlider.vue'
 
 type MenuOption = {
   icon?: AppIconName
@@ -13,7 +14,7 @@ type MenuOption = {
   statusTone?: 'ready' | 'warning' | 'muted'
 }
 
-type MenuRoute = 'main' | 'config' | 'model' | 'ratio' | 'size'
+type MenuRoute = 'main' | 'config' | 'model' | 'ratio'
 
 const props = defineProps<{
   activeConfigId: string
@@ -52,11 +53,11 @@ const routeDirection = shallowRef<'forward' | 'back'>('forward')
 const lastRoute = shallowRef<Exclude<MenuRoute, 'main'>>('config')
 const pendingFocusRoute = shallowRef<Exclude<MenuRoute, 'main'> | null>(null)
 const menuRef = useTemplateRef<HTMLElement>('menu')
+const customSizeValue = '__mugen_custom_resolution__'
 
 const routeOptions = computed<MenuOption[]>(() => {
   if (route.value === 'config') return props.configOptions
   if (route.value === 'model') return props.modelOptions
-  if (route.value === 'size') return props.sizeOptions
   if (route.value === 'ratio') {
     return props.ratioOptions.map((option) => ({
       icon: option.includes('原图') || option.includes('参考图') || option.includes('画布')
@@ -73,21 +74,21 @@ const routeOptions = computed<MenuOption[]>(() => {
 const routeTitle = computed(() => ({
   config: '选择供应商',
   model: '选择模型',
-  ratio: '生成图片比例',
-  size: '选择生成分辨率'
+  ratio: '生成图片比例'
 })[route.value as Exclude<MenuRoute, 'main'>] ?? '')
 
 const routeValue = computed(() => ({
   config: props.activeConfigId,
   model: props.activeModel,
-  ratio: props.ratio,
-  size: props.resolutionMode === 'custom' ? '__mugen_custom_resolution__' : props.size
+  ratio: props.ratio
 })[route.value as Exclude<MenuRoute, 'main'>] ?? '')
 
 const countIndex = computed(() => props.countOptions.indexOf(props.count))
 const canDecreaseCount = computed(() => countIndex.value > 0)
 const canIncreaseCount = computed(() => countIndex.value >= 0 && countIndex.value < props.countOptions.length - 1)
 const sizeDisplay = computed(() => props.resolutionMode === 'custom' ? `${props.customWidth}×${props.customHeight}` : props.size)
+const presetSizeOptions = computed(() => props.sizeOptions.filter((option) => option.value !== customSizeValue))
+const supportsCustomSize = computed(() => props.sizeOptions.some((option) => option.value === customSizeValue))
 
 function ratioMeta(option: string) {
   const knownMeta: Record<string, string> = {
@@ -140,7 +141,6 @@ function selectOption(option: MenuOption) {
   if (route.value === 'config') emit('selectConfig', option.value)
   if (route.value === 'model') emit('selectModel', option.value)
   if (route.value === 'ratio') emit('updateRatio', option.value)
-  if (route.value === 'size') emit('updateSize', option.value)
   returnToMain()
 }
 
@@ -151,6 +151,16 @@ function changeCount(offset: -1 | 1) {
 
 function readNumber(event: Event) {
   return Number((event.target as HTMLInputElement).value)
+}
+
+function toggleCustomSize() {
+  if (props.resolutionMode !== 'custom') {
+    emit('updateSize', customSizeValue)
+    return
+  }
+
+  const preset = presetSizeOptions.value.find((option) => option.value === props.size) ?? presetSizeOptions.value[0]
+  if (preset) emit('updateSize', preset.value)
 }
 
 function handleEscape() {
@@ -208,10 +218,27 @@ function handleEscape() {
         </div>
 
         <div class="parameter-resolution-block">
-          <button class="parameter-menu-row" data-route="size" type="button" @click="openRoute('size')">
+          <div class="parameter-resolution-heading">
             <span class="parameter-row-label"><AppIcon name="aspect-ratio-line" size="16" />生成分辨率</span>
-            <span class="parameter-row-value">{{ sizeDisplay }}<AppIcon name="arrow-right-s-line" size="24" /></span>
-          </button>
+            <span class="parameter-resolution-actions">
+              <output aria-live="polite">{{ sizeDisplay }}</output>
+              <button
+                v-if="supportsCustomSize"
+                class="parameter-custom-size-toggle"
+                type="button"
+                :aria-pressed="resolutionMode === 'custom'"
+                @click="toggleCustomSize"
+              >{{ resolutionMode === 'custom' ? '使用预设' : '宽高输入' }}</button>
+            </span>
+          </div>
+          <DiscreteSlider
+            class="parameter-resolution-slider"
+            aria-label="生成分辨率"
+            :disabled="resolutionMode === 'custom'"
+            :model-value="size"
+            :options="presetSizeOptions"
+            @update:model-value="emit('updateSize', $event)"
+          />
           <div v-if="resolutionMode === 'custom'" class="parameter-custom-size">
             <label>宽<input inputmode="numeric" min="1" step="16" type="number" :value="customWidth" @input="emit('updateCustomWidth', readNumber($event))" /></label>
             <span>×</span>
@@ -396,7 +423,56 @@ button.parameter-menu-row:focus-visible {
 .parameter-resolution-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+}
+
+.parameter-resolution-heading,
+.parameter-resolution-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.parameter-resolution-heading {
+  min-height: 24px;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.parameter-resolution-actions {
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.parameter-resolution-actions output {
+  color: var(--mugen-text);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.parameter-custom-size-toggle {
+  min-height: 24px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mugen-muted);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.parameter-custom-size-toggle:hover,
+.parameter-custom-size-toggle:focus-visible,
+.parameter-custom-size-toggle[aria-pressed="true"] {
+  background: var(--mugen-field);
+  color: var(--mugen-text);
+  outline: 0;
+}
+
+.parameter-resolution-slider {
+  align-self: center;
+  flex: 0 0 auto;
 }
 
 .parameter-custom-size {
