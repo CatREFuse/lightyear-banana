@@ -56,7 +56,8 @@ async function useApimartBrowserConfig(page: Page, name: string) {
   await page.reload()
   await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
-  await expect(page.locator('.composer .select-field').filter({ hasText: '供应商' }).locator('.select-value')).toHaveText(name)
+  const menu = page.getByRole('region', { name: '生成设置' })
+  await expect(menu.locator('[data-route="config"] .parameter-row-value')).toHaveText(name)
 }
 
 async function expandCustomApiConfigs(page: Page) {
@@ -142,7 +143,8 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
   await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
-  await page.locator('.ratio-trigger').click()
+  const menu = page.getByRole('region', { name: '生成设置' })
+  await menu.getByRole('button', { name: /^比例/ }).click()
   await expect(page.getByText('画布比例', { exact: true })).toHaveCount(0)
   await expect(page.getByText('跟随当前画布', { exact: true })).toHaveCount(0)
 
@@ -202,8 +204,8 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await page.getByRole('button', { name: '返回' }).click()
 
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
-  const configField = page.locator('.composer .select-field').filter({ hasText: '供应商' })
-  await expect(configField.locator('.select-value')).toHaveText('APIMart Browser')
+  const menu = page.getByRole('region', { name: '生成设置' })
+  await expect(menu.locator('[data-route="config"] .parameter-row-value')).toHaveText('APIMart Browser')
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
 
   await page.getByRole('button', { name: '添加参考图' }).click()
