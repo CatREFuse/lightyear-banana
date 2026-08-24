@@ -140,27 +140,47 @@ function restoreRouteFocus() {
 }
 
 function captureRouteHeight() {
+  const menu = menuRef.value
+  if (!menu) return
+
+  const renderedHeight = menu.getBoundingClientRect().height
   routeHeightAnimation?.cancel()
   routeHeightAnimation = null
-  routeStartHeight = menuRef.value?.getBoundingClientRect().height ?? 0
+  routeStartHeight = renderedHeight
+  menu.style.height = `${renderedHeight}px`
 }
 
-function animateRouteHeight() {
+function animateRouteHeight(element: Element) {
   const menu = menuRef.value
-  if (!menu || routeStartHeight === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!menu) return
 
-  const routeEndHeight = menu.getBoundingClientRect().height
-  if (Math.abs(routeEndHeight - routeStartHeight) < 1) return
+  const menuStyle = getComputedStyle(menu)
+  const verticalChrome = Number.parseFloat(menuStyle.paddingTop)
+    + Number.parseFloat(menuStyle.paddingBottom)
+    + Number.parseFloat(menuStyle.borderTopWidth)
+    + Number.parseFloat(menuStyle.borderBottomWidth)
+  const routeEndHeight = (element as HTMLElement).scrollHeight + verticalChrome
 
-  routeHeightAnimation = menu.animate([
+  if (routeStartHeight === 0
+    || Math.abs(routeEndHeight - routeStartHeight) < 1
+    || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    menu.style.height = ''
+    return
+  }
+
+  const animation = menu.animate([
     { height: `${routeStartHeight}px` },
     { height: `${routeEndHeight}px` }
   ], {
     duration: 180,
     easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)'
   })
-  routeHeightAnimation.addEventListener('finish', () => {
+  routeHeightAnimation = animation
+  animation.addEventListener('finish', () => {
+    if (routeHeightAnimation !== animation) return
     routeHeightAnimation = null
+    routeStartHeight = 0
+    menu.style.height = ''
   }, { once: true })
 }
 
@@ -205,7 +225,7 @@ function handleEscape() {
       :name="`parameter-route-${routeDirection}`"
       mode="out-in"
       @before-leave="captureRouteHeight"
-      @before-enter="animateRouteHeight"
+      @enter="animateRouteHeight"
       @after-enter="restoreRouteFocus"
     >
       <div v-if="route === 'main'" key="main" class="parameter-route parameter-route-main">

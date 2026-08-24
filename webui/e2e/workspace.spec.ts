@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { createApimartFixtureServer, expectedApiKey } from '../../utils/apimart-smoke-server.mjs'
 import { installTestHost, readTestHostTrace } from './hostFixture'
 
@@ -92,6 +92,22 @@ async function expectPopupInsideWorkspace(page: Page, selector: string) {
       workspace: workspaceRect && { left: workspaceRect.left, right: workspaceRect.right, width: workspaceRect.width, scrollLeft: workspace?.scrollLeft }
     })
   })).toBe('inside')
+}
+
+function sampleElementHeights(element: Locator) {
+  return element.evaluate((target) => new Promise<number[]>((resolve) => {
+    const heights: number[] = []
+    const startedAt = performance.now()
+    const sample = (now: number) => {
+      heights.push(target.getBoundingClientRect().height)
+      if (now - startedAt >= 480) {
+        resolve(heights)
+        return
+      }
+      requestAnimationFrame(sample)
+    }
+    requestAnimationFrame(sample)
+  }))
 }
 
 test('CCX bridge completes canvas capture, APIMart generation, context-menu download, and canvas placement', async ({ page }) => {
@@ -409,6 +425,7 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   await expect(mainRatioTrigger).toHaveCSS('padding-left', '4px')
   await expect(mainRatioTrigger).toHaveCSS('padding-right', '4px')
   await page.screenshot({ path: testInfo.outputPath('parameter-menu-main-hover.png') })
+  const forwardHeightSamples = sampleElementHeights(menu)
   await mainRatioTrigger.click()
   await expect.poll(() => menu.evaluate((element) => element.getAnimations().some((animation) => (
     animation.effect instanceof KeyframeEffect
@@ -420,17 +437,24 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   await expect(menu.locator('.parameter-submenu-option[aria-checked="true"]')).toHaveCount(1)
   await expect(menu.locator('.select-menu, .ratio-menu')).toHaveCount(0)
   await expectPopupInsideWorkspace(page, '.parameter-panel')
+  const sampledHeights = await forwardHeightSamples
+  const heightFloor = Math.min(sampledHeights[0] ?? 0, sampledHeights.at(-1) ?? 0)
+  const heightCeiling = Math.max(sampledHeights[0] ?? 0, sampledHeights.at(-1) ?? 0)
+  expect(Math.min(...sampledHeights)).toBeGreaterThanOrEqual(heightFloor - 1)
+  expect(Math.max(...sampledHeights)).toBeLessThanOrEqual(heightCeiling + 1)
   await page.screenshot({ path: testInfo.outputPath('parameter-menu-ratio-route.png') })
 
   const ratioOption = menu.getByRole('radio', { name: /^4:3/ })
+  const backwardHeightSamples = sampleElementHeights(menu)
   await ratioOption.click()
-  await expect.poll(() => menu.evaluate((element) => element.getAnimations().some((animation) => (
-    animation.effect instanceof KeyframeEffect
-      && animation.effect.getKeyframes().some((keyframe) => typeof keyframe.height === 'string')
-  ))), { intervals: [16], timeout: 1_000 }).toBe(true)
   const ratioTrigger = menu.getByRole('button', { name: /^比例 4:3/ })
   await expect(ratioTrigger).toBeVisible()
   await expect(ratioTrigger).toBeFocused()
+  const sampledBackwardHeights = await backwardHeightSamples
+  const backwardHeightFloor = Math.min(sampledBackwardHeights[0] ?? 0, sampledBackwardHeights.at(-1) ?? 0)
+  const backwardHeightCeiling = Math.max(sampledBackwardHeights[0] ?? 0, sampledBackwardHeights.at(-1) ?? 0)
+  expect(Math.min(...sampledBackwardHeights)).toBeGreaterThanOrEqual(backwardHeightFloor - 1)
+  expect(Math.max(...sampledBackwardHeights)).toBeLessThanOrEqual(backwardHeightCeiling + 1)
 
   await menu.getByRole('button', { name: /^模型/ }).click()
   await expect(menu.getByText('选择模型', { exact: true })).toBeVisible()
