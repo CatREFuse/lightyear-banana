@@ -33,6 +33,19 @@ test('matches the Figma input surface in light and dark themes', async ({ page }
   await expect(summary.locator('.parameter-summary-divider')).toHaveText('/')
   await expect(summary.locator('.parameter-summary-field')).toHaveText(['1K', '低', '原图比例', '1张'])
   await expect(summary.locator('.parameter-summary-chevron')).toHaveAttribute('style', /width: 12px/)
+  const summaryAlignment = await summary.evaluate((element) => {
+    const icon = element.querySelector<HTMLElement>('.parameter-summary-icon')?.getBoundingClientRect()
+    const model = element.querySelector<HTMLElement>('.parameter-summary-model')?.getBoundingClientRect()
+    const chevron = element.querySelector<HTMLElement>('.parameter-summary-chevron')?.getBoundingClientRect()
+    if (!icon || !model || !chevron) throw new Error('Parameter summary alignment targets are missing.')
+    const modelCenter = model.top + model.height / 2
+    return {
+      iconCenterDelta: Math.abs(icon.top + icon.height / 2 - modelCenter),
+      chevronCenterDelta: Math.abs(chevron.top + chevron.height / 2 - modelCenter)
+    }
+  })
+  expect(summaryAlignment.iconCenterDelta).toBeLessThanOrEqual(0.5)
+  expect(summaryAlignment.chevronCenterDelta).toBeLessThanOrEqual(0.5)
 
   await expect(summary).toBeVisible()
   await expect(surface).toHaveCSS('min-height', '138px')
@@ -65,7 +78,8 @@ test('matches the Figma input surface in light and dark themes', async ({ page }
   expect(layout.statusCenterDelta).toBeLessThanOrEqual(0.5)
   expect(layout).toEqual(testInfo.project.name === 'panel-280'
     ? { inputHeight: 138, inputWidth: 264, overlap: 17, statusCenterDelta: 0, statusLeftInset: 12, statusRightInset: 12, statusWidth: 240 }
-    : { inputHeight: 138, inputWidth: 380, overlap: 17, statusCenterDelta: 0, statusLeftInset: 15, statusRightInset: 15, statusWidth: 351 })
+    : { inputHeight: 138, inputWidth: 460, overlap: 17, statusCenterDelta: 0, statusLeftInset: 15, statusRightInset: 15, statusWidth: 431 })
+  await expect(page.locator('.mugen-shell')).toHaveCSS('width', testInfo.project.name === 'panel-280' ? '280px' : '482px')
 
   await page.getByRole('button', { name: '外观' }).click()
   await page.getByRole('button', { name: '浅色', exact: true }).click()

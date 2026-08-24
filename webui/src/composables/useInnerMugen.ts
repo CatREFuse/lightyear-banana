@@ -26,6 +26,7 @@ import type {
 } from '@mugen/core'
 import type { CapturedCanvasImage } from '@mugen/core'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
+import { readGenerationPreferences, writeGenerationPreferences } from '../utils/generationPreferences'
 import { createConversationThumbnail } from '../utils/referenceImages'
 import type {
   GenerationSnapshot,
@@ -307,10 +308,26 @@ export function useInnerMugen(): MugenController {
 
   function syncRequestDefaults() {
     const capability = activeCapability.value
-    size.value = capability.sizeOptions.includes(size.value) ? size.value : (capability.sizeOptions.find((item) => /^(1k|auto|1024)/i.test(item)) || capability.sizeOptions[0] || '')
-    quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : (capability.qualityOptions.find((item) => item === 'auto') || capability.qualityOptions[0] || '')
-    count.value = capability.countOptions.includes(count.value) ? count.value : (capability.countOptions.includes(1) ? 1 : capability.countOptions[0] || 1)
-    ratio.value = capability.ratioOptions.includes(ratio.value) ? ratio.value : (capability.ratioOptions.find((item) => item === '自动') || capability.ratioOptions[0] || '')
+    const preferences = readGenerationPreferences(activeConfigId.value)
+    size.value = preferences && capability.sizeOptions.includes(preferences.size)
+      ? preferences.size
+      : capability.sizeOptions.find((item) => /^(1k|auto|1024)/i.test(item)) || capability.sizeOptions[0] || ''
+    quality.value = preferences && capability.qualityOptions.includes(preferences.quality)
+      ? preferences.quality
+      : capability.qualityOptions.find((item) => item === 'auto') || capability.qualityOptions[0] || ''
+    count.value = preferences && capability.countOptions.includes(preferences.count)
+      ? preferences.count
+      : capability.countOptions.includes(1) ? 1 : capability.countOptions[0] || 1
+    ratio.value = preferences && capability.ratioOptions.includes(preferences.ratio)
+      ? preferences.ratio
+      : capability.ratioOptions.find((item) => item === '自动') || capability.ratioOptions[0] || ''
+    resolutionMode.value = preferences?.resolutionMode === 'custom' ? 'custom' : 'preset'
+    if (Number.isFinite(preferences?.customWidth) && preferences!.customWidth > 0) {
+      customWidth.value = Math.round(preferences!.customWidth)
+    }
+    if (Number.isFinite(preferences?.customHeight) && preferences!.customHeight > 0) {
+      customHeight.value = Math.round(preferences!.customHeight)
+    }
   }
 
   watch(activeCapability, syncRequestDefaults, { immediate: true })
@@ -322,6 +339,22 @@ export function useInnerMugen(): MugenController {
     promptPresets.value = store.promptPresets.length ? [...store.promptPresets] : readStoredPromptPresets()
     syncRequestDefaults()
   }, { immediate: true })
+
+  watch(
+    [size, quality, count, ratio, resolutionMode, customWidth, customHeight],
+    () => {
+      if (store.status !== 'ready') return
+      writeGenerationPreferences(activeConfigId.value, {
+        count: count.value,
+        customHeight: customHeight.value,
+        customWidth: customWidth.value,
+        quality: quality.value,
+        ratio: ratio.value,
+        resolutionMode: resolutionMode.value,
+        size: size.value
+      })
+    }
+  )
 
   async function withCanvasOperation(operation: CanvasOperationState, action: () => Promise<unknown>) {
     busy.value = true
@@ -611,7 +644,10 @@ export function useInnerMugen(): MugenController {
     }
   }
 
-  async function selectConfig(configId: string) { await store.selectConfig(configId) }
+  async function selectConfig(configId: string) {
+    await store.selectConfig(configId)
+    syncRequestDefaults()
+  }
   async function selectModel(model: string) {
     const config = activeConfig.value
     const next = cloneConfig(config)

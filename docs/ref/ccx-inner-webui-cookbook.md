@@ -348,6 +348,10 @@ Figma `2218:3179` 把参数状态条放在输入表面之后，并让 47px 状�
 
 完成配置后的 Provider 放在状态条左侧并配 7px 状态点，模型图标、模型名、斜杠、分辨率、质量、比例、数量和展开图标放在右侧；无配置时仍只显示“待配置”。窄面板不能再直接隐藏整个摘要，应让模型名缩略并保留状态条结构。E2E 需要在 280px 与 402px 固定容器分别读取 47px 状态条、138px 输入表面、16px 圆角、0.5px divider 声明、12px/16px 提示词和 24px 操作按钮；Chromium 在 DPR=1 时会把 0.5px 边框量化为 1 个设备像素，因此最终计算值应按不超过 1px 校验。hairline 会占用窄屏底栏两侧各 1 个设备像素，239px 参数弹窗的 `100%` 限制需补偿 1px，避免最终宽度缩成 238px，同时仍要逐边确认弹窗位于固定容器内。浅色与深色模式还要分别检查主页面、设置页、顶栏、消息区和固定容器的最终背景全部命中 `bg/body`，并确认输入表面没有新增阴影，再保存双主题截图。
 
+### 9.20 WebUI 生图偏好与 Host 配置分层持久化
+
+Provider、模型、凭据和配置启用状态属于配置数据，浏览器模式继续写入 `mugen.settings.v1`，CCX 模式继续通过 `settings.get/settings.save` 交给 Host；尺寸、质量、比例、数量、分辨率模式和自定义宽高属于界面生图偏好，由两个 controller 共用 `mugen.generation-preferences.v1`，按配置 ID 保存。这样不需要扩大 Host 协议，也不会把凭据复制进 WebUI 偏好。初始化和切换配置时必须用当前模型能力列表校正存量值，已移除的尺寸、质量、比例或数量回到能力默认值，自定义宽高只接受有限正数。E2E 应从真实菜单修改全部参数、读取本地偏好、刷新页面，再确认显示值和控件状态全部恢复。
+
 状态条使用固定宽度时不能用不相等的左右 margin 模拟 Figma 坐标，否则 351px 状态条在 380px 输入面上会产生 1.5px 中心线偏移。状态条应由 grid 自身居中，宽屏显式使用 `calc(100% - 29px)`，窄屏使用 `calc(100% - 24px)`；E2E 直接比较两层 `getBoundingClientRect()` 的水平中心线，允许的像素误差不超过 0.5px。
 
 Figma `2075:28404` 已绑定完整的 Light/Dark Semantic Colors，不能只根据浅色截图挑一组近似 Zinc 色。实现时应解析变量别名的最终模式值，并集中映射主题 token：Light 使用 `bg/body #ffffff`、`bg/base/bg/filter #f4f4f5`、`text/main #18181b`、`text/tertiary #a1a1aa`、`line/divider #0000001a`；Dark 使用 `bg/body #3f3f46`、`bg/base #27272a`、`bg/filter #52525b`、`text/main #ffffff`、`text/tertiary #ffffff80`、`line/divider #ffffff33`；accent、success 和 on-accent 两种模式分别固定为 `#0ea5e9`、`#22c55e`、`#ffffff`。组件已有的 main、secondary/muted、surface、field、hover、divider 和 success 引用应统一落到这些 token，用户提示气泡同时使用 filter 背景与 divider hairline。Playwright 需要切换两种主题读取工作区、输入面、状态条、按钮、主文字、三级文字、成功点与边线的最终计算色，并保存双主题截图。

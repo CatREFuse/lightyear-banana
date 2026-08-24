@@ -48,6 +48,7 @@ import {
   readBrowserClipboardReferenceImage
 } from '../utils/referenceImages'
 import { normalizePromptPresets, resolvePromptPresetInput } from '../utils/promptPresets'
+import { readGenerationPreferences, writeGenerationPreferences } from '../utils/generationPreferences'
 import { canUseDevelopmentApimartBaseUrl } from '@mugen/core'
 import { DEFAULT_HISTORY_LIMIT, normalizeHistoryLimit } from '@mugen/inner-protocol'
 
@@ -571,6 +572,7 @@ export function useMugen(runtime: DirectRuntimeName) {
     storedSettings.configs[0] ??
     createEmptyModelConfig()
   const initialCapability = readProviderCapabilityForRuntime(initialConfig, runtime)
+  const initialGenerationPreferences = readGenerationPreferences(initialConfig.id)
   const activeView = shallowRef<AppView>('workspace')
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDraftIsNew = shallowRef(false)
@@ -585,13 +587,39 @@ export function useMugen(runtime: DirectRuntimeName) {
   const promptPresets = shallowRef<PromptPreset[]>(storedSettings.promptPresets)
   const configs = shallowRef<ModelConfig[]>(storedSettings.configs)
   const activeConfigId = shallowRef(storedSettings.activeConfigId)
-  const size = shallowRef(readDefaultSize(initialCapability.sizeOptions))
-  const resolutionMode = shallowRef<ResolutionInputMode>('preset')
-  const customWidth = shallowRef(2048)
-  const customHeight = shallowRef(2048)
-  const quality = shallowRef(readDefaultQuality(initialCapability.qualityOptions))
-  const count = shallowRef(initialCapability.countOptions.includes(1) ? 1 : initialCapability.countOptions[0] ?? 1)
-  const ratio = shallowRef(readDefaultRatio(initialCapability.ratioOptions))
+  const size = shallowRef(
+    initialGenerationPreferences && initialCapability.sizeOptions.includes(initialGenerationPreferences.size)
+      ? initialGenerationPreferences.size
+      : readDefaultSize(initialCapability.sizeOptions)
+  )
+  const resolutionMode = shallowRef<ResolutionInputMode>(
+    initialGenerationPreferences?.resolutionMode === 'custom' ? 'custom' : 'preset'
+  )
+  const customWidth = shallowRef(
+    Number.isFinite(initialGenerationPreferences?.customWidth) && initialGenerationPreferences!.customWidth > 0
+      ? Math.round(initialGenerationPreferences!.customWidth)
+      : 2048
+  )
+  const customHeight = shallowRef(
+    Number.isFinite(initialGenerationPreferences?.customHeight) && initialGenerationPreferences!.customHeight > 0
+      ? Math.round(initialGenerationPreferences!.customHeight)
+      : 2048
+  )
+  const quality = shallowRef(
+    initialGenerationPreferences && initialCapability.qualityOptions.includes(initialGenerationPreferences.quality)
+      ? initialGenerationPreferences.quality
+      : readDefaultQuality(initialCapability.qualityOptions)
+  )
+  const count = shallowRef(
+    initialGenerationPreferences && initialCapability.countOptions.includes(initialGenerationPreferences.count)
+      ? initialGenerationPreferences.count
+      : initialCapability.countOptions.includes(1) ? 1 : initialCapability.countOptions[0] ?? 1
+  )
+  const ratio = shallowRef(
+    initialGenerationPreferences && initialCapability.ratioOptions.includes(initialGenerationPreferences.ratio)
+      ? initialGenerationPreferences.ratio
+      : readDefaultRatio(initialCapability.ratioOptions)
+  )
   const installPluginUrl = shallowRef('')
   const editingConfigId = shallowRef(activeConfigId.value)
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
@@ -639,6 +667,23 @@ export function useMugen(runtime: DirectRuntimeName) {
   }
 
   watch([configs, activeConfigId, turns, historyLimit, promptPresets], writeCurrentStoredSettings, { deep: true })
+
+  function writeCurrentGenerationPreferences() {
+    writeGenerationPreferences(activeConfigId.value, {
+      count: count.value,
+      customHeight: customHeight.value,
+      customWidth: customWidth.value,
+      quality: quality.value,
+      ratio: ratio.value,
+      resolutionMode: resolutionMode.value,
+      size: size.value
+    })
+  }
+
+  watch(
+    [size, quality, count, ratio, resolutionMode, customWidth, customHeight],
+    writeCurrentGenerationPreferences
+  )
 
   watch(activeCapability, (capability) => {
     size.value = capability.sizeOptions.includes(size.value) ? size.value : readDefaultSize(capability.sizeOptions)
@@ -981,10 +1026,26 @@ function readHighestQuality(options: string[]): string {
   function selectConfig(configId: string) {
     activeConfigId.value = configId
     const capability = activeCapability.value
-    size.value = readDefaultSize(capability.sizeOptions)
-    quality.value = capability.qualityOptions.includes(quality.value) ? quality.value : readDefaultQuality(capability.qualityOptions)
-    count.value = capability.countOptions.includes(count.value) ? count.value : capability.countOptions[0] ?? 1
-    ratio.value = readDefaultRatio(capability.ratioOptions, ratio.value)
+    const preferences = readGenerationPreferences(configId)
+    size.value = preferences && capability.sizeOptions.includes(preferences.size)
+      ? preferences.size
+      : readDefaultSize(capability.sizeOptions)
+    quality.value = preferences && capability.qualityOptions.includes(preferences.quality)
+      ? preferences.quality
+      : readDefaultQuality(capability.qualityOptions)
+    count.value = preferences && capability.countOptions.includes(preferences.count)
+      ? preferences.count
+      : capability.countOptions[0] ?? 1
+    ratio.value = preferences && capability.ratioOptions.includes(preferences.ratio)
+      ? preferences.ratio
+      : readDefaultRatio(capability.ratioOptions)
+    resolutionMode.value = preferences?.resolutionMode === 'custom' ? 'custom' : 'preset'
+    if (Number.isFinite(preferences?.customWidth) && preferences!.customWidth > 0) {
+      customWidth.value = Math.round(preferences!.customWidth)
+    }
+    if (Number.isFinite(preferences?.customHeight) && preferences!.customHeight > 0) {
+      customHeight.value = Math.round(preferences!.customHeight)
+    }
   }
 
   async function buildGeneratedImagesFromApi(

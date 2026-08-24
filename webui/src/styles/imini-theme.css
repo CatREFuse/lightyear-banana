@@ -1,4 +1,5 @@
 .mugen-shell.mugen-shell.mugen-shell {
+  --mugen-shell-max-width: 482px;
   --mugen-font-brand: "Sansita Swashed", "Avenir Next", Avenir, "PingFang SC", "Helvetica Neue", sans-serif;
   --mugen-font-body: "PingFang SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
   --mugen-font-mono: "SFMono-Regular", Consolas, monospace;
@@ -104,7 +105,7 @@
 }
 
 .mugen-shell.mugen-shell .panel-header.is-settings {
-  width: min(100%, 402px);
+  width: min(100%, var(--mugen-shell-max-width));
   margin-inline: auto;
   box-sizing: border-box;
 }
@@ -493,6 +494,11 @@
   flex: 0 0 auto;
 }
 
+.mugen-shell.mugen-shell .parameter-summary-icon,
+.mugen-shell.mugen-shell .parameter-summary-chevron {
+  margin-top: 2px;
+}
+
 .mugen-shell.mugen-shell .parameter-summary:hover {
   color: var(--mugen-secondary);
 }
@@ -677,7 +683,7 @@
   align-content: start;
   gap: 24px;
   min-height: 100%;
-  width: min(100%, 402px);
+  width: min(100%, var(--mugen-shell-max-width));
   margin: 0 auto;
   padding: 16px;
   box-sizing: border-box;
@@ -808,10 +814,10 @@
   outline: 0;
 }
 
-@media (min-width: 435px) {
+@media (min-width: 515px) {
   .mugen-shell.mugen-shell.mugen-shell {
-    width: 402px;
-    min-width: 402px;
+    width: var(--mugen-shell-max-width);
+    min-width: var(--mugen-shell-max-width);
     height: min(874px, calc(100dvh - 32px));
     min-height: 0;
     margin: 16px auto;
