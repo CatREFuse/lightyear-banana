@@ -28,7 +28,7 @@
 - 提示词输入框聚焦时不显示外凸蓝色高亮框，按钮、普通输入框、下拉框等其他可交互控件继续保留清楚的键盘焦点提示。
 - 设置页按常用设置、对话记录和生图 API 分组，配置详情、Provider 测试、诊断导出和预设提示词功能保持原行为。
 - 设置页列表严格使用 Figma `2144:8552` 的 402px 画板约束：内容区 16px 内边距、分组间距 24px、标题与卡片共用左边线、卡片 16px 圆角及 16px 内边距；宽屏不再随视口拉伸，设计稿未标注的内容卡片不加阴影。应用容器之外使用白色点阵页面背景，容器本身保持不透明，点阵不得进入主界面或设置页。
-- 设置行使用 16px Figma 标注图标、12px/16px 正文和 10px 辅助文字；常用提示词使用独立白色描边卡片、16px 内边距、16px 圆角和 `text-block` 图标，不加阴影；iMini API 标题、说明、35px 输入框及订阅入口共用图标后方的内容起线，纵向间距为 4px，自定义 API 在同一张生图 API 卡片中展开；返回操作使用 Figma 标注的 `bx-arrow-back` 线性图标。
+- 设置行使用 16px Figma 标注图标、12px/16px 正文和 10px 辅助文字；两行设置项的图标按实际绘制边界与第一行正文做 1px 光学对齐，不居中于整个两行内容块。常用提示词使用独立白色描边卡片、16px 内边距、16px 圆角和 `text-block` 图标，不加阴影；iMini API 标题、说明、35px 输入框及订阅入口共用图标后方的内容起线，纵向间距为 4px，自定义 API 在同一张生图 API 卡片中展开；返回操作使用 Figma 标注的 `bx-arrow-back` 线性图标。
 - iMini PS 品牌标题使用 Figma 标注的 Sansita Swashed Bold，设置页标题继续使用苹方常规体。
 - 生图 API 分组保留 `iMini API Key` 快捷入口，但该入口只打开旧版配置详情并填入 iMini Provider 与 Key 草稿；配置的创建、更新、测试、保存、启用和选中继续走原有流程，不自动创建配置、不改动当前配置、不重写模型或 Base URL。iMini 默认配置继续为空，官方 Base URL 继续使用 `https://openapi.imini.ai/imini/router`；浏览器实际请求沿用同源 `/webui-api/imini/` 转发，CCX 沿用 Host 与 UXP SecureStorage 凭据通道。
 - 本次 dev 包不修改 Provider 请求、任务轮询、历史、Photoshop 画布读取、置入协议或官网视觉资产；完整 WebUI 发布到 `https://imini-test.catrefuse.com/`，CCX 作为本地测试发行物放入下载目录。

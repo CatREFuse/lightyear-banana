@@ -459,6 +459,7 @@ onUnmounted(() => {
 
 .settings-row-icon {
   align-self: start;
+  margin-top: 1px;
   color: var(--mugen-text);
 }
 

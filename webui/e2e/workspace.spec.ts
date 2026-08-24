@@ -195,6 +195,13 @@ test('matches the Figma history stepper and saves the Host retention limit', asy
   await expect(page.locator('.mugen-shell')).toHaveClass(/mode-light/)
   await page.getByRole('button', { name: '设置', exact: true }).click()
 
+  const presetEntry = page.getByRole('button', { name: /^常用提示词/ })
+  await expect.poll(() => presetEntry.evaluate((element) => {
+    const icon = element.querySelector<HTMLElement>('.settings-row-icon')!
+    const title = element.querySelector<HTMLElement>('strong')!
+    return Math.round(icon.getBoundingClientRect().top - title.getBoundingClientRect().top)
+  })).toBe(1)
+
   const stepper = page.getByRole('group', { name: '生成记录保存条数' })
   await expect(page.getByText('超过设定上限的生成记录会被删除')).toBeVisible()
   await expect(stepper.locator('output')).toHaveText('30')
