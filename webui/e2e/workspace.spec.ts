@@ -201,6 +201,12 @@ test('matches the Figma history stepper and saves the Host retention limit', asy
     const title = element.querySelector<HTMLElement>('strong')!
     return Math.round(icon.getBoundingClientRect().top - title.getBoundingClientRect().top)
   })).toBe(1)
+  await expect(page.getByText('在 iMini → 个人设置 → API 中可找到', { exact: true })).toHaveCount(0)
+  await expect.poll(() => page.locator('.imini-quick-body').evaluate((element) => {
+    const heading = element.querySelector<HTMLElement>('.imini-quick-heading')!
+    const form = element.querySelector<HTMLElement>('.imini-quick-form')!
+    return Math.round(form.getBoundingClientRect().top - heading.getBoundingClientRect().bottom)
+  })).toBe(4)
 
   const stepper = page.getByRole('group', { name: '生成记录保存条数' })
   await expect(page.getByText('超过设定上限的生成记录会被删除')).toBeVisible()

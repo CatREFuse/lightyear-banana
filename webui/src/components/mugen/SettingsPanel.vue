@@ -204,7 +204,6 @@ onUnmounted(() => {
                   <strong id="imini-api-key-title">iMini API Key</strong>
                   <span>推荐</span>
                 </div>
-                <p>在 iMini → 个人设置 → API 中可找到</p>
                 <form class="imini-quick-form" @submit.prevent="submitIMiniQuickAccess">
                   <input
                     v-model="iMiniApiKey"
@@ -594,13 +593,6 @@ onUnmounted(() => {
   color: var(--mugen-accent);
   font-size: 10px;
   font-weight: 400;
-  line-height: 1;
-}
-
-.imini-quick-card p {
-  margin: 0;
-  color: var(--mugen-muted);
-  font-size: 10px;
   line-height: 1;
 }
 
