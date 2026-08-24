@@ -6,6 +6,7 @@ import {
   normalizePromptPresets,
   validatePromptPreset
 } from '../../utils/promptPresets'
+import AppIcon from './AppIcon.vue'
 
 type PromptPreset = {
   id: string
@@ -136,13 +137,14 @@ watch(
 
 <template>
   <section class="prompt-preset-settings" aria-labelledby="prompt-preset-title">
-    <header class="section-heading">
-      <div>
-        <p>[PRESETS]</p>
-        <h2 id="prompt-preset-title">预设提示词</h2>
-      </div>
-      <span>{{ presets.length }}/{{ PROMPT_PRESET_LIMIT }}</span>
-    </header>
+    <h2 id="prompt-preset-title" class="visually-hidden">预设提示词</h2>
+    <div class="prompt-preset-toolbar">
+      <span>已有 {{ presets.length }} 个</span>
+      <button v-if="!draft" class="add-button" type="button" :disabled="atLimit" @click="startCreate">
+        <AppIcon name="add-large-fill" size="15" />
+        <span>{{ atLimit ? '已达上限' : '添加' }}</span>
+      </button>
+    </div>
 
     <form v-if="draft" class="preset-form" novalidate @submit.prevent="savePreset">
       <div class="form-heading">
@@ -169,7 +171,7 @@ watch(
           @blur="touched.name = true"
           @input="updateDraft({ name: ($event.target as HTMLInputElement).value })"
         />
-        <small v-if="nameError" id="prompt-preset-name-error" class="field-error">[错误] {{ nameError }}</small>
+        <small v-if="nameError" id="prompt-preset-name-error" class="field-error">{{ nameError }}</small>
         <small v-else class="field-hint">输入 /{{ draft.name || '名称' }} 调用</small>
       </label>
 
@@ -185,11 +187,11 @@ watch(
           @input="updateDraft({ content: ($event.target as HTMLTextAreaElement).value })"
         />
         <small v-if="contentError" id="prompt-preset-content-error" class="field-error">
-          [错误] {{ contentError }}
+          {{ contentError }}
         </small>
       </label>
 
-      <small v-if="formError" class="form-error" aria-live="polite">[错误] {{ formError }}</small>
+      <small v-if="formError" class="form-error" aria-live="polite">{{ formError }}</small>
 
       <button class="save-button" type="submit">保存预设</button>
     </form>
@@ -209,11 +211,7 @@ watch(
         </article>
       </div>
 
-      <p v-else class="empty-state">还没有预设提示词</p>
-
-      <button class="add-button" type="button" :disabled="atLimit" @click="startCreate">
-        {{ atLimit ? '已达 100 条上限' : '新增预设' }}
-      </button>
+      <p v-else class="preset-empty-state">还没有预设提示词</p>
     </template>
   </section>
 </template>
@@ -221,66 +219,75 @@ watch(
 <style scoped>
 .prompt-preset-settings {
   display: grid;
-  gap: 24px;
-  color: var(--mugen-text, #e8e8e8);
-  font-family: var(--mugen-font-body, "Space Grotesk", system-ui, sans-serif);
+  gap: 12px;
+  color: var(--mugen-text);
 }
 
-.section-heading {
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.prompt-preset-toolbar {
   display: flex;
-  align-items: end;
+  min-height: 32px;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
 }
 
-.section-heading div {
-  display: grid;
+.prompt-preset-toolbar > span {
+  color: var(--mugen-muted);
+  font-size: 11px;
+}
+
+.prompt-preset-toolbar .add-button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
   gap: 4px;
-}
-
-.section-heading p,
-.section-heading h2 {
-  margin: 0;
-}
-
-.section-heading p,
-.section-heading > span {
-  color: var(--mugen-muted, #999999);
-  font-family: var(--mugen-font-mono, "Space Mono", monospace);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.section-heading h2 {
-  color: var(--mugen-text, #e8e8e8);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mugen-field);
+  color: var(--mugen-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
 }
 
 .preset-form {
   display: grid;
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--mugen-border-strong, #333333);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 16px;
+  background: var(--mugen-card);
 }
 
 .form-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
 }
 
 .form-heading strong {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
 }
 
 .field-group {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .field-label {
@@ -288,122 +295,125 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--mugen-muted, #999999);
-  font-family: var(--mugen-font-mono, "Space Mono", monospace);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: var(--mugen-secondary);
+  font-size: 11px;
+  line-height: 16px;
 }
 
 .field-label .invalid {
-  color: var(--mugen-danger, #d71921);
+  color: var(--mugen-danger-text);
 }
 
 input,
 textarea {
   box-sizing: border-box;
   width: 100%;
-  border: 1px solid var(--mugen-border-strong, #333333);
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   outline: 0;
-  background: transparent;
-  color: var(--mugen-text, #e8e8e8);
-  font-family: var(--mugen-font-body, "Space Grotesk", system-ui, sans-serif);
-  font-size: 13px;
-  line-height: 1.5;
+  background: var(--mugen-field);
+  color: var(--mugen-text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 input {
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 9px 10px;
 }
 
 textarea {
-  min-height: 112px;
-  padding: 11px 12px;
+  min-height: 104px;
+  padding: 9px 10px;
   resize: vertical;
 }
 
 input:focus,
 textarea:focus {
-  border-color: var(--mugen-text, #e8e8e8);
+  border-color: var(--mugen-accent);
 }
 
 input[aria-invalid="true"],
 textarea[aria-invalid="true"] {
-  border-color: var(--mugen-danger, #d71921);
+  border-color: var(--mugen-danger-text);
 }
 
 .field-hint,
 .field-error,
 .form-error {
-  font-family: var(--mugen-font-mono, "Space Mono", monospace);
   font-size: 10px;
-  line-height: 1.4;
+  line-height: 14px;
 }
 
 .field-hint {
   overflow: hidden;
-  color: var(--mugen-muted, #999999);
+  color: var(--mugen-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .field-error,
 .form-error {
-  color: var(--mugen-danger, #d71921);
+  color: var(--mugen-danger-text);
 }
 
 .save-button,
 .add-button,
 .ghost-button,
 .row-actions button {
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: var(--mugen-font-mono, "Space Mono", monospace);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font: inherit;
+  font-size: 12px;
 }
 
-.save-button,
-.add-button {
-  min-height: 44px;
+.save-button {
+  min-height: 36px;
   border: 0;
-  background: var(--mugen-text, #e8e8e8);
-  color: var(--mugen-workspace, #000000);
+  background: var(--mugen-accent);
+  color: var(--mugen-on-accent);
 }
 
 .ghost-button,
 .row-actions button {
-  min-height: 36px;
+  min-height: 28px;
   padding: 0 10px;
-  border: 1px solid var(--mugen-border-strong, #333333);
-  background: transparent;
-  color: var(--mugen-secondary, #999999);
+  border: 0;
+  background: var(--mugen-field);
+  color: var(--mugen-secondary);
 }
 
+.prompt-preset-toolbar .add-button:hover,
+.prompt-preset-toolbar .add-button:focus-visible,
 .ghost-button:hover,
-.row-actions button:hover {
-  border-color: var(--mugen-text, #e8e8e8);
-  color: var(--mugen-text, #e8e8e8);
+.ghost-button:focus-visible,
+.row-actions button:hover,
+.row-actions button:focus-visible {
+  background: var(--mugen-hover);
+  color: var(--mugen-text);
 }
 
 .preset-list {
   display: grid;
+  overflow: hidden;
+  border: 1px solid var(--mugen-border);
+  border-radius: 16px;
+  background: var(--mugen-card);
 }
 
 .preset-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
-  padding: 16px 0;
-  border-top: 1px solid var(--mugen-hairline, #222222);
+  min-height: 72px;
+  padding: 12px 16px;
 }
 
-.preset-row:last-child {
-  border-bottom: 1px solid var(--mugen-hairline, #222222);
+.preset-row + .preset-row {
+  border-top: 1px solid var(--mugen-hairline);
 }
 
 .preset-copy {
@@ -414,9 +424,10 @@ textarea[aria-invalid="true"] {
 
 .preset-copy strong {
   overflow: hidden;
-  color: var(--mugen-text, #e8e8e8);
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--mugen-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -425,40 +436,40 @@ textarea[aria-invalid="true"] {
   display: -webkit-box;
   overflow: hidden;
   margin: 0;
-  color: var(--mugen-secondary, #999999);
-  font-size: 12px;
-  line-height: 1.45;
+  color: var(--mugen-secondary);
+  font-size: 11px;
+  line-height: 16px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
 .preset-copy small {
   overflow: hidden;
-  color: var(--mugen-muted, #999999);
-  font-family: var(--mugen-font-mono, "Space Mono", monospace);
+  color: var(--mugen-muted);
   font-size: 10px;
-  letter-spacing: 0.04em;
+  line-height: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .row-actions {
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: 4px;
 }
 
 .row-actions .delete-button {
-  border-color: var(--mugen-danger, #d71921);
-  color: var(--mugen-danger, #d71921);
+  color: var(--mugen-danger-text);
 }
 
-.empty-state {
+.preset-empty-state {
   margin: 0;
-  padding: 48px 16px;
-  border-top: 1px solid var(--mugen-hairline, #222222);
-  border-bottom: 1px solid var(--mugen-hairline, #222222);
-  color: var(--mugen-muted, #999999);
-  font-size: 13px;
+  padding: 32px 16px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 16px;
+  background: var(--mugen-card);
+  color: var(--mugen-muted);
+  font-size: 12px;
   text-align: center;
 }
 
@@ -467,7 +478,7 @@ textarea[aria-invalid="true"] {
   opacity: 0.4;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 319px) {
   .preset-row {
     grid-template-columns: minmax(0, 1fr);
   }

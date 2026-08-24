@@ -395,6 +395,7 @@ onUnmounted(() => {
   color: var(--mugen-text);
   font-size: 12px;
   font-weight: 600;
+  line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -409,7 +410,7 @@ onUnmounted(() => {
 
 .settings-row-icon {
   align-self: start;
-  margin-top: 1px;
+  margin-top: 0;
   color: var(--mugen-text);
 }
 
@@ -425,6 +426,10 @@ onUnmounted(() => {
 .history-summary {
   grid-template-columns: 16px minmax(0, 1fr) 72px;
   min-height: 32px;
+}
+
+.history-summary .settings-row-icon {
+  transform: translateY(2px);
 }
 
 .history-stepper {

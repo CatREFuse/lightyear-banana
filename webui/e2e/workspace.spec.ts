@@ -235,8 +235,10 @@ test('matches the Figma history stepper and saves the Host retention limit', asy
   await expect.poll(() => presetEntry.evaluate((element) => {
     const icon = element.querySelector<HTMLElement>('.settings-row-icon')!
     const title = element.querySelector<HTMLElement>('strong')!
-    return Math.round(icon.getBoundingClientRect().top - title.getBoundingClientRect().top)
-  })).toBe(1)
+    const iconRect = icon.getBoundingClientRect()
+    const titleRect = title.getBoundingClientRect()
+    return Math.abs((iconRect.top + iconRect.height / 2) - (titleRect.top + titleRect.height / 2))
+  })).toBeLessThanOrEqual(0.5)
   await expect(page.getByText('在 iMini → 个人设置 → API 中可找到', { exact: true })).toHaveCount(0)
   await expect.poll(() => page.locator('.imini-quick-body').evaluate((element) => {
     const heading = element.querySelector<HTMLElement>('.imini-quick-heading')!
