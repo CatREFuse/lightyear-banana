@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 import { ArrowLeftStroke, Copy, Fullscreen, Layers } from '@boxicons/vue'
 import {
+  RiAddFill,
   RiAddLargeFill,
   RiArrowDownSLine,
   RiArrowLeftRightLine,
@@ -44,6 +45,7 @@ export type AppIconDefinition = {
 }
 
 export const appIcons = {
+  'add-fill': { component: RiAddFill, library: 'remix' },
   'add-large-fill': { component: RiAddLargeFill, library: 'remix' },
   'arrow-down-s-line': { component: RiArrowDownSLine, library: 'remix' },
   'arrow-left-right-line': { component: RiArrowLeftRightLine, library: 'remix' },

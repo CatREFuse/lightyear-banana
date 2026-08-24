@@ -20,6 +20,9 @@
 .mugen-shell.mugen-shell.mugen-shell.theme-light {
   color-scheme: light;
   --mugen-bg: #f4f4f5;
+  --mugen-bg-base: #f4f4f5;
+  --mugen-bg-body: #f4f4f5;
+  --mugen-bg-filter: #e4e4e7;
   --mugen-workspace: #f4f4f5;
   --mugen-thread-bg: #f4f4f5;
   --mugen-thread-surface: #ffffff;
@@ -38,6 +41,7 @@
   --mugen-border: #e4e4e7;
   --mugen-border-strong: #d4d4d8;
   --mugen-hairline: #e4e4e7;
+  --mugen-line-divider: rgba(0, 0, 0, 0.1);
   --mugen-hover: #f4f4f5;
   --mugen-text: #27272a;
   --mugen-secondary: #71717a;
@@ -50,6 +54,9 @@
 .mugen-shell.mugen-shell.mugen-shell.theme-dark {
   color-scheme: dark;
   --mugen-bg: #18181b;
+  --mugen-bg-base: #18181b;
+  --mugen-bg-body: #18181b;
+  --mugen-bg-filter: #3f3f46;
   --mugen-workspace: #18181b;
   --mugen-thread-bg: #18181b;
   --mugen-thread-surface: #27272a;
@@ -68,6 +75,7 @@
   --mugen-border: #3f3f46;
   --mugen-border-strong: #52525b;
   --mugen-hairline: #3f3f46;
+  --mugen-line-divider: rgba(255, 255, 255, 0.1);
   --mugen-hover: #3f3f46;
   --mugen-text: #fafafa;
   --mugen-secondary: #d4d4d8;
@@ -280,17 +288,34 @@
   z-index: 10;
   display: grid;
   flex: 0 0 auto;
-  gap: 8px;
-  margin: 4px 12px 12px;
-  padding: 12px 16px;
+  margin: 4px 10px 12px;
+  padding: 0;
   border: 0;
-  border-radius: 16px;
-  background: var(--mugen-composer);
-  box-shadow: 0 8px 28px var(--mugen-shadow);
+  background: transparent;
+  box-shadow: none;
 }
 
 .mugen-shell.mugen-shell .composer.is-reference-dragging {
-  box-shadow: 0 0 0 2px var(--mugen-accent), 0 8px 28px var(--mugen-shadow);
+  box-shadow: none;
+}
+
+.mugen-shell.mugen-shell .composer.is-reference-dragging .composer-surface {
+  box-shadow: 0 0 0 2px var(--mugen-accent);
+}
+
+.mugen-shell.mugen-shell .composer-surface {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 138px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 0.5px solid var(--mugen-line-divider);
+  border-radius: 16px;
+  background: var(--mugen-bg-body);
+  box-shadow: none;
 }
 
 .mugen-shell.mugen-shell .reference-header {
@@ -318,13 +343,16 @@
 }
 
 .mugen-shell.mugen-shell .prompt-shell {
+  display: flex;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .mugen-shell.mugen-shell .prompt-input {
   display: block;
   width: 100%;
-  min-height: 44px;
+  height: 100%;
+  min-height: 64px;
   max-height: 112px;
   padding: 0;
   border: 0;
@@ -332,7 +360,7 @@
   outline: 0;
   background: transparent;
   color: var(--mugen-text);
-  font: 400 14px/1.5 var(--mugen-font-body);
+  font: 400 12px/16px var(--mugen-font-body);
 }
 
 .mugen-shell.mugen-shell .prompt-input::placeholder {
@@ -341,17 +369,16 @@
 
 .mugen-shell.mugen-shell .composer-footer {
   position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   min-width: 0;
 }
 
 .mugen-shell.mugen-shell .composer-tools {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
 }
 
 .mugen-shell.mugen-shell .tool-button,
@@ -359,20 +386,25 @@
 .mugen-shell.mugen-shell .parameter-header button {
   position: relative;
   display: inline-grid;
-  width: 32px;
-  min-height: 32px;
+  width: 24px;
+  min-height: 24px;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 8px;
-  background: transparent;
+  border-radius: 999px;
+  background: var(--mugen-bg-filter);
   color: var(--mugen-secondary);
 }
 
 .mugen-shell.mugen-shell .tool-button:hover,
 .mugen-shell.mugen-shell .parameter-header button:hover {
-  background: var(--mugen-hover);
+  background: var(--mugen-bg-filter);
   color: var(--mugen-text);
+}
+
+.mugen-shell.mugen-shell .parameter-header button {
+  border-radius: 8px;
+  background: transparent;
 }
 
 .mugen-shell.mugen-shell .tool-count {
@@ -391,22 +423,51 @@
   font-size: 8px;
 }
 
-.mugen-shell.mugen-shell .parameter-summary {
+.mugen-shell.mugen-shell .composer-status.parameter-summary {
   display: inline-flex;
+  width: auto;
   min-width: 0;
-  min-height: 28px;
-  align-items: center;
+  height: 47px;
+  min-height: 47px;
+  align-items: flex-start;
   justify-content: flex-start;
   gap: 4px;
   overflow: hidden;
-  padding: 0 4px;
+  margin: 0 16px -17px 13px;
+  padding: 8px 12px 12px;
   border: 0;
-  background: transparent;
-  color: var(--mugen-muted);
+  border-radius: 12px;
+  background: var(--mugen-bg-base);
+  color: var(--mugen-text);
   font-size: 12px;
   line-height: 16px;
   text-align: left;
   white-space: nowrap;
+}
+
+.mugen-shell.mugen-shell .parameter-provider {
+  display: inline-flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.mugen-shell.mugen-shell .parameter-provider-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--mugen-success);
+}
+
+.mugen-shell.mugen-shell .parameter-summary-spacer {
+  min-width: 0;
+  flex: 1 1 8px;
+}
+
+.mugen-shell.mugen-shell .parameter-summary-pending {
+  color: var(--mugen-muted);
 }
 
 .mugen-shell.mugen-shell .parameter-summary-icon,
@@ -417,6 +478,7 @@
 
 .mugen-shell.mugen-shell .parameter-summary-model {
   min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -433,8 +495,8 @@
 }
 
 .mugen-shell.mugen-shell .send-button {
-  width: 32px;
-  min-height: 32px;
+  width: 24px;
+  min-height: 24px;
   border-radius: 999px;
   background: var(--mugen-accent);
   color: #ffffff;
@@ -495,7 +557,7 @@
   bottom: calc(100% + 8px);
   left: auto;
   display: grid;
-  width: min(239px, 100%);
+  width: min(239px, calc(100% + 1px));
   gap: 8px;
   padding: 12px;
   border-width: 0.5px;
@@ -776,9 +838,9 @@
 
 @media (max-width: 400px) {
   .mugen-shell.mugen-shell .thread { padding-inline: 12px; }
-  .mugen-shell.mugen-shell .composer { margin-inline: 8px; padding-inline: 12px; }
-  .mugen-shell.mugen-shell .parameter-summary { display: none; }
-  .mugen-shell.mugen-shell .composer-footer { grid-template-columns: minmax(0, 1fr) auto; }
+  .mugen-shell.mugen-shell .composer { margin-inline: 8px; }
+  .mugen-shell.mugen-shell .composer-surface { padding-inline: 12px; }
+  .mugen-shell.mugen-shell .composer-status.parameter-summary { margin-right: 12px; margin-left: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

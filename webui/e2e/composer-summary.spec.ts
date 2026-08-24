@@ -13,20 +13,72 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 })
 
-test('matches the configured Figma summary and wider compact breakpoint', async ({ page }, testInfo) => {
+test('matches the Figma input surface in light and dark themes', async ({ page }, testInfo) => {
+  const composer = page.locator('.composer')
+  const surface = page.locator('.composer-surface')
   const summary = page.locator('.parameter-summary')
+  const prompt = page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' })
+  const toolButtons = page.locator('.composer-tools .tool-button')
+  const sendButton = page.getByRole('button', { name: '发送' })
 
   await expect(summary).toHaveCSS('font-size', '12px')
-  await expect(summary.locator('.parameter-summary-icon')).toHaveAttribute('style', /width: 16px/)
+  await expect(summary).toHaveCSS('height', '47px')
+  await expect(summary).toHaveCSS('padding-top', '8px')
+  await expect(summary).toHaveCSS('padding-right', '12px')
+  await expect(summary).toHaveCSS('border-radius', '12px')
+  await expect(summary.locator('.parameter-provider')).toHaveText('iMini')
+  await expect(summary.locator('.parameter-provider-dot')).toHaveCSS('width', '7px')
+  await expect(summary.locator('.parameter-summary-icon')).toHaveAttribute('style', /width: 12px/)
   await expect(summary.locator('.parameter-summary-model')).toHaveText('gpt-image-2')
   await expect(summary.locator('.parameter-summary-divider')).toHaveText('/')
-  await expect(summary.locator('.parameter-summary-field')).toHaveText(['iMini', '1K', '低', '原图比例', '1张'])
+  await expect(summary.locator('.parameter-summary-field')).toHaveText(['1K', '低', '原图比例', '1张'])
+  await expect(summary.locator('.parameter-summary-chevron')).toHaveAttribute('style', /width: 12px/)
 
-  await page.setViewportSize({ width: 400, height: 720 })
-  await expect(summary).toBeHidden()
-  await page.setViewportSize({ width: 402, height: 720 })
   await expect(summary).toBeVisible()
-  await expect(summary.locator('.parameter-summary-chevron')).toBeVisible()
+  await expect(surface).toHaveCSS('min-height', '138px')
+  await expect(surface).toHaveCSS('padding-top', '12px')
+  await expect(surface).toHaveCSS('padding-right', testInfo.project.name === 'panel-280' ? '12px' : '16px')
+  expect(await surface.evaluate((element) => parseFloat(getComputedStyle(element).borderTopWidth))).toBeLessThanOrEqual(1)
+  await expect(surface).toHaveCSS('border-radius', '16px')
+  await expect(prompt).toHaveCSS('font-size', '12px')
+  await expect(prompt).toHaveCSS('line-height', '16px')
+  await expect(toolButtons).toHaveCount(2)
+  await expect(toolButtons.first()).toHaveCSS('width', '24px')
+  await expect(toolButtons.first()).toHaveCSS('height', '24px')
+  await expect(sendButton).toHaveCSS('width', '24px')
+  await expect(sendButton).toHaveCSS('height', '24px')
 
-  await page.screenshot({ path: testInfo.outputPath('composer-configured-summary.png') })
+  const layout = await composer.evaluate((element) => {
+    const status = element.querySelector<HTMLElement>('.composer-status')?.getBoundingClientRect()
+    const input = element.querySelector<HTMLElement>('.composer-surface')?.getBoundingClientRect()
+    if (!status || !input) throw new Error('Composer surfaces are missing.')
+    return {
+      inputHeight: Math.round(input.height),
+      inputWidth: Math.round(input.width),
+      overlap: Math.round(status.bottom - input.top),
+      statusLeftInset: Math.round(status.left - input.left),
+      statusRightInset: Math.round(input.right - status.right),
+      statusWidth: Math.round(status.width)
+    }
+  })
+  expect(layout).toEqual(testInfo.project.name === 'panel-280'
+    ? { inputHeight: 138, inputWidth: 264, overlap: 17, statusLeftInset: 12, statusRightInset: 12, statusWidth: 240 }
+    : { inputHeight: 138, inputWidth: 380, overlap: 17, statusLeftInset: 13, statusRightInset: 16, statusWidth: 351 })
+
+  await page.getByRole('button', { name: '外观' }).click()
+  await page.getByRole('button', { name: '浅色', exact: true }).click()
+  await expect(page.getByLabel('外观设置')).toBeHidden()
+  await expect(page.locator('.thread')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(composer).toHaveCSS('box-shadow', 'none')
+  await expect(surface).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(toolButtons.first()).toHaveCSS('background-color', 'rgb(228, 228, 231)')
+  await page.screenshot({ path: testInfo.outputPath('composer-figma-light.png') })
+
+  await page.getByRole('button', { name: '外观' }).click()
+  await page.getByRole('button', { name: '深色', exact: true }).click()
+  await expect(page.getByLabel('外观设置')).toBeHidden()
+  await expect(page.locator('.thread')).toHaveCSS('background-color', 'rgb(24, 24, 27)')
+  await expect(surface).toHaveCSS('background-color', 'rgb(24, 24, 27)')
+  await expect(toolButtons.first()).toHaveCSS('background-color', 'rgb(63, 63, 70)')
+  await page.screenshot({ path: testInfo.outputPath('composer-figma-dark.png') })
 })

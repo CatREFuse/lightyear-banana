@@ -577,140 +577,147 @@ watch(
       hidden
       @change="handleBrowserUploadChange"
     />
-    <p v-if="referenceImportError" class="reference-import-error" role="alert">{{ referenceImportError }}</p>
-    <div v-if="hasReferences" class="reference-header">
-      <span>参考图 {{ referenceCountText }}</span>
-      <button class="clear-reference" type="button" @click="emit('clearReferences')">
-        <AppIcon name="close-line" size="13" />
-        清空
-      </button>
-    </div>
-    <div v-if="hasReferences" class="reference-strip">
-      <ReferenceThumb
-        v-for="(reference, index) in references"
-        :key="reference.id"
-        :index="index + 1"
-        :reference="reference"
-        removable
-        @remove="emit('removeReference', $event)"
-        @preview="emit('preview', $event)"
-      />
-    </div>
-    <div v-if="referenceDragActive" class="reference-drop-hint">松开添加参考图</div>
+    <button class="composer-status parameter-summary" type="button" title="生成设置" @click="toggleParameterPanel">
+      <template v-if="configuredParameterSummary">
+        <span class="parameter-provider">
+          <span class="parameter-provider-dot" aria-hidden="true"></span>
+          <span>{{ configuredParameterSummary.provider }}</span>
+        </span>
+        <span class="parameter-summary-spacer" aria-hidden="true"></span>
+        <AppIcon class="parameter-summary-icon" :name="configuredParameterSummary.modelIcon" size="12" />
+        <span class="parameter-summary-model">{{ configuredParameterSummary.model }}</span>
+        <span class="parameter-summary-divider">/</span>
+        <span class="parameter-summary-field">{{ configuredParameterSummary.resolution }}</span>
+        <span v-if="configuredParameterSummary.quality" class="parameter-summary-field">{{ configuredParameterSummary.quality }}</span>
+        <span class="parameter-summary-field">{{ configuredParameterSummary.ratio }}</span>
+        <span class="parameter-summary-field">{{ configuredParameterSummary.count }}</span>
+        <AppIcon class="parameter-summary-chevron" name="arrow-down-s-line" size="12" />
+      </template>
+      <span v-else class="parameter-summary-pending">待配置</span>
+    </button>
 
-    <div class="prompt-shell">
-      <PromptPresetMenu
-        :disabled="busy"
-        :input="prompt"
-        :presets="promptPresets"
-        @close="emit('menuOpen', '')"
-        @open="emit('menuOpen', 'composer:preset')"
-        @select="applyPromptPreset"
-      />
-      <textarea
-        ref="promptInput"
-        class="prompt-input"
-        :value="prompt"
-        placeholder="描述你想生成的画面，输入 / 调用常用提示词"
-        rows="2"
-        @blur="handlePromptBlur"
-        @focus="handlePromptFocus"
-        @input="updatePromptInput(($event.target as HTMLTextAreaElement).value)"
-        @keydown="handlePromptKeydown"
-      />
-    </div>
+    <div class="composer-surface">
+      <p v-if="referenceImportError" class="reference-import-error" role="alert">{{ referenceImportError }}</p>
+      <div v-if="hasReferences" class="reference-header">
+        <span>参考图 {{ referenceCountText }}</span>
+        <button class="clear-reference" type="button" @click="emit('clearReferences')">
+          <AppIcon name="close-line" size="13" />
+          清空
+        </button>
+      </div>
+      <div v-if="hasReferences" class="reference-strip">
+        <ReferenceThumb
+          v-for="(reference, index) in references"
+          :key="reference.id"
+          :index="index + 1"
+          :reference="reference"
+          removable
+          @remove="emit('removeReference', $event)"
+          @preview="emit('preview', $event)"
+        />
+      </div>
+      <div v-if="referenceDragActive" class="reference-drop-hint">松开添加参考图</div>
 
-    <div class="composer-footer">
-      <div class="composer-tools">
-        <div ref="referenceMenu" class="add-wrap is-inline">
-          <button
-            class="tool-button"
-            :class="{ 'is-loading': referenceBusy }"
-            type="button"
-            :disabled="busy || !canAddReference"
-            :aria-label="referenceBusy ? '正在读取参考图' : '添加参考图'"
-            @click="togglePanel('reference')"
-          >
-            <span v-if="referenceBusy" class="inline-spinner" aria-hidden="true"></span>
-            <AppIcon v-else name="add-large-fill" size="18" />
-            <span v-if="hasReferences" class="tool-count">{{ references.length }}</span>
-          </button>
-          <Transition name="menu-pop">
-            <div v-if="openPanel === 'reference'" class="floating-menu reference-menu">
-              <button
-                v-for="action in referenceActions"
-                :key="action.source"
-                type="button"
-                @click="addReference(action.source)"
-              >
-                <AppIcon :name="action.icon" size="15" />
-                {{ action.label }}
-              </button>
-            </div>
-          </Transition>
-        </div>
-
-        <div ref="parameterMenu" class="parameter-wrap">
-          <button
-            class="tool-button"
-            type="button"
-            aria-label="生成设置"
-            :aria-expanded="parameterPanelOpen"
-            @click="toggleParameterPanel"
-          >
-            <AppIcon name="bx-layer" size="16" />
-          </button>
-          <Transition name="parameter-pop">
-            <GenerationSettingsMenu
-              v-if="parameterPanelOpen"
-              :active-config-id="activeConfigId"
-              :active-config-name="activeConfig?.name || '配置'"
-              :active-model="activeModel"
-              :config-options="configOptions"
-              :count="count"
-              :count-options="activeCapability.countOptions"
-              :custom-height="customHeight"
-              :custom-width="customWidth"
-              :model-options="modelOptions"
-              :quality="quality"
-              :quality-options="activeCapability.qualityOptions"
-              :ratio="ratio"
-              :ratio-options="activeCapability.ratioOptions"
-              :resolution-mode="resolutionMode"
-              :shows-quality-control="showsQualityControl"
-              :size="size"
-              :size-options="sizeOptions"
-              @close="closeParameterPanel"
-              @select-config="emit('selectConfig', $event)"
-              @select-model="handleModelChange"
-              @update-count="emit('updateCount', $event)"
-              @update-custom-height="emit('updateCustomHeight', $event)"
-              @update-custom-width="emit('updateCustomWidth', $event)"
-              @update-quality="emit('updateQuality', $event)"
-              @update-ratio="emit('updateRatio', $event)"
-              @update-size="handleSizeChange"
-            />
-          </Transition>
-        </div>
+      <div class="prompt-shell">
+        <PromptPresetMenu
+          :disabled="busy"
+          :input="prompt"
+          :presets="promptPresets"
+          @close="emit('menuOpen', '')"
+          @open="emit('menuOpen', 'composer:preset')"
+          @select="applyPromptPreset"
+        />
+        <textarea
+          ref="promptInput"
+          class="prompt-input"
+          :value="prompt"
+          placeholder="描述你想生成的画面，输入 / 调用常用提示词"
+          rows="2"
+          @blur="handlePromptBlur"
+          @focus="handlePromptFocus"
+          @input="updatePromptInput(($event.target as HTMLTextAreaElement).value)"
+          @keydown="handlePromptKeydown"
+        />
       </div>
 
-      <button class="parameter-summary" type="button" title="生成设置" @click="toggleParameterPanel">
-        <template v-if="configuredParameterSummary">
-          <AppIcon class="parameter-summary-icon" :name="configuredParameterSummary.modelIcon" size="16" />
-          <span class="parameter-summary-model">{{ configuredParameterSummary.model }}</span>
-          <span class="parameter-summary-divider">/</span>
-          <span class="parameter-summary-field">{{ configuredParameterSummary.provider }}</span>
-          <span class="parameter-summary-field">{{ configuredParameterSummary.resolution }}</span>
-          <span v-if="configuredParameterSummary.quality" class="parameter-summary-field">{{ configuredParameterSummary.quality }}</span>
-          <span class="parameter-summary-field">{{ configuredParameterSummary.ratio }}</span>
-          <span class="parameter-summary-field">{{ configuredParameterSummary.count }}</span>
-          <AppIcon class="parameter-summary-chevron" name="arrow-down-s-line" size="16" />
-        </template>
-        <span v-else>待配置</span>
-      </button>
-      <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" aria-label="发送" @click="requestSend">
-        <AppIcon name="arrow-up-line" size="17" />
-      </button>
+      <div class="composer-footer">
+        <div class="composer-tools">
+          <div ref="referenceMenu" class="add-wrap is-inline">
+            <button
+              class="tool-button"
+              :class="{ 'is-loading': referenceBusy }"
+              type="button"
+              :disabled="busy || !canAddReference"
+              :aria-label="referenceBusy ? '正在读取参考图' : '添加参考图'"
+              @click="togglePanel('reference')"
+            >
+              <span v-if="referenceBusy" class="inline-spinner" aria-hidden="true"></span>
+              <AppIcon v-else name="add-fill" size="16" />
+              <span v-if="hasReferences" class="tool-count">{{ references.length }}</span>
+            </button>
+            <Transition name="menu-pop">
+              <div v-if="openPanel === 'reference'" class="floating-menu reference-menu">
+                <button
+                  v-for="action in referenceActions"
+                  :key="action.source"
+                  type="button"
+                  @click="addReference(action.source)"
+                >
+                  <AppIcon :name="action.icon" size="15" />
+                  {{ action.label }}
+                </button>
+              </div>
+            </Transition>
+          </div>
+
+          <div ref="parameterMenu" class="parameter-wrap">
+            <button
+              class="tool-button"
+              type="button"
+              aria-label="生成设置"
+              :aria-expanded="parameterPanelOpen"
+              @click="toggleParameterPanel"
+            >
+              <AppIcon name="bx-layer" size="16" />
+            </button>
+            <Transition name="parameter-pop">
+              <GenerationSettingsMenu
+                v-if="parameterPanelOpen"
+                :active-config-id="activeConfigId"
+                :active-config-name="activeConfig?.name || '配置'"
+                :active-model="activeModel"
+                :config-options="configOptions"
+                :count="count"
+                :count-options="activeCapability.countOptions"
+                :custom-height="customHeight"
+                :custom-width="customWidth"
+                :model-options="modelOptions"
+                :quality="quality"
+                :quality-options="activeCapability.qualityOptions"
+                :ratio="ratio"
+                :ratio-options="activeCapability.ratioOptions"
+                :resolution-mode="resolutionMode"
+                :shows-quality-control="showsQualityControl"
+                :size="size"
+                :size-options="sizeOptions"
+                @close="closeParameterPanel"
+                @select-config="emit('selectConfig', $event)"
+                @select-model="handleModelChange"
+                @update-count="emit('updateCount', $event)"
+                @update-custom-height="emit('updateCustomHeight', $event)"
+                @update-custom-width="emit('updateCustomWidth', $event)"
+                @update-quality="emit('updateQuality', $event)"
+                @update-ratio="emit('updateRatio', $event)"
+                @update-size="handleSizeChange"
+              />
+            </Transition>
+          </div>
+        </div>
+
+        <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" aria-label="发送" @click="requestSend">
+          <AppIcon name="arrow-up-line" size="16" />
+        </button>
+      </div>
     </div>
   </section>
 </template>
@@ -721,10 +728,26 @@ watch(
   z-index: 5;
   display: grid;
   flex: 0 0 auto;
-  gap: 9px;
-  padding: 10px 12px 12px;
-  border-top: 1px solid var(--mugen-hairline);
-  background: var(--mugen-composer);
+  padding: 0;
+  background: transparent;
+}
+
+.composer-status {
+  min-width: 0;
+}
+
+.composer-surface {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 138px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 0.5px solid var(--mugen-line-divider);
+  border-radius: 16px;
+  background: var(--mugen-bg-body);
 }
 
 .composer.is-reference-dragging {
@@ -749,12 +772,15 @@ watch(
 
 .prompt-shell {
   position: relative;
+  display: flex;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .prompt-shell .prompt-input {
   display: block;
   width: 100%;
+  height: 100%;
 }
 
 .reference-header {
