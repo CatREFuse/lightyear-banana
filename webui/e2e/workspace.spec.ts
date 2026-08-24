@@ -404,7 +404,12 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   const menu = page.getByRole('region', { name: '生成设置' })
   await expect(menu).toBeVisible()
 
-  await menu.getByRole('button', { name: /^比例/ }).click()
+  const mainRatioTrigger = menu.getByRole('button', { name: /^比例/ })
+  await mainRatioTrigger.hover()
+  await expect(mainRatioTrigger).toHaveCSS('padding-left', '4px')
+  await expect(mainRatioTrigger).toHaveCSS('padding-right', '4px')
+  await page.screenshot({ path: testInfo.outputPath('parameter-menu-main-hover.png') })
+  await mainRatioTrigger.click()
   await expect(menu.getByText('生成图片比例', { exact: true })).toBeVisible()
   await expect(menu.getByRole('button', { name: '返回', exact: true })).toBeVisible()
   await expect(menu.locator('.parameter-submenu-option[aria-checked="true"]')).toHaveCount(1)

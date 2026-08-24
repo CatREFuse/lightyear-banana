@@ -311,6 +311,7 @@ function handleEscape() {
 }
 
 button.parameter-menu-row {
+  padding-inline: 4px;
   cursor: pointer;
 }
 
