@@ -56,6 +56,8 @@ const menuRef = useTemplateRef<HTMLElement>('menu')
 const customSizeValue = '__mugen_custom_resolution__'
 let routeStartHeight = 0
 let routeHeightAnimation: Animation | null = null
+let routeHeightFinished = true
+let routeLeaveFinished = true
 
 const routeOptions = computed<MenuOption[]>(() => {
   if (route.value === 'config') return props.configOptions
@@ -147,7 +149,23 @@ function captureRouteHeight() {
   routeHeightAnimation?.cancel()
   routeHeightAnimation = null
   routeStartHeight = renderedHeight
+  routeHeightFinished = false
+  routeLeaveFinished = false
   menu.style.height = `${renderedHeight}px`
+}
+
+function releaseRouteHeight() {
+  if (!routeHeightFinished || !routeLeaveFinished) return
+
+  const menu = menuRef.value
+  if (!menu) return
+  routeStartHeight = 0
+  menu.style.height = ''
+}
+
+function finishRouteLeave() {
+  routeLeaveFinished = true
+  releaseRouteHeight()
 }
 
 function animateRouteHeight(element: Element) {
@@ -164,7 +182,9 @@ function animateRouteHeight(element: Element) {
   if (routeStartHeight === 0
     || Math.abs(routeEndHeight - routeStartHeight) < 1
     || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    menu.style.height = ''
+    menu.style.height = `${routeEndHeight}px`
+    routeHeightFinished = true
+    releaseRouteHeight()
     return
   }
 
@@ -173,14 +193,17 @@ function animateRouteHeight(element: Element) {
     { height: `${routeEndHeight}px` }
   ], {
     duration: 180,
-    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    fill: 'forwards'
   })
   routeHeightAnimation = animation
   animation.addEventListener('finish', () => {
     if (routeHeightAnimation !== animation) return
+    menu.style.height = `${routeEndHeight}px`
+    animation.cancel()
     routeHeightAnimation = null
-    routeStartHeight = 0
-    menu.style.height = ''
+    routeHeightFinished = true
+    releaseRouteHeight()
   }, { once: true })
 }
 
@@ -225,6 +248,7 @@ function handleEscape() {
       :name="`parameter-route-${routeDirection}`"
       @before-leave="captureRouteHeight"
       @enter="animateRouteHeight"
+      @after-leave="finishRouteLeave"
       @after-enter="restoreRouteFocus"
     >
       <div v-if="route === 'main'" key="main" class="parameter-route parameter-route-main">

@@ -444,6 +444,7 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   expect(Math.min(...sampledHeights)).toBeGreaterThanOrEqual(heightFloor - 1)
   expect(Math.max(...sampledHeights)).toBeLessThanOrEqual(heightCeiling + 1)
   expect(sampledHeights.some((height) => height > heightFloor + 1 && height < heightCeiling - 1)).toBe(true)
+  expect(sampledHeights.some((height, index) => index > 0 && height < sampledHeights[index - 1]! - 1)).toBe(false)
   expect(forwardHeightTimeline.find((sample) => Math.abs(sample.height - (sampledHeights[0] ?? 0)) > 1)?.elapsed).toBeLessThan(80)
   await page.screenshot({ path: testInfo.outputPath('parameter-menu-ratio-route.png') })
 
@@ -467,6 +468,9 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   expect(sampledBackwardHeights.some((height) => (
     height > backwardHeightFloor + 1 && height < backwardHeightCeiling - 1
   ))).toBe(true)
+  expect(sampledBackwardHeights.some((height, index) => (
+    index > 0 && height > sampledBackwardHeights[index - 1]! + 1
+  ))).toBe(false)
   expect(backwardHeightTimeline.find((sample) => (
     Math.abs(sample.height - (sampledBackwardHeights[0] ?? 0)) > 1
   ))?.elapsed).toBeLessThan(80)
