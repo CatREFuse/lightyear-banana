@@ -454,14 +454,24 @@ test('keeps composer popups inside the fixed-width workspace', async ({ page }, 
   await expectPopupAnchoredToTrigger(page, '.parameter-panel', parameterTrigger)
   await expect.poll(() => page.locator('.parameter-panel').evaluate((popup) => (
     Math.round(popup.getBoundingClientRect().width)
-  ))).toBe(239)
+  ))).toBeGreaterThan(239)
+  const mainMenuWidth = await page.locator('.parameter-panel').evaluate((popup) => (
+    Math.round(popup.getBoundingClientRect().width)
+  ))
+  if (testInfo.project.name === 'panel-wide') {
+    expect(mainMenuWidth).toBe(288)
+  }
 
   await page.locator('.parameter-panel [data-route="config"]').click()
   await expect(page.getByText('选择供应商', { exact: true })).toBeVisible()
   await expectPopupInsideWorkspace(page, '.parameter-panel')
   await expect.poll(() => page.locator('.parameter-panel').evaluate((popup) => (
     Math.round(popup.getBoundingClientRect().width)
-  ))).toBe(239)
+  ))).toBeGreaterThan(239)
+  const submenuWidth = await page.locator('.parameter-panel').evaluate((popup) => (
+    Math.round(popup.getBoundingClientRect().width)
+  ))
+  expect(submenuWidth).toBe(mainMenuWidth)
 
   await page.screenshot({ path: testInfo.outputPath('composer-popups-in-workspace.png') })
 })
@@ -474,8 +484,16 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   const mainRatioTrigger = menu.getByRole('button', { name: /^比例/ })
   await expect(mainRatioTrigger).toHaveClass(/generation-settings-item/)
   await mainRatioTrigger.hover()
+  await expect(mainRatioTrigger).toHaveCSS('padding-top', '4px')
   await expect(mainRatioTrigger).toHaveCSS('padding-left', '4px')
   await expect(mainRatioTrigger).toHaveCSS('padding-right', '4px')
+  await expect(mainRatioTrigger).toHaveCSS('padding-bottom', '4px')
+  await expect.poll(() => mainRatioTrigger.evaluate((button) => {
+    const icon = button.querySelector<HTMLElement>('.generation-settings-item-icon')?.getBoundingClientRect()
+    const title = button.querySelector<HTMLElement>('.generation-settings-item-title')?.getBoundingClientRect()
+    if (!icon || !title) return Number.POSITIVE_INFINITY
+    return Math.abs((icon.top + icon.height / 2) - (title.top + title.height / 2))
+  })).toBeLessThanOrEqual(0.5)
   await page.screenshot({ path: testInfo.outputPath('parameter-menu-main-hover.png') })
   const forwardHeightSamples = sampleElementHeights(menu)
   await mainRatioTrigger.click()
@@ -490,12 +508,37 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   const recommendedRatioOption = menu.getByRole('radio', { name: /^原图比例/ })
   await expect(recommendedRatioOption).toHaveClass(/generation-settings-item/)
   await recommendedRatioOption.hover()
+  await expect(recommendedRatioOption).toHaveCSS('padding-top', '4px')
   await expect(recommendedRatioOption).toHaveCSS('padding-left', '4px')
   await expect(recommendedRatioOption).toHaveCSS('padding-right', '4px')
+  await expect(recommendedRatioOption).toHaveCSS('padding-bottom', '4px')
+  await expect.poll(() => recommendedRatioOption.evaluate((button) => {
+    const icon = button.querySelector<HTMLElement>('.generation-settings-item-icon')?.getBoundingClientRect()
+    const title = button.querySelector<HTMLElement>('.generation-settings-item-title')?.getBoundingClientRect()
+    if (!icon || !title) return Number.POSITIVE_INFINITY
+    return Math.abs((icon.top + icon.height / 2) - (title.top + title.height / 2))
+  })).toBeLessThanOrEqual(0.5)
   const recommendedBadge = recommendedRatioOption.locator('.generation-settings-item-badge')
   await expect(recommendedBadge).toHaveText('推荐')
   await expect(recommendedBadge.locator('xpath=..')).toHaveClass(/generation-settings-item-title-line/)
   await expect(recommendedBadge.locator('xpath=preceding-sibling::*[1]')).toHaveClass(/generation-settings-item-title/)
+  const submenuScroll = menu.locator('.parameter-submenu-scroll')
+  await expect.poll(() => submenuScroll.evaluate((element) => getComputedStyle(element, '::-webkit-scrollbar').width)).toBe('4px')
+  await expect.poll(() => submenuScroll.evaluate((element) => getComputedStyle(element, '::-webkit-scrollbar-track').backgroundColor)).toBe('rgba(0, 0, 0, 0)')
+  const scrollBefore = await menu.evaluate((element) => {
+    const back = element.querySelector<HTMLElement>('.parameter-back-button')!.getBoundingClientRect()
+    const title = element.querySelector<HTMLElement>('.parameter-submenu-title')!.getBoundingClientRect()
+    return { backTop: back.top, titleTop: title.top }
+  })
+  await submenuScroll.evaluate((element) => { element.scrollTop = 64 })
+  await expect.poll(() => submenuScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+  const scrollAfter = await menu.evaluate((element) => {
+    const back = element.querySelector<HTMLElement>('.parameter-back-button')!.getBoundingClientRect()
+    const title = element.querySelector<HTMLElement>('.parameter-submenu-title')!.getBoundingClientRect()
+    return { backTop: back.top, titleTop: title.top }
+  })
+  expect(Math.abs(scrollAfter.backTop - scrollBefore.backTop)).toBeLessThanOrEqual(0.5)
+  expect(scrollAfter.titleTop).toBeLessThan(scrollBefore.titleTop - 8)
   await expect(menu.locator('.select-menu, .ratio-menu')).toHaveCount(0)
   await expectPopupInsideWorkspace(page, '.parameter-panel')
   const forwardHeightTimeline = await forwardHeightSamples

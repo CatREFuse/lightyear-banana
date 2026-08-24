@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, shallowRef, useTemplateRef } from 'vue'
-import type { ResolutionInputMode } from '@mugen/core'
 import AppIcon from './AppIcon.vue'
 import type { AppIconName } from './appIcons'
 import DiscreteSlider from './DiscreteSlider.vue'
@@ -24,14 +23,11 @@ const props = defineProps<{
   configOptions: MenuOption[]
   count: number
   countOptions: number[]
-  customHeight: number
-  customWidth: number
   modelOptions: MenuOption[]
   quality: string
   qualityOptions: string[]
   ratio: string
   ratioOptions: string[]
-  resolutionMode: ResolutionInputMode
   showsQualityControl: boolean
   size: string
   sizeOptions: MenuOption[]
@@ -42,8 +38,6 @@ const emit = defineEmits<{
   selectConfig: [value: string]
   selectModel: [value: string]
   updateCount: [value: number]
-  updateCustomHeight: [value: number]
-  updateCustomWidth: [value: number]
   updateQuality: [value: string]
   updateRatio: [value: string]
   updateSize: [value: string]
@@ -91,9 +85,8 @@ const routeValue = computed(() => ({
 const countIndex = computed(() => props.countOptions.indexOf(props.count))
 const canDecreaseCount = computed(() => countIndex.value > 0)
 const canIncreaseCount = computed(() => countIndex.value >= 0 && countIndex.value < props.countOptions.length - 1)
-const sizeDisplay = computed(() => props.resolutionMode === 'custom' ? `${props.customWidth}×${props.customHeight}` : props.size)
+const sizeDisplay = computed(() => props.size)
 const presetSizeOptions = computed(() => props.sizeOptions.filter((option) => option.value !== customSizeValue))
-const supportsCustomSize = computed(() => props.sizeOptions.some((option) => option.value === customSizeValue))
 
 function ratioMeta(option: string) {
   const knownMeta: Record<string, string> = {
@@ -220,20 +213,6 @@ function changeCount(offset: -1 | 1) {
   if (nextValue !== undefined) emit('updateCount', nextValue)
 }
 
-function readNumber(event: Event) {
-  return Number((event.target as HTMLInputElement).value)
-}
-
-function toggleCustomSize() {
-  if (props.resolutionMode !== 'custom') {
-    emit('updateSize', customSizeValue)
-    return
-  }
-
-  const preset = presetSizeOptions.value.find((option) => option.value === props.size) ?? presetSizeOptions.value[0]
-  if (preset) emit('updateSize', preset.value)
-}
-
 function handleEscape() {
   if (route.value === 'main') {
     emit('close')
@@ -313,30 +292,15 @@ function handleEscape() {
         <div class="parameter-resolution-block">
           <div class="parameter-resolution-heading">
             <span class="parameter-row-label"><AppIcon name="aspect-ratio-line" size="16" />生成分辨率</span>
-            <span class="parameter-resolution-actions">
-              <output aria-live="polite">{{ sizeDisplay }}</output>
-              <button
-                v-if="supportsCustomSize"
-                class="parameter-custom-size-toggle"
-                type="button"
-                :aria-pressed="resolutionMode === 'custom'"
-                @click="toggleCustomSize"
-              >{{ resolutionMode === 'custom' ? '使用预设' : '宽高输入' }}</button>
-            </span>
+            <output class="parameter-resolution-value" aria-live="polite">{{ sizeDisplay }}</output>
           </div>
           <DiscreteSlider
             class="parameter-resolution-slider"
             aria-label="生成分辨率"
-            :disabled="resolutionMode === 'custom'"
             :model-value="size"
             :options="presetSizeOptions"
             @update:model-value="emit('updateSize', $event)"
           />
-          <div v-if="resolutionMode === 'custom'" class="parameter-custom-size">
-            <label>宽<input inputmode="numeric" min="1" step="16" type="number" :value="customWidth" @input="emit('updateCustomWidth', readNumber($event))" /></label>
-            <span>×</span>
-            <label>高<input inputmode="numeric" min="1" step="16" type="number" :value="customHeight" @input="emit('updateCustomHeight', readNumber($event))" /></label>
-          </div>
         </div>
       </div>
 
@@ -344,23 +308,25 @@ function handleEscape() {
         <button class="parameter-back-button" type="button" @click="returnToMain()">
           <AppIcon name="bx-arrow-back" size="12" />返回
         </button>
-        <p class="parameter-submenu-title">{{ routeTitle }}</p>
-        <div class="parameter-submenu-options" role="radiogroup" :aria-label="routeTitle">
-          <GenerationSettingsItem
-            v-for="option in routeOptions"
-            :key="option.value"
-            class="parameter-submenu-option"
-            :badge="route === 'ratio' && isRecommendedRatio(option) ? '推荐' : ''"
-            :description="option.meta"
-            :icon="option.icon ?? (route === 'ratio' ? 'bx-fullscreen' : 'shining-line')"
-            role="radio"
-            :aria-checked="option.value === routeValue"
-            :selected="option.value === routeValue"
-            :status="option.status"
-            :status-tone="option.statusTone"
-            :title="option.label"
-            @activate="selectOption(option)"
-          />
+        <div class="parameter-submenu-scroll">
+          <p class="parameter-submenu-title">{{ routeTitle }}</p>
+          <div class="parameter-submenu-options" role="radiogroup" :aria-label="routeTitle">
+            <GenerationSettingsItem
+              v-for="option in routeOptions"
+              :key="option.value"
+              class="parameter-submenu-option"
+              :badge="route === 'ratio' && isRecommendedRatio(option) ? '推荐' : ''"
+              :description="option.meta"
+              :icon="option.icon ?? (route === 'ratio' ? 'bx-fullscreen' : 'shining-line')"
+              role="radio"
+              :aria-checked="option.value === routeValue"
+              :selected="option.value === routeValue"
+              :status="option.status"
+              :status-tone="option.statusTone"
+              :title="option.label"
+              @activate="selectOption(option)"
+            />
+          </div>
         </div>
       </div>
     </Transition>
@@ -492,8 +458,7 @@ function handleEscape() {
   gap: 8px;
 }
 
-.parameter-resolution-heading,
-.parameter-resolution-actions {
+.parameter-resolution-heading {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -505,65 +470,16 @@ function handleEscape() {
   gap: 8px;
 }
 
-.parameter-resolution-actions {
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.parameter-resolution-actions output {
+.parameter-resolution-value {
   color: var(--mugen-text);
   font-size: 12px;
   line-height: 16px;
   white-space: nowrap;
 }
 
-.parameter-custom-size-toggle {
-  min-height: 24px;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--mugen-muted);
-  font-size: 10px;
-  line-height: 16px;
-}
-
-.parameter-custom-size-toggle:hover,
-.parameter-custom-size-toggle:focus-visible,
-.parameter-custom-size-toggle[aria-pressed="true"] {
-  background: var(--mugen-field);
-  color: var(--mugen-text);
-  outline: 0;
-}
-
 .parameter-resolution-slider {
   align-self: center;
   flex: 0 0 auto;
-}
-
-.parameter-custom-size {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: end;
-  gap: 6px;
-}
-
-.parameter-custom-size label {
-  display: grid;
-  gap: 2px;
-  color: var(--mugen-muted);
-  font-size: 10px;
-}
-
-.parameter-custom-size input {
-  width: 100%;
-  min-width: 0;
-  min-height: 28px;
-  padding: 0 7px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--mugen-field);
-  color: var(--mugen-text);
 }
 
 .parameter-route-submenu {
@@ -598,12 +514,35 @@ function handleEscape() {
   line-height: 16px;
 }
 
-.parameter-submenu-options {
+.parameter-submenu-scroll {
   display: flex;
-  max-height: 228px;
+  max-height: 256px;
+  min-height: 0;
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  scrollbar-color: var(--mugen-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.parameter-submenu-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.parameter-submenu-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.parameter-submenu-scroll::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 999px;
+  background: var(--mugen-border-strong);
+}
+
+.parameter-submenu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .parameter-route-forward-enter-active,

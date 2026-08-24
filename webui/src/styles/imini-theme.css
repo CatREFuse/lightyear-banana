@@ -570,7 +570,7 @@
   bottom: calc(100% + 8px);
   left: auto;
   display: grid;
-  width: min(239px, calc(100% + 1px));
+  width: min(288px, calc(100% + 1px));
   gap: 8px;
   padding: 12px;
   border-width: 0.5px;

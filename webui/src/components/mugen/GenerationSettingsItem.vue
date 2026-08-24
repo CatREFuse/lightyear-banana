@@ -32,7 +32,7 @@ const emit = defineEmits<{
 <template>
   <button
     class="generation-settings-item"
-    :class="`is-${variant}`"
+    :class="[`is-${variant}`, { 'has-description': description }]"
     type="button"
     @click="emit('activate')"
   >
@@ -74,7 +74,7 @@ const emit = defineEmits<{
   grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 4px;
-  padding: 0 4px;
+  padding: 4px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -97,6 +97,10 @@ const emit = defineEmits<{
 
 .generation-settings-item-icon {
   color: var(--mugen-muted);
+}
+
+.generation-settings-item.has-description .generation-settings-item-icon {
+  align-self: start;
 }
 
 .generation-settings-item-copy,

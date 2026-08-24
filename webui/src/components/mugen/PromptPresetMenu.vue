@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
       :disabled="disabled"
       @click="emit('toggle', !isOpen)"
     >
-      <AppIcon name="bx-layer" size="16" />
+      <AppIcon name="bx-layer" size="14" />
     </button>
 
     <Transition name="prompt-preset-pop">

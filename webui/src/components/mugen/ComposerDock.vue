@@ -79,7 +79,6 @@ const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
 const parameterMenuRef = useTemplateRef<HTMLElement>('parameterMenu')
 const promptInputRef = useTemplateRef<HTMLTextAreaElement>('promptInput')
 const browserUploadInputRef = useTemplateRef<HTMLInputElement>('browserUploadInput')
-const customSizeValue = '__mugen_custom_resolution__'
 let shouldRestorePromptFocus = false
 let promptFocusFrame: number | undefined
 
@@ -158,14 +157,7 @@ const modelOptions = computed<SelectOption[]>(() => {
   ]
 })
 const sizeOptions = computed<SelectOption[]>(() =>
-  [
-    ...props.activeCapability.sizeOptions.map((option) => ({ value: option, label: option })),
-    {
-      icon: 'aspect-ratio-line' as AppIconName,
-      value: customSizeValue,
-      label: '宽高输入'
-    }
-  ]
+  props.activeCapability.sizeOptions.map((option) => ({ value: option, label: option }))
 )
 const showsQualityControl = computed(() => Boolean(activeConfig.value && providerSupportsQuality(activeConfig.value) && props.activeCapability.qualityOptions.length))
 
@@ -271,11 +263,6 @@ function handleModelChange(value: string) {
 
 function handleSizeChange(value: string) {
   openPanel.value = ''
-
-  if (value === customSizeValue) {
-    emit('updateResolutionMode', 'custom')
-    return
-  }
 
   if (props.resolutionMode === 'custom') {
     emit('updateResolutionMode', 'preset')
@@ -639,14 +626,11 @@ watch(
           :config-options="configOptions"
           :count="count"
           :count-options="activeCapability.countOptions"
-          :custom-height="customHeight"
-          :custom-width="customWidth"
           :model-options="modelOptions"
           :quality="quality"
           :quality-options="activeCapability.qualityOptions"
           :ratio="ratio"
           :ratio-options="activeCapability.ratioOptions"
-          :resolution-mode="resolutionMode"
           :shows-quality-control="showsQualityControl"
           :size="size"
           :size-options="sizeOptions"
@@ -654,8 +638,6 @@ watch(
           @select-config="emit('selectConfig', $event)"
           @select-model="handleModelChange"
           @update-count="emit('updateCount', $event)"
-          @update-custom-height="emit('updateCustomHeight', $event)"
-          @update-custom-width="emit('updateCustomWidth', $event)"
           @update-quality="emit('updateQuality', $event)"
           @update-ratio="emit('updateRatio', $event)"
           @update-size="handleSizeChange"

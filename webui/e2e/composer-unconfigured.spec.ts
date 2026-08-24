@@ -13,8 +13,8 @@ test('uses the preset icon and pending configuration summary', async ({ page }, 
   const icon = presetButton.locator('.app-icon')
   const summary = page.locator('.parameter-summary')
 
-  await expect(icon).toHaveCSS('width', '16px')
-  await expect(icon).toHaveCSS('height', '16px')
+  await expect(icon).toHaveCSS('width', '14px')
+  await expect(icon).toHaveCSS('height', '14px')
   await expect(settingsButton).toHaveClass(/parameter-summary/)
   await expect(summary).toHaveText('待配置')
 

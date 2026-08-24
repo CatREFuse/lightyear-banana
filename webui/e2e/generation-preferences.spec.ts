@@ -24,20 +24,18 @@ test('restores the last generation settings after reopening WebUI', async ({ pag
   await menu.getByRole('button', { name: '高', exact: true }).click()
   await menu.locator('[data-route="ratio"]').click()
   await menu.getByRole('radio', { name: /1:1/ }).click()
-  await menu.getByRole('button', { name: '宽高输入', exact: true }).click()
-  await menu.getByRole('spinbutton', { name: '宽' }).fill('2304')
-  await menu.getByRole('spinbutton', { name: '高' }).fill('1536')
+  await expect(menu.getByRole('button', { name: '宽高输入', exact: true })).toHaveCount(0)
 
   await expect.poll(() => page.evaluate(() => {
     const stored = JSON.parse(localStorage.getItem('mugen.generation-preferences.v1') || '{}')
     return stored['e2e-apimart']
   })).toEqual({
     count: 2,
-    customHeight: 1536,
-    customWidth: 2304,
+    customHeight: 2048,
+    customWidth: 2048,
     quality: 'high',
     ratio: '1:1',
-    resolutionMode: 'custom',
+    resolutionMode: 'preset',
     size: '4K'
   })
 
@@ -49,7 +47,8 @@ test('restores the last generation settings after reopening WebUI', async ({ pag
   await expect(menu.locator('.parameter-stepper output')).toHaveText('2')
   await expect(menu.getByRole('button', { name: '高', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(menu.getByRole('button', { name: '比例 1:1', exact: true })).toBeVisible()
-  await expect(menu.getByRole('spinbutton', { name: '宽' })).toHaveValue('2304')
-  await expect(menu.getByRole('spinbutton', { name: '高' })).toHaveValue('1536')
-  await expect(menu.getByRole('slider', { name: '生成分辨率' })).toBeDisabled()
+  await expect(menu.getByRole('spinbutton', { name: '宽' })).toHaveCount(0)
+  await expect(menu.getByRole('spinbutton', { name: '高' })).toHaveCount(0)
+  await expect(menu.getByRole('slider', { name: '生成分辨率' })).toBeEnabled()
+  await expect(menu.getByRole('slider', { name: '生成分辨率' })).toHaveAttribute('aria-valuetext', '4K')
 })
