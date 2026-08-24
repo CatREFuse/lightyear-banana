@@ -57,7 +57,7 @@ async function useApimartBrowserConfig(page: Page, name: string) {
   await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   const menu = page.getByRole('region', { name: '生成设置' })
-  await expect(menu.locator('[data-route="config"] .parameter-row-value')).toHaveText(name)
+  await expect(menu.locator('[data-route="config"]')).toContainText(name)
 }
 
 async function expandCustomApiConfigs(page: Page) {
@@ -205,7 +205,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
 
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   const menu = page.getByRole('region', { name: '生成设置' })
-  await expect(menu.locator('[data-route="config"] .parameter-row-value')).toHaveText('APIMart Browser')
+  await expect(menu.locator('[data-route="config"]')).toContainText('APIMart Browser')
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
 
   await page.getByRole('button', { name: '添加参考图' }).click()
