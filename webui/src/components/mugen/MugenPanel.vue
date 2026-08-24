@@ -114,23 +114,6 @@ let previewRequest = 0
 const photoshopIntegrationAvailable = computed(() => (
   props.photoshopIntegrationAvailable ?? props.runtime !== 'browser'
 ))
-const previewDialogStyle = computed(() => {
-  const image = previewImage.value
-  if (!image) {
-    return {}
-  }
-
-  const width = Math.max(1, Math.round(image.width))
-  const height = Math.max(1, Math.round(image.height))
-  const ratio = width / height
-
-  return {
-    '--preview-aspect': `${width} / ${height}`,
-    '--preview-width': ratio >= 1
-      ? 'min(calc(100vw - 28px), 900px)'
-      : `min(calc(100vw - 28px), calc((100vh - 96px) * ${ratio.toFixed(5)}))`
-  }
-})
 const activeVersion = computed(() => props.version)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
@@ -384,7 +367,7 @@ function handleManageModels() {
 
         <Transition name="preview-fade">
           <section v-if="previewImage" class="preview-window" aria-label="图片预览" @click="closePreview">
-            <div class="preview-dialog" :style="previewDialogStyle" role="dialog" aria-modal="true" @click.stop>
+            <div class="preview-dialog" role="dialog" aria-modal="true" @click.stop>
               <header class="preview-header">
                 <span>{{ previewImage.label }} · {{ previewImage.width }} × {{ previewImage.height }}</span>
                 <div class="preview-actions">
@@ -484,6 +467,8 @@ function handleManageModels() {
   inset: 0;
   z-index: 120;
   display: grid;
+  min-width: 0;
+  min-height: 0;
   place-items: center;
   padding: 14px;
   background: rgba(5, 8, 12, 0.72);
@@ -491,10 +476,11 @@ function handleManageModels() {
 
 .preview-dialog {
   display: grid;
-  grid-template-rows: auto auto;
-  width: var(--preview-width, min(100%, 720px));
-  max-width: calc(100vw - 28px);
-  max-height: calc(100vh - 28px);
+  width: 100%;
+  height: 100%;
+  max-width: 900px;
+  max-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid var(--mugen-border-strong);
   border-radius: 10px;
@@ -548,8 +534,8 @@ function handleManageModels() {
 .preview-media {
   display: grid;
   width: 100%;
-  max-height: calc(100vh - 84px);
-  aspect-ratio: var(--preview-aspect, 1 / 1);
+  min-width: 0;
+  min-height: 0;
   place-items: center;
   overflow: hidden;
   background: var(--mugen-thread-image-bg);

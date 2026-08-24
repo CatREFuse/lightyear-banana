@@ -34,6 +34,27 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 })
 
+test('keeps image previews inside the fixed-width workspace', async ({ page }, testInfo) => {
+  if (testInfo.project.name === 'panel-wide') {
+    await page.getByRole('button', { name: '外观' }).click()
+    await page.getByRole('button', { name: '浅色', exact: true }).click()
+  }
+
+  await page.getByRole('button', { name: '添加参考图' }).click()
+  await page.getByRole('button', { name: '可见图层', exact: true }).click()
+  await page.getByRole('img', { name: '可见图层' }).click()
+
+  const preview = page.getByRole('region', { name: '图片预览' })
+  await expect(preview).toBeVisible()
+  await expect(preview.getByRole('dialog')).toBeVisible()
+  const previewImage = preview.getByRole('img', { name: '可见图层' })
+  await expect(previewImage).toBeVisible()
+  await expect.poll(() => previewImage.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  await expectPopupInsideWorkspace(page, '.preview-dialog')
+  await expect.poll(() => preview.evaluate((element) => getComputedStyle(element).opacity)).toBe('1')
+  await page.screenshot({ path: testInfo.outputPath('image-preview-bounds.png') })
+})
+
 async function expandCustomApiConfigs(page: Page) {
   const toggle = page.getByRole('button', { name: /自定义 API/ })
   if (await toggle.getAttribute('aria-expanded') === 'false') {
