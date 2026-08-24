@@ -24,11 +24,9 @@ const selectedIndex = computed(() => {
 })
 const selectedOption = computed(() => props.options[selectedIndex.value])
 const progress = computed(() => maxIndex.value > 0 ? selectedIndex.value / maxIndex.value : 0)
+const isMaximum = computed(() => maxIndex.value > 0 && selectedIndex.value === maxIndex.value)
 const fillStyle = computed(() => ({
-  width: `calc(${progress.value * 100}% + ${16 * (1 - progress.value)}px)`,
-  backgroundColor: selectedIndex.value === maxIndex.value && maxIndex.value > 0
-    ? 'var(--mugen-slider-max, #a855f7)'
-    : 'var(--mugen-accent, #0ea5e9)'
+  width: `calc(${progress.value * 100}% + ${16 * (1 - progress.value)}px)`
 }))
 const tickStyles = computed(() => props.options.map((_, index) => {
   const tickProgress = maxIndex.value > 0 ? index / maxIndex.value : 0
@@ -46,16 +44,21 @@ function updateValue(event: Event) {
 <template>
   <div
     class="discrete-slider"
-    :class="{ 'is-disabled': disabled || options.length <= 1 }"
+    :class="{ 'is-disabled': disabled || options.length <= 1, 'is-max': isMaximum }"
     :data-value="selectedOption?.value"
   >
-    <span class="discrete-slider-fill" :style="fillStyle">
+    <span class="discrete-slider-fill" :class="{ 'is-max': isMaximum }" :style="fillStyle">
       <span class="discrete-slider-thumb"></span>
     </span>
     <span
       v-for="(option, index) in options"
       :key="option.value"
       class="discrete-slider-tick"
+      :class="{
+        'is-complete': index < selectedIndex,
+        'is-current': index === selectedIndex,
+        'is-pending': index > selectedIndex
+      }"
       :style="tickStyles[index]"
       aria-hidden="true"
     ></span>
@@ -90,17 +93,46 @@ function updateValue(event: Event) {
   top: 0;
   bottom: 0;
   left: 0;
+  overflow: clip;
   border-radius: 8px;
+  background-color: var(--mugen-accent, #0ea5e9);
+  transition:
+    width 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 220ms ease;
+}
+
+.discrete-slider-fill::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  left: -55%;
+  width: 55%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.03) 24%, rgba(255, 255, 255, 0.2) 52%, rgba(255, 255, 255, 0.04) 76%, transparent 100%);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+}
+
+.discrete-slider-fill.is-max {
+  background-color: var(--mugen-slider-max, #a855f7);
+}
+
+.discrete-slider-fill.is-max::before {
+  animation: discrete-slider-charge 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  opacity: 1;
 }
 
 .discrete-slider-thumb {
   position: absolute;
+  z-index: 2;
   top: 7px;
   right: 7px;
   bottom: 7px;
   width: 2px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.95);
+  transition: transform 160ms ease;
 }
 
 .discrete-slider-tick {
@@ -110,8 +142,20 @@ function updateValue(event: Event) {
   width: 4px;
   height: 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--mugen-border-strong, #d4d4d8);
   transform: translateX(-50%);
+  transition:
+    background-color 180ms ease,
+    opacity 120ms ease;
+}
+
+.discrete-slider-tick.is-complete {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.discrete-slider-tick.is-current {
+  visibility: hidden;
+  opacity: 0;
 }
 
 .discrete-slider-input {
@@ -128,9 +172,12 @@ function updateValue(event: Event) {
   cursor: pointer;
 }
 
-.discrete-slider:focus-within {
-  outline: 2px solid var(--mugen-accent, #0ea5e9);
-  outline-offset: 2px;
+.discrete-slider-input:focus {
+  outline: 0;
+}
+
+.discrete-slider:focus-within .discrete-slider-thumb {
+  transform: scaleY(1.16);
 }
 
 .discrete-slider.is-disabled {
@@ -139,5 +186,30 @@ function updateValue(event: Event) {
 
 .discrete-slider.is-disabled .discrete-slider-input {
   cursor: not-allowed;
+}
+
+@keyframes discrete-slider-charge {
+  0% {
+    transform: translateX(0);
+  }
+
+  60%,
+  100% {
+    transform: translateX(282%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discrete-slider-fill,
+  .discrete-slider-thumb,
+  .discrete-slider-tick {
+    transition: none;
+  }
+
+  .discrete-slider-fill.is-max::before {
+    animation: none;
+    opacity: 0.08;
+    transform: translateX(150%);
+  }
 }
 </style>
