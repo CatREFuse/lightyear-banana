@@ -7,8 +7,8 @@ export type TestHostTrace = {
   placements: Array<{ assetId: string; target: unknown; previewUrl: string; layerName: string }>
 }
 
-export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; generatedResultOrientation?: 'landscape' | 'portrait'; generationDelayMs?: number; lowResolutionResultThumbnail?: boolean; thumbnailUnavailable?: boolean } = {}) {
-  await page.addInitScript(({ apimartBaseUrl, apiKey, generatedResultOrientation, generationDelayMs, lowResolutionResultThumbnail, thumbnailUnavailable }) => {
+export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; configured?: boolean; generatedResultOrientation?: 'landscape' | 'portrait'; generationDelayMs?: number; lowResolutionResultThumbnail?: boolean; thumbnailUnavailable?: boolean } = {}) {
+  await page.addInitScript(({ apimartBaseUrl, apiKey, configured, generatedResultOrientation, generationDelayMs, lowResolutionResultThumbnail, thumbnailUnavailable }) => {
     const protocol = 'inner-host/v1'
     const sessionId = 'e2e-session'
     const hostNonce = 'e2e-host-nonce'
@@ -31,9 +31,9 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
       ]
     }
     let settings = {
-      activeConfigId: 'e2e-apimart',
+      activeConfigId: configured ? 'e2e-apimart' : '',
       historyLimit: 30,
-      configs: [{
+      configs: configured ? [{
         id: 'e2e-apimart',
         name: 'APIMart',
         provider: 'apimart',
@@ -42,7 +42,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         baseUrl: apimartBaseUrl,
         enabled: true,
         credentialState: 'stored'
-      }],
+      }] : [],
       promptPresets: []
     }
     const assets = new Map<string, Record<string, any>>()
@@ -316,6 +316,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
   }, {
     apimartBaseUrl: options.apimartBaseUrl ?? 'http://127.0.0.1:38323',
     apiKey: options.apiKey ?? 'mock-apimart-good',
+    configured: options.configured ?? true,
     generatedResultOrientation: options.generatedResultOrientation,
     generationDelayMs: options.generationDelayMs ?? 0,
     lowResolutionResultThumbnail: options.lowResolutionResultThumbnail ?? false,

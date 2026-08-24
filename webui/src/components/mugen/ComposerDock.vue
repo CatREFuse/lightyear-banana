@@ -99,12 +99,18 @@ const referenceBusy = computed(() => props.canvasOperation.type === 'capture')
 const referenceDragActive = shallowRef(false)
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.activeConfigId) ?? props.configs[0])
 const activeModel = computed(() => activeConfig.value?.model ?? '')
-const parameterSummary = computed(() => [
-  activeConfig.value?.name || '配置',
-  activeModel.value || '模型',
-  props.resolutionMode === 'preset' ? props.ratio : `${props.customWidth}×${props.customHeight}`,
-  `${props.count} 张`
-].join(' · '))
+const parameterSummary = computed(() => {
+  if (!props.activeConfigId || activeConfig.value?.id !== props.activeConfigId || !activeModel.value) {
+    return '待配置'
+  }
+
+  return [
+    activeConfig.value.name,
+    activeModel.value,
+    props.resolutionMode === 'preset' ? props.ratio : `${props.customWidth}×${props.customHeight}`,
+    `${props.count} 张`
+  ].join(' · ')
+})
 const configOptions = computed<SelectOption[]>(() =>
   props.configs.map((config) => {
     const status = readModelStatus(config)
@@ -639,7 +645,7 @@ watch(
             :aria-expanded="parameterPanelOpen"
             @click="toggleParameterPanel"
           >
-            <AppIcon name="bx-layer" size="18" />
+            <AppIcon name="bx-layer" size="16" />
           </button>
           <Transition name="parameter-pop">
             <GenerationSettingsMenu
