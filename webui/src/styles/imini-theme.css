@@ -6,8 +6,8 @@
   --mugen-accent-hover: #0284c7;
   --mugen-accent-soft: rgba(14, 165, 233, 0.12);
   --mugen-on-accent: #ffffff;
-  --mugen-success: #16a34a;
-  --mugen-success-bg: rgba(22, 163, 74, 0.1);
+  --mugen-success: #22c55e;
+  --mugen-success-bg: rgba(34, 197, 94, 0.1);
   --mugen-danger: #ef4444;
   --mugen-danger-bg: rgba(239, 68, 68, 0.08);
   --mugen-danger-border: rgba(239, 68, 68, 0.2);
@@ -27,10 +27,10 @@
   --mugen-workspace: #ffffff;
   --mugen-thread-bg: #ffffff;
   --mugen-thread-surface: #ffffff;
-  --mugen-thread-surface-2: #e4e4e7;
+  --mugen-thread-surface-2: #f4f4f5;
   --mugen-thread-card: #ffffff;
   --mugen-thread-card-deep: #ffffff;
-  --mugen-thread-image-bg: #e4e4e7;
+  --mugen-thread-image-bg: #f4f4f5;
   --mugen-composer: #ffffff;
   --mugen-surface: #ffffff;
   --mugen-surface-2: #f4f4f5;
@@ -38,50 +38,50 @@
   --mugen-card: #ffffff;
   --mugen-card-deep: #fafafa;
   --mugen-overlay: #ffffff;
-  --mugen-elevated: #fafafa;
-  --mugen-border: #e4e4e7;
+  --mugen-elevated: #f4f4f5;
+  --mugen-border: rgba(0, 0, 0, 0.1);
   --mugen-border-strong: #d4d4d8;
-  --mugen-hairline: #e4e4e7;
+  --mugen-hairline: rgba(0, 0, 0, 0.1);
   --mugen-line-divider: rgba(0, 0, 0, 0.1);
   --mugen-hover: #f4f4f5;
-  --mugen-text: #27272a;
-  --mugen-secondary: #71717a;
+  --mugen-text: #18181b;
+  --mugen-secondary: #a1a1aa;
   --mugen-muted: #a1a1aa;
-  --mugen-chip: #e4e4e7;
+  --mugen-chip: #f4f4f5;
   --mugen-empty-bg: transparent;
   --mugen-shadow: rgba(24, 24, 27, 0.14);
 }
 
 .mugen-shell.mugen-shell.mugen-shell.theme-dark {
   color-scheme: dark;
-  --mugen-bg: #18181b;
-  --mugen-bg-base: #18181b;
-  --mugen-bg-body: #27272a;
-  --mugen-bg-filter: #3f3f46;
-  --mugen-workspace: #27272a;
-  --mugen-thread-bg: #27272a;
-  --mugen-thread-surface: #27272a;
-  --mugen-thread-surface-2: #3f3f46;
-  --mugen-thread-card: #27272a;
-  --mugen-thread-card-deep: #27272a;
-  --mugen-thread-image-bg: #09090b;
-  --mugen-composer: #27272a;
-  --mugen-surface: #27272a;
-  --mugen-surface-2: #3f3f46;
-  --mugen-field: #3f3f46;
-  --mugen-card: #27272a;
+  --mugen-bg: #27272a;
+  --mugen-bg-base: #27272a;
+  --mugen-bg-body: #3f3f46;
+  --mugen-bg-filter: #52525b;
+  --mugen-workspace: #3f3f46;
+  --mugen-thread-bg: #3f3f46;
+  --mugen-thread-surface: #3f3f46;
+  --mugen-thread-surface-2: #52525b;
+  --mugen-thread-card: #3f3f46;
+  --mugen-thread-card-deep: #3f3f46;
+  --mugen-thread-image-bg: #27272a;
+  --mugen-composer: #3f3f46;
+  --mugen-surface: #3f3f46;
+  --mugen-surface-2: #52525b;
+  --mugen-field: #52525b;
+  --mugen-card: #3f3f46;
   --mugen-card-deep: #18181b;
-  --mugen-overlay: #27272a;
-  --mugen-elevated: #3f3f46;
-  --mugen-border: #3f3f46;
-  --mugen-border-strong: #52525b;
-  --mugen-hairline: #3f3f46;
-  --mugen-line-divider: rgba(255, 255, 255, 0.1);
-  --mugen-hover: #3f3f46;
-  --mugen-text: #fafafa;
-  --mugen-secondary: #d4d4d8;
-  --mugen-muted: #a1a1aa;
-  --mugen-chip: #3f3f46;
+  --mugen-overlay: #3f3f46;
+  --mugen-elevated: #52525b;
+  --mugen-border: rgba(255, 255, 255, 0.2);
+  --mugen-border-strong: #71717a;
+  --mugen-hairline: rgba(255, 255, 255, 0.2);
+  --mugen-line-divider: rgba(255, 255, 255, 0.2);
+  --mugen-hover: #52525b;
+  --mugen-text: #ffffff;
+  --mugen-secondary: rgba(255, 255, 255, 0.5);
+  --mugen-muted: rgba(255, 255, 255, 0.5);
+  --mugen-chip: #52525b;
   --mugen-empty-bg: transparent;
   --mugen-shadow: rgba(0, 0, 0, 0.34);
   --mugen-danger-text: #fca5a5;
@@ -173,6 +173,7 @@
 
 .mugen-shell.mugen-shell .user-message p {
   padding: 8px 12px;
+  border: 0.5px solid var(--mugen-line-divider);
   border-radius: 8px;
   background: var(--mugen-thread-surface-2);
   color: var(--mugen-text);
@@ -389,7 +390,7 @@
   border: 0;
   border-radius: 999px;
   background: var(--mugen-bg-filter);
-  color: var(--mugen-secondary);
+  color: var(--mugen-text);
 }
 
 .mugen-shell.mugen-shell .tool-button:hover,
@@ -478,6 +479,11 @@
   flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.mugen-shell.mugen-shell .parameter-summary-field,
+.mugen-shell.mugen-shell .parameter-summary-chevron {
+  color: var(--mugen-muted);
 }
 
 .mugen-shell.mugen-shell .parameter-summary-field,

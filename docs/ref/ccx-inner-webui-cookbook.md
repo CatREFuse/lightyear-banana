@@ -350,6 +350,8 @@ Figma `2218:3179` 把参数状态条放在输入表面之后，并让 47px 状�
 
 状态条使用固定宽度时不能用不相等的左右 margin 模拟 Figma 坐标，否则 351px 状态条在 380px 输入面上会产生 1.5px 中心线偏移。状态条应由 grid 自身居中，宽屏显式使用 `calc(100% - 29px)`，窄屏使用 `calc(100% - 24px)`；E2E 直接比较两层 `getBoundingClientRect()` 的水平中心线，允许的像素误差不超过 0.5px。
 
+Figma `2075:28404` 已绑定完整的 Light/Dark Semantic Colors，不能只根据浅色截图挑一组近似 Zinc 色。实现时应解析变量别名的最终模式值，并集中映射主题 token：Light 使用 `bg/body #ffffff`、`bg/base/bg/filter #f4f4f5`、`text/main #18181b`、`text/tertiary #a1a1aa`、`line/divider #0000001a`；Dark 使用 `bg/body #3f3f46`、`bg/base #27272a`、`bg/filter #52525b`、`text/main #ffffff`、`text/tertiary #ffffff80`、`line/divider #ffffff33`；accent、success 和 on-accent 两种模式分别固定为 `#0ea5e9`、`#22c55e`、`#ffffff`。组件已有的 main、secondary/muted、surface、field、hover、divider 和 success 引用应统一落到这些 token，用户提示气泡同时使用 filter 背景与 divider hairline。Playwright 需要切换两种主题读取工作区、输入面、状态条、按钮、主文字、三级文字、成功点与边线的最终计算色，并保存双主题截图。
+
 生成设置菜单位于静态 `.parameter-wrap` 内时，绝对定位会以整条 `.composer-footer` 为包含块；若使用 `right: 0`，菜单实际跟随的是右侧发送按钮。菜单应按触发按钮在 footer 中的起点定位，239px 宽度在窄屏不足时按输入面右边界向左收，并保留 8px 纵向间距。双视口 E2E 需同时验证触发按钮与菜单的水平锚点、纵向间距和容器边界。
 
 设置页返回按钮的 `AppIcon size="18"` 会生成 18px SVG，但主题层若再用 `.header-back svg` 强制 24px，会让图标撑满 24px hover 背景。返回按钮保留 24×24px 命中与 hover 盒，SVG 沿用组件声明的 18px；E2E 在 hover 状态分别读取按钮与 SVG 的计算尺寸，避免只校验图标键名。
