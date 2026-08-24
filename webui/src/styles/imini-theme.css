@@ -381,7 +381,6 @@
 
 .mugen-shell.mugen-shell .parameter-summary-anchor {
   position: relative;
-  z-index: 2;
   display: grid;
   width: calc(100% - 29px);
   min-width: 0;

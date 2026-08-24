@@ -79,6 +79,10 @@ test('matches the Figma input surface in light and dark themes', async ({ page }
   expect(layout).toEqual(testInfo.project.name === 'panel-280'
     ? { inputHeight: 138, inputWidth: 264, overlap: 17, statusCenterDelta: 0, statusLeftInset: 12, statusRightInset: 12, statusWidth: 240 }
     : { inputHeight: 138, inputWidth: 460, overlap: 17, statusCenterDelta: 0, statusLeftInset: 15, statusRightInset: 15, statusWidth: 431 })
+  await expect.poll(() => surface.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return document.elementFromPoint(rect.left + rect.width / 2, rect.top + 8)?.closest('.composer-surface') === element
+  })).toBe(true)
   await expect(page.locator('.mugen-shell')).toHaveCSS('width', testInfo.project.name === 'panel-280' ? '280px' : '482px')
 
   await page.getByRole('button', { name: '外观' }).click()
