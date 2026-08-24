@@ -27,7 +27,8 @@ test('controls generation resolution with the Figma discrete slider', async ({ p
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) }
   })).toEqual({ width: 221, height: 26 })
   await expect(menu.locator('.discrete-slider-tick.is-complete')).toHaveCount(1)
-  await expect(menu.locator('.discrete-slider-tick.is-complete')).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.72)')
+  await expect(menu.locator('.discrete-slider-tick.is-complete')).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.9)')
+  await expect(sliderThumb).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await expect(menu.locator('.discrete-slider-tick.is-pending').first()).toHaveCSS('background-color', 'rgb(212, 212, 216)')
   await expect(menu.locator('.discrete-slider-tick.is-current')).toHaveCSS('visibility', 'hidden')
   await expect.poll(async () => menu.evaluate((element) => {

@@ -131,7 +131,7 @@ function updateValue(event: Event) {
   bottom: 7px;
   width: 2px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.95);
+  background: #fff;
   transition: transform 160ms ease;
 }
 
@@ -150,7 +150,7 @@ function updateValue(event: Event) {
 }
 
 .discrete-slider-tick.is-complete {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .discrete-slider-tick.is-current {
