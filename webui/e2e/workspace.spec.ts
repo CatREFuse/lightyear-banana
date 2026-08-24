@@ -54,9 +54,21 @@ async function expectPopupInsideWorkspace(page: Page, selector: string) {
       && popupRect.right <= shellRect.right
       && popupRect.bottom <= shellRect.bottom
     if (inside) return 'inside'
+    const composerRect = popup.closest('.composer')?.getBoundingClientRect()
+    const footerRect = popup.closest('.composer-footer')?.getBoundingClientRect()
+    const wrapperRect = popup.closest('.parameter-wrap')?.getBoundingClientRect()
+    const route = popup.closest('.route-shell')
+    const workspace = popup.closest('.workspace-route')
+    const routeRect = route?.getBoundingClientRect()
+    const workspaceRect = workspace?.getBoundingClientRect()
     return JSON.stringify({
       popup: { left: popupRect.left, top: popupRect.top, right: popupRect.right, bottom: popupRect.bottom },
-      shell: { left: shellRect.left, top: shellRect.top, right: shellRect.right, bottom: shellRect.bottom }
+      shell: { left: shellRect.left, top: shellRect.top, right: shellRect.right, bottom: shellRect.bottom },
+      composer: composerRect && { left: composerRect.left, right: composerRect.right, width: composerRect.width },
+      footer: footerRect && { left: footerRect.left, right: footerRect.right, width: footerRect.width },
+      wrapper: wrapperRect && { left: wrapperRect.left, right: wrapperRect.right, width: wrapperRect.width },
+      route: routeRect && { left: routeRect.left, right: routeRect.right, width: routeRect.width, scrollLeft: route?.scrollLeft },
+      workspace: workspaceRect && { left: workspaceRect.left, right: workspaceRect.right, width: workspaceRect.width, scrollLeft: workspace?.scrollLeft }
     })
   })).toBe('inside')
 }
@@ -347,14 +359,21 @@ test('keeps composer popups inside the fixed-width workspace', async ({ page }, 
   await expect(page.getByRole('img', { name: '可见图层' })).toBeVisible()
   await page.getByRole('button', { name: '添加参考图' }).click()
   await expectPopupInsideWorkspace(page, '.reference-menu')
+  await expect.poll(() => page.locator('.mugen-shell').evaluate((shell) => shell.scrollLeft)).toBe(0)
   await page.screenshot({ path: testInfo.outputPath('reference-popup-in-workspace.png') })
 
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   await expectPopupInsideWorkspace(page, '.parameter-panel')
+  await expect.poll(() => page.locator('.parameter-panel').evaluate((popup) => (
+    Math.round(popup.getBoundingClientRect().width)
+  ))).toBe(239)
 
   await page.locator('.parameter-panel [data-route="config"]').click()
   await expect(page.getByText('选择供应商', { exact: true })).toBeVisible()
   await expectPopupInsideWorkspace(page, '.parameter-panel')
+  await expect.poll(() => page.locator('.parameter-panel').evaluate((popup) => (
+    Math.round(popup.getBoundingClientRect().width)
+  ))).toBe(239)
 
   await page.screenshot({ path: testInfo.outputPath('composer-popups-in-workspace.png') })
 })

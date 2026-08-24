@@ -13,6 +13,7 @@
   --mugen-danger-border: rgba(239, 68, 68, 0.2);
   --mugen-danger-muted: #dc2626;
   --mugen-danger-text: #dc2626;
+  overflow: clip;
   font-family: var(--mugen-font-body);
 }
 
@@ -431,7 +432,7 @@
 }
 
 .mugen-shell.mugen-shell .parameter-wrap {
-  position: relative;
+  position: static;
   display: inline-flex;
 }
 
@@ -450,7 +451,7 @@
 .mugen-shell.mugen-shell .reference-menu {
   right: auto;
   bottom: calc(100% + 8px);
-  left: -32px;
+  left: 0;
   width: 156px;
   padding: 6px;
 }
@@ -467,9 +468,9 @@
 .mugen-shell.mugen-shell .parameter-panel {
   position: absolute;
   z-index: 60;
-  right: auto;
+  right: 0;
   bottom: calc(100% + 8px);
-  left: 0;
+  left: auto;
   display: grid;
   width: min(239px, 100%);
   gap: 8px;

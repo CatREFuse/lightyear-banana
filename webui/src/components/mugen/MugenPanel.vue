@@ -685,7 +685,7 @@ function handleManageModels() {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: clip;
   background: var(--mugen-workspace);
 }
 

@@ -252,7 +252,7 @@ function handleEscape() {
 
 <style scoped>
 .generation-settings-menu {
-  overflow: hidden;
+  overflow: clip;
 }
 
 .parameter-route {
