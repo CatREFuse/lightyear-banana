@@ -4,6 +4,7 @@ import type { ResolutionInputMode } from '@mugen/core'
 import AppIcon from './AppIcon.vue'
 import type { AppIconName } from './appIcons'
 import DiscreteSlider from './DiscreteSlider.vue'
+import GenerationSettingsItem from './GenerationSettingsItem.vue'
 
 type MenuOption = {
   icon?: AppIconName
@@ -252,20 +253,36 @@ function handleEscape() {
       @after-enter="restoreRouteFocus"
     >
       <div v-if="route === 'main'" key="main" class="parameter-route parameter-route-main">
-        <button class="parameter-menu-row" data-route="config" type="button" @click="openRoute('config')">
-          <span class="parameter-row-label"><AppIcon name="hard-drive-3-line" size="16" />供应商</span>
-          <span class="parameter-row-value">{{ activeConfigName }}<AppIcon name="arrow-right-s-line" size="24" /></span>
-        </button>
+        <GenerationSettingsItem
+          class="parameter-menu-row"
+          data-route="config"
+          icon="hard-drive-3-line"
+          title="供应商"
+          :value="activeConfigName"
+          variant="main"
+          @activate="openRoute('config')"
+        />
 
-        <button class="parameter-menu-row" data-route="model" type="button" @click="openRoute('model')">
-          <span class="parameter-row-label"><AppIcon name="shining-line" size="16" />模型</span>
-          <span class="parameter-row-value"><AppIcon name="openai-fill" size="12" />{{ activeModel }}<AppIcon name="arrow-right-s-line" size="24" /></span>
-        </button>
+        <GenerationSettingsItem
+          class="parameter-menu-row"
+          data-route="model"
+          icon="shining-line"
+          title="模型"
+          :value="activeModel"
+          value-icon="openai-fill"
+          variant="main"
+          @activate="openRoute('model')"
+        />
 
-        <button class="parameter-menu-row" data-route="ratio" type="button" @click="openRoute('ratio')">
-          <span class="parameter-row-label"><AppIcon name="aspect-ratio-line" size="16" />比例</span>
-          <span class="parameter-row-value">{{ ratio }}<AppIcon name="arrow-right-s-line" size="24" /></span>
-        </button>
+        <GenerationSettingsItem
+          class="parameter-menu-row"
+          data-route="ratio"
+          icon="aspect-ratio-line"
+          title="比例"
+          :value="ratio"
+          variant="main"
+          @activate="openRoute('ratio')"
+        />
 
         <div class="parameter-menu-row">
           <span class="parameter-row-label"><AppIcon name="hashtag" size="16" />生成数量</span>
@@ -329,24 +346,21 @@ function handleEscape() {
         </button>
         <p class="parameter-submenu-title">{{ routeTitle }}</p>
         <div class="parameter-submenu-options" role="radiogroup" :aria-label="routeTitle">
-          <button
+          <GenerationSettingsItem
             v-for="option in routeOptions"
             :key="option.value"
             class="parameter-submenu-option"
-            type="button"
+            :badge="route === 'ratio' && isRecommendedRatio(option) ? '推荐' : ''"
+            :description="option.meta"
+            :icon="option.icon ?? (route === 'ratio' ? 'bx-fullscreen' : 'shining-line')"
             role="radio"
             :aria-checked="option.value === routeValue"
-            @click="selectOption(option)"
-          >
-            <AppIcon :name="option.icon ?? (route === 'ratio' ? 'bx-fullscreen' : 'shining-line')" size="16" />
-            <span class="parameter-option-copy">
-              <span>{{ option.label }}</span>
-              <small v-if="option.meta">{{ option.meta }}</small>
-            </span>
-            <span v-if="route === 'ratio' && isRecommendedRatio(option)" class="parameter-option-tag">推荐</span>
-            <span v-if="option.status" class="parameter-option-status" :class="`is-${option.statusTone ?? 'muted'}`">{{ option.status }}</span>
-            <AppIcon v-if="option.value === routeValue" class="parameter-option-check" name="checkbox-circle-fill" size="16" />
-          </button>
+            :selected="option.value === routeValue"
+            :status="option.status"
+            :status-tone="option.statusTone"
+            :title="option.label"
+            @activate="selectOption(option)"
+          />
         </div>
       </div>
     </Transition>
@@ -371,7 +385,7 @@ function handleEscape() {
   gap: 12px;
 }
 
-.parameter-menu-row {
+.parameter-menu-row:not(button) {
   display: flex;
   width: 100%;
   min-width: 0;
@@ -388,19 +402,7 @@ function handleEscape() {
   text-align: left;
 }
 
-button.parameter-menu-row {
-  padding-inline: 4px;
-  cursor: pointer;
-}
-
-button.parameter-menu-row:hover,
-button.parameter-menu-row:focus-visible {
-  background: var(--mugen-field);
-  outline: 0;
-}
-
-.parameter-row-label,
-.parameter-row-value {
+.parameter-row-label {
   display: inline-flex;
   min-width: 0;
   align-items: center;
@@ -413,21 +415,6 @@ button.parameter-menu-row:focus-visible {
   color: var(--mugen-muted);
   font-size: 12px;
   line-height: 16px;
-}
-
-.parameter-row-value {
-  justify-content: flex-end;
-  gap: 3px;
-  overflow: hidden;
-  color: var(--mugen-text);
-  font-size: 12px;
-  line-height: 16px;
-  text-overflow: ellipsis;
-}
-
-.parameter-row-value :deep(svg) {
-  flex: 0 0 auto;
-  color: var(--mugen-muted);
 }
 
 .parameter-stepper {
@@ -617,82 +604,6 @@ button.parameter-menu-row:focus-visible {
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
-}
-
-.parameter-submenu-option {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  min-height: 28px;
-  grid-template-columns: 16px minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--mugen-text);
-  text-align: left;
-}
-
-.parameter-submenu-option:hover,
-.parameter-submenu-option:focus-visible {
-  background: var(--mugen-field);
-  outline: 0;
-}
-
-.parameter-option-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.parameter-option-copy > span,
-.parameter-option-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.parameter-option-copy small {
-  color: var(--mugen-muted);
-  font-size: 10px;
-  line-height: 10px;
-}
-
-.parameter-option-tag,
-.parameter-option-status {
-  justify-self: end;
-  padding: 2px 4px;
-  border-radius: 4px;
-  background: var(--mugen-accent-soft);
-  color: var(--mugen-accent);
-  font-size: 10px;
-  line-height: 10px;
-  white-space: nowrap;
-}
-
-.parameter-option-status.is-muted {
-  background: var(--mugen-field);
-  color: var(--mugen-muted);
-}
-
-.parameter-option-status.is-warning {
-  background: var(--mugen-danger-bg);
-  color: var(--mugen-danger-muted);
-}
-
-.parameter-option-status.is-ready {
-  background: var(--mugen-success-bg);
-  color: var(--mugen-success);
-}
-
-.parameter-option-check {
-  justify-self: end;
-  color: var(--mugen-accent);
 }
 
 .parameter-route-forward-enter-active,

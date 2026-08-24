@@ -421,6 +421,7 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   await expect(menu).toBeVisible()
 
   const mainRatioTrigger = menu.getByRole('button', { name: /^比例/ })
+  await expect(mainRatioTrigger).toHaveClass(/generation-settings-item/)
   await mainRatioTrigger.hover()
   await expect(mainRatioTrigger).toHaveCSS('padding-left', '4px')
   await expect(mainRatioTrigger).toHaveCSS('padding-right', '4px')
@@ -435,6 +436,15 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   await expect(menu.getByText('生成图片比例', { exact: true })).toBeVisible()
   await expect(menu.getByRole('button', { name: '返回', exact: true })).toBeVisible()
   await expect(menu.locator('.parameter-submenu-option[aria-checked="true"]')).toHaveCount(1)
+  const recommendedRatioOption = menu.getByRole('radio', { name: /^原图比例/ })
+  await expect(recommendedRatioOption).toHaveClass(/generation-settings-item/)
+  await recommendedRatioOption.hover()
+  await expect(recommendedRatioOption).toHaveCSS('padding-left', '4px')
+  await expect(recommendedRatioOption).toHaveCSS('padding-right', '4px')
+  const recommendedBadge = recommendedRatioOption.locator('.generation-settings-item-badge')
+  await expect(recommendedBadge).toHaveText('推荐')
+  await expect(recommendedBadge.locator('xpath=..')).toHaveClass(/generation-settings-item-title-line/)
+  await expect(recommendedBadge.locator('xpath=preceding-sibling::*[1]')).toHaveClass(/generation-settings-item-title/)
   await expect(menu.locator('.select-menu, .ratio-menu')).toHaveCount(0)
   await expectPopupInsideWorkspace(page, '.parameter-panel')
   const forwardHeightTimeline = await forwardHeightSamples
