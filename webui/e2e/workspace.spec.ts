@@ -110,7 +110,7 @@ function sampleElementHeights(element: Locator) {
   }))
 }
 
-test('CCX bridge completes canvas capture, APIMart generation, context-menu download, and canvas placement', async ({ page }) => {
+test('CCX bridge completes canvas capture, APIMart generation, context-menu download, and canvas placement', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '添加参考图' }).click()
   await page.getByRole('button', { name: '可见图层', exact: true }).click()
   await expect(page.getByRole('img', { name: '可见图层' })).toBeVisible()
@@ -119,6 +119,13 @@ test('CCX bridge completes canvas capture, APIMart generation, context-menu down
   await page.getByRole('button', { name: '发送', exact: true }).click()
   const thumbnail = page.getByRole('img', { name: '生成结果 1' })
   await expect(thumbnail).toBeVisible({ timeout: 10_000 })
+  const resultSummary = page.locator('.response-text').filter({ hasText: /^已生成 1 张/ })
+  await expect(resultSummary).toHaveText('已生成 1 张 · gpt-image-1 · 1K · 自动 · 640x480')
+  await expect(resultSummary).not.toHaveText(/·\s*$/)
+  await expect.poll(() => resultSummary.evaluate((element) => (
+    getComputedStyle(element.closest('.turn')!).opacity
+  ))).toBe('1')
+  await page.screenshot({ path: testInfo.outputPath('result-summary-parameters.png') })
   await thumbnail.click()
   const previewRegion = page.getByRole('region', { name: '图片预览' })
   await expect(previewRegion).toBeHidden()

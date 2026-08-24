@@ -84,9 +84,6 @@ function handleResultImageLoad(event: Event, image: GeneratedImage) {
     ...renderedImageRatios.value,
     [image.id]: `${width} / ${height}`
   }
-  image.width = width
-  image.height = height
-  image.sourceBounds = { left: 0, top: 0, right: width, bottom: height }
 }
 
 function closePlacementMenu() {
@@ -296,11 +293,25 @@ function readTurnModel(turn: ChatTurn) {
 
 function readResponseText(turn: ChatTurn) {
   const model = readTurnModel(turn)
-  if (!model || turn.responseText.includes(model)) {
-    return turn.responseText
+  let responseText = turn.responseText
+  if (model && !responseText.includes(model)) {
+    responseText = responseText.replace(/^(已生成\s+\d+\s+张)(\s*·\s*)?/, `$1 · ${model} · `)
   }
 
-  return turn.responseText.replace(/^(已生成\s+\d+\s+张)(\s*·\s*)?/, `$1 · ${model} · `)
+  responseText = responseText.replace(/\s*·\s*$/, '')
+  const result = turn.results.find((image) => image.width > 0 && image.height > 0)
+  if (!result) {
+    return responseText
+  }
+
+  const width = Math.round(result.width)
+  const height = Math.round(result.height)
+  const dimensionPattern = new RegExp(`${width}\\s*[x×]\\s*${height}`, 'i')
+  if (dimensionPattern.test(responseText)) {
+    return responseText
+  }
+
+  return `${responseText} · ${width}x${height}`
 }
 
 function hasRequestLogs(source: RequestLogOwner) {
