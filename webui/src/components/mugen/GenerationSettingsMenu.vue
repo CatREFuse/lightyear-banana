@@ -223,7 +223,6 @@ function handleEscape() {
   <section ref="menu" class="parameter-panel generation-settings-menu" aria-label="生成设置" @click.stop @keydown.esc.stop="handleEscape">
     <Transition
       :name="`parameter-route-${routeDirection}`"
-      mode="out-in"
       @before-leave="captureRouteHeight"
       @enter="animateRouteHeight"
       @after-enter="restoreRouteFocus"
@@ -339,6 +338,7 @@ function handleEscape() {
   display: flex;
   width: 100%;
   min-width: 0;
+  grid-area: 1 / 1;
   align-self: start;
   flex-direction: column;
 }

@@ -95,13 +95,13 @@ async function expectPopupInsideWorkspace(page: Page, selector: string) {
 }
 
 function sampleElementHeights(element: Locator) {
-  return element.evaluate((target) => new Promise<number[]>((resolve) => {
-    const heights: number[] = []
+  return element.evaluate((target) => new Promise<Array<{ elapsed: number; height: number }>>((resolve) => {
+    const samples: Array<{ elapsed: number; height: number }> = []
     const startedAt = performance.now()
     const sample = (now: number) => {
-      heights.push(target.getBoundingClientRect().height)
+      samples.push({ elapsed: now - startedAt, height: target.getBoundingClientRect().height })
       if (now - startedAt >= 480) {
-        resolve(heights)
+        resolve(samples)
         return
       }
       requestAnimationFrame(sample)
@@ -437,12 +437,14 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   await expect(menu.locator('.parameter-submenu-option[aria-checked="true"]')).toHaveCount(1)
   await expect(menu.locator('.select-menu, .ratio-menu')).toHaveCount(0)
   await expectPopupInsideWorkspace(page, '.parameter-panel')
-  const sampledHeights = await forwardHeightSamples
+  const forwardHeightTimeline = await forwardHeightSamples
+  const sampledHeights = forwardHeightTimeline.map((sample) => sample.height)
   const heightFloor = Math.min(sampledHeights[0] ?? 0, sampledHeights.at(-1) ?? 0)
   const heightCeiling = Math.max(sampledHeights[0] ?? 0, sampledHeights.at(-1) ?? 0)
   expect(Math.min(...sampledHeights)).toBeGreaterThanOrEqual(heightFloor - 1)
   expect(Math.max(...sampledHeights)).toBeLessThanOrEqual(heightCeiling + 1)
   expect(sampledHeights.some((height) => height > heightFloor + 1 && height < heightCeiling - 1)).toBe(true)
+  expect(forwardHeightTimeline.find((sample) => Math.abs(sample.height - (sampledHeights[0] ?? 0)) > 1)?.elapsed).toBeLessThan(80)
   await page.screenshot({ path: testInfo.outputPath('parameter-menu-ratio-route.png') })
 
   const ratioOption = menu.getByRole('radio', { name: /^4:3/ })
@@ -456,7 +458,8 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   const ratioTrigger = menu.getByRole('button', { name: /^比例 4:3/ })
   await expect(ratioTrigger).toBeVisible()
   await expect(ratioTrigger).toBeFocused()
-  const sampledBackwardHeights = await backwardHeightSamples
+  const backwardHeightTimeline = await backwardHeightSamples
+  const sampledBackwardHeights = backwardHeightTimeline.map((sample) => sample.height)
   const backwardHeightFloor = Math.min(sampledBackwardHeights[0] ?? 0, sampledBackwardHeights.at(-1) ?? 0)
   const backwardHeightCeiling = Math.max(sampledBackwardHeights[0] ?? 0, sampledBackwardHeights.at(-1) ?? 0)
   expect(Math.min(...sampledBackwardHeights)).toBeGreaterThanOrEqual(backwardHeightFloor - 1)
@@ -464,6 +467,9 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   expect(sampledBackwardHeights.some((height) => (
     height > backwardHeightFloor + 1 && height < backwardHeightCeiling - 1
   ))).toBe(true)
+  expect(backwardHeightTimeline.find((sample) => (
+    Math.abs(sample.height - (sampledBackwardHeights[0] ?? 0)) > 1
+  ))?.elapsed).toBeLessThan(80)
 
   await menu.getByRole('button', { name: /^模型/ }).click()
   await expect(menu.getByText('选择模型', { exact: true })).toBeVisible()
