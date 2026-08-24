@@ -99,17 +99,30 @@ const referenceBusy = computed(() => props.canvasOperation.type === 'capture')
 const referenceDragActive = shallowRef(false)
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.activeConfigId) ?? props.configs[0])
 const activeModel = computed(() => activeConfig.value?.model ?? '')
-const parameterSummary = computed(() => {
+const configuredParameterSummary = computed(() => {
   if (!props.activeConfigId || activeConfig.value?.id !== props.activeConfigId || !activeModel.value) {
-    return '待配置'
+    return undefined
   }
 
-  return [
-    activeConfig.value.name,
-    activeModel.value,
-    props.resolutionMode === 'preset' ? props.ratio : `${props.customWidth}×${props.customHeight}`,
-    `${props.count} 张`
-  ].join(' · ')
+  const normalizedQuality = props.quality.toLowerCase()
+  const qualityLabels: Record<string, string> = {
+    auto: '自动',
+    hd: '高',
+    high: '高',
+    low: '低',
+    medium: '中',
+    standard: '中'
+  }
+
+  return {
+    modelIcon: /(?:^|\/)(?:gpt|dall-e)|openai/i.test(activeModel.value) ? 'openai-fill' as AppIconName : 'shining-line' as AppIconName,
+    model: activeModel.value.split('/').at(-1) || activeModel.value,
+    provider: activeConfig.value.provider === 'iMini' ? 'iMini' : props.activeCapability.name,
+    resolution: props.resolutionMode === 'preset' ? props.size : `${props.customWidth}×${props.customHeight}`,
+    quality: props.quality ? qualityLabels[normalizedQuality] ?? props.quality : '',
+    ratio: props.ratio,
+    count: `${props.count}张`
+  }
 })
 const configOptions = computed<SelectOption[]>(() =>
   props.configs.map((config) => {
@@ -682,7 +695,18 @@ watch(
       </div>
 
       <button class="parameter-summary" type="button" title="生成设置" @click="toggleParameterPanel">
-        {{ parameterSummary }}
+        <template v-if="configuredParameterSummary">
+          <AppIcon class="parameter-summary-icon" :name="configuredParameterSummary.modelIcon" size="16" />
+          <span class="parameter-summary-model">{{ configuredParameterSummary.model }}</span>
+          <span class="parameter-summary-divider">/</span>
+          <span class="parameter-summary-field">{{ configuredParameterSummary.provider }}</span>
+          <span class="parameter-summary-field">{{ configuredParameterSummary.resolution }}</span>
+          <span v-if="configuredParameterSummary.quality" class="parameter-summary-field">{{ configuredParameterSummary.quality }}</span>
+          <span class="parameter-summary-field">{{ configuredParameterSummary.ratio }}</span>
+          <span class="parameter-summary-field">{{ configuredParameterSummary.count }}</span>
+          <AppIcon class="parameter-summary-chevron" name="arrow-down-s-line" size="16" />
+        </template>
+        <span v-else>待配置</span>
       </button>
       <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" aria-label="发送" @click="requestSend">
         <AppIcon name="arrow-up-line" size="17" />

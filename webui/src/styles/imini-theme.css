@@ -392,17 +392,40 @@
 }
 
 .mugen-shell.mugen-shell .parameter-summary {
+  display: inline-flex;
   min-width: 0;
   min-height: 28px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
   overflow: hidden;
   padding: 0 4px;
   border: 0;
   background: transparent;
   color: var(--mugen-muted);
-  font-size: 10px;
-  text-align: right;
-  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
   white-space: nowrap;
+}
+
+.mugen-shell.mugen-shell .parameter-summary-icon,
+.mugen-shell.mugen-shell .parameter-summary-divider,
+.mugen-shell.mugen-shell .parameter-summary-model {
+  color: var(--mugen-text);
+}
+
+.mugen-shell.mugen-shell .parameter-summary-model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mugen-shell.mugen-shell .parameter-summary-field,
+.mugen-shell.mugen-shell .parameter-summary-divider,
+.mugen-shell.mugen-shell .parameter-summary-icon,
+.mugen-shell.mugen-shell .parameter-summary-chevron {
+  flex: 0 0 auto;
 }
 
 .mugen-shell.mugen-shell .parameter-summary:hover {
@@ -751,7 +774,7 @@
   transform: translateY(8px) scale(0.98);
 }
 
-@media (max-width: 300px) {
+@media (max-width: 400px) {
   .mugen-shell.mugen-shell .thread { padding-inline: 12px; }
   .mugen-shell.mugen-shell .composer { margin-inline: 8px; padding-inline: 12px; }
   .mugen-shell.mugen-shell .parameter-summary { display: none; }
