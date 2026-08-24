@@ -94,6 +94,24 @@ async function expectPopupInsideWorkspace(page: Page, selector: string) {
   })).toBe('inside')
 }
 
+async function expectPopupAnchoredToTrigger(page: Page, popupSelector: string, trigger: Locator) {
+  await expect.poll(async () => {
+    const triggerRect = await trigger.boundingBox()
+    return page.locator(popupSelector).evaluate((popup, triggerBox) => {
+      if (!triggerBox) return 'missing-trigger'
+      const surface = popup.closest('.composer-surface')
+      if (!surface) return 'missing-surface'
+      const popupRect = popup.getBoundingClientRect()
+      const surfaceRect = surface.getBoundingClientRect()
+      const expectedLeft = Math.max(surfaceRect.left, Math.min(triggerBox.x, surfaceRect.right - popupRect.width))
+      return JSON.stringify({
+        horizontalDelta: Math.round((popupRect.left - expectedLeft) * 10) / 10,
+        verticalGap: Math.round((triggerBox.y - popupRect.bottom) * 10) / 10
+      })
+    }, triggerRect)
+  }).toBe(JSON.stringify({ horizontalDelta: 0, verticalGap: 8 }))
+}
+
 function sampleElementHeights(element: Locator) {
   return element.evaluate((target) => new Promise<Array<{ elapsed: number; height: number }>>((resolve) => {
     const samples: Array<{ elapsed: number; height: number }> = []
@@ -419,8 +437,10 @@ test('keeps composer popups inside the fixed-width workspace', async ({ page }, 
   await expect.poll(() => page.locator('.mugen-shell').evaluate((shell) => shell.scrollLeft)).toBe(0)
   await page.screenshot({ path: testInfo.outputPath('reference-popup-in-workspace.png') })
 
-  await page.getByRole('button', { name: '生成设置', exact: true }).click()
+  const parameterTrigger = page.getByRole('button', { name: '生成设置', exact: true })
+  await parameterTrigger.click()
   await expectPopupInsideWorkspace(page, '.parameter-panel')
+  await expectPopupAnchoredToTrigger(page, '.parameter-panel', parameterTrigger)
   await expect.poll(() => page.locator('.parameter-panel').evaluate((popup) => (
     Math.round(popup.getBoundingClientRect().width)
   ))).toBe(239)

@@ -555,9 +555,9 @@
 .mugen-shell.mugen-shell .parameter-panel {
   position: absolute;
   z-index: 60;
-  right: 0;
+  right: auto;
   bottom: calc(100% + 8px);
-  left: auto;
+  left: min(32px, calc(100% - 239px + 13px));
   display: grid;
   width: min(239px, calc(100% + 1px));
   gap: 8px;
