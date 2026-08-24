@@ -356,7 +356,7 @@ Provider、模型、凭据和配置启用状态属于配置数据，浏览器模
 
 Figma `2075:28404` 已绑定完整的 Light/Dark Semantic Colors，不能只根据浅色截图挑一组近似 Zinc 色。实现时应解析变量别名的最终模式值，并集中映射主题 token：Light 使用 `bg/body #ffffff`、`bg/base/bg/filter #f4f4f5`、`text/main #18181b`、`text/tertiary #a1a1aa`、`line/divider #0000001a`；Dark 使用 `bg/body #3f3f46`、`bg/base #27272a`、`bg/filter #52525b`、`text/main #ffffff`、`text/tertiary #ffffff80`、`line/divider #ffffff33`；accent、success 和 on-accent 两种模式分别固定为 `#0ea5e9`、`#22c55e`、`#ffffff`。组件已有的 main、secondary/muted、surface、field、hover、divider 和 success 引用应统一落到这些 token，用户提示气泡同时使用 filter 背景与 divider hairline。Playwright 需要切换两种主题读取工作区、输入面、状态条、按钮、主文字、三级文字、成功点与边线的最终计算色，并保存双主题截图。
 
-生成设置菜单位于静态 `.parameter-wrap` 内时，绝对定位会以整条 `.composer-footer` 为包含块；若使用 `right: 0`，菜单实际跟随的是右侧发送按钮。菜单应按触发按钮在 footer 中的起点定位，239px 宽度在窄屏不足时按输入面右边界向左收，并保留 8px 纵向间距。双视口 E2E 需同时验证触发按钮与菜单的水平锚点、纵向间距和容器边界。
+生成设置的真实触发控件是参数状态条，因此弹窗必须成为状态条定位包装层的子元素，按状态条右边缘向上展开并保留 8px 纵向间距。把弹窗留在 footer 或层叠图标包装层中，即使通过固定偏移看起来接近触发控件，状态条随断点改变宽度后仍会产生明显错位。左下角层叠图标只负责预设提示词，并把预设菜单放进自身的相对定位根节点，确保菜单跟随按钮移动。双视口 E2E 需分别点击参数状态条和层叠图标，验证两个弹窗的水平锚点、8px 纵向间距、互斥状态和工作区边界。
 
 设置页返回按钮的 `AppIcon size="18"` 会生成 18px SVG，但主题层若再用 `.header-back svg` 强制 24px，会让图标撑满 24px hover 背景。返回按钮保留 24×24px 命中与 hover 盒，SVG 沿用组件声明的 18px；E2E 在 hover 状态分别读取按钮与 SVG 的计算尺寸，避免只校验图标键名。
 

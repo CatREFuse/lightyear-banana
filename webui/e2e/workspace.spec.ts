@@ -99,13 +99,14 @@ async function expectPopupAnchoredToTrigger(page: Page, popupSelector: string, t
     const triggerRect = await trigger.boundingBox()
     return page.locator(popupSelector).evaluate((popup, triggerBox) => {
       if (!triggerBox) return 'missing-trigger'
-      const surface = popup.closest('.composer-surface')
+      const surface = popup.closest('.composer')?.querySelector('.composer-surface')
       if (!surface) return 'missing-surface'
       const popupRect = popup.getBoundingClientRect()
       const surfaceRect = surface.getBoundingClientRect()
-      const expectedLeft = Math.max(surfaceRect.left, Math.min(triggerBox.x, surfaceRect.right - popupRect.width))
+      const triggerRight = triggerBox.x + triggerBox.width
+      const expectedRight = Math.min(surfaceRect.right, Math.max(triggerRight, surfaceRect.left + popupRect.width))
       return JSON.stringify({
-        horizontalDelta: Math.round((popupRect.left - expectedLeft) * 10) / 10,
+        horizontalDelta: Math.round((popupRect.right - expectedRight) * 10) / 10,
         verticalGap: Math.round((triggerBox.y - popupRect.bottom) * 10) / 10
       })
     }, triggerRect)
@@ -436,6 +437,16 @@ test('keeps composer popups inside the fixed-width workspace', async ({ page }, 
   await expectPopupInsideWorkspace(page, '.reference-menu')
   await expect.poll(() => page.locator('.mugen-shell').evaluate((shell) => shell.scrollLeft)).toBe(0)
   await page.screenshot({ path: testInfo.outputPath('reference-popup-in-workspace.png') })
+
+  const presetTrigger = page.getByRole('button', { name: '预设提示词', exact: true })
+  await presetTrigger.click()
+  await expect(page.getByRole('listbox', { name: '预设提示词' })).toBeVisible()
+  await expect(page.locator('.reference-menu')).toBeHidden()
+  await expectPopupInsideWorkspace(page, '.prompt-preset-menu')
+  await expect(page.locator('.parameter-panel')).toHaveCount(0)
+  await page.screenshot({ path: testInfo.outputPath('preset-popup-in-workspace.png') })
+  await presetTrigger.click()
+  await expect(page.getByRole('listbox', { name: '预设提示词' })).toBeHidden()
 
   const parameterTrigger = page.getByRole('button', { name: '生成设置', exact: true })
   await parameterTrigger.click()

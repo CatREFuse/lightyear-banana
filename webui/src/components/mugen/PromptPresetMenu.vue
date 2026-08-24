@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
 import { filterPromptPresets } from '../../utils/promptPresets'
+import AppIcon from './AppIcon.vue'
 
 type PromptPreset = {
   id: string
@@ -13,10 +14,12 @@ const props = withDefaults(
   defineProps<{
     disabled?: boolean
     input: string
+    open?: boolean
     presets: readonly PromptPreset[]
   }>(),
   {
-    disabled: false
+    disabled: false,
+    open: false
   }
 )
 
@@ -24,6 +27,7 @@ const emit = defineEmits<{
   close: []
   open: []
   select: [preset: PromptPreset]
+  toggle: [open: boolean]
 }>()
 
 const rootRef = useTemplateRef<HTMLElement>('root')
@@ -32,7 +36,7 @@ const dismissedInput = shallowRef<string | null>(null)
 const isSingleSlashInput = computed(() => /^\/[^\s/]*$/u.test(props.input))
 const matches = computed(() => filterPromptPresets(props.presets, props.input))
 const isOpen = computed(
-  () => !props.disabled && isSingleSlashInput.value && dismissedInput.value !== props.input
+  () => !props.disabled && (props.open || (isSingleSlashInput.value && dismissedInput.value !== props.input))
 )
 const activeOptionId = computed(() =>
   matches.value[activeIndex.value] ? `prompt-preset-option-${activeIndex.value}` : ''
@@ -44,6 +48,7 @@ function closeMenu() {
   }
 
   dismissedInput.value = props.input
+  emit('close')
 }
 
 function selectPreset(preset: PromptPreset) {
@@ -131,55 +136,87 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    v-if="isOpen"
-    ref="root"
-    class="prompt-preset-menu"
-    role="listbox"
-    aria-label="预设提示词"
-    :aria-activedescendant="activeOptionId || undefined"
-  >
-    <header>
-      <span>预设提示词</span>
-      <small>↑↓ 选择 · Enter 使用 · Esc 关闭</small>
-    </header>
+  <div ref="root" class="prompt-preset-root">
+    <button
+      class="tool-button"
+      type="button"
+      aria-label="预设提示词"
+      :aria-expanded="isOpen"
+      :disabled="disabled"
+      @click="emit('toggle', !isOpen)"
+    >
+      <AppIcon name="bx-layer" size="16" />
+    </button>
 
-    <div v-if="matches.length" class="preset-options">
-      <button
-        v-for="(preset, index) in matches"
-        :id="`prompt-preset-option-${index}`"
-        :key="preset.id"
-        type="button"
-        role="option"
-        tabindex="-1"
-        :aria-selected="index === activeIndex"
-        :class="{ active: index === activeIndex }"
-        @mouseenter="activeIndex = index"
-        @pointerdown.prevent
-        @click="selectPreset(preset)"
+    <Transition name="prompt-preset-pop">
+      <div
+        v-if="isOpen"
+        class="prompt-preset-menu"
+        role="listbox"
+        aria-label="预设提示词"
+        :aria-activedescendant="activeOptionId || undefined"
       >
-        <span class="preset-command">/{{ preset.name }}</span>
-        <span class="preset-content">{{ preset.content }}</span>
-      </button>
-    </div>
+        <header>
+          <span>预设提示词</span>
+          <small>↑↓ 选择 · Enter 使用 · Esc 关闭</small>
+        </header>
 
-    <p v-else class="empty-state">[无匹配]</p>
+        <div v-if="matches.length" class="preset-options">
+          <button
+            v-for="(preset, index) in matches"
+            :id="`prompt-preset-option-${index}`"
+            :key="preset.id"
+            type="button"
+            role="option"
+            tabindex="-1"
+            :aria-selected="index === activeIndex"
+            :class="{ active: index === activeIndex }"
+            @mouseenter="activeIndex = index"
+            @pointerdown.prevent
+            @click="selectPreset(preset)"
+          >
+            <span class="preset-command">/{{ preset.name }}</span>
+            <span class="preset-content">{{ preset.content }}</span>
+          </button>
+        </div>
+
+        <p v-else class="empty-state">[无匹配]</p>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
+.prompt-preset-root {
+  position: relative;
+  display: inline-flex;
+}
+
 .prompt-preset-menu {
   position: absolute;
   z-index: 36;
-  right: 0;
+  right: auto;
   bottom: calc(100% + 8px);
-  left: 0;
+  left: -32px;
+  width: 239px;
   overflow: hidden;
   border: 1px solid var(--mugen-border-strong, #333333);
   border-radius: 4px;
   background: var(--mugen-overlay, #111111);
   color: var(--mugen-text, #e8e8e8);
   font-family: var(--mugen-font-body, "Space Grotesk", system-ui, sans-serif);
+}
+
+.prompt-preset-pop-enter-active,
+.prompt-preset-pop-leave-active {
+  transition: opacity 130ms ease, transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: bottom left;
+}
+
+.prompt-preset-pop-enter-from,
+.prompt-preset-pop-leave-to {
+  opacity: 0;
+  transform: translateY(5px) scale(0.98);
 }
 
 header {

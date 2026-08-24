@@ -72,6 +72,7 @@ const emit = defineEmits<{
 
 const openPanel = shallowRef('')
 const parameterPanelOpen = shallowRef(false)
+const presetPanelOpen = shallowRef(false)
 const expandedPresetContent = shallowRef<string | null>(null)
 const referenceImportError = shallowRef('')
 const referenceMenuRef = useTemplateRef<HTMLElement>('referenceMenu')
@@ -190,7 +191,10 @@ function handleBrowserUploadChange(event: Event) {
 }
 
 function togglePanel(panel: string) {
-  if (panel === 'reference') parameterPanelOpen.value = false
+  if (panel === 'reference') {
+    parameterPanelOpen.value = false
+    presetPanelOpen.value = false
+  }
   const nextPanel = openPanel.value === panel ? '' : panel
   openPanel.value = nextPanel
   emit('menuOpen', nextPanel ? `composer:${nextPanel}` : '')
@@ -198,8 +202,28 @@ function togglePanel(panel: string) {
 
 function toggleParameterPanel() {
   parameterPanelOpen.value = !parameterPanelOpen.value
+  presetPanelOpen.value = false
   openPanel.value = ''
   emit('menuOpen', parameterPanelOpen.value ? 'composer:parameters' : '')
+}
+
+function togglePresetPanel(open: boolean) {
+  presetPanelOpen.value = open
+  parameterPanelOpen.value = false
+  openPanel.value = ''
+  emit('menuOpen', presetPanelOpen.value ? 'composer:preset' : '')
+}
+
+function closePresetPanel() {
+  if (!presetPanelOpen.value) return
+  presetPanelOpen.value = false
+  emit('menuOpen', '')
+}
+
+function handlePromptPresetOpen() {
+  parameterPanelOpen.value = false
+  openPanel.value = ''
+  emit('menuOpen', 'composer:preset')
 }
 
 function closeParameterPanel() {
@@ -261,6 +285,7 @@ function handleSizeChange(value: string) {
 
 function applyPromptPreset(preset: PromptPreset) {
   openPanel.value = ''
+  presetPanelOpen.value = false
   expandedPresetContent.value = preset.content
   emit('menuOpen', '')
   emit('updatePrompt', preset.content)
@@ -275,6 +300,7 @@ function handlePromptFocus() {
   shouldRestorePromptFocus = true
   closePanel()
   parameterPanelOpen.value = false
+  presetPanelOpen.value = false
 }
 
 function handlePromptBlur(event: FocusEvent) {
@@ -543,6 +569,7 @@ watch(
 
     openPanel.value = ''
     parameterPanelOpen.value = false
+    presetPanelOpen.value = false
   }
 )
 
@@ -577,24 +604,64 @@ watch(
       hidden
       @change="handleBrowserUploadChange"
     />
-    <button class="composer-status parameter-summary" type="button" title="生成设置" @click="toggleParameterPanel">
-      <template v-if="configuredParameterSummary">
-        <span class="parameter-provider">
-          <span class="parameter-provider-dot" aria-hidden="true"></span>
-          <span>{{ configuredParameterSummary.provider }}</span>
-        </span>
-        <span class="parameter-summary-spacer" aria-hidden="true"></span>
-        <AppIcon class="parameter-summary-icon" :name="configuredParameterSummary.modelIcon" size="12" />
-        <span class="parameter-summary-model">{{ configuredParameterSummary.model }}</span>
-        <span class="parameter-summary-divider">/</span>
-        <span class="parameter-summary-field">{{ configuredParameterSummary.resolution }}</span>
-        <span v-if="configuredParameterSummary.quality" class="parameter-summary-field">{{ configuredParameterSummary.quality }}</span>
-        <span class="parameter-summary-field">{{ configuredParameterSummary.ratio }}</span>
-        <span class="parameter-summary-field">{{ configuredParameterSummary.count }}</span>
-        <AppIcon class="parameter-summary-chevron" name="arrow-down-s-line" size="12" />
-      </template>
-      <span v-else class="parameter-summary-pending">待配置</span>
-    </button>
+    <div ref="parameterMenu" class="parameter-summary-anchor">
+      <button
+        class="composer-status parameter-summary"
+        type="button"
+        aria-label="生成设置"
+        :aria-expanded="parameterPanelOpen"
+        @click="toggleParameterPanel"
+      >
+        <template v-if="configuredParameterSummary">
+          <span class="parameter-provider">
+            <span class="parameter-provider-dot" aria-hidden="true"></span>
+            <span>{{ configuredParameterSummary.provider }}</span>
+          </span>
+          <span class="parameter-summary-spacer" aria-hidden="true"></span>
+          <AppIcon class="parameter-summary-icon" :name="configuredParameterSummary.modelIcon" size="12" />
+          <span class="parameter-summary-model">{{ configuredParameterSummary.model }}</span>
+          <span class="parameter-summary-divider">/</span>
+          <span class="parameter-summary-field">{{ configuredParameterSummary.resolution }}</span>
+          <span v-if="configuredParameterSummary.quality" class="parameter-summary-field">{{ configuredParameterSummary.quality }}</span>
+          <span class="parameter-summary-field">{{ configuredParameterSummary.ratio }}</span>
+          <span class="parameter-summary-field">{{ configuredParameterSummary.count }}</span>
+          <AppIcon class="parameter-summary-chevron" name="arrow-down-s-line" size="12" />
+        </template>
+        <span v-else class="parameter-summary-pending">待配置</span>
+      </button>
+
+      <Transition name="parameter-pop">
+        <GenerationSettingsMenu
+          v-if="parameterPanelOpen"
+          :active-config-id="activeConfigId"
+          :active-config-name="activeConfig?.name || '配置'"
+          :active-model="activeModel"
+          :config-options="configOptions"
+          :count="count"
+          :count-options="activeCapability.countOptions"
+          :custom-height="customHeight"
+          :custom-width="customWidth"
+          :model-options="modelOptions"
+          :quality="quality"
+          :quality-options="activeCapability.qualityOptions"
+          :ratio="ratio"
+          :ratio-options="activeCapability.ratioOptions"
+          :resolution-mode="resolutionMode"
+          :shows-quality-control="showsQualityControl"
+          :size="size"
+          :size-options="sizeOptions"
+          @close="closeParameterPanel"
+          @select-config="emit('selectConfig', $event)"
+          @select-model="handleModelChange"
+          @update-count="emit('updateCount', $event)"
+          @update-custom-height="emit('updateCustomHeight', $event)"
+          @update-custom-width="emit('updateCustomWidth', $event)"
+          @update-quality="emit('updateQuality', $event)"
+          @update-ratio="emit('updateRatio', $event)"
+          @update-size="handleSizeChange"
+        />
+      </Transition>
+    </div>
 
     <div class="composer-surface">
       <p v-if="referenceImportError" class="reference-import-error" role="alert">{{ referenceImportError }}</p>
@@ -619,14 +686,6 @@ watch(
       <div v-if="referenceDragActive" class="reference-drop-hint">松开添加参考图</div>
 
       <div class="prompt-shell">
-        <PromptPresetMenu
-          :disabled="busy"
-          :input="prompt"
-          :presets="promptPresets"
-          @close="emit('menuOpen', '')"
-          @open="emit('menuOpen', 'composer:preset')"
-          @select="applyPromptPreset"
-        />
         <textarea
           ref="promptInput"
           class="prompt-input"
@@ -670,48 +729,16 @@ watch(
             </Transition>
           </div>
 
-          <div ref="parameterMenu" class="parameter-wrap">
-            <button
-              class="tool-button"
-              type="button"
-              aria-label="生成设置"
-              :aria-expanded="parameterPanelOpen"
-              @click="toggleParameterPanel"
-            >
-              <AppIcon name="bx-layer" size="16" />
-            </button>
-            <Transition name="parameter-pop">
-              <GenerationSettingsMenu
-                v-if="parameterPanelOpen"
-                :active-config-id="activeConfigId"
-                :active-config-name="activeConfig?.name || '配置'"
-                :active-model="activeModel"
-                :config-options="configOptions"
-                :count="count"
-                :count-options="activeCapability.countOptions"
-                :custom-height="customHeight"
-                :custom-width="customWidth"
-                :model-options="modelOptions"
-                :quality="quality"
-                :quality-options="activeCapability.qualityOptions"
-                :ratio="ratio"
-                :ratio-options="activeCapability.ratioOptions"
-                :resolution-mode="resolutionMode"
-                :shows-quality-control="showsQualityControl"
-                :size="size"
-                :size-options="sizeOptions"
-                @close="closeParameterPanel"
-                @select-config="emit('selectConfig', $event)"
-                @select-model="handleModelChange"
-                @update-count="emit('updateCount', $event)"
-                @update-custom-height="emit('updateCustomHeight', $event)"
-                @update-custom-width="emit('updateCustomWidth', $event)"
-                @update-quality="emit('updateQuality', $event)"
-                @update-ratio="emit('updateRatio', $event)"
-                @update-size="handleSizeChange"
-              />
-            </Transition>
-          </div>
+          <PromptPresetMenu
+            :disabled="busy"
+            :input="prompt"
+            :open="presetPanelOpen"
+            :presets="promptPresets"
+            @close="closePresetPanel"
+            @open="handlePromptPresetOpen"
+            @select="applyPromptPreset"
+            @toggle="togglePresetPanel"
+          />
         </div>
 
         <button class="send-button" :class="{ 'is-sending': busy }" type="button" :disabled="busy || !canSend" aria-label="发送" @click="requestSend">
