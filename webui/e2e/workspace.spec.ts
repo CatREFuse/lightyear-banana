@@ -442,11 +442,17 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   const heightCeiling = Math.max(sampledHeights[0] ?? 0, sampledHeights.at(-1) ?? 0)
   expect(Math.min(...sampledHeights)).toBeGreaterThanOrEqual(heightFloor - 1)
   expect(Math.max(...sampledHeights)).toBeLessThanOrEqual(heightCeiling + 1)
+  expect(sampledHeights.some((height) => height > heightFloor + 1 && height < heightCeiling - 1)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath('parameter-menu-ratio-route.png') })
 
   const ratioOption = menu.getByRole('radio', { name: /^4:3/ })
   const backwardHeightSamples = sampleElementHeights(menu)
   await ratioOption.click()
+  await expect.poll(() => menu.evaluate((element) => element.getAnimations().some((animation) => (
+    animation.effect instanceof KeyframeEffect
+      && animation.effect.getKeyframes().some((keyframe) => typeof keyframe.height === 'string')
+  ))), { intervals: [16], timeout: 1_000 }).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('parameter-menu-height-decrease.png') })
   const ratioTrigger = menu.getByRole('button', { name: /^比例 4:3/ })
   await expect(ratioTrigger).toBeVisible()
   await expect(ratioTrigger).toBeFocused()
@@ -455,6 +461,9 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   const backwardHeightCeiling = Math.max(sampledBackwardHeights[0] ?? 0, sampledBackwardHeights.at(-1) ?? 0)
   expect(Math.min(...sampledBackwardHeights)).toBeGreaterThanOrEqual(backwardHeightFloor - 1)
   expect(Math.max(...sampledBackwardHeights)).toBeLessThanOrEqual(backwardHeightCeiling + 1)
+  expect(sampledBackwardHeights.some((height) => (
+    height > backwardHeightFloor + 1 && height < backwardHeightCeiling - 1
+  ))).toBe(true)
 
   await menu.getByRole('button', { name: /^模型/ }).click()
   await expect(menu.getByText('选择模型', { exact: true })).toBeVisible()

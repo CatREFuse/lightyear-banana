@@ -339,6 +339,7 @@ function handleEscape() {
   display: flex;
   width: 100%;
   min-width: 0;
+  align-self: start;
   flex-direction: column;
 }
 
