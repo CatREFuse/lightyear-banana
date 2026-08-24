@@ -14,6 +14,7 @@
   --mugen-danger-muted: #dc2626;
   --mugen-danger-text: #dc2626;
   overflow: clip;
+  background: var(--mugen-workspace);
   font-family: var(--mugen-font-body);
 }
 
@@ -21,10 +22,10 @@
   color-scheme: light;
   --mugen-bg: #f4f4f5;
   --mugen-bg-base: #f4f4f5;
-  --mugen-bg-body: #f4f4f5;
-  --mugen-bg-filter: #e4e4e7;
-  --mugen-workspace: #f4f4f5;
-  --mugen-thread-bg: #f4f4f5;
+  --mugen-bg-body: #ffffff;
+  --mugen-bg-filter: #f4f4f5;
+  --mugen-workspace: #ffffff;
+  --mugen-thread-bg: #ffffff;
   --mugen-thread-surface: #ffffff;
   --mugen-thread-surface-2: #e4e4e7;
   --mugen-thread-card: #ffffff;
@@ -55,10 +56,10 @@
   color-scheme: dark;
   --mugen-bg: #18181b;
   --mugen-bg-base: #18181b;
-  --mugen-bg-body: #18181b;
+  --mugen-bg-body: #27272a;
   --mugen-bg-filter: #3f3f46;
-  --mugen-workspace: #18181b;
-  --mugen-thread-bg: #18181b;
+  --mugen-workspace: #27272a;
+  --mugen-thread-bg: #27272a;
   --mugen-thread-surface: #27272a;
   --mugen-thread-surface-2: #3f3f46;
   --mugen-thread-card: #27272a;
@@ -314,7 +315,7 @@
   padding: 12px 16px;
   border: 0.5px solid var(--mugen-line-divider);
   border-radius: 16px;
-  background: var(--mugen-bg-body);
+  background: var(--mugen-composer);
   box-shadow: none;
 }
 
