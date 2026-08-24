@@ -81,7 +81,14 @@ test('matches the Figma input surface in light and dark themes', async ({ page }
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
   await expect(page.locator('.settings-panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
-  await page.getByRole('button', { name: '返回' }).click()
+  const settingsBackButton = page.getByRole('button', { name: '返回' })
+  await settingsBackButton.hover()
+  await expect(settingsBackButton).toHaveCSS('width', '24px')
+  await expect(settingsBackButton).toHaveCSS('height', '24px')
+  await expect(settingsBackButton.locator('svg')).toHaveCSS('width', '18px')
+  await expect(settingsBackButton.locator('svg')).toHaveCSS('height', '18px')
+  await page.screenshot({ path: testInfo.outputPath('settings-back-hover.png') })
+  await settingsBackButton.click()
 
   await page.getByRole('button', { name: '外观' }).click()
   await page.getByRole('button', { name: '深色', exact: true }).click()

@@ -122,11 +122,6 @@
   min-height: 24px;
 }
 
-.mugen-shell.mugen-shell .panel-header.is-settings .header-back svg {
-  width: 24px;
-  height: 24px;
-}
-
 .mugen-shell.mugen-shell .thread {
   gap: 16px;
   padding: 12px 16px 8px;
