@@ -523,7 +523,7 @@ onUnmounted(() => {
 .imini-quick-body {
   display: grid;
   gap: 4px;
-  width: min(100%, 304px);
+  width: 100%;
   min-width: 0;
 }
 

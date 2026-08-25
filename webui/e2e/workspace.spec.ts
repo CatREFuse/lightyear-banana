@@ -245,6 +245,23 @@ test('matches the Figma history stepper and saves the Host retention limit', asy
     const form = element.querySelector<HTMLElement>('.imini-quick-form')!
     return Math.round(form.getBoundingClientRect().top - heading.getBoundingClientRect().bottom)
   })).toBe(4)
+  await expect.poll(() => page.locator('.imini-quick-card').evaluate((element) => {
+    const body = element.querySelector<HTMLElement>('.imini-quick-body')!
+    const form = element.querySelector<HTMLElement>('.imini-quick-form')!
+    const input = form.querySelector<HTMLInputElement>('input')!
+    const icon = element.querySelector<HTMLElement>('.imini-quick-icon')!
+    const cardBounds = element.getBoundingClientRect()
+    const bodyBounds = body.getBoundingClientRect()
+    const formBounds = form.getBoundingClientRect()
+    const inputBounds = input.getBoundingClientRect()
+    const iconBounds = icon.getBoundingClientRect()
+    return {
+      bodyRightGap: Math.round(cardBounds.right - bodyBounds.right),
+      bodyWidthDelta: Math.round(bodyBounds.width - (cardBounds.width - iconBounds.width - 12)),
+      formWidthDelta: Math.round(formBounds.width - bodyBounds.width),
+      inputWidthDelta: Math.round(inputBounds.width - formBounds.width)
+    }
+  })).toEqual({ bodyRightGap: 0, bodyWidthDelta: 0, formWidthDelta: 0, inputWidthDelta: 0 })
 
   const stepper = page.getByRole('group', { name: '生成记录保存条数' })
   await expect(page.getByText('超过设定上限的生成记录会被删除')).toBeVisible()
