@@ -512,7 +512,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
   align-items: start;
-  gap: 4px;
+  gap: 12px;
   min-width: 0;
 }
 
