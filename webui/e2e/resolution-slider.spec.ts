@@ -22,10 +22,19 @@ test('controls generation resolution with the Figma discrete slider', async ({ p
   await expect(slider).toHaveAttribute('step', '1')
   await expect(slider).toHaveValue('1')
   await expect(slider).toHaveAttribute('aria-valuetext', '1K')
-  await expect.poll(async () => sliderTrack.evaluate((element) => {
+  const responsiveGeometry = await sliderTrack.evaluate((element) => {
     const bounds = element.getBoundingClientRect()
-    return { width: Math.round(bounds.width), height: Math.round(bounds.height) }
-  })).toEqual({ width: 221, height: 26 })
+    const container = element.closest('.parameter-resolution-block')?.getBoundingClientRect()
+    return {
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+      containerWidth: Math.round(container?.width ?? 0)
+    }
+  })
+  expect(responsiveGeometry.height).toBe(26)
+  expect(responsiveGeometry.width).toBe(responsiveGeometry.containerWidth)
+  if (testInfo.project.name === 'panel-wide') expect(responsiveGeometry.width).toBeGreaterThan(221)
+  else expect(responsiveGeometry.width).toBeLessThan(221)
   await expect(menu.locator('.discrete-slider-tick.is-complete')).toHaveCount(1)
   await expect(menu.locator('.discrete-slider-tick.is-complete')).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.9)')
   await expect(sliderThumb).toHaveCSS('background-color', 'rgb(255, 255, 255)')
@@ -48,7 +57,11 @@ test('controls generation resolution with the Figma discrete slider', async ({ p
   await expect(slider).toHaveAttribute('aria-valuetext', '4K')
   await expect(menu.locator('.parameter-resolution-value')).toHaveText('4K')
   await expect.poll(() => sliderFill.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(168, 85, 247)')
-  await expect.poll(async () => sliderFill.evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(221)
+  await expect.poll(async () => sliderTrack.evaluate((element) => {
+    const trackWidth = element.getBoundingClientRect().width
+    const fillWidth = element.querySelector<HTMLElement>('.discrete-slider-fill')?.getBoundingClientRect().width ?? 0
+    return Math.abs(trackWidth - fillWidth)
+  })).toBeLessThanOrEqual(0.5)
   await expect(menu.locator('.discrete-slider-tick.is-complete')).toHaveCount(3)
   await expect(menu.locator('.discrete-slider-tick.is-pending')).toHaveCount(0)
   await expect.poll(() => sliderFill.evaluate((element) => {
@@ -79,7 +92,11 @@ test('controls generation resolution with the Figma discrete slider', async ({ p
   await expect(menu.getByRole('spinbutton', { name: '高' })).toHaveCount(0)
   await expect(slider).toBeEnabled()
   await expect(menu.locator('.parameter-resolution-value')).toHaveText('4K')
-  await expect.poll(async () => sliderFill.evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(221)
+  await expect.poll(async () => sliderTrack.evaluate((element) => {
+    const trackWidth = element.getBoundingClientRect().width
+    const fillWidth = element.querySelector<HTMLElement>('.discrete-slider-fill')?.getBoundingClientRect().width ?? 0
+    return Math.abs(trackWidth - fillWidth)
+  })).toBeLessThanOrEqual(0.5)
 
   await slider.evaluate((element) => (element as HTMLInputElement).blur())
   await page.screenshot({ path: testInfo.outputPath('figma-resolution-slider-max.png') })

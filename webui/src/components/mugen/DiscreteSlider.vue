@@ -80,7 +80,8 @@ function updateValue(event: Event) {
 <style scoped>
 .discrete-slider {
   position: relative;
-  width: 221px;
+  width: 100%;
+  min-width: 0;
   height: 26px;
   overflow: clip;
   border-radius: 8px;
