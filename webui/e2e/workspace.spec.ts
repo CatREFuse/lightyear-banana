@@ -139,6 +139,24 @@ test('CCX bridge completes canvas capture, APIMart generation, context-menu down
   const resultSummary = page.locator('.response-text').filter({ hasText: /^已生成 1 张/ })
   await expect(resultSummary).toHaveText('已生成 1 张 · gpt-image-1 · 1K · 自动 · 640x480')
   await expect(resultSummary).not.toHaveText(/·\s*$/)
+  const completedTurn = resultSummary.locator('..')
+  const elapsedTrigger = completedTurn.locator('.elapsed-trigger')
+  await expect(elapsedTrigger.locator('.app-icon')).toHaveCount(1)
+  await expect.poll(() => elapsedTrigger.evaluate((element) => {
+    const icon = element.querySelector<HTMLElement>('.app-icon')!.getBoundingClientRect()
+    const label = element.querySelector<HTMLElement>('span:last-child')!.getBoundingClientRect()
+    return {
+      iconHeight: Math.round(icon.height),
+      iconWidth: Math.round(icon.width),
+      centerOffset: Math.round(((icon.top + icon.height / 2) - (label.top + label.height / 2)) * 10) / 10,
+      gap: Math.round((label.left - icon.right) * 10) / 10
+    }
+  })).toEqual({ iconHeight: 12, iconWidth: 12, centerOffset: 0, gap: 4 })
+  await expect.poll(() => completedTurn.evaluate((element) => {
+    const results = element.querySelector<HTMLElement>('.result-grid')!.getBoundingClientRect()
+    const actions = element.querySelector<HTMLElement>('.response-actions')!.getBoundingClientRect()
+    return actions.top >= results.bottom
+  })).toBe(true)
   await expect.poll(() => resultSummary.evaluate((element) => (
     getComputedStyle(element.closest('.turn')!).opacity
   ))).toBe('1')

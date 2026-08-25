@@ -538,18 +538,11 @@ watch(
                 title="查看请求日志"
                 @click.stop="handleLogTriggerClick(turn.id)"
               >
-                {{ turn.elapsedLabel }}
+                <AppIcon name="timer-2-line" size="12" />
+                <span>{{ turn.elapsedLabel }}</span>
               </button>
             </div>
             <p class="response-text">{{ readResponseText(turn) }}</p>
-            <div v-if="turn.repeatRequest && turn.results.length" class="response-actions">
-              <button class="append-button" type="button" @click="emit('edit', turn.id)">
-                修改请求
-              </button>
-              <button v-if="turn.results.length" class="append-button" type="button" @click="emit('append', turn.id)">
-                追加
-              </button>
-            </div>
           </template>
           <section
             v-if="turn.tone !== 'canceled' && visibleRequestLogs[turn.id]"
@@ -662,6 +655,14 @@ watch(
                 </button>
               </div>
             </article>
+          </div>
+          <div v-if="turn.tone !== 'error' && turn.repeatRequest && turn.results.length" class="response-actions">
+            <button class="append-button" type="button" @click="emit('edit', turn.id)">
+              修改请求
+            </button>
+            <button class="append-button" type="button" @click="emit('append', turn.id)">
+              追加
+            </button>
           </div>
         </section>
       </article>
@@ -998,6 +999,9 @@ watch(
 }
 
 .elapsed-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   min-height: 22px;
   padding: 0 6px;
   border: 1px solid transparent;

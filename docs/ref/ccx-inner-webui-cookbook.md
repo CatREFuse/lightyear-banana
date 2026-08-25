@@ -158,7 +158,7 @@ UXP DOM 的 `<img>` 对 File Entry URL 和 Blob URL 的解码在部分 Photoshop
 
 - 缩略图失败时显示明确异常状态，不返回装饰性占位图。
 - 生成结果缩略图不绑定左键预览；横向及方形结果高度最多 160px，竖向结果宽度最多 160px。
-- 生成完成摘要不能只复用请求快照的 `summary`，因为 CCX 快照通常只保存 `1K` 等请求档位，实际输出宽高位于 `HostAssetRef.width/height`。消息组件应从生成资产追加 `宽x高`，对已有尺寸做去重，并在拼接前清除空字段留下的末尾分隔符。图片元素的 `naturalWidth/naturalHeight` 只用于缩略图画幅与清晰度判断，不得回写 `GeneratedImage.width/height` 或 `sourceBounds`，否则低清预览会把原图元数据错误改成缩略图尺寸。E2E 应生成一张带明确 Host 宽高的图片，断言摘要完整显示请求档位与实际尺寸，且不以 `·` 结尾。
+- 生成完成摘要不能只复用请求快照的 `summary`，因为 CCX 快照通常只保存 `1K` 等请求档位，实际输出宽高位于 `HostAssetRef.width/height`。消息组件应从生成资产追加 `宽x高`，对已有尺寸做去重，并在拼接前清除空字段留下的末尾分隔符。图片元素的 `naturalWidth/naturalHeight` 只用于缩略图画幅与清晰度判断，不得回写 `GeneratedImage.width/height` 或 `sourceBounds`，否则低清预览会把原图元数据错误改成缩略图尺寸。完成态按 Figma `2077:29040` 在耗时文字前放置 12px `timer-2-line`，图文间距 4px、垂直中心对齐；修改请求与追加继续复用原 turn 事件，但要排在结果图片区之后，不能插入摘要与图片之间。E2E 应生成一张带明确 Host 宽高的图片，断言摘要完整显示请求档位与实际尺寸且不以 `·` 结尾，同时测量耗时图标尺寸、图文间距和结果操作顺序。
 - 原图仍可用时，结果菜单下载、置入和 Provider 上传继续使用原始资产。
 - 下载由 Host 的文件保存器完成，WebView 不使用会触发退出的临时 Blob 链接。
 - 历史记录只保存资产指针和必要元数据，不把大 data URL 写进对话 JSON。

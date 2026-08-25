@@ -33,6 +33,7 @@ import {
   RiSparkling2Line,
   RiSunLine,
   RiTextBlock,
+  RiTimer2Line,
   RiUploadLine,
   RiZoomInLine
 } from '@remixicon/vue'
@@ -81,6 +82,7 @@ export const appIcons = {
   'sparkling-2-line': { component: RiSparkling2Line, library: 'remix' },
   'sun-line': { component: RiSunLine, library: 'remix' },
   'text-block': { component: RiTextBlock, library: 'remix' },
+  'timer-2-line': { component: RiTimer2Line, library: 'remix' },
   'upload-line': { component: RiUploadLine, library: 'remix' },
   'zoom-in-line': { component: RiZoomInLine, library: 'remix' }
 } as const satisfies Record<string, AppIconDefinition>
