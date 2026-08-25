@@ -9,8 +9,12 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: '浅色', exact: true }).click()
 })
 
-test('aligns setting icons and routes the preset page in the correct direction', async ({ page }, testInfo) => {
+test('aligns setting icons and keeps every settings route on bg-base', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expect(page.locator('.panel-header.is-settings')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(page.locator('.route-shell.is-settings-active')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(page.locator('.settings-panel')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(page.locator('.settings-page')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
 
   for (const [label, row] of [
     ['常用提示词', page.getByRole('button', { name: /^常用提示词/ })],
@@ -64,6 +68,7 @@ test('aligns setting icons and routes the preset page in the correct direction',
   ))).toBe(true)
 
   const presetPage = page.locator('.prompt-preset-settings')
+  await expect(page.locator('.settings-page')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
   await expect(presetPage.getByText('[PRESETS]', { exact: true })).toHaveCount(0)
   await expect(presetPage.getByText('已有 0 个', { exact: true })).toBeVisible()
   await expect.poll(() => presetPage.locator('.preset-empty-state').evaluate((element) => {
@@ -93,4 +98,11 @@ test('aligns setting icons and routes the preset page in the correct direction',
     (window as Window & { __settingsMotion?: string[] }).__settingsMotion
       ?.some((className) => className.includes('settings-back-enter-active')) ?? false
   ))).toBe(true)
+
+  await page.getByRole('button', { name: /^自定义 API/ }).click()
+  await expect(page.getByRole('heading', { name: '自定义 API' })).toBeVisible()
+  await expect(page.locator('.settings-page')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await page.getByRole('button', { name: '添加', exact: true }).click()
+  await expect(page.getByLabel('配置详情')).toBeVisible()
+  await expect(page.locator('.settings-page')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
 })

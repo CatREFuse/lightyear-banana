@@ -277,7 +277,7 @@ onUnmounted(() => {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  background: var(--mugen-workspace);
+  background: var(--mugen-bg-base);
 }
 
 .settings-page {
@@ -290,6 +290,7 @@ onUnmounted(() => {
   width: min(100%, 402px);
   margin: 0 auto;
   padding: 12px;
+  background: var(--mugen-bg-base);
   box-sizing: border-box;
 }
 

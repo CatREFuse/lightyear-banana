@@ -105,7 +105,10 @@ test('matches the Figma input surface in light and dark themes', async ({ page }
   await page.screenshot({ path: testInfo.outputPath('composer-figma-light.png') })
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await expect(page.locator('.settings-panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(page.locator('.panel-header.is-settings')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(page.locator('.route-shell.is-settings-active')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(page.locator('.settings-panel')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
+  await expect(page.locator('.settings-page')).toHaveCSS('background-color', 'rgb(244, 244, 245)')
   const settingsBackButton = page.getByRole('button', { name: '返回' })
   await settingsBackButton.hover()
   await expect(settingsBackButton).toHaveCSS('width', '24px')
@@ -134,5 +137,8 @@ test('matches the Figma input surface in light and dark themes', async ({ page }
   await page.screenshot({ path: testInfo.outputPath('composer-figma-dark.png') })
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await expect(page.locator('.settings-panel')).toHaveCSS('background-color', 'rgb(63, 63, 70)')
+  await expect(page.locator('.panel-header.is-settings')).toHaveCSS('background-color', 'rgb(39, 39, 42)')
+  await expect(page.locator('.route-shell.is-settings-active')).toHaveCSS('background-color', 'rgb(39, 39, 42)')
+  await expect(page.locator('.settings-panel')).toHaveCSS('background-color', 'rgb(39, 39, 42)')
+  await expect(page.locator('.settings-page')).toHaveCSS('background-color', 'rgb(39, 39, 42)')
 })

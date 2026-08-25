@@ -108,6 +108,13 @@
   width: min(100%, var(--mugen-shell-max-width));
   margin-inline: auto;
   box-sizing: border-box;
+  background: var(--mugen-bg-base);
+}
+
+.mugen-shell.mugen-shell .route-shell.is-settings-active,
+.mugen-shell.mugen-shell .settings-panel,
+.mugen-shell.mugen-shell .settings-page {
+  background: var(--mugen-bg-base);
 }
 
 .mugen-shell.mugen-shell .panel-header.is-settings h1 {
