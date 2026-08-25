@@ -7,7 +7,7 @@ CCX 的运维执行步骤、密码登录时的临时公钥流程和公网验收�
 ## 发行范围
 
 - WebUI：`https://imini-test.catrefuse.com/`
-- CCX：`https://imini-test.catrefuse.com/download/mugen-<version>-<build>.ccx`
+- CCX：`https://imini-test.catrefuse.com/download/imini-ps-<version>-<build>.ccx`
 - 官网：`https://imini-test.catrefuse.com/`
 
 WebUI 与 CCX 独立构建，CCX 固定加载云端 WebUI。一次同时包含 WebUI 和 CCX 改动的发行必须完成两条部署链，并由官网快照分发本次版本化 CCX。
@@ -48,7 +48,7 @@ TMPDIR=/private/tmp npm run package:ccx
 核对以下内容：
 
 - `plug-in/manifest.json`、`plug-in/package.json`、`dist/ccx-host/manifest.json`、`dist/ccx-host/ccx-build.json` 和 `dist/ccx-release.json` 的版本与 build 号一致。
-- `dist/mugen-<version>-<build>.ccx` 与 `.sha256` 一致。
+- `dist/imini-ps-<version>-<build>.ccx` 与 `.sha256` 一致。
 - `dist/ccx-release.json` 为 `dirty: false`，`sourceCommit` 指向本次 CCX 代码提交。
 - 归档只包含 CCX Host 资源，不包含 `webui/` 静态文件。
 
@@ -67,7 +67,7 @@ TMPDIR=/private/tmp npm run build:site
 npm run deploy:site -- --dry-run
 ```
 
-`dist/site/download/mugen-<version>.ccx` 的字节、大小和 SHA256 必须与根目录 CCX 产物一致；`site-release.json` 必须绑定当前干净提交。
+`dist/site/download/imini-ps-<version>-<build>.ccx` 的字节、大小和 SHA256 必须与根目录 CCX 产物一致；`site-release.json` 必须绑定当前干净提交。
 
 ## 4. 官网与 CCX 正式发布
 
@@ -81,8 +81,8 @@ npm run deploy:site
 
 ```bash
 npm run verify:inner-webui:public
-curl -fsSL https://imini-test.catrefuse.com/download/mugen-<version>-<build>.ccx --output /private/tmp/mugen-<version>-<build>.ccx
-shasum -a 256 /private/tmp/mugen-<version>-<build>.ccx
+curl -fsSL https://imini-test.catrefuse.com/download/imini-ps-<version>-<build>.ccx --output /private/tmp/imini-ps-<version>-<build>.ccx
+shasum -a 256 /private/tmp/imini-ps-<version>-<build>.ccx
 ```
 
 最终证据必须同时包含：

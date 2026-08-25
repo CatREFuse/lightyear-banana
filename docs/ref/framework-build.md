@@ -94,7 +94,7 @@ UDT 产物具有以下可校验特征：
 - `manifest.json` 排在首项，并移除末尾的单个 LF 或 CRLF，与 UDT 的 Manifest 行为一致；发布校验只对这一处换行差异做归一化，其他文件仍逐字节匹配 `dist/ccx-host/`。
 - 文件使用 Deflate、ZIP 数据描述符、Unix create-system 元数据和 `0644` 权限，避免 Windows 通用压缩器产生的权限与条目标记差异。
 - 归档文件集必须与已验证的 `dist/ccx-host/` 完全一致，不能包含额外父目录、源码映射、开发入口或临时文件。
-- `plug-in/scripts/package-ccx.mjs` 从不可变 staging 快照生成 `dist/mugen-<version>.ccx`，随后逐文件回读归档并生成 `.sha256` 与 `dist/ccx-release.json`。
+- `plug-in/scripts/package-ccx.mjs` 从不可变 staging 快照生成 `dist/imini-ps-<version>-<build>.ccx`，随后逐文件回读归档并生成 `.sha256` 与 `dist/ccx-release.json`。
 - 正式打包要求干净工作树。CCX 发布元数据和归档内容绑定同一个 CCX Host Git HEAD，不绑定 WebUI 部署提交。
 
 Windows 操作顺序：
@@ -104,7 +104,7 @@ npm run verify:ccx
 npm run package:ccx:local
 ```
 
-可将同一 `dist/ccx-host/manifest.json` 交给 UDT `Package` 生成对照包，比较条目和 ZIP 元数据，但正式产物无需依赖 UDT 图形操作。最终分发验收仍使用资源管理器双击 `dist/mugen-<version>.ccx`，确认 Creative Cloud 显示第三方插件提示、安装完成并能在 Photoshop 中打开。命令行 `/install` 只用于诊断，不能作为分发验收结果。
+可将同一 `dist/ccx-host/manifest.json` 交给 UDT `Package` 生成对照包，比较条目和 ZIP 元数据，但正式产物无需依赖 UDT 图形操作。最终分发验收仍使用资源管理器双击 `dist/imini-ps-<version>-<build>.ccx`，确认 Creative Cloud 显示第三方插件提示、安装完成并能在 Photoshop 中打开。命令行 `/install` 只用于诊断，不能作为分发验收结果。
 
 ## UI 写法
 

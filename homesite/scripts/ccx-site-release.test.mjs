@@ -22,7 +22,7 @@ function fixture(t) {
   const contents = Buffer.from('verified bundled WebUI CCX')
   const sha256 = createHash('sha256').update(contents).digest('hex')
   const buildNumber = '2608140002'
-  const filename = `mugen-1.0.0-${buildNumber}.ccx`
+  const filename = `imini-ps-1.0.0-${buildNumber}.ccx`
   const origin = '__MUGEN_RELEASE_ORIGIN__'
   const publishedAt = '2026-08-11T00:00:00.000Z'
 
@@ -56,12 +56,12 @@ test('verifies a CCX-only website against the independent plugin version', async
 
   assert.equal(bundle.version, '1.0.0')
   assert.equal(bundle.ccxMetadataPath, path.join(root, 'dist/ccx-release.json'))
-  assert.equal(bundle.ccxMetadata.filename, 'mugen-1.0.0-2608140002.ccx')
+  assert.equal(bundle.ccxMetadata.filename, 'imini-ps-1.0.0-2608140002.ccx')
   assert.equal(bundle.releaseId, '1.0.0+2608140002')
   assert.equal('uxpMetadata' in bundle, false)
   assert.equal('uxpMetadataPath' in bundle, false)
   assert.deepEqual(Object.keys(bundle.artifacts), ['ccx'])
-  assert.equal(verified.download.url, 'https://mugen.catrefuse.com/download/mugen-1.0.0-2608140002.ccx')
+  assert.equal(verified.download.url, 'https://mugen.catrefuse.com/download/imini-ps-1.0.0-2608140002.ccx')
 })
 
 test('rejects dirty CCX provenance and legacy release download links', async (t) => {
@@ -72,14 +72,14 @@ test('rejects dirty CCX provenance and legacy release download links', async (t)
   await assert.rejects(verifyCcxRelease({ root }), /dirty/)
 
   json(root, 'dist/ccx-release.json', metadata)
-  write(root, 'homesite/site/index.html', '<a data-download="ccx" href="https://mugen.catrefuse.com/releases/1.0.0/mugen-1.0.0-2608140002.ccx"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>1.0.0</span> · Build <span data-ccx-build>2608140002</span></p>')
+  write(root, 'homesite/site/index.html', '<a data-download="ccx" href="https://mugen.catrefuse.com/releases/1.0.0/imini-ps-1.0.0-2608140002.ccx"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>1.0.0</span> · Build <span data-ccx-build>2608140002</span></p>')
   const bundle = await verifyCcxRelease({ root })
   await assert.rejects(verifySiteMetadata({ root, bundle }), /CCX href/)
 })
 
 test('rejects a homepage that still links to the previous CCX version', async (t) => {
   const { root } = fixture(t)
-  write(root, 'homesite/site/index.html', '<a data-download="ccx" href="__MUGEN_RELEASE_ORIGIN__/download/mugen-0.9.9-2608140002.ccx"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>0.9.9</span> · Build <span data-ccx-build>2608140002</span></p>')
+  write(root, 'homesite/site/index.html', '<a data-download="ccx" href="__MUGEN_RELEASE_ORIGIN__/download/imini-ps-0.9.9-2608140002.ccx"><span>Download CCX</span></a><a data-open-webui href="./webui/"><span>Open WebUI</span></a><p>Specimen <span data-ccx-version>0.9.9</span> · Build <span data-ccx-build>2608140002</span></p>')
 
   const bundle = await verifyCcxRelease({ root })
   await assert.rejects(verifySiteMetadata({ root, bundle }), /CCX href/)

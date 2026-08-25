@@ -116,7 +116,7 @@ export async function verifyCcxRelease({ root = rootFromScript } = {}) {
   requireEqual(ccxMetadata.schemaVersion, 2, "ccx-release.json schemaVersion")
   requireEqual(ccxMetadata.ccxVersion, ccxVersion, "ccx-release.json ccxVersion")
   requireEqual(ccxMetadata.buildNumber, buildNumber, "ccx-release.json buildNumber")
-  requireEqual(ccxMetadata.filename, `mugen-${ccxVersion}-${buildNumber}.ccx`, "ccx-release.json filename")
+  requireEqual(ccxMetadata.filename, `imini-ps-${ccxVersion}-${buildNumber}.ccx`, "ccx-release.json filename")
   requireEqual(ccxMetadata.dirty, false, "ccx-release.json dirty")
   if (typeof ccxMetadata.sourceCommit !== "string" || !/^[a-fA-F0-9]{40}$/.test(ccxMetadata.sourceCommit)) {
     fail("ccx-release.json sourceCommit must contain 40 hexadecimal characters")
