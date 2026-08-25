@@ -37,6 +37,7 @@ export type MugenController = {
   closeSettingsDetail: () => ControllerResult
   closeSettings: () => ControllerResult
   connectionStatus: ReadonlyState<string>
+  copyGenerationPrompt: (turnId: string) => ControllerResult
   configs: ReadonlyState<ModelConfig[]>
   count: Ref<number>
   createConfig: () => ControllerResult

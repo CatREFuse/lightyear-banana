@@ -206,8 +206,8 @@
 
 .mugen-shell.mugen-shell .response-text {
   color: var(--mugen-secondary);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .mugen-shell.mugen-shell .result-grid {
@@ -226,11 +226,12 @@
   overflow: visible;
   border: 0;
   background: transparent;
+  row-gap: 4px;
 }
 
 .mugen-shell.mugen-shell .thumbnail-button,
 .mugen-shell.mugen-shell .thumbnail-button img {
-  border-radius: 8px;
+  border-radius: 12px;
 }
 
 .mugen-shell.mugen-shell .thumbnail-button {
@@ -241,28 +242,28 @@
 }
 
 .mugen-shell.mugen-shell .result-actions {
-  grid-template-columns: minmax(0, 1fr) 32px 32px;
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 0;
   padding: 0;
-  border-radius: 8px;
+  border-radius: 0;
   background: transparent;
 }
 
 .mugen-shell.mugen-shell .result-actions.without-placement {
-  grid-template-columns: repeat(2, 32px);
-  justify-content: end;
+  justify-content: flex-start;
 }
 
 .mugen-shell.mugen-shell .result-actions button {
-  min-height: 32px;
+  min-height: 20px;
   border: 0;
   border-radius: 8px;
-  background: var(--mugen-overlay);
+  background: transparent;
   color: var(--mugen-secondary);
 }
 
 .mugen-shell.mugen-shell .result-actions .place-primary {
+  min-height: 32px;
+  border-radius: 12px;
   background: var(--mugen-accent);
   color: #ffffff;
 }

@@ -136,11 +136,20 @@ test('CCX bridge completes canvas capture, APIMart generation, context-menu down
   await page.getByRole('button', { name: '发送', exact: true }).click()
   const thumbnail = page.getByRole('img', { name: '生成结果 1' })
   await expect(thumbnail).toBeVisible({ timeout: 10_000 })
-  const resultSummary = page.locator('.response-text').filter({ hasText: /^已生成 1 张/ })
-  await expect(resultSummary).toHaveText('已生成 1 张 · gpt-image-1 · 1K · 自动 · 640x480')
-  await expect(resultSummary).not.toHaveText(/·\s*$/)
-  const completedTurn = resultSummary.locator('..')
+  const completedTurn = thumbnail.locator('xpath=ancestor::article[contains(@class, "turn")]')
+  const resultSummary = completedTurn.locator('.response-text')
+  await expect(resultSummary.locator('.app-icon')).toHaveCount(1)
+  await expect(resultSummary.locator(':scope > span:not(.app-icon)')).toHaveText(['gpt-image-1', '/', 'apimart', '1K', '自动', '原比例'])
+  await expect(completedTurn.getByRole('button', { name: '复制提示词' })).toBeVisible()
+  await expect(completedTurn.getByRole('button', { name: '重新填入请求' })).toBeVisible()
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' })
+  await completedTurn.getByRole('button', { name: '复制提示词' }).click()
+  await expect(page.getByRole('status').getByText('提示词已复制')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('一张夏日音乐节海报')
+  await completedTurn.getByRole('button', { name: '重新填入请求' }).click()
+  await expect(page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' })).toHaveValue('一张夏日音乐节海报')
   const elapsedTrigger = completedTurn.locator('.elapsed-trigger')
+  await expect(elapsedTrigger).toContainText(/^用时 /)
   await expect(elapsedTrigger.locator('.app-icon')).toHaveCount(1)
   await expect.poll(() => elapsedTrigger.evaluate((element) => {
     const icon = element.querySelector<HTMLElement>('.app-icon')!.getBoundingClientRect()
@@ -152,11 +161,18 @@ test('CCX bridge completes canvas capture, APIMart generation, context-menu down
       gap: Math.round((label.left - icon.right) * 10) / 10
     }
   })).toEqual({ iconHeight: 12, iconWidth: 12, centerOffset: 0, gap: 4 })
-  await expect.poll(() => completedTurn.evaluate((element) => {
-    const results = element.querySelector<HTMLElement>('.result-grid')!.getBoundingClientRect()
-    const actions = element.querySelector<HTMLElement>('.response-actions')!.getBoundingClientRect()
-    return actions.top >= results.bottom
-  })).toBe(true)
+  await expect(completedTurn.locator('.response-actions')).toHaveCount(0)
+  await expect.poll(() => completedTurn.locator('.result-card').evaluate((card) => {
+    const image = card.querySelector<HTMLImageElement>('.thumbnail-button img')!
+    const actions = card.querySelector<HTMLElement>('.result-actions')!
+    const imageRect = image.getBoundingClientRect()
+    const actionsRect = actions.getBoundingClientRect()
+    return {
+      actionBackground: getComputedStyle(actions).backgroundColor,
+      actionGap: Math.round((actionsRect.top - imageRect.bottom) * 10) / 10,
+      imageRadius: getComputedStyle(image).borderRadius
+    }
+  })).toEqual({ actionBackground: 'rgba(0, 0, 0, 0)', actionGap: 4, imageRadius: '12px' })
   await expect.poll(() => resultSummary.evaluate((element) => (
     getComputedStyle(element.closest('.turn')!).opacity
   ))).toBe('1')

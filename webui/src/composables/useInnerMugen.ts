@@ -290,6 +290,7 @@ export function useInnerMugen(): MugenController {
         : `API 请求失败：${turn.error || '请检查配置后重试'}`
     return {
       id: turn.id,
+      createdAt: turn.startedAt,
       prompt: turn.prompt,
       references: turn.references.map(assetToReference),
       responseText,
@@ -450,6 +451,18 @@ export function useInnerMugen(): MugenController {
     }
     activeView.value = 'workspace'
     showToast('已填入修改请求')
+  }
+
+  async function copyGenerationPrompt(turnId: string) {
+    const turn = store.turns.find((item) => item.id === turnId)
+    if (!turn) return
+
+    try {
+      await navigator.clipboard.writeText(turn.prompt)
+      showToast('提示词已复制')
+    } catch (reason) {
+      showToast(reason instanceof Error ? reason.message : '复制失败')
+    }
   }
 
   function findAsset(assetId: string) {
@@ -703,6 +716,7 @@ export function useInnerMugen(): MugenController {
     closeSettingsDetail,
     closeSettings,
     connectionStatus,
+    copyGenerationPrompt,
     configs,
     count,
     createConfig,

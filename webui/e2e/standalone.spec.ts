@@ -226,6 +226,16 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await page.getByRole('button', { name: '发送', exact: true }).click()
   const generatedImage = page.getByRole('img', { name: '生成图 1' })
   await expect(generatedImage).toBeVisible({ timeout: 10_000 })
+  const completedTurn = generatedImage.locator('xpath=ancestor::article[contains(@class, "turn")]')
+  await expect(completedTurn.getByRole('button', { name: '复制提示词' })).toBeVisible()
+  await expect(completedTurn.getByRole('button', { name: '重新填入请求' })).toBeVisible()
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' })
+  await completedTurn.getByRole('button', { name: '复制提示词' }).click()
+  await expect(page.getByRole('status').getByText('提示词已复制')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('浏览器生成一张小猫海报')
+  await expect(completedTurn.locator('.response-text .app-icon')).toHaveCount(1)
+  await expect(completedTurn.locator('.elapsed-trigger')).toContainText(/^用时 /)
+  await expect(completedTurn.locator('.response-actions')).toHaveCount(0)
 
   const browserResultLayout = await page.locator('.result-card').evaluate((card) => {
     const grid = card.parentElement
@@ -241,11 +251,17 @@ test('browser creates and reloads APIMart config, then completes the network flo
       gridWidth: grid.getBoundingClientRect().width,
       imageWidth: image.getBoundingClientRect().width,
       actionsWidth: actions.getBoundingClientRect().width,
-      messageWidth: message.getBoundingClientRect().width
+      messageWidth: message.getBoundingClientRect().width,
+      actionBackground: getComputedStyle(actions).backgroundColor,
+      actionGap: Math.round((actions.getBoundingClientRect().top - image.getBoundingClientRect().bottom) * 10) / 10,
+      imageRadius: getComputedStyle(image).borderRadius
     }
   })
   expect(browserResultLayout.cardBackground).toBe('rgba(0, 0, 0, 0)')
   expect(browserResultLayout.frameBackground).toBe('rgba(0, 0, 0, 0)')
+  expect(browserResultLayout.actionBackground).toBe('rgba(0, 0, 0, 0)')
+  expect(Math.abs(browserResultLayout.actionGap - 4)).toBeLessThanOrEqual(0.2)
+  expect(browserResultLayout.imageRadius).toBe('12px')
   expect(Math.abs(browserResultLayout.cardWidth - browserResultLayout.imageWidth)).toBeLessThanOrEqual(2)
   expect(Math.abs(browserResultLayout.gridWidth - browserResultLayout.cardWidth)).toBeLessThanOrEqual(6)
   expect(Math.abs(browserResultLayout.actionsWidth - browserResultLayout.cardWidth)).toBeLessThanOrEqual(2)

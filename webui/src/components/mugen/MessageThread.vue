@@ -24,6 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   append: [turnId: string]
   cancel: [taskId: string]
+  copy: [turnId: string]
   edit: [turnId: string]
   menuOpen: [owner: string]
   place: [image: GeneratedImage, target: PlacementTarget]
@@ -291,27 +292,60 @@ function readTurnModel(turn: ChatTurn) {
   return typeof logModel === 'string' ? logModel.trim() : ''
 }
 
-function readResponseText(turn: ChatTurn) {
-  const model = readTurnModel(turn)
-  let responseText = turn.responseText
-  if (model && !responseText.includes(model)) {
-    responseText = responseText.replace(/^(已生成\s+\d+\s+张)(\s*·\s*)?/, `$1 · ${model} · `)
+function readTurnCreatedAt(turn: ChatTurn) {
+  if (turn.createdAt) return turn.createdAt
+  const loggedAt = turn.requestLogs?.[0]?.createdAt
+  if (!loggedAt) return 0
+  const timestamp = Date.parse(loggedAt)
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function formatTurnTime(turn: ChatTurn) {
+  const timestamp = readTurnCreatedAt(turn)
+  if (!timestamp) return ''
+
+  const now = new Date()
+  const createdAt = new Date(timestamp)
+  const elapsed = Math.max(0, now.getTime() - timestamp)
+  if (elapsed < 60 * 60 * 1000) {
+    return `${Math.max(1, Math.floor(elapsed / 60_000))} 分钟前`
   }
 
-  responseText = responseText.replace(/\s*·\s*$/, '')
-  const result = turn.results.find((image) => image.width > 0 && image.height > 0)
-  if (!result) {
-    return responseText
-  }
+  const time = `${String(createdAt.getHours()).padStart(2, '0')}:${String(createdAt.getMinutes()).padStart(2, '0')}`
+  if (createdAt.toDateString() === now.toDateString()) return time
 
-  const width = Math.round(result.width)
-  const height = Math.round(result.height)
-  const dimensionPattern = new RegExp(`${width}\\s*[x×]\\s*${height}`, 'i')
-  if (dimensionPattern.test(responseText)) {
-    return responseText
-  }
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (createdAt.toDateString() === yesterday.toDateString()) return `昨天 ${time}`
 
-  return `${responseText} · ${width}x${height}`
+  return `${String(createdAt.getMonth() + 1).padStart(2, '0')}月${String(createdAt.getDate()).padStart(2, '0')}日 ${time}`
+}
+
+function readElapsedLabel(turn: ChatTurn) {
+  const match = turn.elapsedLabel.match(/([\d.]+)s/i)
+  return `用时 ${formatElapsedSeconds(match ? Number(match[1]) : 0)}`
+}
+
+function readModelLabel(turn: ChatTurn) {
+  return readTurnModel(turn).split('/').at(-1) || '模型'
+}
+
+function readProviderLabel(turn: ChatTurn) {
+  return turn.repeatRequest?.config.provider || 'iMini'
+}
+
+function readSizeLabel(turn: ChatTurn) {
+  return turn.repeatRequest?.selectedSize || turn.repeatRequest?.resolvedSize || ''
+}
+
+function readQualityLabel(turn: ChatTurn) {
+  const quality = turn.repeatRequest?.quality || ''
+  return ({ low: '低', medium: '中', high: '高', auto: '自动' } as Record<string, string>)[quality] || quality
+}
+
+function readRatioLabel(turn: ChatTurn) {
+  const ratio = turn.repeatRequest?.ratio || ''
+  return /^(自动|auto|原图比例)$/i.test(ratio) ? '原比例' : ratio
 }
 
 function hasRequestLogs(source: RequestLogOwner) {
@@ -500,6 +534,15 @@ watch(
             />
           </div>
           <p>{{ turn.prompt }}</p>
+          <div v-if="turn.repeatRequest" class="user-message-meta">
+            <time v-if="formatTurnTime(turn)">{{ formatTurnTime(turn) }}</time>
+            <button type="button" aria-label="复制提示词" title="复制提示词" @click.stop="emit('copy', turn.id)">
+              <AppIcon name="bx-copy" size="12" />
+            </button>
+            <button type="button" aria-label="重新填入请求" title="重新填入请求" @click.stop="emit('edit', turn.id)">
+              <AppIcon name="refresh-line" size="12" />
+            </button>
+          </div>
         </section>
 
         <section
@@ -539,10 +582,18 @@ watch(
                 @click.stop="handleLogTriggerClick(turn.id)"
               >
                 <AppIcon name="timer-2-line" size="12" />
-                <span>{{ turn.elapsedLabel }}</span>
+                <span>{{ readElapsedLabel(turn) }}</span>
               </button>
             </div>
-            <p class="response-text">{{ readResponseText(turn) }}</p>
+            <div class="response-text">
+              <AppIcon name="openai-fill" size="12" />
+              <span>{{ readModelLabel(turn) }}</span>
+              <span>/</span>
+              <span>{{ readProviderLabel(turn) }}</span>
+              <span v-if="readSizeLabel(turn)">{{ readSizeLabel(turn) }}</span>
+              <span v-if="readQualityLabel(turn)">{{ readQualityLabel(turn) }}</span>
+              <span v-if="readRatioLabel(turn)">{{ readRatioLabel(turn) }}</span>
+            </div>
           </template>
           <section
             v-if="turn.tone !== 'canceled' && visibleRequestLogs[turn.id]"
@@ -655,14 +706,6 @@ watch(
                 </button>
               </div>
             </article>
-          </div>
-          <div v-if="turn.tone !== 'error' && turn.repeatRequest && turn.results.length" class="response-actions">
-            <button class="append-button" type="button" @click="emit('edit', turn.id)">
-              修改请求
-            </button>
-            <button class="append-button" type="button" @click="emit('append', turn.id)">
-              追加
-            </button>
           </div>
         </section>
       </article>
@@ -815,7 +858,7 @@ watch(
   display: grid;
   max-width: 88%;
   justify-self: end;
-  gap: 8px;
+  gap: 5px;
   justify-items: end;
 }
 
@@ -839,9 +882,56 @@ watch(
   white-space: pre-wrap;
 }
 
+.user-message-meta {
+  display: inline-flex;
+  height: 20px;
+  align-items: center;
+  gap: 4px;
+  color: var(--mugen-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.user-message-meta time {
+  white-space: nowrap;
+}
+
+.user-message-meta button {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.user-message-meta button:hover,
+.user-message-meta button:focus-visible {
+  background: var(--mugen-surface-2);
+  color: var(--mugen-text);
+  outline: none;
+}
+
+.user-message-meta button:last-child {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 0;
+}
+
+.user-message-meta button:last-child:hover,
+.user-message-meta button:last-child:focus-visible {
+  background: transparent;
+}
+
 .assistant-message {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .thread .assistant-message.loading-message {
@@ -995,17 +1085,18 @@ watch(
   justify-content: space-between;
   gap: 8px;
   color: var(--mugen-muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .elapsed-trigger {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 22px;
-  padding: 0 6px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  min-height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -1020,9 +1111,8 @@ watch(
 
 .elapsed-trigger:focus-visible,
 .elapsed-trigger.is-open {
-  border-color: var(--mugen-border-strong);
-  background: var(--mugen-surface-2);
-  box-shadow: 0 0 0 3px rgba(86, 140, 255, 0.1);
+  background: transparent;
+  box-shadow: none;
   color: var(--mugen-text);
   outline: none;
 }
@@ -1053,9 +1143,15 @@ watch(
 }
 
 .response-text {
-  margin: 0;
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
   color: var(--mugen-secondary);
   font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
 }
 
 .request-log-stack {
@@ -1245,6 +1341,7 @@ watch(
   max-width: 100%;
   border: 0;
   background: transparent;
+  row-gap: 4px;
 }
 
 .thumbnail-button {
@@ -1256,6 +1353,8 @@ watch(
   padding: 0;
   border: 0;
   background: transparent;
+  font-size: 0;
+  line-height: 0;
 }
 
 .thumbnail-button img {
@@ -1263,7 +1362,7 @@ watch(
   width: auto;
   height: auto;
   max-width: 100%;
-  border-radius: 7px 7px 0 0;
+  border-radius: 12px;
   object-fit: contain;
   background: transparent;
 }
@@ -1300,18 +1399,17 @@ watch(
 }
 
 .result-actions {
-  display: grid;
+  display: flex;
   width: 100%;
-  grid-template-columns: minmax(0, 1fr) 30px 30px;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
-  border-radius: 0 0 7px 7px;
-  background: var(--mugen-thread-card-deep);
+  background: transparent;
   overflow: visible;
 }
 
 .result-actions.without-placement {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-content: flex-start;
 }
 
 .result-actions button {
@@ -1319,12 +1417,12 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  min-height: 28px;
-  padding: 0;
+  min-height: 20px;
+  padding: 4px;
   border: 0;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--mugen-secondary);
   font-size: 11px;
@@ -1334,7 +1432,8 @@ watch(
 
 .place-control {
   display: flex;
-  align-items: stretch;
+  flex: 1 1 auto;
+  align-items: center;
   min-width: 0;
   overflow: visible;
 }
@@ -1342,6 +1441,11 @@ watch(
 .place-primary {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 32px !important;
+  padding: 8px 4px !important;
+  border-radius: 12px !important;
+  background: var(--mugen-accent) !important;
+  color: var(--mugen-on-accent, #fff) !important;
 }
 
 .place-primary .place-label {
@@ -1351,13 +1455,15 @@ watch(
 }
 
 .place-more {
-  width: 28px;
-  flex: 0 0 28px;
+  width: 20px;
+  flex: 0 0 20px;
   color: var(--mugen-muted);
 }
 
 .result-icon-action {
-  box-shadow: inset 1px 0 var(--mugen-hairline);
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
 }
 
 .action-tooltip::after {
@@ -1403,7 +1509,7 @@ watch(
 .place-menu-wrap {
   position: relative;
   display: flex;
-  flex: 0 0 28px;
+  flex: 0 0 20px;
   min-width: 0;
 }
 

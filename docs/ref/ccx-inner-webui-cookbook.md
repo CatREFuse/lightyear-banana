@@ -362,6 +362,12 @@ Figma `2075:28404` 已绑定完整的 Light/Dark Semantic Colors，不能只根�
 
 设置页返回按钮的 `AppIcon size="18"` 会生成 18px SVG，但主题层若再用 `.header-back svg` 强制 24px，会让图标撑满 24px hover 背景。返回按钮保留 24×24px 命中与 hover 盒，SVG 沿用组件声明的 18px；E2E 在 hover 状态分别读取按钮与 SVG 的计算尺寸，避免只校验图标键名。
 
+### 9.20 完成消息应直接由请求快照驱动
+
+Figma `2077:29040` 把“复制提示词”和“重新填入请求”放在用户消息下方，把完成态拆成计时行、模型参数行、结果图片和图片操作栏。继续解析 `responseText` 会把生成数量、实际像素和英文质量混入模型参数行，也会让 Browser 与 CCX 的显示顺序随 Provider 文案变化。`MessageThread` 应直接读取 `repeatRequest` 中的模型、Provider、请求分辨率、质量和比例，模型名只移除命名空间前缀，质量与原图比例只做显示层中文映射；请求、轮询、历史和置入数据保持原值。
+
+用户消息操作通过 typed emit 交给 controller：复制只写入本轮提示词，重新填入继续调用已有的请求快照恢复逻辑。浏览器历史可选保存 `createdAt`，CCX 使用 Host turn 的 `startedAt`；旧记录没有时间字段时只隐藏时间文字，复制和回填仍可用。图片与操作栏的 4px 间距、12px 图片圆角和透明操作栏必须同时写入高优先级主题规则，因为全局 `.mugen-shell.mugen-shell` 选择器会覆盖 scoped component CSS。双运行时 E2E 应读取最终计算样式，确认时间/复制/回填图标、12px 元信息图标、图片圆角、透明操作栏、4px 间距，以及回填后提示词和参数仍来自原请求快照。
+
 ### 9.21 自定义 API 管理使用独立设置路由
 
 自定义 API 配置列表直接在生图 API 卡片内展开，会让设置首页同时承担快捷 Key、配置列表和新增入口，配置较多时还会把首页长度与卡片尺寸一起撑开。设置首页只保留带数量摘要的入口，点击后把 `settingsView` 切换到 `apis`，由独立 `CustomApiSettings` 负责列表与添加操作；单个配置仍交给既有 `ConfigEditorForm`，Provider 校验、测试、保存和凭据通道不变。

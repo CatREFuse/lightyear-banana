@@ -37,6 +37,7 @@ const {
   closeSettingsDetail,
   closeSettings,
   connectionStatus,
+  copyGenerationPrompt,
   configs,
   count,
   createConfig,
@@ -314,6 +315,7 @@ function handleManageModels() {
           :turns="turns"
           @append="appendGeneration"
           @cancel="cancelGeneration"
+          @copy="copyGenerationPrompt"
           @edit="editGenerationRequest"
           @menu-open="setWorkspaceMenu"
           @place="placeImage"

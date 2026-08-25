@@ -470,6 +470,7 @@ function normalizeStoredTurns(value: unknown, historyLimit = DEFAULT_HISTORY_LIM
 
       return {
         id: readString(rawTurn.id, createId('turn')),
+        createdAt: typeof rawTurn.createdAt === 'number' && Number.isFinite(rawTurn.createdAt) ? rawTurn.createdAt : undefined,
         prompt: readString(rawTurn.prompt),
         references: Array.isArray(rawTurn.references)
           ? rawTurn.references.map(normalizeStoredReference).filter((item) => item !== null)
@@ -1285,6 +1286,7 @@ function readHighestQuality(options: string[]): string {
   ): ChatTurn {
     return {
       id: createId('turn'),
+      createdAt: Date.now(),
       prompt: snapshot.prompt,
       references: snapshot.references,
       responseText: message,
@@ -1425,6 +1427,7 @@ function readHighestQuality(options: string[]): string {
         const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
         const turn: ChatTurn = {
           id: createId('turn'),
+          createdAt: startedAt,
           prompt: requestPrompt,
           references: sentReferences,
           responseText: buildGenerationResponseText(finalSnapshot, generated.images.length),
@@ -1440,6 +1443,7 @@ function readHighestQuality(options: string[]): string {
         if (abortController.signal.aborted) {
           const canceledTurn: ChatTurn = {
             id: createId('turn'),
+            createdAt: startedAt,
             prompt: requestPrompt,
             references: sentReferences,
             responseText: '已取消生成',
@@ -1694,6 +1698,18 @@ function readHighestQuality(options: string[]): string {
     activeView.value = 'workspace'
     status.value = '已填入修改请求'
     showToast('已填入修改请求')
+  }
+
+  async function copyGenerationPrompt(turnId: string) {
+    const sourceTurn = turns.value.find((turn) => turn.id === turnId)
+    if (!sourceTurn) return
+
+    try {
+      await navigator.clipboard.writeText(sourceTurn.prompt)
+      showToast('提示词已复制')
+    } catch (reason) {
+      showToast(readErrorMessage(reason, '复制失败'))
+    }
   }
 
   async function placeImage(image: GeneratedImage, _target: PlacementTarget) {
@@ -2007,6 +2023,7 @@ function readHighestQuality(options: string[]): string {
     closeSettingsDetail,
     closeSettings,
     connectionStatus,
+    copyGenerationPrompt,
     configs,
     count,
     createConfig,

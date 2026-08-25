@@ -189,6 +189,7 @@ export type ImageRequestLogEntry = {
 
 export type ChatTurn = {
   id: string
+  createdAt?: number
   prompt: string
   references: ReferenceImage[]
   responseText: string
