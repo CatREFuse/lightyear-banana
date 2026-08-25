@@ -47,6 +47,7 @@ plugin/                   当前 CCX Manifest 和图标
 `vite.ccx.config.ts` 负责生成 Adobe Photoshop 可加载的 CCX Host 壳：
 
 - `base: "./"` 保持 Host 资源相对路径。
+- CCX Host 只编译 TypeScript，不加载 Vue 编译插件或 Vue 类型配置。
 - Rollup 使用 IIFE，Host 入口不保留 ESM runtime。
 - Host HTML 使用 classic script。
 - 构建后复制 `plug-in/manifest.json` 和 icons，不复制 WebUI 静态目录。

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { findForbiddenSourceModule, forbiddenBundleMarkers, scanBundleText } from '../scripts/bundlePolicy.mjs'
+import {
+  findForbiddenBundlePath,
+  findForbiddenSourceModule,
+  forbiddenBundleMarkers,
+  scanBundleText
+} from '../scripts/bundlePolicy.mjs'
 
 test('allows browser and embedded protocol contracts without Adobe host implementation', () => {
   assert.deepEqual(
@@ -48,4 +53,9 @@ test('rejects CCX and retired UXP implementation modules from the WebUI module g
   assert.equal(findForbiddenSourceModule('C:\\workspace\\plug-in\\src\\ccx\\canvasPrimitives.ts?import'), '/plug-in/src/ccx/')
   assert.equal(findForbiddenSourceModule('/workspace/src/uxp/photoshopHost.ts'), '/src/uxp/')
   assert.equal(findForbiddenSourceModule('/workspace/src/types/canvas.ts'), undefined)
+})
+
+test('rejects test image fixtures from the production bundle', () => {
+  assert.equal(findForbiddenBundlePath('mock-images/cats/cat-01.jpg'), 'mock-images/')
+  assert.equal(findForbiddenBundlePath('assets/index.js'), undefined)
 })

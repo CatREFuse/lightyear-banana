@@ -16,7 +16,7 @@ const port = Number(process.env.MUGEN_MOCK_IMAGE_API_PORT ?? 38322)
 const host = process.env.MUGEN_MOCK_IMAGE_API_HOST ?? '127.0.0.1'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
-const fixtureDir = path.join(projectRoot, 'webui', 'public', 'mock-images')
+const fixtureDir = path.join(projectRoot, 'utils', 'fixtures', 'mock-images')
 const fixtureFiles = Array.from({ length: 20 }, (_, index) => `cats/cat-${String(index + 1).padStart(2, '0')}.jpg`)
 const profile = readOption('--profile') ?? process.env.MUGEN_MOCK_IMAGE_API_PROFILE ?? 'all'
 const fixedFixtureFile = readOption('--fixture') ?? process.env.MUGEN_MOCK_IMAGE_API_FIXED_FIXTURE ?? ''

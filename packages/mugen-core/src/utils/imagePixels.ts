@@ -8,11 +8,6 @@ export type ApiImageAsset = {
   previewUrl: string
 }
 
-type PixelTarget = {
-  width: number
-  height: number
-}
-
 const fallbackSize = {
   width: 1024,
   height: 1024
@@ -171,33 +166,6 @@ async function readImageDimensions(previewUrl: string) {
   }
 }
 
-async function readImagePixels(previewUrl: string, target?: PixelTarget) {
-  const loaded = await loadReadableImage(previewUrl)
-  try {
-    const width = Math.max(1, Math.round(target?.width ?? loaded.image.naturalWidth ?? fallbackSize.width))
-    const height = Math.max(1, Math.round(target?.height ?? loaded.image.naturalHeight ?? fallbackSize.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-
-    const context = canvas.getContext('2d')
-    if (!context) {
-      throw new Error('当前环境无法读取图片像素')
-    }
-
-    context.drawImage(loaded.image, 0, 0, width, height)
-    const imageData = context.getImageData(0, 0, width, height)
-
-    return {
-      width,
-      height,
-      rgba: new Uint8Array(imageData.data)
-    }
-  } finally {
-    loaded.dispose()
-  }
-}
-
 export async function createCanvasImageFromApiAsset(asset: ApiImageAsset) {
   const inlineDimensions = readInlineImageDimensions(asset.previewUrl)
   if (inlineDimensions) {
@@ -254,34 +222,5 @@ export async function createCanvasImageFromApiAsset(asset: ApiImageAsset) {
       modelConfigId: asset.modelConfigId,
       modelName: asset.modelName
     } satisfies CapturedCanvasImage & { modelConfigId: string; modelName: string }
-  }
-}
-
-export async function hydrateCanvasImagePixels<T extends CapturedCanvasImage>(image: T, target?: PixelTarget): Promise<T> {
-  const width = Math.max(1, Math.round(target?.width ?? image.width))
-  const height = Math.max(1, Math.round(target?.height ?? image.height))
-  const expectedBytes = width * height * 4
-
-  if (image.rgba.length === expectedBytes && image.width === width && image.height === height) {
-    return image
-  }
-
-  try {
-    const pixels = await readImagePixels(image.previewUrl, { width, height })
-
-    return {
-      ...image,
-      width: pixels.width,
-      height: pixels.height,
-      sourceBounds: {
-        left: 0,
-        top: 0,
-        right: pixels.width,
-        bottom: pixels.height
-      },
-      rgba: pixels.rgba
-    }
-  } catch (error) {
-    throw new Error(error instanceof Error ? error.message : '图片像素读取失败')
   }
 }

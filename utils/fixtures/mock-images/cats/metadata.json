@@ -7,7 +7,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/99/Albino_Siamese_cat_%27trixie%27.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Albino_Siamese_cat_%27trixie%27.jpg/960px-Albino_Siamese_cat_%27trixie%27.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-01.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-01.jpg",
     "urlPath": "/mock-images/cats/cat-01.jpg"
   },
   {
@@ -18,7 +18,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Cat-ramat-gan-habiluim-street.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Cat-ramat-gan-habiluim-street.jpg/960px-Cat-ramat-gan-habiluim-street.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-02.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-02.jpg",
     "urlPath": "/mock-images/cats/cat-02.jpg"
   },
   {
@@ -29,7 +29,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Burmese_Cat_House.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Burmese_Cat_House.jpg/960px-Burmese_Cat_House.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-03.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-03.jpg",
     "urlPath": "/mock-images/cats/cat-03.jpg"
   },
   {
@@ -40,7 +40,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cd/Black_Cat_%2822553764744%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Black_Cat_%2822553764744%29.jpg/960px-Black_Cat_%2822553764744%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-04.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-04.jpg",
     "urlPath": "/mock-images/cats/cat-04.jpg"
   },
   {
@@ -51,7 +51,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/8/86/Cat_-_Flickr_-_davispuh.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Cat_-_Flickr_-_davispuh.jpg/960px-Cat_-_Flickr_-_davispuh.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-05.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-05.jpg",
     "urlPath": "/mock-images/cats/cat-05.jpg"
   },
   {
@@ -62,7 +62,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c3/Cat_-_Flickr_-_davispuh_%281%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Cat_-_Flickr_-_davispuh_%281%29.jpg/960px-Cat_-_Flickr_-_davispuh_%281%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-06.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-06.jpg",
     "urlPath": "/mock-images/cats/cat-06.jpg"
   },
   {
@@ -73,7 +73,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Cat_-_Flickr_-_davispuh_%282%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Cat_-_Flickr_-_davispuh_%282%29.jpg/960px-Cat_-_Flickr_-_davispuh_%282%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-07.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-07.jpg",
     "urlPath": "/mock-images/cats/cat-07.jpg"
   },
   {
@@ -84,7 +84,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d4/Cat_-_Flickr_-_davispuh_%283%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Cat_-_Flickr_-_davispuh_%283%29.jpg/960px-Cat_-_Flickr_-_davispuh_%283%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-08.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-08.jpg",
     "urlPath": "/mock-images/cats/cat-08.jpg"
   },
   {
@@ -95,7 +95,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3b/Cat_-_Flickr_-_davispuh_%284%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Cat_-_Flickr_-_davispuh_%284%29.jpg/960px-Cat_-_Flickr_-_davispuh_%284%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-09.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-09.jpg",
     "urlPath": "/mock-images/cats/cat-09.jpg"
   },
   {
@@ -106,7 +106,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b5/Cat_-_Flickr_-_davispuh_%285%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Cat_-_Flickr_-_davispuh_%285%29.jpg/960px-Cat_-_Flickr_-_davispuh_%285%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-10.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-10.jpg",
     "urlPath": "/mock-images/cats/cat-10.jpg"
   },
   {
@@ -117,7 +117,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/64/Cat_-_Flickr_-_davispuh_%287%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Cat_-_Flickr_-_davispuh_%287%29.jpg/960px-Cat_-_Flickr_-_davispuh_%287%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-11.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-11.jpg",
     "urlPath": "/mock-images/cats/cat-11.jpg"
   },
   {
@@ -128,7 +128,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/64/Cat_-_Flickr_-_davispuh_%2810%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Cat_-_Flickr_-_davispuh_%2810%29.jpg/960px-Cat_-_Flickr_-_davispuh_%2810%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-12.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-12.jpg",
     "urlPath": "/mock-images/cats/cat-12.jpg"
   },
   {
@@ -139,7 +139,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/99/Cat_-_Flickr_-_davispuh_%2812%29.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Cat_-_Flickr_-_davispuh_%2812%29.jpg/960px-Cat_-_Flickr_-_davispuh_%2812%29.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-13.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-13.jpg",
     "urlPath": "/mock-images/cats/cat-13.jpg"
   },
   {
@@ -150,7 +150,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/0/05/Cat%2C_Kilternan_Abbey%2C_Golden_Ball%2C_Ireland_circa_1895.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Cat%2C_Kilternan_Abbey%2C_Golden_Ball%2C_Ireland_circa_1895.jpg/960px-Cat%2C_Kilternan_Abbey%2C_Golden_Ball%2C_Ireland_circa_1895.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-14.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-14.jpg",
     "urlPath": "/mock-images/cats/cat-14.jpg"
   },
   {
@@ -161,7 +161,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3d/3129Black_and_white_cat_portraits_in_the_Philippines_03.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/3129Black_and_white_cat_portraits_in_the_Philippines_03.jpg/960px-3129Black_and_white_cat_portraits_in_the_Philippines_03.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-15.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-15.jpg",
     "urlPath": "/mock-images/cats/cat-15.jpg"
   },
   {
@@ -172,7 +172,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/0/01/3129Black_and_white_cat_portraits_in_the_Philippines_04.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/3129Black_and_white_cat_portraits_in_the_Philippines_04.jpg/960px-3129Black_and_white_cat_portraits_in_the_Philippines_04.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-16.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-16.jpg",
     "urlPath": "/mock-images/cats/cat-16.jpg"
   },
   {
@@ -183,7 +183,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/61/3129Black_and_white_cat_portraits_in_the_Philippines_05.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/3129Black_and_white_cat_portraits_in_the_Philippines_05.jpg/960px-3129Black_and_white_cat_portraits_in_the_Philippines_05.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-17.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-17.jpg",
     "urlPath": "/mock-images/cats/cat-17.jpg"
   },
   {
@@ -194,7 +194,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6d/3129Black_and_white_cat_portraits_in_the_Philippines_06.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/3129Black_and_white_cat_portraits_in_the_Philippines_06.jpg/960px-3129Black_and_white_cat_portraits_in_the_Philippines_06.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-18.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-18.jpg",
     "urlPath": "/mock-images/cats/cat-18.jpg"
   },
   {
@@ -205,7 +205,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3d/3129Black_and_white_cat_portraits_in_the_Philippines_07.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/3129Black_and_white_cat_portraits_in_the_Philippines_07.jpg/960px-3129Black_and_white_cat_portraits_in_the_Philippines_07.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-19.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-19.jpg",
     "urlPath": "/mock-images/cats/cat-19.jpg"
   },
   {
@@ -216,7 +216,7 @@
     "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bf/3129Black_and_white_cat_portraits_in_the_Philippines_11.jpg",
     "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/3129Black_and_white_cat_portraits_in_the_Philippines_11.jpg/960px-3129Black_and_white_cat_portraits_in_the_Philippines_11.jpg",
     "mime": "image/jpeg",
-    "file": "public/mock-images/cats/cat-20.jpg",
+    "file": "utils/fixtures/mock-images/cats/cat-20.jpg",
     "urlPath": "/mock-images/cats/cat-20.jpg"
   }
 ]

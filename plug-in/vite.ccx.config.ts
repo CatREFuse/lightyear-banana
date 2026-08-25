@@ -2,7 +2,6 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync,
 import { fileURLToPath, URL } from 'node:url'
 import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
-import vue from '@vitejs/plugin-vue'
 import { isDisallowedProductionHostname, resolveReleaseUrl } from '../utils/production-origin-policy.mjs'
 import { resolveCcxMugenEnvironment } from './scripts/ccx-environment-policy.mjs'
 
@@ -169,7 +168,7 @@ export default defineConfig(({ mode }) => {
       __CCX_BUILD_NUMBER__: JSON.stringify(ccxBuildNumber)
     },
     publicDir: false,
-    plugins: [vue(), ccxPostBuildPlugin(innerWebUiUrl, ccxVersion, ccxBuildNumber)],
+    plugins: [ccxPostBuildPlugin(innerWebUiUrl, ccxVersion, ccxBuildNumber)],
     build: {
       modulePreload: {
         polyfill: false

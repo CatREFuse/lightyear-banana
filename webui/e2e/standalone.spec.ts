@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 import { createApimartFixtureServer, expectedApiKey } from '../../utils/apimart-smoke-server.mjs'
 
-const catFixturePath = fileURLToPath(new URL('../public/mock-images/cats/cat-01.jpg', import.meta.url))
+const catFixturePath = fileURLToPath(new URL('../../utils/fixtures/mock-images/cats/cat-01.jpg', import.meta.url))
 const providerNames = [
   'OpenAI',
   'i-mini',

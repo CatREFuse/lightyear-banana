@@ -213,16 +213,3 @@ export function tracePrismRay({
     internalSegments
   }
 }
-
-export function tracePrismSpectrum({ vertices, origin, direction, samples, farDistance }) {
-  return samples.map((sample) => ({
-    ...sample,
-    trace: tracePrismRay({
-      vertices,
-      origin,
-      direction,
-      refractiveIndex: sample.refractiveIndex,
-      farDistance
-    })
-  }))
-}

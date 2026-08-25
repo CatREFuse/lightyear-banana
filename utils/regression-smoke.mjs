@@ -251,6 +251,17 @@ async function testProviderRatios(imageApi) {
       return Response.json({ sample: 'https://example.test/generated.jpg' })
     }
 
+    if (url.endsWith('/imini/router/v1/images/generate')) {
+      return Response.json({ task_id: 'regression-imini-task' })
+    }
+
+    if (url.includes('/imini/router/v1/images/tasks/regression-imini-task')) {
+      return Response.json({
+        status: 'succeeded',
+        images: [{ url: 'https://example.test/generated.png' }]
+      })
+    }
+
     return Response.json({ data: [{ url: 'https://example.test/generated.png' }] })
   }
 

@@ -10,7 +10,7 @@ import test from 'node:test'
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(scriptsDir, '..')
 const serverScript = path.join(scriptsDir, 'mock-image-api-server.mjs')
-const fixturePath = path.join(projectRoot, 'webui', 'public', 'mock-images', 'cats', 'cat-01.jpg')
+const fixturePath = path.join(projectRoot, 'utils', 'fixtures', 'mock-images', 'cats', 'cat-01.jpg')
 
 async function findAvailablePort() {
   const probe = createServer()

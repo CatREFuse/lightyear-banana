@@ -43,7 +43,7 @@ vi.mock('../photoshopHost', () => ({
 }))
 
 const capturedCanvasPreview = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlVQAAAAASUVORK5CYII='
-const catFixturePath = fileURLToPath(new URL('../../../../webui/public/mock-images/cats/cat-01.jpg', import.meta.url))
+const catFixturePath = fileURLToPath(new URL('../../../../utils/fixtures/mock-images/cats/cat-01.jpg', import.meta.url))
 
 describe('ProviderRuntime APIMart fixture integration', () => {
   const fixture = createApimartFixtureServer({ port: 0 })

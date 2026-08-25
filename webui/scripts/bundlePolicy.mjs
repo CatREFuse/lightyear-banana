@@ -25,11 +25,20 @@ export const forbiddenSourceModuleSuffixes = Object.freeze([
   '/src/uxp/'
 ])
 
+export const forbiddenBundlePathPrefixes = Object.freeze([
+  'mock-images/'
+])
+
 export function findForbiddenSourceModule(moduleId) {
   const normalized = String(moduleId).split('?', 1)[0].replaceAll('\\', '/')
   return forbiddenSourceModuleSuffixes.find((suffix) => suffix.endsWith('/')
     ? normalized.includes(suffix)
     : normalized.endsWith(suffix))
+}
+
+export function findForbiddenBundlePath(file) {
+  const normalized = String(file).replaceAll('\\', '/').replace(/^\.\/+/, '').replace(/^\/+/, '')
+  return forbiddenBundlePathPrefixes.find((prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix))
 }
 
 const textExtensions = new Set(['.css', '.html', '.js', '.json', '.map', '.mjs', '.svg', '.txt'])
@@ -54,11 +63,18 @@ function listFiles(directory) {
 export function scanBundleDirectory(directory) {
   const files = listFiles(directory)
   const textFiles = files.filter((file) => textExtensions.has(path.extname(file).toLowerCase()))
-  const findings = textFiles.flatMap((file) => scanBundleText(readFileSync(file, 'utf8'), path.relative(directory, file)))
+  const pathFindings = files.flatMap((file) => {
+    const relativePath = path.relative(directory, file).replaceAll(path.sep, '/')
+    const marker = findForbiddenBundlePath(relativePath)
+    return marker
+      ? [{ file: relativePath, id: 'test-fixture-path', marker, excerpt: relativePath }]
+      : []
+  })
+  const textFindings = textFiles.flatMap((file) => scanBundleText(readFileSync(file, 'utf8'), path.relative(directory, file)))
   return {
     fileCount: files.length,
     scannedFileCount: textFiles.length,
     totalBytes: files.reduce((sum, file) => sum + statSync(file).size, 0),
-    findings
+    findings: [...pathFindings, ...textFindings]
   }
 }

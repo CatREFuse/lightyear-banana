@@ -6,7 +6,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url))
-const defaultFixturePath = path.resolve(moduleDirectory, '../webui/public/mock-images/cats/cat-01.jpg')
+const defaultFixturePath = path.resolve(moduleDirectory, 'fixtures/mock-images/cats/cat-01.jpg')
 const expectedApiKey = 'mock-apimart-good'
 
 function createSmokeState() {

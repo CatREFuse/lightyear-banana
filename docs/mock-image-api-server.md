@@ -28,7 +28,7 @@ mock-apimart-good
 MUGEN_APIMART_SMOKE_HOST=127.0.0.1 MUGEN_APIMART_SMOKE_PORT=38323 npm run smoke:apimart-server
 ```
 
-固定图片为 `webui/public/mock-images/cats/cat-01.jpg`。模型、数量和请求路径无论如何变化，所有成功图片都返回该文件。同一任务在创建、轮询和图片获取阶段保持相同内容。
+固定图片为 `utils/fixtures/mock-images/cats/cat-01.jpg`。模型、数量和请求路径无论如何变化，所有成功图片都返回该文件。同一任务在创建、轮询和图片获取阶段保持相同内容。
 
 可观测接口：
 
@@ -119,12 +119,12 @@ Bad case：
 通用历史模式使用项目内 20 张 CC0 猫咪照片并随机抽样。APIMart vNext 模式不使用该随机逻辑，始终选择 `cat-01.jpg`。通用模式中的 Kling 创建任务和任务结果会保持同一组随机图片：
 
 ```text
-webui/public/mock-images/cats/cat-01.jpg
+utils/fixtures/mock-images/cats/cat-01.jpg
 ...
-webui/public/mock-images/cats/cat-20.jpg
+utils/fixtures/mock-images/cats/cat-20.jpg
 ```
 
-这些 fixture 来自 Wikimedia Commons，授权和来源写在 `webui/public/mock-images/cats/LICENSE.md`，机器可读元数据写在 `webui/public/mock-images/cats/metadata.json`。
+这些 fixture 来自 Wikimedia Commons，授权和来源写在 `utils/fixtures/mock-images/cats/LICENSE.md`，机器可读元数据写在 `utils/fixtures/mock-images/cats/metadata.json`。
 
 OpenAI 和 OpenAI compatible 返回 Image API 结构：
 

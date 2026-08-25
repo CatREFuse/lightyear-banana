@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720" role="img" aria-label="CC0 shape study">
-  <rect width="960" height="720" fill="#eef2f4"/>
-  <circle cx="286" cy="250" r="132" fill="#4268d6"/>
-  <rect x="470" y="134" width="280" height="236" rx="58" fill="#222733"/>
-  <path d="M208 520 368 410l160 110-160 110Z" fill="#f0b84a"/>
-  <path d="M580 454c70-86 174-82 236 0 34 44 24 114-22 148-70 52-194 52-264 0-46-34-56-104-22-148Z" fill="#69a97e"/>
-  <path d="M100 104c220 16 360 82 424 198" fill="none" stroke="#c9d1d8" stroke-width="26" stroke-linecap="round"/>
-</svg>

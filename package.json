@@ -29,7 +29,7 @@
     "test:inner-webui": "npm --workspace @mugen/inner-webui run test",
     "test:e2e:inner-webui": "npm --workspace @mugen/inner-webui run e2e",
     "test:protocol": "npm --workspace @mugen/inner-protocol run test",
-    "test:capabilities": "npm --workspace @mugen/core run test",
+    "test:capabilities": "npm --workspace @mugen/core run typecheck && npm --workspace @mugen/core run test",
     "test:ccx-host": "npm --workspace @mugen/plug-in run test:unit",
     "test:imini-provider": "node utils/imini-provider-smoke.mjs",
     "test:mock-image-api": "node --test utils/mock-image-api-server.test.mjs utils/apimart-smoke-server.test.mjs",

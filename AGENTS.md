@@ -8,7 +8,7 @@ Mugen 是 monorepo,按功能模块组织,npm 配置内聚在各模块目录,根�
 | 目录 | 职责 | npm workspace | 关键入口 |
 | --- | --- | --- | --- |
 | `plug-in/` | Photoshop CCX 插件(宿主、画布原语、打包链) | `@mugen/plug-in` | `src/ccx/main.ts`、`manifest.json`、`vite.ccx.config.ts`、`scripts/` |
-| `webui/` | 云端 WebUI(浏览器与 CCX WebView 共用工作台) | `@mugen/inner-webui` | `src/main.ts`、`src/components/mugen/`、`src/host/`、`public/mock-images/` |
+| `webui/` | 云端 WebUI(浏览器与 CCX WebView 共用工作台) | `@mugen/inner-webui` | `src/main.ts`、`src/components/mugen/`、`src/host/` |
 | `homesite/` | 单屏官网(站点源码 + 构建/部署脚本) | `@mugen/homesite` | `site/index.html`、`scripts/build-site.mjs`、`scripts/deploy-site.mjs` |
 | `packages/mugen-core/` | 共享生图业务核心(Provider、请求、能力、类型) | `@mugen/core` | `src/index.ts`(export * 全部符号) |
 | `packages/inner-protocol/` | WebUI ↔ CCX 通信协议 | `@mugen/inner-protocol` | `src/index.ts` |
