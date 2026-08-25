@@ -229,6 +229,24 @@ test('browser creates and reloads APIMart config, then completes the network flo
   const completedTurn = generatedImage.locator('xpath=ancestor::article[contains(@class, "turn")]')
   await expect(completedTurn.getByRole('button', { name: '复制提示词' })).toBeVisible()
   await expect(completedTurn.getByRole('button', { name: '重新填入请求' })).toBeVisible()
+  const copyPromptButton = completedTurn.getByRole('button', { name: '复制提示词' })
+  const refillRequestButton = completedTurn.getByRole('button', { name: '重新填入请求' })
+  await copyPromptButton.hover()
+  const copyPromptHover = await copyPromptButton.evaluate((element) => {
+    const style = getComputedStyle(element)
+    const rect = element.getBoundingClientRect()
+    return { background: style.backgroundColor, borderRadius: style.borderRadius, height: rect.height, width: rect.width }
+  })
+  await refillRequestButton.hover()
+  await page.screenshot({ path: testInfo.outputPath('user-message-action-hover.png') })
+  const refillRequestHover = await refillRequestButton.evaluate((element) => {
+    const style = getComputedStyle(element)
+    const rect = element.getBoundingClientRect()
+    return { background: style.backgroundColor, borderRadius: style.borderRadius, height: rect.height, width: rect.width }
+  })
+  expect(copyPromptHover).toEqual(refillRequestHover)
+  expect(copyPromptHover).toMatchObject({ borderRadius: '4px', height: 20, width: 20 })
+  expect(copyPromptHover.background).not.toBe('rgba(0, 0, 0, 0)')
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' })
   await completedTurn.getByRole('button', { name: '复制提示词' }).click()
   await expect(page.getByRole('status').getByText('提示词已复制')).toBeVisible()

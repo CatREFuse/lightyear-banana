@@ -900,6 +900,8 @@ watch(
   display: inline-flex;
   width: 20px;
   height: 20px;
+  min-width: 20px;
+  min-height: 20px;
   align-items: center;
   justify-content: center;
   padding: 4px;
@@ -915,18 +917,6 @@ watch(
   background: var(--mugen-surface-2);
   color: var(--mugen-text);
   outline: none;
-}
-
-.user-message-meta button:last-child {
-  width: 12px;
-  height: 12px;
-  padding: 0;
-  border-radius: 0;
-}
-
-.user-message-meta button:last-child:hover,
-.user-message-meta button:last-child:focus-visible {
-  background: transparent;
 }
 
 .assistant-message {
