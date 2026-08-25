@@ -36,8 +36,8 @@ function fixture(t) {
     buildNumber,
     filename,
     sha256,
-    webviewOrigin: 'https://mugen.catrefuse.com',
-    releaseUrl: 'https://mugen.catrefuse.com/releases/',
+    webviewOrigin: 'https://imini-test.catrefuse.com',
+    releaseUrl: 'https://imini-test.catrefuse.com/releases/',
     builtAt: publishedAt,
     sourceCommit: 'a'.repeat(40),
     dirty: false

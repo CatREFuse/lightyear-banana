@@ -15,7 +15,7 @@ const siteDir = join(root, "homesite", "site")
 const outDir = join(root, "dist", "site")
 const releaseOriginPlaceholder = "__MUGEN_RELEASE_ORIGIN__"
 
-const { bundle } = await verifyReleaseSite({ root, siteDir })
+const { bundle, releaseOrigin } = await verifyReleaseSite({ root, siteDir })
 
 await rm(outDir, { recursive: true, force: true })
 await mkdir(outDir, { recursive: true })
@@ -24,7 +24,6 @@ await cp(siteDir, outDir, {
   filter: (source) => !source.endsWith(".DS_Store")
 })
 
-const releaseOrigin = new URL(bundle.ccxMetadata.webviewOrigin).origin
 for (const relativePath of ["index.html", "llms.txt", "LLM.TXT"]) {
   const target = join(outDir, relativePath)
   const contents = await readFile(target, "utf8")

@@ -105,7 +105,7 @@ npm run deploy:site -- --env=/private/tmp/<release-runtime>/deploy.env
 ```bash
 curl -fsSL https://imini-test.catrefuse.com/ --output /private/tmp/mugen-home.html
 curl -fsSL -D /private/tmp/imini-ps-ccx.headers \
-  https://imini-test.catrefuse.com/download/imini-ps-<version>-<build>.ccx \
+  https://mugen.catrefuse.com/download/imini-ps-<version>-<build>.ccx \
   --output /private/tmp/imini-ps-<version>-<build>.ccx
 shasum -a 256 dist/imini-ps-<version>-<build>.ccx /private/tmp/imini-ps-<version>-<build>.ccx
 ```

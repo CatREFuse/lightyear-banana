@@ -7,6 +7,7 @@ import { assertProductionOrigin, resolveReleaseUrl } from "../../utils/productio
 
 const rootFromScript = dirname(fileURLToPath(new URL("../../package.json", import.meta.url)))
 const RELEASE_ORIGIN_PLACEHOLDER = "__MUGEN_RELEASE_ORIGIN__"
+export const OFFICIAL_SITE_ORIGIN = "https://mugen.catrefuse.com"
 
 function materializeReleaseOrigin(value, releaseOrigin) {
   return value.replaceAll(RELEASE_ORIGIN_PLACEHOLDER, releaseOrigin)
@@ -225,11 +226,12 @@ function readDownloadBlock(text, heading) {
 export async function verifySiteMetadata({
   root = rootFromScript,
   siteDir = join(root, "homesite", "site"),
-  bundle
+  bundle,
+  releaseOrigin = OFFICIAL_SITE_ORIGIN
 } = {}) {
   const verifiedBundle = bundle ?? await verifyCcxRelease({ root })
   const { version, artifacts, ccxMetadata } = verifiedBundle
-  const releaseOrigin = new URL(ccxMetadata.webviewOrigin).origin
+  requireEqual(new URL(releaseOrigin).origin, releaseOrigin, "official site origin")
   const ccx = artifacts.ccx
   const downloadUrl = `${releaseOrigin}/download/${ccx.filename}`
 
@@ -256,7 +258,7 @@ export async function verifySiteMetadata({
   requireEqual(block.sha256, ccx.sha256, "llms.txt CCX SHA256")
   requireEqual(block.size, ccx.size, "llms.txt CCX size")
 
-  return { bundle: verifiedBundle, download: { url: downloadUrl, ...ccx } }
+  return { bundle: verifiedBundle, releaseOrigin, download: { url: downloadUrl, ...ccx } }
 }
 
 export async function verifyReleaseSite(options = {}) {

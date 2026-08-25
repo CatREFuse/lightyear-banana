@@ -378,6 +378,8 @@ Figma `2077:29040` 把“复制提示词”和“重新填入请求”放在用�
 
 CCX 打包器把正式文件命名为 `imini-ps-<version>-<build>.ccx` 后，官网构建校验和部署快照过滤也必须使用同一规则。若官网仍硬编码旧 `mugen-` 前缀，本地 CCX 的版本、build、SHA256 和来源提交即使全部有效，`build:site` 仍会在复制产物前失败。正确做法是让打包元数据、官网入口、LLM 文本、发行校验器和 `download/` 唯一文件规则全部对齐 `dist/ccx-release.json` 的 iMini PS 文件名，并用站点构建测试覆盖品牌前缀、语义版本和十位 build 号。验证时从干净提交重新执行 `build:site`、dry-run、正式部署和公网完整字节回读，不能沿用旧品牌文件名规避门禁。
 
+dev CCX 的 `webviewOrigin` 可以指向 `imini-test.catrefuse.com`，但官网及 CCX 下载固定由 `mugen.catrefuse.com` 提供；这两个 origin 属于不同职责，官网构建不能再从 CCX WebView origin 推导下载地址。生产 WebUI 入口是官网的 `/webui/`，测试入口是 `imini-test` 根路径，两者部署到同一份 WebUI 不可变资源后需要分别做公网回读。
+
 ## 10. 测试矩阵
 
 | 层级 | 重点 |
