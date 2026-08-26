@@ -7,8 +7,8 @@ export type TestHostTrace = {
   placements: Array<{ assetId: string; target: unknown; previewUrl: string; layerName: string }>
 }
 
-export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; configured?: boolean; configuredModel?: { name: string; provider: 'iMini' | 'apimart'; model: string }; generatedResultOrientation?: 'landscape' | 'portrait'; generationDelayMs?: number; lowResolutionResultThumbnail?: boolean; thumbnailUnavailable?: boolean } = {}) {
-  await page.addInitScript(({ apimartBaseUrl, apiKey, configured, configuredModel, generatedResultOrientation, generationDelayMs, lowResolutionResultThumbnail, thumbnailUnavailable }) => {
+export async function installTestHost(page: Page, options: { apimartBaseUrl?: string; apiKey?: string; configured?: boolean; configuredModel?: { name: string; provider: 'iMini' | 'apimart'; model: string }; generatedResultOrientation?: 'landscape' | 'portrait'; generationDelayMs?: number; lowResolutionResultThumbnail?: boolean; thumbnailLoadFailure?: boolean; thumbnailUnavailable?: boolean } = {}) {
+  await page.addInitScript(({ apimartBaseUrl, apiKey, configured, configuredModel, generatedResultOrientation, generationDelayMs, lowResolutionResultThumbnail, thumbnailLoadFailure, thumbnailUnavailable }) => {
     const protocol = 'inner-host/v1'
     const sessionId = 'e2e-session'
     const hostNonce = 'e2e-host-nonce'
@@ -73,6 +73,8 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
       }
       if (thumbnailUnavailable && source === 'generated') {
         Object.assign(value, { previewUrl: '', thumbnailUrl: '', previewStatus: 'unavailable', previewError: '缩略图超过传输限制', originalAvailable: true })
+      } else if (thumbnailLoadFailure && source === 'generated') {
+        Object.assign(value, { previewUrl: '/missing-generated-preview.png', previewStatus: 'ready', originalAvailable: true })
       }
       assets.set(assetId, value)
       return value
@@ -321,6 +323,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     generatedResultOrientation: options.generatedResultOrientation,
     generationDelayMs: options.generationDelayMs ?? 0,
     lowResolutionResultThumbnail: options.lowResolutionResultThumbnail ?? false,
+    thumbnailLoadFailure: options.thumbnailLoadFailure ?? false,
     thumbnailUnavailable: options.thumbnailUnavailable ?? false
   })
 }

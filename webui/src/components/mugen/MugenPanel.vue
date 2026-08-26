@@ -65,6 +65,7 @@ const {
   ratio,
   references,
   removeReference,
+  recoverGeneratedPreview,
   retryGeneration,
   resolutionMode,
   saveConfig,
@@ -323,6 +324,7 @@ function handleManageModels() {
           @reference="useResultAsReference"
           @retry="retryGeneration"
           @save="saveGeneratedImage"
+          @thumbnail-unavailable="recoverGeneratedPreview?.($event)"
           @thumbnail-low-resolution="upgradeGeneratedThumbnail?.($event)"
           @upscale="upscaleImage"
         />

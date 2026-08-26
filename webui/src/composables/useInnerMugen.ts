@@ -146,6 +146,7 @@ function assetToReference(asset: HostAssetRef): ReferenceImage {
 function assetToGenerated(asset: HostAssetRef, snapshot: GenerationSnapshot, modelName: string, previewUrl?: string): GeneratedImage {
   return {
     ...assetToCanvasImage(asset, previewUrl),
+    ...(previewUrl ? { previewStatus: 'ready' as const, previewError: undefined } : {}),
     modelConfigId: snapshot.configId,
     modelName
   }
@@ -220,8 +221,10 @@ export function useInnerMugen(): MugenController {
   const canvasOperation = shallowRef<CanvasOperationState>({ type: 'idle', label: '' })
   const settingsTestState = shallowRef<SettingsTestState>({ status: 'idle', message: '' })
   const diagnosticExportState = shallowRef<DiagnosticExportState>({ status: 'idle', message: '最近 24 小时' })
+  const generatedOriginals = shallowReactive<Record<string, string>>({})
   const generatedThumbnails = shallowReactive<Record<string, string>>({})
   const settingsDraft = reactive<ModelConfig>(makeEmptyConfig())
+  const requestedGeneratedOriginals = new Set<string>()
   const requestedGeneratedThumbnails = new Set<string>()
   let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -268,6 +271,9 @@ export function useInnerMugen(): MugenController {
   const turns = computed<ChatTurn[]>(() => store.turns
     .filter((turn) => turn.status !== 'running')
     .map((turn) => hostTurnToUi(turn)))
+  const unavailableGeneratedAssets = computed(() => store.turns
+    .flatMap((turn) => turn.results)
+    .filter((asset) => asset.previewStatus === 'unavailable' && asset.originalAvailable !== false))
 
   function hostTurnToUi(turn: HostTurn): ChatTurn {
     const config = configs.value.find((item) => item.id === turn.snapshot.configId)
@@ -297,7 +303,12 @@ export function useInnerMugen(): MugenController {
       elapsedLabel: turn.status === 'failed' ? `失败 · ${Math.max(1, Math.round(turn.elapsed))}s` : `耗费 ${Math.max(1, Math.round(turn.elapsed))}s`,
       repeatRequest: snapshot,
       requestLogs: turn.logs.map(requestLogToUi),
-      results: turn.results.map((asset) => assetToGenerated(asset, turn.snapshot, modelName, generatedThumbnails[asset.assetId])),
+      results: turn.results.map((asset) => assetToGenerated(
+        asset,
+        turn.snapshot,
+        modelName,
+        generatedOriginals[asset.assetId] || generatedThumbnails[asset.assetId]
+      )),
       tone: turn.status === 'failed' ? 'error' : turn.status === 'cancelled' ? 'canceled' : 'normal'
     }
   }
@@ -333,6 +344,9 @@ export function useInnerMugen(): MugenController {
   }
 
   watch(activeCapability, syncRequestDefaults, { immediate: true })
+  watch(unavailableGeneratedAssets, (assets) => {
+    for (const asset of assets) void loadGeneratedOriginal(asset.assetId, asset.originalAvailable)
+  }, { immediate: true })
   watch(() => store.status, (status) => {
     if (status !== 'ready') return
     const config = activeConfig.value
@@ -500,8 +514,22 @@ export function useInnerMugen(): MugenController {
     return { ...image, previewUrl, previewStatus: 'ready' as const, previewError: undefined }
   }
 
+  async function loadGeneratedOriginal(assetId: string, originalAvailable?: boolean) {
+    if (generatedOriginals[assetId] || requestedGeneratedOriginals.has(assetId) || originalAvailable === false) return
+    requestedGeneratedOriginals.add(assetId)
+    try {
+      generatedOriginals[assetId] = await store.host.readOriginalAsset(assetId)
+    } catch (reason) {
+      showToast(reason instanceof Error ? `原图载入失败：${reason.message}` : '原图载入失败')
+    }
+  }
+
+  async function recoverGeneratedPreview(image: GeneratedImage) {
+    await loadGeneratedOriginal(image.id, image.originalAvailable)
+  }
+
   async function upgradeGeneratedThumbnail(image: GeneratedImage) {
-    if (generatedThumbnails[image.id] || requestedGeneratedThumbnails.has(image.id) || image.originalAvailable === false) return
+    if (generatedOriginals[image.id] || generatedThumbnails[image.id] || requestedGeneratedThumbnails.has(image.id) || image.originalAvailable === false) return
     requestedGeneratedThumbnails.add(image.id)
     try {
       const originalUrl = await store.host.readOriginalAsset(image.id)
@@ -748,6 +776,7 @@ export function useInnerMugen(): MugenController {
     references,
     refreshDocument,
     removeReference,
+    recoverGeneratedPreview,
     retryGeneration,
     resolutionMode,
     saveConfig,

@@ -672,28 +672,34 @@ test('navigates parameter choices inside the popup menu', async ({ page }, testI
   await expect(menu).toBeHidden()
 })
 
-test('shows a thumbnail error without opening the original image on click', async ({ browser }, testInfo) => {
-  const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
-  const page = await context.newPage()
-  await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 3_500, thumbnailUnavailable: true })
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+test('shows the original image when the generated preview is unavailable', async ({ browser }, testInfo) => {
+  for (const failure of ['host-unavailable', 'image-load'] as const) {
+    const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
+    const page = await context.newPage()
+    await installTestHost(page, {
+      apimartBaseUrl,
+      apiKey: expectedApiKey,
+      generationDelayMs: 3_500,
+      thumbnailLoadFailure: failure === 'image-load',
+      thumbnailUnavailable: failure === 'host-unavailable'
+    })
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
 
-  await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('异常缩略图验证')
-  await page.getByRole('button', { name: '发送', exact: true }).click()
-  const loading = page.locator('.loading-turn')
-  await expect(loading).toBeVisible()
-  await expect.poll(async () => Number((await loading.textContent())?.match(/(\d+)s/)?.[1] ?? 0), { timeout: 3_500 }).toBeGreaterThan(0)
+    await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('异常缩略图验证')
+    await page.getByRole('button', { name: '发送', exact: true }).click()
+    const loading = page.locator('.loading-turn')
+    await expect(loading).toBeVisible()
+    await expect.poll(async () => Number((await loading.textContent())?.match(/(\d+)s/)?.[1] ?? 0), { timeout: 3_500 }).toBeGreaterThan(0)
 
-  const unavailable = page.getByRole('status').filter({ hasText: '预览不可用' })
-  await expect(unavailable).toBeVisible({ timeout: 10_000 })
-  await expect(unavailable).toContainText('原图仍可用')
-  await page.screenshot({ path: testInfo.outputPath('thumbnail-unavailable.png') })
-  await unavailable.click()
-  const previewRegion = page.getByRole('region', { name: '图片预览' })
-  await expect(previewRegion).toBeHidden()
-  expect((await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(false)
-  await context.close()
+    const result = page.getByRole('img', { name: '生成结果 1' })
+    await expect(result).toBeVisible({ timeout: 10_000 })
+    await expect(result).toHaveAttribute('src', `${apimartBaseUrl}/fixtures/cat.jpg`)
+    await expect(page.getByRole('status').filter({ hasText: '预览不可用' })).toHaveCount(0)
+    await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`thumbnail-original-${failure}.png`) })
+    await context.close()
+  }
 })
 
 test('constrains completed landscape and portrait thumbnails by orientation', async ({ browser }, testInfo) => {

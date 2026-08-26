@@ -32,6 +32,7 @@ const emit = defineEmits<{
   reference: [image: GeneratedImage]
   retry: [turnId: string]
   save: [image: GeneratedImage]
+  thumbnailUnavailable: [image: GeneratedImage]
   thumbnailLowResolution: [image: GeneratedImage]
   upscale: [image: GeneratedImage]
 }>()
@@ -56,14 +57,17 @@ const placementOptionIds = shallowRef<Record<string, string>>({})
 const visibleRequestLogs = shallowRef<Record<string, boolean>>({})
 const elapsedClickState = shallowRef<Record<string, { count: number; lastAt: number }>>({})
 const renderedImageRatios = shallowRef<Record<string, string>>({})
-const failedThumbnails = shallowRef<Record<string, boolean>>({})
+const failedThumbnailUrls = shallowRef<Record<string, string>>({})
 
 function hasResultThumbnail(image: GeneratedImage) {
-  return image.previewStatus !== 'unavailable' && Boolean(image.previewUrl) && !failedThumbnails.value[image.id]
+  return image.previewStatus !== 'unavailable'
+    && Boolean(image.previewUrl)
+    && failedThumbnailUrls.value[image.id] !== image.previewUrl
 }
 
-function markThumbnailFailed(imageId: string) {
-  failedThumbnails.value = { ...failedThumbnails.value, [imageId]: true }
+function handleResultImageError(image: GeneratedImage) {
+  failedThumbnailUrls.value = { ...failedThumbnailUrls.value, [image.id]: image.previewUrl }
+  emit('thumbnailUnavailable', image)
 }
 
 function readResultAspectRatio(image: GeneratedImage) {
@@ -645,7 +649,7 @@ watch(
                   :alt="image.label"
                   :style="{ aspectRatio: readResultAspectRatio(image) }"
                   @load="handleResultImageLoad($event, image)"
-                  @error="markThumbnailFailed(image.id)"
+                  @error="handleResultImageError(image)"
                 />
                 <span v-else class="thumbnail-error" role="status">
                   <strong>预览不可用</strong>
