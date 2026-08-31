@@ -52,6 +52,7 @@ const {
   editingConfigId,
   enabledConfigs,
   generationLoading,
+  historyLimit,
   installPluginUrl,
   openPromptPresets,
   openSettings,
@@ -84,6 +85,7 @@ const {
   upscaleImage,
   updateSettingsDraft,
   updatePromptPresets,
+  updateHistoryLimit,
   upgradeGeneratedThumbnail,
   useResultAsReference
 } = props.controller
@@ -260,6 +262,7 @@ function handleManageModels() {
         :editing-config-id="editingConfigId"
         :diagnostic-export-available="props.diagnosticExportAvailable ?? false"
         :diagnostic-export-state="diagnosticExportState"
+        :history-limit="historyLimit"
         :provider-capabilities="providerCapabilities"
         :prompt-presets="promptPresets"
         :settings-draft-is-new="settingsDraftIsNew"
@@ -280,6 +283,7 @@ function handleManageModels() {
         @toggle-enabled="toggleConfigEnabled"
         @update-draft="updateSettingsDraft"
         @update-prompt-presets="updatePromptPresets"
+        @update-history-limit="updateHistoryLimit?.($event)"
       />
 
       <section

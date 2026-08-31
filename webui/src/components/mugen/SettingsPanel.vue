@@ -10,6 +10,11 @@ import type {
   SettingsView
 } from '@mugen/core'
 import { validateProviderConfig } from '@mugen/core'
+import {
+  MAX_HISTORY_LIMIT,
+  MIN_HISTORY_LIMIT,
+  normalizeHistoryLimit
+} from '../../utils/generationHistoryStorage'
 import BoxIcon from './BoxIcon.vue'
 import ConfigEditorForm from './ConfigEditorForm.vue'
 import DiagnosticLogCard from './DiagnosticLogCard.vue'
@@ -27,6 +32,7 @@ const props = defineProps<{
   editingConfigId: string
   diagnosticExportAvailable: boolean
   diagnosticExportState: DiagnosticExportState
+  historyLimit?: number
   providerCapabilities: Record<ImageProviderId, ProviderCapability>
   promptPresets: PromptPreset[]
   settingsDraftIsNew: boolean
@@ -49,6 +55,7 @@ const emit = defineEmits<{
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
+  updateHistoryLimit: [value: number]
   updatePromptPresets: [presets: PromptPreset[]]
 }>()
 
@@ -106,6 +113,11 @@ function requestClearConversationData() {
   emit('clearConversationData')
 }
 
+function adjustHistoryLimit(delta: number) {
+  if (props.historyLimit === undefined) return
+  emit('updateHistoryLimit', normalizeHistoryLimit(props.historyLimit + delta))
+}
+
 onUnmounted(() => {
   if (clearConversationTimer) {
     clearTimeout(clearConversationTimer)
@@ -117,14 +129,34 @@ onUnmounted(() => {
   <main class="settings-panel">
     <Transition :name="transitionName" mode="out-in">
       <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
-        <section class="data-card" aria-label="对话记录">
+        <section class="data-card history-card" aria-label="对话记录">
           <div>
             <strong>
               <BoxIcon name="trash" size="14" />
               对话记录
             </strong>
-            <small>清除生成消息和图片记录</small>
+            <small v-if="historyLimit !== undefined">保留最近 {{ historyLimit }} 条生成记录</small>
+            <small v-else>清除生成消息和图片记录</small>
           </div>
+          <span v-if="historyLimit !== undefined" class="history-stepper" role="group" aria-label="生成记录保存条数">
+            <button
+              type="button"
+              aria-label="减少生成记录保存条数"
+              :disabled="historyLimit <= MIN_HISTORY_LIMIT"
+              @click="adjustHistoryLimit(-1)"
+            >
+              −
+            </button>
+            <output aria-live="polite">{{ historyLimit }}</output>
+            <button
+              type="button"
+              aria-label="增加生成记录保存条数"
+              :disabled="historyLimit >= MAX_HISTORY_LIMIT"
+              @click="adjustHistoryLimit(1)"
+            >
+              +
+            </button>
+          </span>
           <button type="button" @click="requestClearConversationData">
             {{ clearConversationLabel }}
           </button>
@@ -346,6 +378,57 @@ onUnmounted(() => {
 
 .data-card button:hover {
   background: rgba(236, 81, 93, 0.18);
+}
+
+.history-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.history-stepper {
+  display: inline-grid;
+  grid-template-columns: 24px 24px 24px;
+  align-items: center;
+  height: 32px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.history-card .history-stepper button {
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--mugen-muted);
+  font-size: 16px;
+}
+
+.history-card .history-stepper button:hover:not(:disabled) {
+  background: var(--mugen-hover);
+  color: var(--mugen-text);
+}
+
+.history-card .history-stepper button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.history-stepper output {
+  color: var(--mugen-text);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .history-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .history-card > button {
+    grid-column: 1 / -1;
+  }
 }
 
 .config-list {

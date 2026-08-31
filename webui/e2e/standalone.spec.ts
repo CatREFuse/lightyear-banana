@@ -152,6 +152,60 @@ test('browser exposes the complete shared Provider catalog', async ({ page }) =>
   await expect(providerField.locator('.option-label')).toHaveText(providerNames)
 })
 
+test('browser restores generation history and expires old records at the configured limit', async ({ page }, testInfo) => {
+  await page.evaluate(() => {
+    const settings = JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}')
+    const createTurn = (id: string, prompt: string) => ({
+      id,
+      prompt,
+      references: [],
+      responseText: `${prompt}完成`,
+      elapsedLabel: '耗费 1s',
+      results: []
+    })
+    localStorage.removeItem('mugen.generation-history.v1')
+    localStorage.setItem('mugen.settings.v1', JSON.stringify({
+      ...settings,
+      generationHistory: [
+        createTurn('turn-oldest', '最早记录'),
+        createTurn('turn-middle', '中间记录'),
+        createTurn('turn-newest', '最新记录')
+      ],
+      historyLimit: 2
+    }))
+  })
+  await page.reload()
+
+  await expect(page.getByText('最早记录', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('中间记录', { exact: true })).toBeVisible()
+  await expect(page.getByText('最新记录', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: '设置' }).click()
+  const stepper = page.getByRole('group', { name: '生成记录保存条数' })
+  await expect(stepper.locator('output')).toHaveText('2')
+  await page.screenshot({ path: testInfo.outputPath('history-retention-settings.png') })
+  await stepper.getByRole('button', { name: '减少生成记录保存条数' }).click()
+  await expect(stepper.locator('output')).toHaveText('1')
+
+  await expect.poll(() => page.evaluate(() => {
+    const settings = JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}')
+    const history = JSON.parse(localStorage.getItem('mugen.generation-history.v1') || '[]')
+    return {
+      historyIds: history.map((turn: { id: string }) => turn.id),
+      historyLimit: settings.historyLimit,
+      legacyHistoryPresent: Object.hasOwn(settings, 'generationHistory')
+    }
+  })).toEqual({
+    historyIds: ['turn-newest'],
+    historyLimit: 1,
+    legacyHistoryPresent: false
+  })
+
+  await page.reload()
+  await expect(page.getByText('中间记录', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('最新记录', { exact: true })).toBeVisible()
+})
+
 test('browser creates and reloads APIMart config, then completes the network flow without Photoshop controls', async ({ page }) => {
   expect(await page.evaluate(() => Boolean(window.uxpHost))).toBe(false)
 

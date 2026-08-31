@@ -52,6 +52,7 @@ export type MugenController = {
   enabledConfigs: ReadonlyState<ModelConfig[]>
   exportDiagnostics: () => ControllerResult
   generationLoading: ReadonlyState<GenerationLoadingState[]>
+  historyLimit?: Ref<number>
   installPluginUrl: ReadonlyState<string>
   loadOriginalImage?: (image: CapturedCanvasImage) => Promise<CapturedCanvasImage>
   openPromptPresets: () => ControllerResult
@@ -85,6 +86,7 @@ export type MugenController = {
   upscaleImage: (image: GeneratedImage) => ControllerResult
   updateSettingsDraft: (patch: Partial<ModelConfig>) => ControllerResult
   updatePromptPresets: (presets: PromptPreset[]) => ControllerResult
+  updateHistoryLimit?: (value: number) => ControllerResult
   upgradeGeneratedThumbnail?: (image: GeneratedImage) => ControllerResult
   useResultAsReference: (image: GeneratedImage) => ControllerResult
 }
