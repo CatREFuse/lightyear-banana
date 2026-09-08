@@ -8,7 +8,7 @@
 
 ## 2026-09-08 Photoshop 交互边界修复
 
-本次目标版本：WebUI `0.2.4`、CCX `1.2.1+2609080001`。缩略图、参考图压缩与历史恢复使用内部 JS；Photoshop 业务接口限定在图片读取与置入。发行验证结果记录在 `docs/ps-image-boundary-release.md`。
+本次目标版本：WebUI `0.2.4`、CCX `1.2.1+2609080001`。缩略图、参考图压缩与历史恢复使用内部 JS；Photoshop 业务接口限定在图片读取与置入。WebUI、CCX、官网均已发行并通过公网回读；真实 PS 与 Windows 安装验收尚未完成，完整结果记录在 `docs/ps-image-boundary-release.md`。
 
 ## 生命周期与版本规则
 

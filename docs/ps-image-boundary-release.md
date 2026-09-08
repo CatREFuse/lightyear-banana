@@ -29,4 +29,10 @@
 - CCX 正式完整打包通过，源码提交同上；核心 57/57、网络夹具 6/6、发布策略与官网部署测试无失败。
 - 新增高纹理图片压缩 E2E 双视口 2/2 通过。
 - 安装包：`imini-ps-1.2.1-2609080001.ccx`，61163 bytes，SHA256 `726db9c984f8c678c1634d80c63ecc18cb4dea17ca8b96d13fb5f9e881643502`。
-- 官网下载元数据已按实际产物更新，官网快照部署和公网回读结果待执行后补充。
+- 官网正式部署通过：`20260908T025340Z-c88e64fb1e87-7890d2a7`，完整 16 个公网文件回读通过；官网 buildId `site-f391710fd109`，commit `e80b9ddf187d332d2e2843e9042c63a86d21b300`，dirty false。
+- 独立公网下载 CCX 与本地 SHA256 完全一致；HTTP 200，61163 bytes，Content-Type application/octet-stream，HSTS 与 nosniff 均通过。
+- 官网桌面 1440×900 与手机 390×844 截图已检查，均无页面溢出，下载链接和标本号指向本次版本。
+- 部署使用已有 SSH 公钥，本次未添加服务器公钥或修改 SSH 配置。临时部署环境已在验收后清理。
+- 正式下载：https://mugen.catrefuse.com/download/imini-ps-1.2.1-2609080001.ccx
+- WebUI：https://mugen.catrefuse.com/webui/（CCX 入口 https://imini-test.catrefuse.com/）。
+- 源码和发行记录保留在 `codex/ps-image-boundary` 分支，未执行 git push。
