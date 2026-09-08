@@ -39,7 +39,6 @@ type PhotoshopRuntime = {
   app: {
     version?: string
     activeDocument: PhotoshopDocument
-    documents: PhotoshopDocument[]
   }
   core: {
     executeAsModal: <T>(
@@ -51,9 +50,6 @@ type PhotoshopRuntime = {
     AnchorPosition?: {
       TOPLEFT?: unknown
     }
-    SaveOptions?: {
-      DONOTSAVECHANGES?: unknown
-    }
   }
   imaging: {
     getPixels: (options: Record<string, unknown>) => Promise<PhotoshopImageResult>
@@ -62,7 +58,6 @@ type PhotoshopRuntime = {
       data: Uint8Array,
       options: Record<string, unknown>
     ) => Promise<PhotoshopImageResult['imageData']>
-    encodeImageData: (options: Record<string, unknown>) => Promise<string>
     putPixels: (options: Record<string, unknown>) => Promise<void>
   }
 }
@@ -920,8 +915,9 @@ async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: CcxDiagno
 }
 
 export async function captureVisibleComposite(trace?: CcxDiagnosticTrace): Promise<CapturedCanvasImage> {
+  const sourceDocument = getPhotoshop().app.activeDocument
   await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
-  const captured = await getVisibleCompositePixels(undefined, trace)
+  const captured = await getVisibleCompositePixels(undefined, trace, sourceDocument)
   const previewUrl = await encodeRgbaPreview(captured.rgba, captured.width, captured.height)
 
   return {

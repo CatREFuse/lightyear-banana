@@ -6,6 +6,10 @@
 
 统一执行顺序与完成标准见 `docs/release-sop.md`。本清单是强制门禁，SOP 是正式操作流程；两者都必须满足。
 
+## 2026-09-08 Photoshop 交互边界修复
+
+本次目标版本：WebUI `0.2.4`、CCX `1.2.1+2609080001`。缩略图、参考图压缩与历史恢复使用内部 JS；Photoshop 业务接口限定在图片读取与置入。发行验证结果记录在 `docs/ps-image-boundary-release.md`。
+
 ## 生命周期与版本规则
 
 - CCX 语义版本与 build 号独立管理。`plug-in/manifest.json` 保持 `x.y.z`；`plug-in/package.json#buildNumber` 使用 `YYMMDDnnnn`，其中日期按 Asia/Shanghai 计算，`nnnn` 是当天从 `0001` 开始的正式构建序号。

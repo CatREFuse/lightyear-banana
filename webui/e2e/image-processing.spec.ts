@@ -14,7 +14,8 @@ test('CCX processes pixels, uploaded files and corrupt images through WebView wi
   })
   await installTestHost(page)
   await page.goto('/')
-  await expect(page.getByText('Photoshop 已连接')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as any).__MUGEN_E2E_TRACE__?.commands?.some((item: any) => item.command === 'settings.get') ?? false)).toBe(true)
   await page.evaluate(() => {
     const original = window.postMessage.bind(window)
     window.postMessage = ((request: any, ...args: any[]) => {
@@ -55,6 +56,20 @@ test('CCX processes pixels, uploaded files and corrupt images through WebView wi
     const restored = await service.process(result.thumbnailUrl, { source: 'dataUrl', width: 640, height: 480, maxBytes: 16384, maxEdge: 128, measure: 'dataUrl' })
     expect(restored.width).toBe(256)
     expect(restored.height).toBe(192)
+    for (let index = 0; index < pixels.length; index += 4) {
+      const value = Math.imul(index + 1, 2654435761) ^ Math.imul(index >>> 8, 1597334677)
+      pixels[index] = value & 255
+      pixels[index + 1] = (value >>> 8) & 255
+      pixels[index + 2] = (value >>> 16) & 255
+    }
+    const textured = await service.process(pixels.toString('base64'), { source: 'rgba', width: 640, height: 480, maxEdge: 800, maxBytes: 16384, measure: 'dataUrl' })
+    expect(textured.thumbnailUrl.length).toBeLessThanOrEqual(16384)
+    expect(await page.evaluate(async src => {
+      const image = new Image()
+      image.src = src
+      await image.decode()
+      return image.naturalWidth
+    }, textured.thumbnailUrl)).toBeLessThan(640)
     await expect(service.process('data:image/png;base64,broken', { source: 'dataUrl', width: 1, height: 1, measure: 'dataUrl' })).rejects.toThrow()
     expect(calls).toContain('image.fail')
   } finally {

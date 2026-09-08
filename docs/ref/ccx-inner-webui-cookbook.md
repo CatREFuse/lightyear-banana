@@ -245,7 +245,7 @@ WebView DOM 在 Photoshop 外层辅助功能树中可能不可见。真实验收
 
 ### 9.1 UXP DOM 与浏览器 DOM 能力不等价
 
-在 Photoshop 27.3 实测中，UXP DOM 用 File Entry URL 或 Blob URL 加载本地图片都可能不触发 load/error。涉及本地图片解码时，Host 侧优先使用 `app.open()` + imaging；WebView 内由真实浏览器引擎处理 paste/drop File。
+在 Photoshop 27.3 实测中，UXP DOM 用 File Entry URL 或 Blob URL 加载本地图片都可能不触发 load/error。本地图片解码统一交给 WebView 浏览器引擎；Host 读取文件字节后通过分片桥传输，paste/drop File 直接在 WebView 内处理。
 
 ### 9.2 桥接大小必须显式设计
 
