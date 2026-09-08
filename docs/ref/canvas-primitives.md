@@ -90,9 +90,9 @@ await canvasPrimitiveService.insertImage(image, {
 - `getPixels()` 用于读取可见合成图或指定图层。
 - `getSelection()` 用于读取选区 mask。
 - 可见图像优先对当前文档调用 `imaging.getPixels({ documentID, historyStateID })`，其中 `historyStateID` 每次读取都来自当前活动历史状态；该状态无法渲染时，省略 `historyStateID` 并按当前文档状态重试一次。两次调用都不传 `layerID`，也不复制文档，避免复制含临时来源智能对象的文档。
-- 选区图像从临时文档副本的合并可见图层读取，避免宿主把当前选中图层误当作文档合成结果。
+- 选区图像直接从原文档读取合成像素，并在 JS 中应用 mask；读取不传 layerID，不复制、合并或关闭文档。
 - `putPixels()` 用于写入像素。
-- `encodeImageData()` 用于生成面板预览。
+- 面板预览由 WebView Canvas 在内部 JS 中生成，不调用 Photoshop 的 encodeImageData。
 - 写入 Photoshop 文档时进入 `core.executeAsModal()`。
 - 每个 `PhotoshopImageData` 都在 `finally` 中 `dispose()`。
 - Vue 层用 `shallowRef` 保存图像数据，避免深层代理大 `Uint8Array`。

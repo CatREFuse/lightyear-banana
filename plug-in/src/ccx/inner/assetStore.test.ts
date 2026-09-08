@@ -157,6 +157,7 @@ describe('persistent Host assets', () => {
     const restoredHistory = new HistoryStore(restoredAssets)
     const page = await restoredHistory.list(undefined, 10)
     expect(page.items).toHaveLength(1)
+    expect(runtime.previewThumbnailCalls).toBe(0)
     expect(page.items[0]?.assets[0]?.status).toBe('available')
     expect((await restoredAssets.getOrRestore(asset.assetId)).image.previewUrl).toBe(image.previewUrl)
 

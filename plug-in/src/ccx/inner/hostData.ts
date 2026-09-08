@@ -118,6 +118,7 @@ function sanitizedHistoryEntry(entry: HistoryUpsertEntry): HistoryUpsertEntry {
   const snapshot = rawSnapshot
     ? {
         configId: typeof rawSnapshot.configId === 'string' ? rawSnapshot.configId.slice(0, 256) : '',
+        ...(rawSnapshot.canvasSize === undefined ? {} : { canvasSize: rawSnapshot.canvasSize as { width: number; height: number } }),
         prompt: typeof rawSnapshot.prompt === 'string' ? rawSnapshot.prompt.slice(0, 100_000) : '',
         references: Array.isArray(rawSnapshot.references)
           ? rawSnapshot.references.map(sanitizedHistoryPointer).filter((asset): asset is HostAssetPointer => Boolean(asset)).slice(0, 16)

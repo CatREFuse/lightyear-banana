@@ -167,7 +167,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   expect(await page.evaluate(() => Boolean(window.uxpHost))).toBe(false)
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await expect(page.getByText('iMini PS · WebUI 0.2.3', { exact: true })).toBeVisible()
+  await expect(page.getByText('iMini PS · WebUI 0.2.4', { exact: true })).toBeVisible()
   await expect(page.getByText(/0\.3\.19/)).toHaveCount(0)
   await expect(page.getByText(/Build/)).toHaveCount(0)
   await openCustomApiConfigs(page)

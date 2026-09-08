@@ -136,10 +136,8 @@ export class StartupLog {
     const hostRequire = getHostRequire()
     if (!hostRequire) return { uxp: 'unavailable' }
     try {
-      const photoshop = hostRequire('photoshop')
       const uxp = hostRequire('uxp')
       return {
-        photoshopVersion: photoshop?.app?.version ?? 'unknown',
         uxpVersion: uxp?.versions?.uxp ?? 'unknown'
       }
     } catch (error) {

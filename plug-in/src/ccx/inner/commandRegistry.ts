@@ -1,4 +1,5 @@
-import { HOST_COMMANDS, PROTOCOL_VERSION, type BridgeError, type HistoryUpsertEntry, type HostCommand, type HostEventName, type PlacementTarget } from '@mugen/inner-protocol'
+import { imageProcessor } from './imageProcessing'
+import { HOST_COMMANDS, PROTOCOL_VERSION, type BridgeError, type HistoryUpsertEntry, type HostCommand, type HostEventName, type HostContext, type ImageProcessingWrite, type PlacementTarget } from '@mugen/inner-protocol'
 import { canvasPrimitiveService } from '../canvasPrimitiveService'
 import { readCanvasDiagnosticContext } from '../canvasPrimitives'
 import { readActiveDocumentLabel } from '../photoshopHost'
@@ -17,13 +18,6 @@ const OFFICIAL_RELEASE_PAGE = __INNER_RELEASE_URL__
 type CommandPayload = Record<string, unknown> | undefined
 type CommandHandler = (payload: CommandPayload) => Promise<unknown>
 type EventEmitter = (command: HostEventName, payload: unknown) => void
-type NotificationEvent = { event: string }
-type NotificationListener = (eventName: string, descriptor: Record<string, unknown>) => void
-type PhotoshopActionNotifications = {
-  addNotificationListener?: (events: NotificationEvent[], listener: NotificationListener) => Promise<void>
-  removeNotificationListener?: (events: NotificationEvent[], listener: NotificationListener) => Promise<void> | void
-}
-
 function diagnosticCategory(command: HostCommand) {
   if (command === 'host.handshake') return 'bridge'
   if (command.startsWith('generation.')) return 'provider'
@@ -32,28 +26,10 @@ function diagnosticCategory(command: HostCommand) {
   return 'host-command'
 }
 
-const CONTEXT_NOTIFICATION_EVENTS: NotificationEvent[] = [
-  { event: 'open' },
-  { event: 'close' },
-  { event: 'select' },
-  { event: 'set' },
-  { event: 'make' },
-  { event: 'delete' },
-  { event: 'canvasSize' },
-  { event: 'imageSize' },
-  { event: 'crop' }
-]
-
 function getAdobeUxpRuntime() {
   const require = (globalThis as { require?: (name: string) => any }).require
   if (typeof require !== 'function') throw new Error('Photoshop UXP runtime is unavailable.')
   return require('uxp')
-}
-
-function getPhotoshopActionNotifications(): PhotoshopActionNotifications | undefined {
-  const require = (globalThis as { require?: (name: string) => any }).require
-  if (typeof require !== 'function') return undefined
-  return require('photoshop')?.action as PhotoshopActionNotifications | undefined
 }
 
 function getPlatform(): 'win32' | 'darwin' {
@@ -75,35 +51,17 @@ function getTheme(): 'light' | 'dark' {
   return 'dark'
 }
 
-function getDocumentContext(hostVersion: string) {
-  const adobeUxpRuntime = getAdobeUxpRuntime()
-  try {
-    const context = readCanvasDiagnosticContext()
-    return {
-      ready: true,
-      hostVersion,
-      photoshopVersion: context.photoshopVersion ?? '',
-      uxpVersion: adobeUxpRuntime?.versions?.uxp ?? adobeUxpRuntime?.version ?? '',
-      platform: getPlatform(),
-      theme: getTheme(),
-      document: {
-        id: String(context.document.id),
-        name: context.document.name || readActiveDocumentLabel(),
-        width: Number(context.document.width) || 1,
-        height: Number(context.document.height) || 1
-      },
-      capabilities: [...HOST_COMMANDS]
-    }
-  } catch {
-    return {
-      ready: true,
-      hostVersion,
-      photoshopVersion: '',
-      uxpVersion: adobeUxpRuntime?.versions?.uxp ?? adobeUxpRuntime?.version ?? '',
-      platform: getPlatform(),
-      theme: getTheme(),
-      capabilities: [...HOST_COMMANDS]
-    }
+function getHostContext(hostVersion: string): HostContext {
+  const uxp = getAdobeUxpRuntime()
+  return { ready: true, hostVersion, photoshopVersion: '', uxpVersion: uxp?.versions?.uxp ?? uxp?.version ?? '', platform: getPlatform(), theme: getTheme(), capabilities: [...HOST_COMMANDS] }
+}
+
+function getDocumentContext(hostVersion: string): HostContext {
+  const context = readCanvasDiagnosticContext()
+  return {
+    ...getHostContext(hostVersion),
+    photoshopVersion: context.photoshopVersion ?? '',
+    document: { id: String(context.document.id), name: context.document.name || readActiveDocumentLabel(), width: Number(context.document.width), height: Number(context.document.height) }
   }
 }
 
@@ -118,19 +76,8 @@ export class CommandRegistry {
   private readonly hostVersion: string
   private readonly session: SessionManager
   private readonly emit: EventEmitter
-  private notificationAction?: PhotoshopActionNotifications
-  private notificationTimer?: ReturnType<typeof setTimeout>
-  private notificationAttached = false
-  private destroyed = false
+  private context?: HostContext
   private workspaceClientNonce?: string
-  private readonly notificationListener: NotificationListener = () => {
-    if (this.destroyed) return
-    if (this.notificationTimer) clearTimeout(this.notificationTimer)
-    this.notificationTimer = setTimeout(() => {
-      this.notificationTimer = undefined
-      if (!this.destroyed) this.emit('host.contextChanged', getDocumentContext(this.hostVersion))
-    }, 120)
-  }
 
   constructor(
     hostVersion: string,
@@ -159,17 +106,20 @@ export class CommandRegistry {
     this.handlers = {
       'host.handshake': async (payload) => {
         const clientNonce = typeof payload?.clientNonce === 'string' ? payload.clientNonce : ''
-        if (this.workspaceClientNonce && this.workspaceClientNonce !== clientNonce) this.assets.resetWorkspace()
+        if (this.workspaceClientNonce !== clientNonce) {
+          if (this.workspaceClientNonce) this.assets.resetWorkspace()
+          imageProcessor.connect((request) => this.emit('image.process', request))
+        }
         this.workspaceClientNonce = clientNonce
         return {
           sessionId: this.session.sessionId,
           protocolVersion: PROTOCOL_VERSION,
           hostNonce: this.session.hostNonce,
           clientNonce,
-          context: getDocumentContext(this.hostVersion)
+          context: this.context ?? getHostContext(this.hostVersion)
         }
       },
-      'host.getContext': async () => getDocumentContext(this.hostVersion),
+      'host.getContext': async () => this.context ?? getHostContext(this.hostVersion),
       'host.openReleasePage': async () => {
         const shell = getAdobeUxpRuntime().shell
         if (!shell?.openExternal) throw new Error('无法打开发布页面')
@@ -201,14 +151,20 @@ export class CommandRegistry {
       },
       'credential.set': async (payload) => setCredential(payload ?? {}),
       'credential.remove': async (payload) => removeCredential(payload ?? {}),
-      'canvas.captureVisible': async () => this.addCaptured('visible', await canvasPrimitiveService.captureVisibleImage()),
-      'canvas.captureSelection': async () => this.addCaptured('selection', await canvasPrimitiveService.captureSelectionImage()),
-      'canvas.captureLayer': async () => this.addCaptured('layer', await canvasPrimitiveService.captureSelectedLayerImage()),
-      'canvas.readSize': async () => canvasPrimitiveService.readCanvasSize(),
+      'canvas.captureVisible': async () => this.capture('visible'),
+      'canvas.captureSelection': async () => this.capture('selection'),
+      'canvas.captureLayer': async () => this.capture('layer'),
+      'canvas.readSize': async () => {
+        if (!this.context?.document) throw new Error('请读取图片后获取画布尺寸')
+        return { width: this.context.document.width, height: this.context.document.height }
+      },
+      'image.readChunk': async (payload) => imageProcessor.read(String(payload?.jobId), Number(payload?.offset)),
+      'image.writeChunk': async (payload) => imageProcessor.write(payload as ImageProcessingWrite),
+      'image.fail': async (payload) => imageProcessor.fail(String(payload?.jobId), String(payload?.message)),
       'reference.pickFile': async () => this.files.pickReference(),
       'reference.readClipboard': async () => this.files.readClipboardReference(),
       'reference.importImageChunk': async (payload) => this.files.importImageChunk(payload as never),
-      'generation.start': async (payload) => this.provider.start(payload as never),
+      'generation.start': async (payload) => this.provider.start({ ...payload, canvasSize: payload?.canvasSize ?? (this.context?.document ? { width: this.context.document.width, height: this.context.document.height } : undefined) } as never),
       'generation.cancel': async (payload) => this.provider.cancel(String(payload?.taskId ?? '')),
       'generation.testConfig': async (payload) => this.provider.testConfig(String(payload?.configId ?? '')),
       'canvas.placeAsset': async (payload) => this.placeAsset(String(payload?.assetId ?? ''), payload?.target as PlacementTarget),
@@ -222,12 +178,12 @@ export class CommandRegistry {
       'diagnostics.export': async () => this.confirmations.run('diagnostics.export', () => this.diagnostics.export()),
       'storage.clearAll': async () => this.confirmations.run('storage.clearAll', () => this.clearAllLocalData())
     }
-    void this.attachContextNotifications()
   }
 
   async invoke(request: BridgeEnvelope<Record<string, unknown> | undefined>) {
     const handler = this.handlers[request.command as HostCommand]
     if (!handler) throw new Error('此操作不可用')
+    if (request.command.startsWith('image.')) return handler(request.payload)
     const startedAt = Date.now()
     const clearingAll = request.command === 'storage.clearAll'
     if (!clearingAll) await this.diagnostics.record({ category: diagnosticCategory(request.command as HostCommand), operation: request.command, phase: 'start', details: { messageId: request.messageId } }).catch(() => undefined)
@@ -263,43 +219,10 @@ export class CommandRegistry {
   }
 
   destroy() {
-    this.destroyed = true
-    if (this.notificationTimer) clearTimeout(this.notificationTimer)
-    this.notificationTimer = undefined
-    if (this.notificationAttached && this.notificationAction?.removeNotificationListener) {
-      try {
-        void Promise.resolve(
-          this.notificationAction.removeNotificationListener(CONTEXT_NOTIFICATION_EVENTS, this.notificationListener)
-        ).catch(() => undefined)
-      } catch {
-        // Photoshop notification cleanup is best-effort during panel teardown.
-      }
-    }
-    this.notificationAttached = false
+    imageProcessor.disconnect()
     this.confirmations.destroy()
     this.provider.destroy()
     this.assets.destroy()
-  }
-
-  private async attachContextNotifications() {
-    const action = getPhotoshopActionNotifications()
-    if (!action?.addNotificationListener) return
-    this.notificationAction = action
-    try {
-      await action.addNotificationListener(CONTEXT_NOTIFICATION_EVENTS, this.notificationListener)
-      if (this.destroyed) {
-        await action.removeNotificationListener?.(CONTEXT_NOTIFICATION_EVENTS, this.notificationListener)
-        return
-      }
-      this.notificationAttached = true
-    } catch (error) {
-      this.diagnostics.record({
-        category: 'host-context',
-        operation: 'attach-notifications',
-        phase: 'error',
-        details: { errorName: error instanceof Error ? error.name : 'Error' }
-      })
-    }
   }
 
   private recordRuntimeEvent(command: HostEventName, payload: unknown) {
@@ -350,8 +273,11 @@ export class CommandRegistry {
     }
   }
 
-  private async addCaptured(source: 'visible' | 'selection' | 'layer', image: Awaited<ReturnType<typeof canvasPrimitiveService.captureVisibleImage>>) {
+  private async capture(source: 'visible' | 'selection' | 'layer') {
     const context = getDocumentContext(this.hostVersion)
+    const image = await (source === 'visible' ? canvasPrimitiveService.captureVisibleImage() : source === 'selection' ? canvasPrimitiveService.captureSelectionImage() : canvasPrimitiveService.captureSelectedLayerImage())
+    this.context = context
+    this.emit('host.contextChanged', context)
     return this.assets.add(source, image, { documentId: context.document?.id })
   }
 

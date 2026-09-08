@@ -14,6 +14,7 @@ type Asset = {
 }
 
 type PersistentAssetRecord = {
+  thumbnailUrl?: string
   assetId: string
   fileName: string
   label: string
@@ -395,6 +396,7 @@ export class AssetStore {
             mimeType,
             width: asset.ref.width,
             height: asset.ref.height,
+            thumbnailUrl: asset.ref.thumbnailUrl,
             sourceBounds: asset.image.sourceBounds,
             documentId: asset.ref.documentId,
             createdAt: asset.createdAt,
@@ -669,7 +671,9 @@ export class AssetStore {
       let thumbnail = ''
       let previewError = ''
       try {
-        thumbnail = await createBridgeThumbnailFromPreview(image, MAX_THUMBNAIL_BYTES)
+        thumbnail = typeof record.thumbnailUrl === 'string' && record.thumbnailUrl.startsWith('data:image/') && serializedBytes(record.thumbnailUrl) <= MAX_THUMBNAIL_BYTES
+          ? record.thumbnailUrl
+          : await createBridgeThumbnailFromPreview(image, MAX_THUMBNAIL_BYTES)
         if (serializedBytes(thumbnail) > MAX_THUMBNAIL_BYTES) {
           thumbnail = ''
           previewError = '缩略图超过传输限制'

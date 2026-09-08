@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { captureVisibleComposite } from './canvasPrimitives'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { captureVisibleComposite, captureSelectionComposite } from './canvasPrimitives'
+
+vi.mock('./inner/imageProcessing', () => ({ imageProcessor: { process: vi.fn(async () => ({ thumbnailUrl: 'data:image/jpeg;base64,cHJldmlldw==', width: 2, height: 1 })) }, encodeImageBytes: (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)) }))
 
 type HostRequire = (name: string) => unknown
 
@@ -36,7 +38,7 @@ describe('visible composite capture', () => {
           }
         },
         core: {
-          executeAsModal: async (target: () => Promise<unknown>) => target()
+          executeAsModal: async () => { throw new Error('Unexpected PS mutation') }
         },
         imaging: {
           getPixels: async (options: Record<string, unknown>) => {
@@ -54,14 +56,8 @@ describe('visible composite capture', () => {
             }
           },
           getSelection: async () => { throw new Error('Unexpected getSelection call') },
-          createImageDataFromBuffer: async (data: Uint8Array, options: Record<string, unknown>) => ({
-            width: Number(options.width),
-            height: Number(options.height),
-            components: Number(options.components),
-            getData: async () => data,
-            dispose() {}
-          }),
-          encodeImageData: async () => 'preview',
+          createImageDataFromBuffer: async () => { throw new Error('Unexpected PS encoding') },
+          encodeImageData: async () => { throw new Error('Unexpected PS encoding') },
           putPixels: async () => undefined
         }
       }
@@ -75,4 +71,18 @@ describe('visible composite capture', () => {
     expect(calls[1]).toMatchObject({ documentID: 1 })
     expect(calls[1]).not.toHaveProperty('historyStateID')
   })
+})
+
+ it('reads selection from the original document and applies the mask without creating or closing documents', async () => {
+  const bounds = { left: 0, top: 0, right: 2, bottom: 1 }
+  const getPixels = vi.fn(async (_options: Record<string, unknown>) => ({ imageData: { width: 2, height: 1, components: 4, getData: async () => new Uint8Array([255,0,0,255,0,0,255,255]), dispose() {} }, sourceBounds: bounds }))
+  hostGlobal.require = () => ({
+    app: { activeDocument: { id: 1, width: 2, height: 1, activeLayers: [], duplicate() { throw new Error('Unexpected duplicate') } } },
+    core: { executeAsModal() { throw new Error('Unexpected modal') } },
+    imaging: { getPixels, getSelection: async () => ({ imageData: { width: 2, height: 1, components: 1, getData: async () => new Uint8Array([255,128]), dispose() {} }, sourceBounds: bounds }) }
+  })
+  const image = await captureSelectionComposite()
+  expect(Array.from(image.rgba)).toEqual([255,0,0,255,0,0,255,128])
+  expect(getPixels).toHaveBeenCalledWith(expect.objectContaining({ documentID: 1 }))
+  expect(getPixels.mock.calls[0]?.[0]).not.toHaveProperty('layerID')
 })

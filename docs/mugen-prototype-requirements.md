@@ -136,6 +136,12 @@ iMini PS vNext 由三个活动交付物组成：
 - WebUI 不直接构造复杂 `batchPlay` descriptor；能力先由 `canvasPrimitives.ts` 提供最小原子函数，再由 `canvasPrimitiveService.ts` 暴露。
 - API Key 存入 UXP SecureStorage，不通过 WebView 消息回传明文。
 
+### UI-FR-008A Photoshop 交互范围
+
+- CCX 与 Photoshop 的业务交互仅限读取 PS 内图片与将图片置入 PS；其他功能均由插件内部 JS 完成。
+- 读取过程不得创建、合并、关闭临时 PS 文档，图片预览编码与参考图压缩不得调用 Photoshop imaging API。
+- 中间流程不读取当前文档状态，不后台监听文档变化，不提供独立空图层创建命令。
+
 ### UI-FR-009 运行时能力可见性
 
 - 浏览器模式完全移除 Photoshop 专属入口及其菜单分隔、占位和快捷键说明。

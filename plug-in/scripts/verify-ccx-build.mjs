@@ -110,8 +110,8 @@ const entrypointIds = new Set((manifest.entrypoints ?? []).map((entrypoint) => e
 if (!entrypointIds.has('panel')) {
   throw new Error('manifest.entrypoints must include the Vue panel.')
 }
-if (!entrypointIds.has('createLayer')) {
-  throw new Error('manifest.entrypoints must include the Photoshop command.')
+if (manifest.entrypoints.some((entry) => entry.type === 'command')) {
+  throw new Error('CCX must expose only the workspace panel; independent Photoshop edit commands are not supported.')
 }
 
 const panelHtml = await readFile(panelPath, 'utf8')

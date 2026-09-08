@@ -4,7 +4,6 @@ import { SessionManager } from './inner/sessionManager'
 import { StartupLog, toStartupErrorDetails } from './inner/startupLog'
 import { createWebViewShell, type WebViewShell } from './inner/webviewShell'
 import { createPanelLifecycle } from './panelLifecycle'
-import { createNamedLayer } from './photoshopHost'
 
 const CCX_VERSION = __CCX_VERSION__
 const CCX_RELEASE_ID = `${CCX_VERSION}+${__CCX_BUILD_NUMBER__}`
@@ -149,11 +148,6 @@ function mountPanel(rootNode?: unknown) {
 const { entrypoints } = getAdobeUxpRequire()('uxp')
 const panelLifecycle = createPanelLifecycle({ mount: mountPanel, destroy: destroyPanel })
 entrypoints.setup({
-  commands: {
-    async createLayer() {
-      await createNamedLayer()
-    }
-  },
   panels: {
     panel: panelLifecycle
   }

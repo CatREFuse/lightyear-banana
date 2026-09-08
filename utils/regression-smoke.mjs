@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { rmSync } from 'node:fs'
+import { rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -15,28 +15,21 @@ function readTscBin() {
 
 function compileRegressionSources(outDir) {
   rmSync(outDir, { force: true, recursive: true })
-  execFileSync(process.execPath, [readTscBin(),
-    '--ignoreConfig',
-    '--target',
-    'ES2022',
-    '--module',
-    'commonjs',
-    '--moduleResolution',
-    'node',
-    '--ignoreDeprecations',
-    '6.0',
-    '--outDir',
-    outDir,
-    '--rootDir',
-    '.',
-    '--skipLibCheck',
-    'plug-in/src/env.d.ts',
-    'packages/mugen-core/src/services/imageApiClient.ts',
-    'packages/mugen-core/src/data/providerCapabilities.ts',
-    'packages/inner-protocol/src/providerCapabilityData.ts',
-    'packages/mugen-core/src/utils/imagePixels.ts',
-    'plug-in/src/ccx/canvasPrimitives.ts'
-  ], { stdio: 'pipe' })
+  mkdirSync(outDir, { recursive: true })
+  const config = join(outDir, 'tsconfig.json')
+  writeFileSync(config, JSON.stringify({
+    compilerOptions: {
+      target: 'ES2022', module: 'commonjs', moduleResolution: 'node', ignoreDeprecations: '6.0',
+      outDir, rootDir: process.cwd(), skipLibCheck: true,
+      paths: { '@mugen/inner-protocol': [join(process.cwd(), 'packages/inner-protocol/src/index.ts')] }
+    },
+    files: [
+      'plug-in/src/env.d.ts', 'packages/mugen-core/src/services/imageApiClient.ts',
+      'packages/mugen-core/src/data/providerCapabilities.ts', 'packages/inner-protocol/src/providerCapabilityData.ts',
+      'packages/mugen-core/src/utils/imagePixels.ts', 'plug-in/src/ccx/canvasPrimitives.ts'
+    ].map(file => join(process.cwd(), file))
+  }))
+  execFileSync(process.execPath, [readTscBin(), '--project', config], { stdio: 'inherit' })
 
   return outDir
 }
@@ -831,123 +824,30 @@ async function testVisibleCompositeAfterPlacedSmartObject(canvasPrimitives) {
 }
 
 async function testSelectionVisibleComposite(canvasPrimitives) {
-  const calls = []
-  let duplicateClosed = false
-  let duplicateOptions
   const bounds = { left: 0, top: 0, right: 2, bottom: 1 }
-  const activeLayer = { id: 7, name: 'active', bounds, boundsNoEffects: bounds }
-  const lowerLayer = { id: 8, name: 'lower', bounds, boundsNoEffects: bounds }
-  const mergedLayer = { id: 99, name: 'merged', bounds, boundsNoEffects: bounds }
-  let photoshop
-
-  const sourceDocument = {
-    id: 1,
-    width: 2,
-    height: 1,
-    activeLayers: [activeLayer, { id: 9, name: 'adjustment', bounds, boundsNoEffects: bounds }],
-    layers: [activeLayer, lowerLayer],
-    async duplicate(name, mergeLayersOnly) {
-      duplicateOptions = { name, mergeLayersOnly }
-      photoshop.app.activeDocument = mergedDocument
-      return mergedDocument
-    }
-  }
-  const mergedDocument = {
-    id: 2,
-    width: 2,
-    height: 1,
-    activeLayers: [mergedLayer],
-    layers: [mergedLayer],
-    closeWithoutSaving() {
-      duplicateClosed = true
-      photoshop.app.activeDocument = sourceDocument
-    }
-  }
-
-  photoshop = {
-    action: { async batchPlay() { return [] } },
-    app: { activeDocument: sourceDocument },
-    core: { async executeAsModal(target) { return target() } },
-    imaging: {
-      async getSelection() {
-        return createImageResult({ width: 2, height: 1, components: 1, data: [255, 255], bounds })
-      },
-      async getPixels(options) {
-        calls.push({ ...options })
-        if (options.layerID === 99) {
-          return createImageResult({
-            width: 2,
-            height: 1,
-            components: 4,
-            data: [255, 255, 255, 255, 0, 0, 0, 255],
-            bounds
-          })
-        }
-
-        return createImageResult({
-          width: 2,
-          height: 1,
-          components: 4,
-          data: [255, 255, 255, 255, 0, 0, 0, 0],
-          bounds
-        })
-      },
-      async createImageDataFromBuffer(data, options) {
-        return {
-          width: options.width,
-          height: options.height,
-          components: options.components,
-          async getData() { return data },
-          dispose() {}
-        }
-      },
-      async encodeImageData() { return 'preview' },
-      async putPixels() {}
-    }
-  }
-
+  const calls = []
   const originalHostRequire = globalThis.require
-  globalThis.require = (name) => {
-    assert.equal(name, 'photoshop')
-    return photoshop
+  const photoshop = {
+    app: { activeDocument: { id: 1, width: 2, height: 1, activeLayers: [], duplicate() { throw new Error('Reading must not duplicate documents') } } },
+    imaging: {
+      async getSelection() { return createImageResult({ width: 2, height: 1, components: 1, data: [255,128], bounds }) },
+      async getPixels(options) {
+        calls.push(options)
+        return createImageResult({ width: 2, height: 1, components: 4, data: [255,255,255,255,0,0,0,255], bounds })
+      }
+    }
   }
-
+  globalThis.require = (name) => { assert.equal(name, 'photoshop'); return photoshop }
   try {
     const captured = await canvasPrimitives.captureSelectionComposite()
-    assert.deepEqual(Array.from(captured.rgba), [255, 255, 255, 255, 0, 0, 0, 255])
-    assert.equal(duplicateOptions.mergeLayersOnly, true)
-    assert.equal(duplicateClosed, true)
-    assert.deepEqual(calls.map((call) => call.layerID), [99])
-
-    duplicateClosed = false
-    calls.length = 0
-    photoshop.imaging.getPixels = async () => {
-      throw new Error('merged read failed')
-    }
-    await assert.rejects(() => canvasPrimitives.captureSelectionComposite(), /merged read failed/)
-    assert.equal(duplicateClosed, true, 'Merged read failures must still close the temporary document')
-
-    photoshop.imaging.getPixels = async (options) => {
-      calls.push({ ...options })
-      return createImageResult({
-        width: 2,
-        height: 1,
-        components: 4,
-        data: [255, 255, 255, 255, 0, 0, 0, 255],
-        bounds
-      })
-    }
-    mergedDocument.closeWithoutSaving = () => {
-      throw new Error('temporary close failed')
-    }
-    await assert.rejects(() => canvasPrimitives.captureSelectionComposite(), /temporary close failed/)
-    photoshop.app.activeDocument = sourceDocument
+    assert.deepEqual(Array.from(captured.rgba), [255,255,255,255,0,0,0,128])
+    assert.equal(calls[0].documentID, 1)
+    assert.equal(calls[0].layerID, undefined)
+    photoshop.imaging.getPixels = async () => { throw new Error('composite read failed') }
+    await assert.rejects(() => canvasPrimitives.captureSelectionComposite(), /composite read failed/)
   } finally {
-    if (originalHostRequire === undefined) {
-      delete globalThis.require
-    } else {
-      globalThis.require = originalHostRequire
-    }
+    if (originalHostRequire === undefined) delete globalThis.require
+    else globalThis.require = originalHostRequire
   }
 }
 
@@ -1102,6 +1002,8 @@ async function main() {
     const providerCapabilities = requireFromBuild(join(sourceOutDir, 'packages', 'mugen-core', 'src', 'data', 'providerCapabilities.js'))
     const providerRegistry = requireFromBuild(join(sourceOutDir, 'packages', 'mugen-core', 'src', 'providers', 'registry.js'))
     const canvasPrimitives = requireFromBuild(join(sourceOutDir, 'plug-in', 'src', 'ccx', 'canvasPrimitives.js'))
+    const { imageProcessor } = requireFromBuild(join(sourceOutDir, 'plug-in', 'src', 'ccx', 'inner', 'imageProcessing.js'))
+    imageProcessor.connect(request => imageProcessor.write({ jobId: request.jobId, offset: 0, chunk: 'data:image/jpeg;base64,/9j/2Q==', done: true, width: request.width, height: request.height }))
     await testProviderRegistry(imageApi, providerCapabilities, providerRegistry)
     await testProviderRatios(imageApi)
     await testImageRequestRetryPolicy(imageApi)

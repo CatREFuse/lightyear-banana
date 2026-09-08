@@ -9,7 +9,6 @@ import type { ImageProviderId, ModelConfig, ReferenceImage } from '@mugen/core'
 import { providerRequiresApiKey } from '@mugen/core'
 import { createCanvasImageFromApiAsset } from '@mugen/core'
 import { canUseDevelopmentApimartBaseUrl } from '@mugen/core'
-import { getHostRequire } from '../photoshopHost'
 import { createProviderReferencePreview, type CapturedCanvasImage } from '../canvasPrimitives'
 import { AssetStore } from './assetStore'
 import { getCredential, getSettings } from './storage'
@@ -510,14 +509,7 @@ export class ProviderRuntime {
       const references = await Promise.all(snapshot.references.map(async (reference) => (
         toProviderReference(await this.options.assets.getOrRestore(reference.assetId), config!.provider)
       )))
-      let canvasSize: { width: number; height: number } | undefined
-      try {
-        const hostRequire = getHostRequire()
-        const document = hostRequire?.('photoshop')?.app?.activeDocument
-        if (document) canvasSize = { width: Number(document.width) || 1, height: Number(document.height) || 1 }
-      } catch {
-        canvasSize = undefined
-      }
+      const canvasSize = snapshot.canvasSize
       this.emitProgress(taskId, running, 'requesting', '正在请求模型')
 
       let images: NormalizedImageResult[] | undefined

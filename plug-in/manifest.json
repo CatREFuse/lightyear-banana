@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.tanshow.mugen",
   "name": "iMini PS",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "main": "ccx-panel.html",
   "host": {
     "app": "PS",
@@ -27,13 +27,6 @@
     }
   },
   "entrypoints": [
-    {
-      "type": "command",
-      "id": "createLayer",
-      "label": {
-        "default": "创建图层"
-      }
-    },
     {
       "type": "panel",
       "id": "panel",

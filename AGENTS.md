@@ -19,6 +19,11 @@ Mugen 是 monorepo,按功能模块组织,npm 配置内聚在各模块目录,根�
 
 构建产物统一输出到根 `dist/`(`dist/ccx-host/`、`dist/site/`、`dist/mugen-<v>.ccx`、`dist/ccx-release.json`)。
 
+## Photoshop 交互边界
+
+- 业务只允许在读取 PS 内图片、将图片置入 PS 两端调用 Photoshop API；缩略图、编码、压缩、历史恢复与生成请求均使用内部 JS。
+- 不创建临时 PS 文档处理图片，不注册后台文档事件监听，不提供独立空图层编辑命令。规格见 `docs/spec.md` 的“CCX 与 Photoshop 交互边界”。
+
 ## WebUI 与 CCX 维护边界
 
 - 本仓库文档、需求、任务和对话中的 `WebUI`，统一特指云端 `https://imini-test.catrefuse.com/`；该页面同时是 CCX 加载的 Inner WebUI。

@@ -19,33 +19,3 @@ export function readActiveDocumentLabel() {
     return '没有打开文档'
   }
 }
-
-export async function createNamedLayer(name = 'iMini PS') {
-  const hostRequire = getHostRequire()
-  if (!hostRequire) {
-    throw new Error('Photoshop UXP runtime is unavailable.')
-  }
-
-  const photoshop = hostRequire('photoshop')
-  await photoshop.core.executeAsModal(
-    async () => {
-      await photoshop.action.batchPlay(
-        [
-          {
-            _obj: 'make',
-            _target: [{ _ref: 'layer' }],
-            using: {
-              _obj: 'layer',
-              name
-            },
-            _options: {
-              dialogOptions: 'dontDisplay'
-            }
-          }
-        ],
-        {}
-      )
-    },
-    { commandName: 'Create iMini PS Layer' }
-  )
-}

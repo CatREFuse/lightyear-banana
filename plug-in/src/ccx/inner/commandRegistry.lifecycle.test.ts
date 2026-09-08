@@ -1,12 +1,5 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPanelLifecycle } from '../panelLifecycle'
-
-const runtime = vi.hoisted(() => ({
-  action: undefined as {
-    addNotificationListener: ReturnType<typeof vi.fn>
-    removeNotificationListener: ReturnType<typeof vi.fn>
-  } | undefined
-}))
 
 vi.mock('../canvasPrimitiveService', () => ({
   canvasPrimitiveService: {}
@@ -65,11 +58,6 @@ vi.mock('./storage', () => ({
 
 let CommandRegistry: typeof import('./commandRegistry').CommandRegistry
 
-async function flushNotificationAttach() {
-  await Promise.resolve()
-  await Promise.resolve()
-}
-
 describe('Photoshop panel lifecycle', () => {
   it('returns awaitable results from create, show, and destroy', async () => {
     const mount = vi.fn()
@@ -107,59 +95,24 @@ describe('Photoshop panel lifecycle', () => {
   })
 })
 
-describe('CommandRegistry notification cleanup', () => {
+describe('CommandRegistry PS interaction boundary', () => {
   beforeAll(async () => {
     vi.stubGlobal('__INNER_RELEASE_URL__', 'https://mugen.example/releases/')
     ;({ CommandRegistry } = await import('./commandRegistry'))
   })
-
-  beforeEach(() => {
-    runtime.action = {
-      addNotificationListener: vi.fn(async () => undefined),
-      removeNotificationListener: vi.fn()
-    }
-    vi.stubGlobal('require', (name: string) => {
-      if (name === 'photoshop') return { action: runtime.action }
-      throw new Error(`Unexpected UXP module: ${name}`)
+  it('mounts, handshakes, reads cached context and destroys without accessing Photoshop', async () => {
+    const requireModule = vi.fn((name: string) => {
+      if (name === 'uxp') return { versions: { uxp: '8' } }
+      if (name === 'os') return { platform: () => 'darwin' }
+      throw new Error(`Unexpected module: ${name}`)
     })
-  })
-
-  async function createAttachedRegistry() {
-    const registry = new CommandRegistry(
-      '1.0.0',
-      { sessionId: 'session', hostNonce: 'nonce' } as never,
-      vi.fn()
-    )
-    await flushNotificationAttach()
-    expect(runtime.action?.addNotificationListener).toHaveBeenCalledTimes(1)
-    return registry
-  }
-
-  it('accepts a synchronous void notification removal', async () => {
-    runtime.action!.removeNotificationListener.mockImplementation(() => undefined)
-    const registry = await createAttachedRegistry()
-
-    expect(() => registry.destroy()).not.toThrow()
-    expect(runtime.action?.removeNotificationListener).toHaveBeenCalledTimes(1)
-  })
-
-  it('contains a synchronous notification removal failure', async () => {
-    runtime.action!.removeNotificationListener.mockImplementation(() => {
-      throw new Error('sync removal failed')
-    })
-    const registry = await createAttachedRegistry()
-
-    expect(() => registry.destroy()).not.toThrow()
-    expect(runtime.action?.removeNotificationListener).toHaveBeenCalledTimes(1)
-  })
-
-  it('contains a rejected notification removal Promise', async () => {
-    runtime.action!.removeNotificationListener.mockImplementation(() => Promise.reject(new Error('async removal failed')))
-    const registry = await createAttachedRegistry()
-
-    expect(() => registry.destroy()).not.toThrow()
-    await Promise.resolve()
-    await Promise.resolve()
-    expect(runtime.action?.removeNotificationListener).toHaveBeenCalledTimes(1)
+    vi.stubGlobal('require', requireModule)
+    const registry = new CommandRegistry('1.2.0', { sessionId: 'session', hostNonce: 'nonce' } as never, vi.fn())
+    const invoke = (command: string, payload?: Record<string, unknown>) => registry.invoke({ command, payload } as never)
+    await invoke('host.handshake', { clientNonce: 'client' })
+    expect(await invoke('host.getContext')).not.toHaveProperty('document')
+    await expect(invoke('canvas.readSize')).rejects.toThrow('请读取图片')
+    registry.destroy()
+    expect(requireModule.mock.calls.map(([name]) => name)).not.toContain('photoshop')
   })
 })

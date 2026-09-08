@@ -1,3 +1,4 @@
+import { processHostImage } from './imageProcessing'
 import type {
   BridgeEnvelope,
   Handshake,
@@ -45,6 +46,7 @@ type PendingRequest = {
   resolve(value: unknown): void
   reject(reason: Error): void
   timeoutId: ReturnType<typeof setTimeout>
+  refreshTimeout: () => void
   detachAbort?: () => void
 }
 type ReadyWaiter = { resolve(value: ReadyState): void; reject(reason: Error): void; timeoutId: ReturnType<typeof setTimeout> }
@@ -159,6 +161,16 @@ export class WebViewHostClient implements HostClient {
     } catch {
       return
     }
+    if (eventName === 'image.process') {
+      for (const request of this.pending.values()) request.refreshTimeout()
+      void processHostImage(envelope.payload as HostEventMap['image.process'], (command, payload) => (
+        this.sendRequest(command, payload, envelope.sessionId, { timeoutMs: ORIGINAL_READ_TIMEOUT_MS }).then((result) => {
+          for (const request of this.pending.values()) request.refreshTimeout()
+          return result
+        })
+      )).catch((error) => this.emit('diagnostics.notice', { level: 'error', message: error instanceof Error ? error.message : String(error) }))
+      return
+    }
     let payload = envelope.payload as HostEventMap[HostEventName]
     if (eventName === 'generation.completed') {
       const result = payload as HostEventMap['generation.completed']
@@ -220,10 +232,14 @@ export class WebViewHostClient implements HostClient {
         sessionId,
         resolve,
         reject,
-        timeoutId: setTimeout(() => {
-          this.finishPending(envelope.messageId)
-          reject(clientError('REQUEST_TIMEOUT', '宿主响应超时，请重试'))
-        }, timeoutMs)
+        timeoutId: undefined as unknown as ReturnType<typeof setTimeout>,
+        refreshTimeout: () => {
+          clearTimeout(pending.timeoutId)
+          pending.timeoutId = setTimeout(() => {
+            this.finishPending(envelope.messageId)
+            reject(clientError('REQUEST_TIMEOUT', '宿主响应超时，请重试'))
+          }, timeoutMs)
+        }
       }
       if (options.signal) {
         const onAbort = () => {
@@ -235,6 +251,7 @@ export class WebViewHostClient implements HostClient {
         options.signal.addEventListener('abort', onAbort, { once: true })
         pending.detachAbort = () => options.signal?.removeEventListener('abort', onAbort)
       }
+      pending.refreshTimeout()
       this.pending.set(envelope.messageId, pending)
       try {
         this.host.postMessage(envelope)

@@ -226,3 +226,21 @@ describe('generation and provider contracts', () => {
     expect(() => validateCommandPayload('settings.save', { configs: [{ ...config, provider: 'openai', baseUrl: 'file:///tmp/key' }], activeConfigId: config.id })).toThrow('设置参数')
   })
 })
+
+
+describe('image processing protocol', () => {
+  it('accepts chunked image jobs and rejects malformed processing inputs', () => {
+    const request = { jobId: 'job-1', source: 'rgba', width: 2, height: 1, measure: 'dataUrl', maxBytes: 16384 }
+    expect(() => validateHostEventPayload('image.process', request)).not.toThrow()
+    for (const patch of [{ width: 0 }, { height: -1 }, { source: 'url' }, { measure: 'pixels' }, { maxBytes: -1 }]) {
+      expect(() => validateHostEventPayload('image.process', { ...request, ...patch })).toThrow()
+    }
+    const write = { jobId: 'job-1', offset: 0, chunk: 'data:image/jpeg;base64,/9j/2Q==', done: true, width: 2, height: 1 }
+    expect(() => validateCommandPayload('image.writeChunk', write)).not.toThrow()
+    for (const patch of [{ offset: -1 }, { chunk: '' }, { chunk: 'a'.repeat(256 * 1024 + 1) }, { done: 'yes' }, { width: 0 }]) {
+      expect(() => validateCommandPayload('image.writeChunk', { ...write, ...patch })).toThrow()
+    }
+    expect(() => validateCommandPayload('image.readChunk', { jobId: 'job-1', offset: -1 })).toThrow()
+    expect(() => validateCommandPayload('image.fail', { jobId: 'job-1', message: '' })).toThrow()
+  })
+})

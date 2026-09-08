@@ -144,6 +144,7 @@ export type SettingsSnapshot = {
 }
 
 export type GenerationSnapshot = {
+  canvasSize?: { width: number; height: number }
   configId: string
   prompt: string
   references: HostAssetPointer[]
@@ -228,7 +229,22 @@ export type BridgeEnvelope<T = unknown> = {
   error?: BridgeError
 }
 
+export type ImageProcessingRequest = {
+  jobId: string
+  source: 'rgba' | 'dataUrl'
+  width: number
+  height: number
+  maxEdge?: number
+  maxBytes?: number
+  measure: 'binary' | 'dataUrl'
+}
+export type ImageProcessingChunk = { jobId: string; offset: number; chunk: string; totalLength: number; done: boolean }
+export type ImageProcessingWrite = { jobId: string; offset: number; chunk: string; done: boolean; width: number; height: number }
+
 export interface HostCommandMap {
+  'image.readChunk': { payload: { jobId: string; offset: number }; result: ImageProcessingChunk }
+  'image.writeChunk': { payload: ImageProcessingWrite; result: { accepted: boolean } }
+  'image.fail': { payload: { jobId: string; message: string }; result: { accepted: boolean } }
   'host.handshake': { payload: Handshake; result: HandshakeResult }
   'host.getContext': { payload: undefined; result: HostContext }
   'host.openReleasePage': { payload: undefined; result: { opened: boolean } }
@@ -263,6 +279,7 @@ export type HostCommandPayload<TCommand extends HostCommand> = HostCommandMap[TC
 export type HostCommandResult<TCommand extends HostCommand> = HostCommandMap[TCommand]['result']
 
 export interface HostEventMap {
+  'image.process': ImageProcessingRequest
   'host.ready': HostReady
   'host.contextChanged': HostContext
   'generation.progress': TaskEvent
@@ -342,6 +359,7 @@ const hostThemes = new Set<HostTheme>(['dark', 'light'])
 const providerIds = new Set<ProviderId>(['openai', 'iMini', 'gemini', 'apimart', 'seedream', 'qwen', 'kling', 'flux', 'comfyui', 'custom-openai', 'codex-image-server'])
 const bridgeKinds = new Set<BridgeKind>(['request', 'response', 'event'])
 const hostCommands = new Set<string>([
+  'image.readChunk', 'image.writeChunk', 'image.fail',
   'host.handshake', 'host.getContext', 'host.openReleasePage', 'settings.get', 'settings.save',
   'history.list', 'history.upsert', 'history.clear', 'credential.set', 'credential.remove',
   'canvas.captureVisible', 'canvas.captureSelection', 'canvas.captureLayer', 'canvas.readSize',
@@ -350,6 +368,7 @@ const hostCommands = new Set<string>([
   'storage.clearAll'
 ])
 const hostEvents = new Set<string>([
+  'image.process',
   'host.ready', 'host.contextChanged', 'generation.progress', 'generation.completed',
   'generation.failed', 'asset.invalidated', 'diagnostics.notice'
 ])
@@ -578,6 +597,7 @@ function isSettingsSnapshot(value: unknown): value is SettingsSnapshot {
 }
 
 export function isGenerationSnapshot(value: unknown): value is GenerationSnapshot {
+  if (isRecord(value) && value.canvasSize !== undefined && (!isRecord(value.canvasSize) || !positiveInteger(value.canvasSize.width) || !positiveInteger(value.canvasSize.height))) return false
   if (!isRecord(value) || !nonEmptyText(value.configId) || typeof value.prompt !== 'string' || value.prompt.length > 100_000 || !Array.isArray(value.references) || !value.references.every(isHostAssetPointer)) return false
   if (!nonEmptyText(value.size) || typeof value.quality !== 'string' || !nonEmptyText(value.ratio) || !Number.isInteger(value.count) || Number(value.count) < 1 || Number(value.count) > 16) return false
   return nonEmptyText(value.submittedAt, 64) && !Number.isNaN(Date.parse(value.submittedAt)) && optionalString(value.clientTaskId)
@@ -618,6 +638,18 @@ function requireUndefined(payload: unknown, label: string): void {
 
 export function validateCommandPayload<TCommand extends HostCommand>(command: TCommand, payload: unknown): asserts payload is HostCommandPayload<TCommand> {
   switch (command) {
+    case 'image.readChunk': case 'image.writeChunk': case 'image.fail': {
+      const value = requireRecord(payload, command)
+      if (!nonEmptyText(value.jobId)) throw new BridgeValidationError('INVALID_PAYLOAD', '图片任务无效')
+      if (command === 'image.fail') {
+        if (!nonEmptyText(value.message, 2048)) throw new BridgeValidationError('INVALID_PAYLOAD', '图片错误无效')
+      } else {
+        if (!Number.isSafeInteger(value.offset) || Number(value.offset) < 0) throw new BridgeValidationError('INVALID_PAYLOAD', '图片分片位置无效')
+        if (command === 'image.writeChunk' && (!nonEmptyText(value.chunk, 256 * 1024) || typeof value.done !== 'boolean' || !positiveInteger(value.width) || !positiveInteger(value.height))) throw new BridgeValidationError('INVALID_PAYLOAD', '图片分片无效')
+      }
+      return
+    }
+
     case 'host.getContext': case 'host.openReleasePage': case 'settings.get': case 'history.clear':
     case 'canvas.captureVisible': case 'canvas.captureSelection': case 'canvas.captureLayer': case 'canvas.readSize':
     case 'reference.pickFile': case 'reference.readClipboard': case 'diagnostics.export': case 'storage.clearAll':
@@ -686,6 +718,17 @@ export function validateCommandPayload<TCommand extends HostCommand>(command: TC
 
 export function validateCommandResult<TCommand extends HostCommand>(command: TCommand, payload: unknown): asserts payload is HostCommandResult<TCommand> {
   switch (command) {
+    case 'image.readChunk': {
+      const value = requireRecord(payload, command)
+      if (!nonEmptyText(value.jobId) || typeof value.chunk !== 'string' || value.chunk.length > 256 * 1024 || !Number.isSafeInteger(value.offset) || Number(value.offset) < 0 || !positiveInteger(value.totalLength) || typeof value.done !== 'boolean') throw new BridgeValidationError('INVALID_PAYLOAD', '图片分片响应无效')
+      return
+    }
+    case 'image.writeChunk': case 'image.fail': {
+      const value = requireRecord(payload, command)
+      if (value.accepted !== true) throw new BridgeValidationError('INVALID_PAYLOAD', '图片处理响应无效')
+      return
+    }
+
     case 'host.handshake': {
       const value = requireRecord(payload, command)
       if (!nonEmptyText(value.sessionId) || !finiteNumber(value.protocolVersion) || !nonEmptyText(value.clientNonce) || !nonEmptyText(value.hostNonce) || !isHostContext(value.context)) throw new BridgeValidationError('INVALID_PAYLOAD', '宿主握手响应无效')
@@ -796,6 +839,12 @@ export function validateCommandResult<TCommand extends HostCommand>(command: TCo
 
 export function validateHostEventPayload<TEvent extends HostEventName>(event: TEvent, payload: unknown): asserts payload is HostEventPayload<TEvent> {
   switch (event) {
+    case 'image.process': {
+      const value = requireRecord(payload, event)
+      if (!nonEmptyText(value.jobId) || !['rgba', 'dataUrl'].includes(String(value.source)) || !positiveInteger(value.width) || !positiveInteger(value.height) || !['binary', 'dataUrl'].includes(String(value.measure)) || value.maxEdge !== undefined && !positiveInteger(value.maxEdge) || value.maxBytes !== undefined && !positiveInteger(value.maxBytes)) throw new BridgeValidationError('INVALID_PAYLOAD', '图片处理任务无效')
+      return
+    }
+
     case 'host.ready': {
       const value = requireRecord(payload, event)
       if (!finiteNumber(value.protocolVersion) || !nonEmptyText(value.hostNonce) || !optionalString(value.hostVersion)) throw new BridgeValidationError('INVALID_PAYLOAD', '宿主就绪事件无效')

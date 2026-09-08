@@ -129,16 +129,7 @@ WebView 主动粘贴或拖入图片时：
 
 ### 5.2 上传本地图片
 
-CCX 的“上传文件”走 UXP `localFileSystem.getFileForOpening()`：
-
-1. 文件选择使用交互超时。
-2. `file.read({ format: binary })` 读取原始字节并解析尺寸。
-3. 在 `executeAsModal()` 中用 `app.open(file)` 临时打开文件。
-4. 用 `imaging.getPixels()` 按缩略图目标尺寸取像素并编码 JPEG。
-5. 只关闭本次临时打开的文档，用户原本已打开的同一文档必须保留。
-6. AssetStore 保存原图和缩略图，WebUI 显示真实预览。
-
-UXP DOM 的 `<img>` 对 File Entry URL 和 Blob URL 的解码在部分 Photoshop 版本中会停住。Host 缩略图使用 Photoshop imaging 链路更可靠。
+CCX 使用 UXP 文件选择器读取原始字节，交给内部 WebView 的 Canvas 解码、缩放、编码 JPEG，再保存原图与缩略图。不得通过 Photoshop `app.open()` 或 imaging 编码生成预览。大图片通过受信任会话的 `image.process` 事件及分片命令传输，不把原图塞进单条桥消息。旧历史记录没有缩略图时也采用此 JS 链路，新记录保存缩略图供后续恢复。
 
 ### 5.3 主动粘贴图片
 
@@ -276,7 +267,7 @@ UXP Host 剪贴板 API 可能存在但读取立即失败，也可能无法返回
 
 ### 9.5 文档生命周期要区分用户文档和临时文档
 
-用 `app.open()` 生成缩略图前记录已有 documentId，结束时只关闭本次新增文档。按文件名判断会误关同名文档，也不能在失败路径遗漏关闭。
+旧实现用 app.open 生成缩略图时必须区分用户文档和临时文档；当前实现已移除此链路，缩略图全程使用内部 JS，禁止打开或关闭 PS 文档。
 
 ### 9.6 错误要跨层到达用户
 
@@ -400,7 +391,7 @@ dev CCX 的 `webviewOrigin` 可以指向 `imini-test.catrefuse.com`，但官网�
 
 这轮故障表面集中在“宿主无响应”和“预览不可用”，实际跨越了 WebView 事件、Host 文件 API、消息大小、UXP 图片解码和资产生命周期。有效的推进方式是保留每次实验的输入、界面结果和 Host trace，并根据证据缩小边界。
 
-初版缩略图尝试使用 UXP DOM 的 File Entry URL，真实 Photoshop 中没有完成解码；改用 Blob URL 后仍然停住。最终链路改为 Photoshop `app.open()`、`imaging.getPixels()` 和 `encodeImageData()`，10.2 MB PNG 能返回真实 JPEG 缩略图和正确的 2480 × 3312 尺寸。
+初版缩略图尝试使用 UXP DOM 的 File Entry URL，真实 Photoshop 中没有完成解码；改用 Blob URL 后仍然停住。当时改用 Photoshop app.open、getPixels 和 encodeImageData 后，10.2 MB PNG 能返回预览；该历史方案会干扰文档 tab，现已由 WebView Canvas 替代。
 
 剪贴板按钮通过 Host API 读取，在目标版本会直接报错，因此交互调整为用户在 WebView 主动粘贴。拖入沿用同一预处理和分片协议，减少了两条数据链的差异。协议增加 MIME、分片数量、单片、缩略图和累计大小校验；Host 聚合完成后立即清理。
 
@@ -424,3 +415,11 @@ dev CCX 的 `webviewOrigin` 可以指向 `imini-test.catrefuse.com`，但官网�
 - [UXP File Entry 与文件系统](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/modules/uxp/persistent-file-storage/storage/)
 - [Photoshop UXP Changelog](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/changelog/)
 - [UXP Clipboard](https://developer.adobe.com/indesign/uxp/uxp/reference-js/Global%20Members/Data%20Transfers/Clipboard/)
+
+### 9.12 缩略图处理与 Photoshop 文档隔离
+
+已复现的代码链路为缩略图创建时临时 `app.open()`，完成后关闭文档；选区读取则复制并关闭文档副本。这两条链路均已移除。PS 读取端只取得原文档 sRGB 像素、选区 mask 与坐标，后续蒙版计算和图片编码使用 JS；输出端保留置入、目标校验、图层缩放与定位。
+
+新增 Host 测试使源图读取中的文档复制、PS 编码与编辑调用立即失败，并校验选区 alpha；浏览器 E2E 使用实际 Canvas 编解码，通过真实 WebViewHostClient 与 Host 图片处理服务分片往返，覆盖 RGBA、文件图片、损坏图片、双视口与输出尺寸。会话重连拒绝旧图片任务，历史保存缩略图避免重复生成。正式构建检查已从要求独立创建图层命令改为禁止独立 PS 编辑命令。
+
+本次真实 PS UI 验证因电脑控制截图失败尚未完成，不能把浏览器与模拟宿主测试当作实机 tab 不闪动的证明。
