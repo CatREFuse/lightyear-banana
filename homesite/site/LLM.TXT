@@ -2,14 +2,14 @@
 
 Mugen connects Adobe Photoshop to cloud-based AI image generation through the CCX plugin and WebUI.
 
-Current version: 1.2.1
-Current build: 2609080001
-Packaged at: 2026-09-08T02:50:35.084Z
+Current version: 1.2.2
+Current build: 2609090001
+Packaged at: 2026-09-09T12:30:51.940Z
 
 Adobe Photoshop plugin:
-__MUGEN_RELEASE_ORIGIN__/download/imini-ps-1.2.1-2609080001.ccx
-sha256: 726db9c984f8c678c1634d80c63ecc18cb4dea17ca8b96d13fb5f9e881643502
-size: 61163 bytes
+__MUGEN_RELEASE_ORIGIN__/download/imini-ps-1.2.2-2609090001.ccx
+sha256: ed62c9e79a7768fc34546e7be2f9b1368b14460cf9ca9a19be351b6838af3991
+size: 61740 bytes
 
 WebUI:
 __MUGEN_RELEASE_ORIGIN__/webui/
