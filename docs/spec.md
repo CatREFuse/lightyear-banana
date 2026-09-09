@@ -170,6 +170,15 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - iMini Provider 冒烟从 monorepo 的 `packages/mugen-core` 编译输出加载共享能力和请求实现，目录重构后仍必须通过发布门禁。
 - 配置结构、Provider ID、请求语义和旧公开函数在源码平移中保持兼容，运行时存储由 adapter 接管。
 
+### APIMart GPT Image 2.5
+
+- 模型选择增加 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`，沿用异步生成与参考图上传流程。
+- 分辨率为 `1k`、`2k`、`4k`；质量为 `auto`、`low`、`medium`、`high`、`xhigh`、`max`；单次生成 1–4 张，最多 16 张参考图。
+- 比例支持原图比例（API `auto`）与 `1:1`、`3:2`、`2:3`、`4:3`、`3:4`、`5:4`、`4:5`、`16:9`、`9:16`、`2:1`、`1:2`、`3:1`、`1:3`、`21:9`、`9:21`。
+- 精确尺寸宽高为 16 的倍数，单边不超过 3840，长短边比不超过 3，总像素为 655,360–8,294,400；发送精确 `size` 时省略 `resolution`。
+- 既有 GPT Image 2 枚举保持不变，`xhigh` 和 `max` 仅向 2.5 系列开放。输出格式、压缩、背景和审核字段沿用服务端默认值，本次不扩展通用配置表单。
+- 参数依据：[APIMart GPT Image 2.5 文档](https://docs.apimart.ai/cn/api-reference/images/gpt-image-2.5/generation)（2026-09-09 核对）。
+
 ### 预设提示词
 
 - 设置页提供预设列表以及新增、编辑和删除入口，最多保存 100 条。

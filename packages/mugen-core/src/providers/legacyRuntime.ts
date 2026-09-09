@@ -734,7 +734,11 @@ function isApimartGptImage1Model(model: string) {
 }
 
 function isApimartGptImage2Model(model: string) {
-  return /^gpt-image-2(?:-official)?$/i.test(model)
+  return /^gpt-image-2(?:-official|\.5-(?:flare|sunburst))?$/i.test(model)
+}
+
+function isApimartGptImage25Model(model: string) {
+  return /^gpt-image-2\.5-(?:flare|sunburst)$/i.test(model)
 }
 
 function isApimartGptImage2OfficialModel(model: string) {
@@ -939,7 +943,7 @@ function clampInteger(value: number, min: number, max: number) {
 
 function readApimartCount(params: ImageGenerationParams) {
   if (isApimartGptImage2Model(params.config.model)) {
-    return isApimartGptImage2OfficialModel(params.config.model) ? clampInteger(params.count, 1, 4) : 1
+    return isApimartGptImage2OfficialModel(params.config.model) || isApimartGptImage25Model(params.config.model) ? clampInteger(params.count, 1, 4) : 1
   }
 
   if (isApimartSeedream5LiteModel(params.config.model)) {
@@ -982,7 +986,9 @@ function buildApimartRequest(params: ImageGenerationParams, imageUrls: string[])
     payload.resolution = resolution
   }
 
-  if (isApimartGptImage1Model(params.config.model) || isApimartGptImage2OfficialModel(params.config.model)) {
+  if (isApimartGptImage25Model(params.config.model)) {
+    payload.quality = params.quality === '自动' ? 'auto' : params.quality
+  } else if (isApimartGptImage1Model(params.config.model) || isApimartGptImage2OfficialModel(params.config.model)) {
     payload.quality = readOpenAiQuality(params.quality)
   }
 

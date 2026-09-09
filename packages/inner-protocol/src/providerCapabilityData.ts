@@ -208,6 +208,8 @@ export const providerCapabilityData: Record<CapabilityProviderId, SerializablePr
       'gemini-3-pro-image-preview-official',
       'gpt-image-2',
       'gpt-image-2-official',
+      'gpt-image-2.5-flare',
+      'gpt-image-2.5-sunburst',
       'gpt-image-1-official',
       'gpt-image-1.5-official',
       'doubao-seedream-5-0-lite'
@@ -363,6 +365,10 @@ function isApimartGptImage2Model(model: string) {
   return /^gpt-image-2(?:-official)?$/i.test(model)
 }
 
+function isApimartGptImage25Model(model: string) {
+  return /^gpt-image-2\.5-(?:flare|sunburst)$/i.test(model)
+}
+
 function isApimartGptImage2OfficialModel(model: string) {
   return /^gpt-image-2-official$/i.test(model)
 }
@@ -381,6 +387,19 @@ function readApimartCapability(config: ProviderCapabilityConfig, base: Serializa
       countOptions: [1, 2, 3, 4],
       ratioOptions: [...apimartGptImage1RatioOptions],
       supportsCustomSize: false
+    }
+  }
+
+  if (isApimartGptImage25Model(config.model)) {
+    return {
+      ...base,
+      referenceLimit: 16,
+      sizeOptions: [...resolutionSizeOptions],
+      qualityOptions: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
+      countOptions: [1, 2, 3, 4],
+      ratioOptions: [...apimartGptImage2RatioOptions],
+      supportsCustomSize: true,
+      customSize: { ...gptImage2CustomSize }
     }
   }
 
@@ -530,7 +549,7 @@ export function capabilitySupportsQuality(config: Pick<ProviderCapabilityConfig,
   return config.provider === 'openai'
     || config.provider === 'codex-image-server'
     || (config.provider === 'iMini' && /^openai\/gpt-image-2$/i.test(config.model))
-    || (config.provider === 'apimart' && (isApimartGptImage1Model(config.model) || isApimartGptImage2OfficialModel(config.model)))
+    || (config.provider === 'apimart' && (isApimartGptImage1Model(config.model) || isApimartGptImage2OfficialModel(config.model) || isApimartGptImage25Model(config.model)))
 }
 
 function formatPixelCount(value: number) {

@@ -64,6 +64,8 @@ const modelBoundaries: CapabilityConfig[] = [
   { provider: 'apimart', model: 'gpt-image-1.5-official' },
   { provider: 'apimart', model: 'gpt-image-2' },
   { provider: 'apimart', model: 'gpt-image-2-official' },
+  { provider: 'apimart', model: 'gpt-image-2.5-flare' },
+  { provider: 'apimart', model: 'gpt-image-2.5-sunburst' },
   { provider: 'apimart', model: 'gemini-3-pro-image-preview-official' },
   { provider: 'apimart', model: 'nano-banana-2-ext' },
   { provider: 'apimart', model: 'doubao-seedream-5-0-lite' },
@@ -191,5 +193,35 @@ describe('shared provider capability declarations', () => {
     expect(readWebUiCapability({ provider: 'apimart', model: 'gpt-image-2-official' })).toMatchObject({ qualities: ['auto', 'high', 'medium', 'low'], counts: [1, 2, 3, 4] })
     expect(readWebUiCapability({ provider: 'apimart', model: 'doubao-seedream-5-0-lite' })).toMatchObject({ referenceLimit: 14, counts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] })
     expect(readWebUiCapability({ provider: 'custom-openai', model: 'custom', customFormat: 'openai-chat' })).toMatchObject({ sizes: ['由模型决定'], qualities: [], counts: [1], ratios: ['由模型决定'], supportsCustomSize: false })
+  })
+})
+
+
+describe('APIMart GPT Image 2.5', () => {
+  it.each(['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'])('exposes and validates %s parameters', (model) => {
+    const config = { provider: 'apimart' as const, model }
+    expect(providerCapabilityData.apimart.modelOptions).toContain(model)
+    expect(providerSupportsQuality(config)).toBe(true)
+    expect(readWebUiCapability(config)).toMatchObject({
+      sizes: ['1k', '2k', '4k', '自定义'],
+      qualities: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
+      counts: [1, 2, 3, 4],
+      referenceLimit: 16,
+      supportsCustomSize: true
+    })
+    const params = { size: '1600x1200', quality: 'max', count: 4, ratio: '原图比例', referenceCount: 16 }
+    expect(validateProviderGenerationParameters(config, params).valid).toBe(true)
+    for (const override of [
+      { size: '1601x1200' }, { size: '4096x2048' }, { size: '512x512' },
+      { size: '3840x3840' }, { size: '3200x800' }, { size: '0.5K' },
+      { quality: 'ultra' }, { count: 5 }, { referenceCount: 17 }, { ratio: '8:1' }
+    ]) {
+      expect(validateProviderGenerationParameters(config, { ...params, ...override }).valid).toBe(false)
+    }
+    for (const quality of ['xhigh', 'max']) {
+      expect(validateProviderGenerationParameters({ provider: 'apimart', model: 'gpt-image-2-official' }, {
+        ...params, size: '1k', quality
+      })).toMatchObject({ valid: false, code: 'QUALITY_UNSUPPORTED' })
+    }
   })
 })
