@@ -412,6 +412,32 @@ async function testProviderRatios(imageApi) {
     assert.equal(body.quality, 'high')
     assert.equal(body.n, 3)
 
+    for (const model of ['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst']) {
+      for (const quality of ['auto', 'low', 'medium', 'high', 'xhigh', 'max']) {
+        requests.length = 0
+        await imageApi.generateImagesWithProvider({
+          ...baseParams, count: 4, quality, ratio: '3:1', size: '2k', selectedSize: '2k',
+          references: [], config: createConfig('apimart', model)
+        })
+        body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+        assert.equal(body.model, model)
+        assert.equal(body.n, 4)
+        assert.equal(body.quality, quality)
+        assert.equal(body.size, '3:1')
+        assert.equal(body.resolution, '2k')
+      }
+      requests.length = 0
+      await imageApi.generateImagesWithProvider({
+        ...baseParams, count: 1, quality: 'max', ratio: '自定义', size: '1600x1200', selectedSize: '自定义',
+        references: Array.from({ length: 16 }, () => createReference(1600, 1200)),
+        config: createConfig('apimart', model)
+      })
+      body = readJsonRequest(requests, /api\.apimart\.ai\/v1\/images\/generations$/)
+      assert.equal(body.size, '1600x1200')
+      assert.equal(body.resolution, undefined)
+      assert.equal(body.image_urls.length, 16)
+    }
+
     requests.length = 0
     await imageApi.generateImagesWithProvider({
       ...baseParams,
