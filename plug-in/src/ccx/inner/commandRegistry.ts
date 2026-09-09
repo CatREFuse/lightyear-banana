@@ -1,6 +1,7 @@
 import { imageProcessor } from './imageProcessing'
 import { HOST_COMMANDS, PROTOCOL_VERSION, type BridgeError, type HistoryUpsertEntry, type HostCommand, type HostEventName, type HostContext, type ImageProcessingWrite, type PlacementTarget } from '@mugen/inner-protocol'
 import { canvasPrimitiveService } from '../canvasPrimitiveService'
+import { normalizeCcxDiagnosticError } from '../diagnosticTrace'
 import { readCanvasDiagnosticContext } from '../canvasPrimitives'
 import { readActiveDocumentLabel } from '../photoshopHost'
 import { AssetStore } from './assetStore'
@@ -192,6 +193,7 @@ export class CommandRegistry {
       if (!clearingAll) await this.diagnostics.record({ category: diagnosticCategory(request.command as HostCommand), operation: request.command, phase: 'success', durationMs: Date.now() - startedAt, details: { messageId: request.messageId } }).catch(() => undefined)
       return result
     } catch (error) {
+      const diagnosticError = normalizeCcxDiagnosticError(error)
       await this.diagnostics.record({
         category: diagnosticCategory(request.command as HostCommand),
         operation: request.command,
@@ -200,6 +202,8 @@ export class CommandRegistry {
         details: {
           messageId: request.messageId,
           errorName: error instanceof Error ? error.name : 'Error',
+          errorMessage: diagnosticError.message,
+          errorNumber: diagnosticError.number,
           errorCode: error && typeof error === 'object' && 'code' in error ? String(error.code) : 'HOST_COMMAND_FAILED'
         }
       }).catch(() => undefined)

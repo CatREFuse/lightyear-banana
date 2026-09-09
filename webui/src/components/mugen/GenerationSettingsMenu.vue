@@ -276,7 +276,7 @@ function handleEscape() {
           </span>
         </div>
 
-        <div v-if="showsQualityControl" class="parameter-menu-row">
+        <div v-if="showsQualityControl" class="parameter-menu-row" :class="{ 'parameter-quality-expanded': qualityOptions.length > 4 }">
           <span class="parameter-row-label"><AppIcon name="sparkling-2-line" size="16" />生成质量</span>
           <span class="parameter-segments" aria-label="生成质量">
             <button
@@ -433,6 +433,16 @@ function handleEscape() {
   padding: 4px;
   border-radius: 12px;
   background: var(--mugen-field);
+}
+
+.parameter-menu-row.parameter-quality-expanded {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.parameter-quality-expanded .parameter-segments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .parameter-segments button {

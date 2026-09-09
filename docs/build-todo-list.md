@@ -6,6 +6,10 @@
 
 统一执行顺序与完成标准见 `docs/release-sop.md`。本清单是强制门禁，SOP 是正式操作流程；两者都必须满足。
 
+## 2026-09-09 Photoshop 读取恢复
+
+本次版本：WebUI `0.2.5`、CCX `1.2.2+2609090001`。恢复 Imaging 的短时 modal scope，并合入 APIMart Image 2.5 系列；实机验证和发布结果见 `docs/ps-capture-fix-release.md`。
+
 ## 2026-09-08 Photoshop 交互边界修复
 
 本次目标版本：WebUI `0.2.4`、CCX `1.2.1+2609080001`。缩略图、参考图压缩与历史恢复使用内部 JS；Photoshop 业务接口限定在图片读取与置入。WebUI、CCX、官网均已发行并通过公网回读；真实 PS 与 Windows 安装验收尚未完成，完整结果记录在 `docs/ps-image-boundary-release.md`。

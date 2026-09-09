@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.tanshow.mugen",
   "name": "iMini PS",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "main": "ccx-panel.html",
   "host": {
     "app": "PS",

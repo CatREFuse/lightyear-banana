@@ -144,3 +144,5 @@ WebUI 部署:
 - 有参考的情况下，请通过重构句子和段落的逻辑，确保思想的流畅性并且与原文有所区别
 
 本次 Photoshop 交互边界修复的发行验证与实机验收限制：`docs/ps-image-boundary-release.md`。
+
+本次读取恢复与 Image 2.5 发行记录：`docs/ps-capture-fix-release.md`。

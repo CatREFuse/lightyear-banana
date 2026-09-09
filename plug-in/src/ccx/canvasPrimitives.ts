@@ -148,6 +148,19 @@ function countNonZeroBytes(data: Uint8Array) {
   return count
 }
 
+async function executePhotoshopRead<T>(commandName: string, read: () => Promise<T>, trace?: CcxDiagnosticTrace) {
+  const startedAt = Date.now()
+  await emitTrace(trace, 'photoshop.modal', 'start', { commandName })
+  try {
+    const result = await getPhotoshop().core.executeAsModal(read, { commandName, timeOut: 5 })
+    await emitTrace(trace, 'photoshop.modal', 'success', { commandName, durationMs: Date.now() - startedAt })
+    return result
+  } catch (error) {
+    await emitTrace(trace, 'photoshop.modal', 'error', { commandName, durationMs: Date.now() - startedAt }, error)
+    throw error
+  }
+}
+
 export function readCanvasDiagnosticContext() {
   const photoshop = getPhotoshop()
   const document = photoshop.app.activeDocument
@@ -915,9 +928,11 @@ async function getVisibleCompositePixels(bounds?: PixelBounds, trace?: CcxDiagno
 }
 
 export async function captureVisibleComposite(trace?: CcxDiagnosticTrace): Promise<CapturedCanvasImage> {
-  const sourceDocument = getPhotoshop().app.activeDocument
-  await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
-  const captured = await getVisibleCompositePixels(undefined, trace, sourceDocument)
+  const captured = await executePhotoshopRead('读取可见图像', async () => {
+    const sourceDocument = getPhotoshop().app.activeDocument
+    await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
+    return getVisibleCompositePixels(undefined, trace, sourceDocument)
+  }, trace)
   const previewUrl = await encodeRgbaPreview(captured.rgba, captured.width, captured.height)
 
   return {
@@ -933,19 +948,16 @@ export async function captureVisibleComposite(trace?: CcxDiagnosticTrace): Promi
 
 
 export async function captureSelectedLayer(): Promise<CapturedCanvasImage> {
-  const photoshop = getPhotoshop()
-  const layer = photoshop.app.activeDocument.activeLayers[0]
-
-  if (!layer) {
-    throw new Error('当前没有选中图层')
-  }
-
-  const captured = await getLayerPixels(layer)
+  const { captured, layerId, layerName } = await executePhotoshopRead('读取选中图层', async () => {
+    const layer = getPhotoshop().app.activeDocument.activeLayers[0]
+    if (!layer) throw new Error('当前没有选中图层')
+    return { captured: await getLayerPixels(layer), layerId: layer.id, layerName: layer.name }
+  })
   const previewUrl = await encodeRgbaPreview(captured.rgba, captured.width, captured.height)
 
   return {
-    id: `layer-${layer.id}-${Date.now()}`,
-    label: layer.name ? `选中图层：${layer.name}` : '选中图层',
+    id: `layer-${layerId}-${Date.now()}`,
+    label: layerName ? `选中图层：${layerName}` : '选中图层',
     width: captured.width,
     height: captured.height,
     sourceBounds: captured.sourceBounds,
@@ -956,11 +968,14 @@ export async function captureSelectedLayer(): Promise<CapturedCanvasImage> {
 
 
 export async function captureSelectionComposite(trace?: CcxDiagnosticTrace): Promise<CapturedCanvasImage> {
-  const sourceDocument = getPhotoshop().app.activeDocument
-  await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
-  const selection = await getSelectionPixels(trace, sourceDocument)
+  const { selection, composite } = await executePhotoshopRead('读取选区图像', async () => {
+    const sourceDocument = getPhotoshop().app.activeDocument
+    await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
+    const selection = await getSelectionPixels(trace, sourceDocument)
+    const composite = await getVisibleCompositePixels(selection.selectionBounds, trace, sourceDocument)
+    return { selection, composite }
+  }, trace)
   const selectionBounds = selection.selectionBounds
-  const composite = await getVisibleCompositePixels(selectionBounds, trace, sourceDocument)
   await emitTrace(trace, 'selection.mask.crop', 'start', {
     sourceWidth: selection.width,
     sourceHeight: selection.height,
@@ -1009,8 +1024,10 @@ export async function captureSelectionComposite(trace?: CcxDiagnosticTrace): Pro
 
 
 export async function readSelectionBounds(trace?: CcxDiagnosticTrace) {
-  await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
-  const selection = await getSelectionPixels(trace)
+  const selection = await executePhotoshopRead('读取选区位置', async () => {
+    await emitTrace(trace, 'photoshop.document.read', 'success', readCanvasDiagnosticContext())
+    return getSelectionPixels(trace)
+  }, trace)
   const bounds = selection.selectionBounds
 
   return {

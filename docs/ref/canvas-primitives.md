@@ -87,7 +87,7 @@ await canvasPrimitiveService.insertImage(image, {
 
 ## 底层实现要点
 
-- `getPixels()` 用于读取可见合成图或指定图层。
+- `getPixels()` 用于读取可见合成图或指定图层，必须在 `executeAsModal` 内调用；`getSelection()` 同样放在读取 scope 内，编码与桥接等待在退出后执行。
 - `getSelection()` 用于读取选区 mask。
 - 可见图像优先对当前文档调用 `imaging.getPixels({ documentID, historyStateID })`，其中 `historyStateID` 每次读取都来自当前活动历史状态；该状态无法渲染时，省略 `historyStateID` 并按当前文档状态重试一次。两次调用都不传 `layerID`，也不复制文档，避免复制含临时来源智能对象的文档。
 - 选区图像直接从原文档读取合成像素，并在 JS 中应用 mask；读取不传 layerID，不复制、合并或关闭文档。
@@ -99,7 +99,7 @@ await canvasPrimitiveService.insertImage(image, {
 
 ## 已知限制
 
-- 当前只处理 8-bit 图像。
+- 输入文档支持 RGB 8/16-bit；读取时由 Imaging API 转成 8-bit RGB/RGBA。
 - 选区相关能力依赖当前文档存在有效选区。
 - 选中图层相关能力读取 `activeDocument.activeLayers[0]`。
 - `CapturedCanvasImage.rgba` 可能很大，不适合长期放在响应式状态里。

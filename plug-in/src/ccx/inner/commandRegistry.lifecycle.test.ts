@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPanelLifecycle } from '../panelLifecycle'
 
+const diagnosticsRecord = vi.hoisted(() => vi.fn(async () => undefined))
+
 vi.mock('../canvasPrimitiveService', () => ({
   canvasPrimitiveService: {}
 }))
@@ -26,7 +28,7 @@ vi.mock('./fileAssets', () => ({
 
 vi.mock('./hostData', () => ({
   DiagnosticStore: class {
-    record() { return Promise.resolve() }
+    record = diagnosticsRecord
   },
   HistoryStore: class {}
 }))
@@ -115,4 +117,17 @@ describe('CommandRegistry PS interaction boundary', () => {
     registry.destroy()
     expect(requireModule.mock.calls.map(([name]) => name)).not.toContain('photoshop')
   })
+})
+
+
+it('retains the sanitized original Photoshop error instead of only code 1000', async () => {
+  const { readCanvasDiagnosticContext } = await import('../canvasPrimitives')
+  const error = Object.assign(new Error('Only allowed inside a modal scope. token=private-value'), { code: '1000', number: 1000 })
+  vi.mocked(readCanvasDiagnosticContext).mockImplementationOnce(() => { throw error })
+  const registry = new CommandRegistry('1.2.2', { sessionId: 'session', hostNonce: 'nonce' } as never, vi.fn())
+  await expect(registry.invoke({ command: 'canvas.captureVisible', messageId: 'test-error' } as never)).rejects.toBe(error)
+  expect(diagnosticsRecord).toHaveBeenCalledWith(expect.objectContaining({
+    phase: 'error', details: expect.objectContaining({ errorCode: '1000', errorNumber: 1000, errorMessage: 'Only allowed inside a modal scope. token=[REDACTED]' })
+  }))
+  registry.destroy()
 })

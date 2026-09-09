@@ -423,3 +423,12 @@ dev CCX 的 `webviewOrigin` 可以指向 `imini-test.catrefuse.com`，但官网�
 新增 Host 测试使源图读取中的文档复制、PS 编码与编辑调用立即失败，并校验选区 alpha；浏览器 E2E 使用实际 Canvas 编解码，通过真实 WebViewHostClient 与 Host 图片处理服务分片往返，覆盖 RGBA、文件图片、损坏图片、双视口与输出尺寸。会话重连拒绝旧图片任务，历史保存缩略图避免重复生成。正式构建检查已从要求独立创建图层命令改为禁止独立 PS 编辑命令。
 
 本次真实 PS UI 验证因电脑控制截图失败尚未完成，不能把浏览器与模拟宿主测试当作实机 tab 不闪动的证明。
+
+
+### 9.23 Photoshop Imaging 读取仍要求 modal scope
+
+2026-09-09 在 Photoshop 27.3.0 / UXP 9.0.2 上用线上 1.2.1 包复现：普通 RGB/8 JPG 的文档属性与图层 ID 读取成功，`imaging.getPixels()` 在 modal 外抛出 `code=1000`，原始错误为 `The requested functionality is only allowed from inside a modal scope`。9 月 8 日图片交互边界改动将读取端的 `executeAsModal` 一并移除，造成所有格式的图像读取回归，与 Sony RAW 解码无关。
+
+读取可见图像、选中图层、选区像素和选区位置时，短时进入 `executeAsModal`，完成 Imaging 读取、取得字节并释放 PhotoshopImageData 后退出。JS 蒙版计算、WebView 编码和桥接传输留在 modal 外；不恢复临时文档、PS 编码、后台事件监听或生成阶段的 PS 调用。诊断必须保留脱敏后的原始错误信息和 number，不能只记录通用错误码。
+
+真实 Photoshop 测试使用实际修复后的读取模块，分别在 32×24 的 RGB/8 与 RGB/16 文档验证：画布和图层均返回 3072 字节 RGBA，白色像素一致；选区返回 16×12、768 字节，边界为 (8,4)-(24,16)，选区位置相同。此项实机像素测试替换了 WebView 编码回调，仅证明 PS 读取与坐标；实际 WebView 编码由完整浏览器 E2E 另行验证。测试自建文档关闭后原文档 ID 不变。单测同时检查 modal 内读取、modal 外编码、历史状态回退以及错误原样向上传递。

@@ -855,6 +855,7 @@ async function testSelectionVisibleComposite(canvasPrimitives) {
   const originalHostRequire = globalThis.require
   const photoshop = {
     app: { activeDocument: { id: 1, width: 2, height: 1, activeLayers: [], duplicate() { throw new Error('Reading must not duplicate documents') } } },
+    core: { executeAsModal: async (read) => read() },
     imaging: {
       async getSelection() { return createImageResult({ width: 2, height: 1, components: 1, data: [255,128], bounds }) },
       async getPixels(options) {
