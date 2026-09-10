@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { captureVisibleComposite } from './canvasPrimitives'
+import { imageProcessor } from './inner/imageProcessing'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { captureVisibleComposite, createBridgeThumbnail, createBridgeThumbnailFromPreview, createBridgeThumbnailFromLocalFile, createProviderReferencePreview } from './canvasPrimitives'
 
 type HostRequire = (name: string) => unknown
 
@@ -74,5 +75,39 @@ describe('visible composite capture', () => {
     expect(calls[0]).toMatchObject({ documentID: 1, historyStateID: 30 })
     expect(calls[1]).toMatchObject({ documentID: 1 })
     expect(calls[1]).not.toHaveProperty('historyStateID')
+  })
+})
+
+
+describe('internal image processing', () => {
+  it('compresses capture previews and restored images without Photoshop or full-resolution RGBA conversion', async () => {
+    hostGlobal.require = (name) => { throw new Error(`Unexpected host module: ${name}`) }
+    const process = vi.spyOn(imageProcessor, 'process').mockResolvedValue({ thumbnailUrl: 'data:image/jpeg;base64,/9j/2Q==', width: 6000, height: 4000 })
+    const image = { id: 'large', label: 'large', width: 6000, height: 4000, sourceBounds: { left: 0, top: 0, right: 6000, bottom: 4000 }, previewUrl: 'data:image/jpeg;base64,/9j/2Q==', get rgba(): Uint8Array { throw new Error('Must not serialize full-resolution pixels') } }
+    try {
+      await createBridgeThumbnail(image)
+      await createBridgeThumbnailFromPreview(image)
+      await createProviderReferencePreview(image)
+      expect(process).toHaveBeenCalledTimes(3)
+      for (const [input, options] of process.mock.calls) {
+        expect(input).toBe(image.previewUrl)
+        expect(options.source).toBe('dataUrl')
+      }
+      expect(process.mock.calls[2]?.[1]).toMatchObject({ maxEdge: 4096, measure: 'binary' })
+    } finally { process.mockRestore() }
+  })
+
+  it('reads local attachment bytes without opening a Photoshop document', async () => {
+    hostGlobal.require = (name) => {
+      if (name !== 'uxp') throw new Error(`Unexpected host module: ${name}`)
+      return { storage: { formats: { binary: 'binary' } } }
+    }
+    const process = vi.spyOn(imageProcessor, 'process').mockResolvedValue({ thumbnailUrl: 'data:image/jpeg;base64,/9j/2Q==', width: 10, height: 10 })
+    const read = vi.fn().mockResolvedValue(new Uint8Array([255, 216, 255, 217]))
+    try {
+      await createBridgeThumbnailFromLocalFile({ name: 'photo.jpg', read, write: vi.fn() })
+      expect(read).toHaveBeenCalledWith({ format: 'binary' })
+      expect(process).toHaveBeenCalledWith('data:image/jpeg;base64,/9j/2Q==', expect.objectContaining({ source: 'dataUrl', maxEdge: 800 }))
+    } finally { process.mockRestore() }
   })
 })

@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { ImageProcessingService } from '../../plug-in/src/ccx/inner/imageProcessing'
+import { imageProcessor } from '../../plug-in/src/ccx/inner/imageProcessing'
+import { createBridgeThumbnail, createProviderReferencePreview } from '../../plug-in/src/ccx/canvasPrimitives'
 import { installTestHost } from './hostFixture'
 
 test('CCX processes pixels, uploaded files and corrupt images through WebView without Photoshop', async ({ page }, testInfo) => {
-  const service = new ImageProcessingService()
+  const service = imageProcessor
   const calls: string[] = []
   await page.exposeFunction('memoryImageCommand', (command: string, payload: any) => {
     calls.push(command)
@@ -70,6 +71,27 @@ test('CCX processes pixels, uploaded files and corrupt images through WebView wi
       await image.decode()
       return image.naturalWidth
     }, textured.thumbnailUrl)).toBeLessThan(640)
+    const largePreview = await page.evaluate(() => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 6000
+      canvas.height = 4000
+      const context = canvas.getContext('2d')!
+      context.fillStyle = '#66aabb'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      return canvas.toDataURL('image/jpeg', 0.9)
+    })
+    const largeImage = { id: 'large', label: 'large', width: 6000, height: 4000, sourceBounds: { left: 0, top: 0, right: 6000, bottom: 4000 }, previewUrl: largePreview, get rgba(): Uint8Array { throw new Error('Full RGBA must not be serialized') } }
+    for (const [createPreview, maxEdge] of [[createBridgeThumbnail, 800], [createProviderReferencePreview, 4096]] as const) {
+      const preview = await createPreview(largeImage)
+      const size = await page.evaluate(async src => {
+        const image = new Image()
+        image.src = src
+        await image.decode()
+        return { width: image.naturalWidth, height: image.naturalHeight }
+      }, preview)
+      expect(size.width).toBe(maxEdge)
+      expect(size.height).toBe(Math.round(maxEdge * 4000 / 6000))
+    }
     await expect(service.process('data:image/png;base64,broken', { source: 'dataUrl', width: 1, height: 1, measure: 'dataUrl' })).rejects.toThrow()
     expect(calls).toContain('image.fail')
   } finally {

@@ -1,6 +1,6 @@
 import { getHostRequire } from './photoshopHost'
 import type { CcxDiagnosticTrace } from './diagnosticTrace'
-import { utf8ByteLength } from './inner/utf8'
+import { imageProcessor, encodeImageBytes } from './inner/imageProcessing'
 import type { CapturedCanvasImage, PixelBounds } from '../../../packages/mugen-core/src/types/canvas'
 
 export type { CapturedCanvasImage, PixelBounds } from '../../../packages/mugen-core/src/types/canvas'
@@ -749,124 +749,31 @@ async function encodeRgbaPreview(
   }
 }
 
-function readBase64PreviewByteLength(previewUrl: string) {
-  const match = /^data:[^,]*;base64,(.*)$/s.exec(previewUrl)
-  if (!match) return utf8ByteLength(previewUrl)
-  const payload = (match[1] ?? '').replace(/\s/g, '')
-  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0
-  return Math.max(0, Math.floor(payload.length * 3 / 4) - padding)
-}
-
-async function createJpegPreviewFromRgba(
-  image: CapturedCanvasImage,
-  maxBytes: number,
-  initialMaxEdge: number,
-  measurePreview: (previewUrl: string) => number
-) {
-  const photoshop = getPhotoshop()
-  if (image.rgba.byteLength !== image.width * image.height * 4) {
-    throw new Error('参考图像素不可用')
-  }
-  let maxEdge = initialMaxEdge
-  let lastPreview = image.previewUrl
-
-  while (maxEdge >= 96) {
-    const scale = Math.min(1, maxEdge / Math.max(image.width, image.height))
-    const width = Math.max(1, Math.round(image.width * scale))
-    const height = Math.max(1, Math.round(image.height * scale))
-    const rgba = scale < 1 ? resizeRgba(image.rgba, image.width, image.height, width, height) : image.rgba
-    lastPreview = await encodeRgbaPreview(photoshop, rgba, width, height)
-    if (measurePreview(lastPreview) <= maxBytes) return lastPreview
-    maxEdge = Math.round(maxEdge * 0.72)
-  }
-
-  if (measurePreview(lastPreview) > maxBytes) throw new Error('缩略图超过传输限制')
-  return lastPreview
-}
-
 export async function createBridgeThumbnail(image: CapturedCanvasImage, maxBytes = 512 * 1024) {
-  return createJpegPreviewFromRgba(image, maxBytes, 800, utf8ByteLength)
+  return createBridgeThumbnailFromPreview(image, maxBytes)
 }
 
-async function createBridgeThumbnailFromFile(
-  file: AdobeUxpFile,
-  maxBytes: number,
-  initialMaxEdge = 800,
-  measurePreview: (previewUrl: string) => number = utf8ByteLength
-) {
-  const photoshop = getPhotoshop()
-  if (!photoshop.app.open) throw new Error('当前 Photoshop 版本无法读取图片缩略图')
-  return photoshop.core.executeAsModal(async () => {
-    const existingDocumentIds = new Set((photoshop.app.documents ?? []).map((document) => document.id))
-    const document = await photoshop.app.open!(file)
-    try {
-      const bounds = getDocumentBounds(document)
-      const sourceWidth = bounds.right - bounds.left
-      const sourceHeight = bounds.bottom - bounds.top
-      let maxEdge = initialMaxEdge
-      let lastPreview = ''
-      while (maxEdge >= 96) {
-        const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight))
-        const result = await photoshop.imaging.getPixels({
-          documentID: document.id,
-          sourceBounds: bounds,
-          targetSize: {
-            width: Math.max(1, Math.round(sourceWidth * scale)),
-            height: Math.max(1, Math.round(sourceHeight * scale))
-          },
-          colorSpace: 'RGB',
-          componentSize: 8
-        })
-        try {
-          const base64 = await photoshop.imaging.encodeImageData({ imageData: result.imageData, base64: true })
-          lastPreview = `data:image/jpeg;base64,${base64}`
-        } finally {
-          result.imageData.dispose()
-        }
-        if (measurePreview(lastPreview) <= maxBytes) return { thumbnailUrl: lastPreview, width: sourceWidth, height: sourceHeight }
-        maxEdge = Math.round(maxEdge * 0.72)
-      }
-      if (measurePreview(lastPreview) > maxBytes) throw new Error('缩略图超过传输限制')
-      return { thumbnailUrl: lastPreview, width: sourceWidth, height: sourceHeight }
-    } finally {
-      if (!existingDocumentIds.has(document.id)) await closeTemporaryDocument(photoshop, document)
-    }
-  }, { commandName: '读取 iMini PS 图片缩略图', timeOut: 120 })
-}
-
-export async function createBridgeThumbnailFromLocalFile(file: AdobeUxpFile, maxBytes = 512 * 1024) {
-  return createBridgeThumbnailFromFile(file, maxBytes)
+export async function createBridgeThumbnailFromLocalFile(file: AdobeUxpFile & { name?: string; read: (options?: Record<string, unknown>) => Promise<unknown> }, maxBytes = 512 * 1024) {
+  const format = getAdobeUxpRuntime().storage?.formats?.binary
+  const raw = await file.read(format ? { format } : undefined)
+  const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBuffer)
+  const extension = file.name?.split('.').pop()?.toLowerCase()
+  const mime = extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : extension === 'webp' ? 'image/webp' : extension === 'gif' ? 'image/gif' : 'image/png'
+  return imageProcessor.process(`data:${mime};base64,${encodeImageBytes(bytes)}`, {
+    source: 'dataUrl', width: 1, height: 1, maxEdge: 800, maxBytes, measure: 'dataUrl'
+  })
 }
 
 export async function createBridgeThumbnailFromPreview(image: CapturedCanvasImage, maxBytes = 512 * 1024) {
-  const temporaryFile = await createTemporaryPreviewFile(image)
-  try {
-    return (await createBridgeThumbnailFromFile(temporaryFile.file, maxBytes)).thumbnailUrl
-  } finally {
-    await deleteTemporaryFile(temporaryFile.file)
-  }
+  return (await imageProcessor.process(image.previewUrl, {
+    source: 'dataUrl', width: image.width, height: image.height, maxEdge: 800, maxBytes, measure: 'dataUrl'
+  })).thumbnailUrl
 }
 
-export async function createProviderReferencePreview(
-  image: CapturedCanvasImage,
-  maxBytes = 9 * 1024 * 1024,
-  maxEdge = 4096
-) {
-  if (image.rgba.byteLength === image.width * image.height * 4) {
-    return createJpegPreviewFromRgba(image, maxBytes, maxEdge, readBase64PreviewByteLength)
-  }
-
-  const temporaryFile = await createTemporaryPreviewFile(image)
-  try {
-    return (await createBridgeThumbnailFromFile(
-      temporaryFile.file,
-      maxBytes,
-      maxEdge,
-      readBase64PreviewByteLength
-    )).thumbnailUrl
-  } finally {
-    await deleteTemporaryFile(temporaryFile.file)
-  }
+export async function createProviderReferencePreview(image: CapturedCanvasImage, maxBytes = 9 * 1024 * 1024, maxEdge = 4096) {
+  return (await imageProcessor.process(image.previewUrl, {
+    source: 'dataUrl', width: image.width, height: image.height, maxEdge, maxBytes, measure: 'binary'
+  })).thumbnailUrl
 }
 
 async function getSelectionPixels(trace?: CcxDiagnosticTrace) {
