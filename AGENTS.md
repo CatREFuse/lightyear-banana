@@ -146,3 +146,7 @@ WebUI 部署:
 本次 Photoshop 交互边界修复的发行验证与实机验收限制：`docs/ps-image-boundary-release.md`。
 
 本次读取恢复与 Image 2.5 发行记录：`docs/ps-capture-fix-release.md`。
+
+## Photoshop 图层读写冻结
+
+用户于 2026-09-10 明确要求恢复两次更新前的方案。`plug-in/src/ccx/canvasPrimitives.ts` 以 CCX 1.2.0（2608250001，提交 7294ba2）为冻结基线；未经用户再次明确要求，不得改造其读取、编码、缩略图、参考图处理和置入逻辑。规格见 `docs/spec.md`，发行记录见 `docs/ps-stable-io-release.md`。

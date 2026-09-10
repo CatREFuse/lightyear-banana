@@ -6,6 +6,10 @@
 
 统一执行顺序与完成标准见 `docs/release-sop.md`。本清单是强制门禁，SOP 是正式操作流程；两者都必须满足。
 
+## 2026-09-10 恢复稳定读写
+
+目标 CCX `1.2.3+2609100001`，恢复 `1.2.0+2608250001` 读写核心，WebUI 保持 0.2.5。见 `docs/ps-stable-io-release.md`。
+
 ## 2026-09-09 Photoshop 读取恢复
 
 本次版本：WebUI `0.2.5`、CCX `1.2.2+2609090001`。恢复 Imaging 的短时 modal scope，并合入 APIMart Image 2.5 系列；实机验证和发布结果见 `docs/ps-capture-fix-release.md`。
