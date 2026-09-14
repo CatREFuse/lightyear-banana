@@ -104,14 +104,15 @@ test('CCX bridge completes canvas capture, APIMart generation, cat download, and
   ]))
 
   await page.getByRole('button', { name: '设置' }).click()
-  await page.getByRole('button', { name: '清空' }).click()
-  await page.getByRole('button', { name: '再次清空' }).click()
+  await page.getByRole('button', { name: '清空生成记录' }).click()
+  await page.getByRole('button', { name: '确认清空' }).click()
   await page.getByRole('button', { name: '返回' }).click()
   await expect(page.getByRole('region', { name: '当前对话' }).getByText('READY')).toBeVisible()
 })
 
 test('opens the real settings UI through the Host bridge', async ({ page }) => {
   await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: /自定义 API/ }).click()
   await expect(page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' })).toBeVisible()
 })
 
@@ -141,6 +142,7 @@ test('restores prompt editing after the CCX WebView regains window focus', async
 
 test('CCX exposes the complete shared Provider catalog', async ({ page }) => {
   await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: /自定义 API/ }).click()
   await page.getByRole('button', { name: 'APIMart APIMart · gpt-image-1 启用' }).click()
   const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
   await providerField.locator('.select-trigger').click()

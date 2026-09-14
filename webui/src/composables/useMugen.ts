@@ -1953,11 +1953,6 @@ function readHighestQuality(options: string[]): string {
     Object.assign(settingsDraft, patch)
     setSettingsTestState({ status: 'idle', message: '' })
 
-    if (!settingsDraftIsNew.value) {
-      configs.value = configs.value.map((config) =>
-        config.id === editingConfigId.value ? cloneModelConfig({ ...settingsDraft, id: editingConfigId.value }) : config
-      )
-    }
   }
 
   refreshDocument()

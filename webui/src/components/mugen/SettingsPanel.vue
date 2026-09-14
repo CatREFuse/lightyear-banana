@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import type {
   DiagnosticExportState,
   ImageProviderId,
@@ -27,6 +27,9 @@ type ConfigStatus = {
 }
 
 const props = defineProps<{
+  active: boolean
+  apiListOpen: boolean
+  iminiSaving: boolean
   configs: ModelConfig[]
   editingCapability: ProviderCapability
   editingConfigId: string
@@ -43,6 +46,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  openApiList: []
+  saveIminiKey: [key: string]
   clearConversationData: []
   closeDetail: []
   create: []
@@ -61,7 +66,10 @@ const emit = defineEmits<{
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
 const clearConversationArmed = shallowRef(false)
-let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
+const iminiConfig = computed(() => props.configs.find((config) => config.provider === 'iMini'))
+const iminiKey = shallowRef('')
+watch(() => iminiConfig.value?.apiKey, (key) => { iminiKey.value = key ?? '' }, { immediate: true })
+watch(() => [props.active, props.settingsView, props.apiListOpen], () => { clearConversationArmed.value = false })
 const configRows = computed(() =>
   props.configs.map((config) => ({
     config,
@@ -69,7 +77,7 @@ const configRows = computed(() =>
   }))
 )
 const transitionName = computed(() => (props.settingsView === 'detail' ? 'settings-forward' : 'settings-back'))
-const clearConversationLabel = computed(() => (clearConversationArmed.value ? '再次清空' : '清空'))
+
 
 function readConfigStatus(config: ModelConfig): ConfigStatus {
   if (!config.enabled) {
@@ -96,19 +104,6 @@ function readConfigStatus(config: ModelConfig): ConfigStatus {
 }
 
 function requestClearConversationData() {
-  if (!clearConversationArmed.value) {
-    clearConversationArmed.value = true
-    clearConversationTimer = setTimeout(() => {
-      clearConversationArmed.value = false
-      clearConversationTimer = undefined
-    }, 2400)
-    return
-  }
-
-  if (clearConversationTimer) {
-    clearTimeout(clearConversationTimer)
-    clearConversationTimer = undefined
-  }
   clearConversationArmed.value = false
   emit('clearConversationData')
 }
@@ -118,64 +113,66 @@ function adjustHistoryLimit(delta: number) {
   emit('updateHistoryLimit', normalizeHistoryLimit(props.historyLimit + delta))
 }
 
-onUnmounted(() => {
-  if (clearConversationTimer) {
-    clearTimeout(clearConversationTimer)
-  }
-})
 </script>
 
 <template>
   <main class="settings-panel">
     <Transition :name="transitionName" mode="out-in">
-      <section v-if="settingsView === 'list'" key="list" class="settings-page" aria-label="配置列表">
-        <section class="data-card history-card" aria-label="对话记录">
-          <div>
-            <strong>
-              <BoxIcon name="trash" size="14" />
-              对话记录
-            </strong>
-            <small v-if="historyLimit !== undefined">保留最近 {{ historyLimit }} 条生成记录</small>
-            <small v-else>清除生成消息和图片记录</small>
-          </div>
-          <span v-if="historyLimit !== undefined" class="history-stepper" role="group" aria-label="生成记录保存条数">
-            <button
-              type="button"
-              aria-label="减少生成记录保存条数"
-              :disabled="historyLimit <= MIN_HISTORY_LIMIT"
-              @click="adjustHistoryLimit(-1)"
-            >
-              −
+      <section v-if="settingsView === 'list' && !apiListOpen" key="overview" class="settings-page settings-overview" aria-label="设置">
+        <section class="settings-group" aria-labelledby="common-settings-heading">
+          <h2 id="common-settings-heading">常用设置</h2>
+          <div class="settings-group-body">
+            <button class="settings-entry" type="button" @click="emit('openPromptPresets')">
+              <span class="settings-glyph" data-glyph="text-block" aria-hidden="true"></span>
+              <span class="settings-copy"><strong>常用提示词</strong><small>可在提示词中使用 / 进行调用</small></span>
+              <BoxIcon name="chevron-right" size="20" class="row-arrow" />
             </button>
-            <output aria-live="polite">{{ historyLimit }}</output>
-            <button
-              type="button"
-              aria-label="增加生成记录保存条数"
-              :disabled="historyLimit >= MAX_HISTORY_LIMIT"
-              @click="adjustHistoryLimit(1)"
-            >
-              +
-            </button>
-          </span>
-          <button type="button" @click="requestClearConversationData">
-            {{ clearConversationLabel }}
-          </button>
-        </section>
-
-        <DiagnosticLogCard
-          v-if="diagnosticExportAvailable"
-          :state="diagnosticExportState"
-          @download="emit('downloadDiagnostics')"
-        />
-
-        <section class="data-card preset-entry" aria-label="预设提示词">
-          <div>
-            <strong>预设提示词</strong>
-            <small>{{ promptPresets.length }} 条 · 输入 /名称 调用</small>
           </div>
-          <button type="button" @click="emit('openPromptPresets')">管理</button>
         </section>
-
+        <section class="settings-group" aria-labelledby="history-settings-heading">
+          <h2 id="history-settings-heading">对话记录</h2>
+          <div class="settings-group-body">
+            <div class="history-setting">
+              <span class="settings-glyph" data-glyph="list-ordered" aria-hidden="true"></span>
+              <span class="settings-copy"><strong>生成记录保存条数</strong><small>{{ historyLimit === undefined ? '保留最近 30 条生成记录' : '超过设定上限的生成记录会被删除' }}</small></span>
+              <span v-if="historyLimit !== undefined" class="history-stepper" role="group" aria-label="生成记录保存条数">
+                <button type="button" aria-label="减少生成记录保存条数" :disabled="historyLimit <= MIN_HISTORY_LIMIT" @click="adjustHistoryLimit(-1)"><BoxIcon name="chevron-right" size="20" class="stepper-back" /></button>
+                <output aria-live="polite">{{ historyLimit }}</output>
+                <button type="button" aria-label="增加生成记录保存条数" :disabled="historyLimit >= MAX_HISTORY_LIMIT" @click="adjustHistoryLimit(1)"><BoxIcon name="chevron-right" size="20" /></button>
+              </span>
+            </div>
+            <div v-if="clearConversationArmed" class="clear-confirmation" role="group" aria-label="确认清空生成记录" @keydown.esc="clearConversationArmed = false">
+              <p>清空全部生成记录？此操作无法撤销。</p>
+              <button type="button" @click="clearConversationArmed = false">取消</button>
+              <button type="button" class="clear-action" @click="requestClearConversationData">确认清空</button>
+            </div>
+            <button v-else class="clear-action" type="button" @click="clearConversationArmed = true">
+              <span class="settings-glyph" data-glyph="delete" aria-hidden="true"></span>清空生成记录
+            </button>
+          </div>
+        </section>
+        <section class="settings-group" aria-labelledby="api-settings-heading">
+          <h2 id="api-settings-heading">生图 API</h2>
+          <div class="settings-group-body">
+            <form class="imini-key-form" @submit.prevent="emit('saveIminiKey', iminiKey.trim())">
+              <span class="settings-glyph imini-glyph" data-glyph="shining" aria-hidden="true"></span>
+              <div class="imini-key-content">
+                <div class="imini-heading"><label for="imini-quick-key">iMini API Key <span class="recommended">推荐</span></label><a href="https://imini.ai/pricing" target="_blank" rel="noopener noreferrer">享受 7.9 折起折扣 <BoxIcon name="chevron-right" size="14" /></a></div>
+                <input id="imini-quick-key" v-model="iminiKey" type="password" autocomplete="off" spellcheck="false" :disabled="iminiSaving" :placeholder="iminiConfig?.apiKey ? '已保存 API Key' : '填写 API Key'" />
+                <button v-if="iminiKey.trim() && iminiKey !== (iminiConfig?.apiKey ?? '')" class="key-save" type="submit" :disabled="iminiSaving">{{ iminiSaving ? '保存中…' : '保存 API Key' }}</button>
+              </div>
+            </form>
+            <button class="settings-entry" type="button" @click="emit('openApiList')">
+              <span class="settings-glyph" data-glyph="code" aria-hidden="true"></span>
+              <span class="settings-copy"><strong>自定义 API</strong><small>{{ configs.length ? `已有 ${configs.length} 个` : '添加 API 配置' }}</small></span>
+              <BoxIcon name="chevron-right" size="20" class="row-arrow" />
+            </button>
+          </div>
+        </section>
+        <DiagnosticLogCard v-if="diagnosticExportAvailable" :state="diagnosticExportState" @download="emit('downloadDiagnostics')" />
+        <footer class="settings-meta" aria-label="版本信息"><span>WebUI {{ version }}</span></footer>
+      </section>
+      <section v-else-if="settingsView === 'list'" key="apis" class="settings-page" aria-label="配置列表">
         <div class="config-list">
           <div class="section-header">
             <h2>配置列表</h2>
@@ -210,7 +207,7 @@ onUnmounted(() => {
         </div>
 
         <footer class="settings-meta" aria-label="版本信息">
-          <span>v{{ version }}</span>
+          <span>WebUI {{ version }}</span>
         </footer>
       </section>
 
@@ -254,9 +251,11 @@ onUnmounted(() => {
 .settings-page {
   display: grid;
   align-content: start;
-  gap: 12px;
-  min-height: 100%;
-  padding: 12px;
+  gap: 24px;
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  padding: 16px;
 }
 
 .settings-intro {
@@ -323,112 +322,6 @@ onUnmounted(() => {
 
 .permission-actions button:hover {
   background: var(--mugen-hover);
-}
-
-.data-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--mugen-border);
-  border-radius: 8px;
-  background: var(--mugen-card);
-}
-
-.data-card div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.data-card strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  color: var(--mugen-text);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.data-card small {
-  overflow: hidden;
-  color: var(--mugen-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.data-card button {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--mugen-danger-border);
-  border-radius: 8px;
-  background: var(--mugen-danger-bg);
-  color: var(--mugen-danger-text);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.data-card button:hover {
-  background: rgba(236, 81, 93, 0.18);
-}
-
-.history-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-}
-
-.history-stepper {
-  display: inline-grid;
-  grid-template-columns: 24px 24px 24px;
-  align-items: center;
-  height: 32px;
-  border: 1px solid var(--mugen-border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.history-card .history-stepper button {
-  min-height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--mugen-muted);
-  font-size: 16px;
-}
-
-.history-card .history-stepper button:hover:not(:disabled) {
-  background: var(--mugen-hover);
-  color: var(--mugen-text);
-}
-
-.history-card .history-stepper button:disabled {
-  cursor: default;
-  opacity: 0.4;
-}
-
-.history-stepper output {
-  color: var(--mugen-text);
-  font-size: 12px;
-  text-align: center;
-}
-
-@media (max-width: 360px) {
-  .history-card {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .history-card > button {
-    grid-column: 1 / -1;
-  }
 }
 
 .config-list {
@@ -551,7 +444,7 @@ h2 {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 10px;
-  margin-top: auto;
+  justify-content: center;
   padding: 2px 2px 0;
   color: var(--mugen-muted);
   font-size: 11px;
@@ -632,4 +525,251 @@ h2 {
     transition: none;
   }
 }
+
+.settings-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-group > h2 {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--mugen-secondary);
+}
+
+.settings-group-body {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--mugen-border);
+  border-radius: 16px;
+  background: var(--mugen-card);
+}
+
+.settings-entry, .history-setting {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: start;
+  min-width: 0;
+}
+
+.settings-entry {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-align: left;
+  align-items: center;
+  min-height: 32px;
+}
+
+.settings-entry:hover {
+  background: var(--mugen-hover);
+}
+
+.settings-glyph[data-glyph="text-block"] {
+  mask-image: url('../../assets/settings/text-block.svg');
+}
+
+.settings-glyph[data-glyph="list-ordered"] {
+  mask-image: url('../../assets/settings/list-ordered.svg');
+}
+
+.settings-glyph[data-glyph="delete"] {
+  mask-image: url('../../assets/settings/delete.svg');
+}
+
+.settings-glyph[data-glyph="shining"] {
+  mask-image: url('../../assets/settings/shining.svg');
+}
+
+.settings-glyph[data-glyph="code"] {
+  mask-image: url('../../assets/settings/code.svg');
+}
+
+.settings-glyph {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  background: currentColor;
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+
+.settings-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-copy strong {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.settings-copy small {
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--mugen-secondary);
+  overflow-wrap: anywhere;
+}
+
+.history-setting {
+  align-items: center;
+}
+
+.history-stepper {
+  display: inline-grid;
+  align-items: center;
+  grid-template-columns: 28px 24px 28px;
+  height: 32px;
+  border: 0;
+  border-radius: 0;
+}
+
+.history-stepper button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--mugen-secondary);
+}
+
+.history-stepper output {
+  color: var(--mugen-text);
+  font-size: 12px;
+  text-align: center;
+  background: var(--mugen-field);
+  border-radius: 2px;
+  line-height: 24px;
+}
+
+.stepper-back {
+  transform: rotate(180deg);
+}
+
+.clear-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mugen-danger);
+  font-size: 12px;
+}
+
+.clear-action:hover {
+  color: var(--mugen-danger);
+  background: var(--mugen-danger-bg);
+}
+
+.clear-confirmation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.clear-confirmation p {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.clear-confirmation button {
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.imini-key-form {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
+}
+
+.imini-key-content {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.imini-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.imini-heading label, .imini-heading a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.imini-heading a {
+  color: var(--mugen-accent);
+  text-decoration: none;
+}
+
+.imini-glyph {
+  color: var(--mugen-accent);
+}
+
+.recommended {
+  font-size: 10px;
+  line-height: 12px;
+  padding: 2px 4px;
+  color: var(--mugen-accent);
+  background: var(--mugen-accent-soft);
+  border-radius: 4px;
+}
+
+.imini-key-content input {
+  min-width: 0;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mugen-field);
+  font-size: 12px;
+}
+
+.key-save {
+  justify-self: end;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--mugen-accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 340px) {
+  .history-setting {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+
+  .history-stepper {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+}
+
 </style>

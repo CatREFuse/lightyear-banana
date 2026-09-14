@@ -97,6 +97,8 @@ const {
   setVisualTheme,
   visualTheme
 } = props.themeController ?? localThemeController!
+const apiListOpen = shallowRef(false)
+const iminiSaving = shallowRef(false)
 const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
 const previewLoading = shallowRef(false)
@@ -129,7 +131,7 @@ const navigationTitle = computed(() => {
   }
 
   if (settingsView.value === 'list') {
-    return '设置'
+    return apiListOpen.value ? '自定义 API' : '设置'
   }
 
   if (settingsView.value === 'presets') {
@@ -207,10 +209,33 @@ function handleHeaderBack() {
     closeSettingsDetail()
     return
   }
+  if (apiListOpen.value) {
+    apiListOpen.value = false
+    return
+  }
 
   closeSettings()
 }
+async function saveIminiKey(key: string) {
+  iminiSaving.value = true
+  try {
+    const existing = configs.value.find((config) => config.provider === 'iMini')
+    if (existing) {
+      editConfig(existing.id)
+    } else {
+      createConfig()
+      updateSettingsDraft({ provider: 'iMini', name: 'iMini' })
+    }
+    updateSettingsDraft({ apiKey: key })
+    settingsView.value = 'list'
+    await saveConfig()
+  } finally {
+    iminiSaving.value = false
+  }
+}
 
+
+  apiListOpen.value = false
 function handleOpenSettings() {
   activeWorkspaceMenu.value = ''
   openSettings()
@@ -256,6 +281,9 @@ function handleManageModels() {
         class="route-page settings-route"
         :class="{ 'is-active': activeView === 'settings' }"
         :aria-hidden="activeView !== 'settings'"
+        :active="activeView === 'settings'"
+        :api-list-open="apiListOpen"
+        :imini-saving="iminiSaving"
         :inert="activeView !== 'settings' || undefined"
         :configs="configs"
         :editing-capability="editingCapability"
@@ -269,6 +297,8 @@ function handleManageModels() {
         :settings-draft="settingsDraft"
         :settings-test-state="settingsTestState"
         :settings-view="settingsView"
+        @open-api-list="apiListOpen = true"
+        @save-imini-key="saveIminiKey"
         :version="activeVersion"
         @close-detail="closeSettingsDetail"
         @clear-conversation-data="clearConversationData"
@@ -750,6 +780,21 @@ function handleManageModels() {
   .mugen-shell :deep(.ratio-trigger) {
     transition: none;
   }
+
+.mugen-shell.theme-light:not(.design-nothing) :deep(.settings-panel) {
+  --mugen-workspace: #f4f4f5;
+  --mugen-text: #18181b;
+  --mugen-secondary: #71717a;
+  --mugen-muted: #71717a;
+  --mugen-field: rgba(0, 0, 0, 0.05);
+  --mugen-border: rgba(0, 0, 0, 0.1);
+  --mugen-accent: #0284c7;
+  --mugen-accent-soft: #e0f2fe;
+  --mugen-danger: #dc2626;
+}
+.mugen-shell.design-nothing :deep(.imini-key-content input) {
+  background: var(--mugen-surface);
+}
 
 }
 </style>

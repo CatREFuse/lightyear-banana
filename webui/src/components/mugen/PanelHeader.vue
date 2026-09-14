@@ -44,6 +44,12 @@ function toggleThemeMenu() {
   emit('menuOpen', themeMenuOpen.value ? 'header:theme' : '')
 }
 
+function closeThemeMenu() {
+  themeMenuOpen.value = false
+  emit('menuOpen', '')
+  themeMenuWrap.value?.querySelector<HTMLButtonElement>('button')?.focus()
+}
+
 function selectColorMode(mode: ColorMode) {
   emit('setColorMode', mode)
 }
@@ -148,7 +154,7 @@ watch(
       <button v-if="!inSettings" class="icon-button icon-only" type="button" title="设置" aria-label="设置" @click="emit('openSettings')">
         <BoxIcon name="cog" size="16" />
       </button>
-      <div ref="themeMenuWrap" class="theme-menu-wrap">
+      <div @keydown.esc.stop.prevent="closeThemeMenu" ref="themeMenuWrap" class="theme-menu-wrap">
         <button
           class="icon-button icon-only"
           type="button"

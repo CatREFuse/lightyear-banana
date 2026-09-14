@@ -301,6 +301,15 @@ APIMart、iMini、Kling、FLUX 与 ComfyUI 的任务状态和失败结构各不�
 | 真实 Photoshop | picker、paste、drop、画布抓取、原图预览、保存、置入、重启恢复 |
 | Windows 安装 | CCX 双击安装、Creative Cloud 提示、Photoshop 打开、官网下载安装 |
 | 生产回读 | WebUI release、CCX hash、官网最新版链接、关键响应头 |
+### 9.12 设置首页、配置草稿与键盘操作（2026-09-14）
+
+- 复现：设置首页把预设入口套入危险按钮样式，配置管理直接展开；浏览器 `updateSettingsDraft` 同时回写配置，导致未点击保存就改变持久化数据。
+- 修正：设置首页按 Figma `2162:8762` 分组，API 列表保留在二级页面；字段更新只修改草稿，保存才替换配置，返回重置草稿。配置启停保留原有即时生效行为。
+- iMini 首页 Key 使用现有 `createConfig` / `editConfig`、`updateSettingsDraft` 和 `saveConfig`；CCX 仍通过 Host 的 `credential.set` 保存，不新增 WebView 本地凭据副本。保存失败保留输入，由现有保存流程显示错误。
+- `ControlSelect` 为触发按钮和列表补充名称、展开状态、选中状态；方向键定位选项，Enter 选择，Escape 关闭并归还焦点。外部点击仍由 `useOutsidePointerDown` 关闭。
+- 验证：`npm run test:inner-webui` 通过 28 项单元与 5 项隔离检查，完整 Playwright E2E 38 项通过；包含浏览器配置保存/重载、CCX 凭据桥接、生成及清空流程。260/402/960px、经典/Nothing、深浅色截图均完成检查。
+- 验证边界：Host 桥接使用浏览器测试夹具，本次未执行真实 Photoshop UXP Reload，也未部署线上 WebUI；不能把这些测试作为真实宿主发行验收。
+
 
 真实验证要保存界面截图和对应 Host trace。自动化构造 ClipboardEvent 可覆盖代码路径，仍需真实系统剪贴板与键盘粘贴通过后才能宣布用户问题已修复。
 

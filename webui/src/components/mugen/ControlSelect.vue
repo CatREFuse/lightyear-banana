@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, useTemplateRef } from 'vue'
+import { computed, nextTick, shallowRef, useId, useTemplateRef } from 'vue'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
 import BoxIcon from './BoxIcon.vue'
 import type { BoxIconName } from './boxIcons'
@@ -35,6 +35,7 @@ const emit = defineEmits<{
   toggle: []
 }>()
 
+const menuId = useId()
 const localOpen = shallowRef(false)
 const rootRef = useTemplateRef<HTMLElement>('root')
 
@@ -55,6 +56,37 @@ function closeOpen() {
 function selectOption(value: string) {
   emit('change', value)
   closeOpen()
+  rootRef.value?.querySelector<HTMLButtonElement>('.select-trigger')?.focus()
+}
+
+async function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isOpen.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    closeOpen()
+    rootRef.value?.querySelector<HTMLButtonElement>('.select-trigger')?.focus()
+    return
+  }
+  if (event.key === 'Tab') {
+    closeOpen()
+    return
+  }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  const wasOpen = isOpen.value
+  if (!wasOpen) {
+    toggleOpen()
+    await nextTick()
+  }
+  const options = Array.from(rootRef.value?.querySelectorAll<HTMLButtonElement>('[role=option]') ?? [])
+  if (!options.length) return
+  const current = options.indexOf(document.activeElement as HTMLButtonElement)
+  let index = current
+  if (event.key === 'Home') index = 0
+  else if (event.key === 'End') index = options.length - 1
+  else if (!wasOpen || current < 0) index = Math.max(0, props.options.findIndex(option => option.value === props.value))
+  else index = (current + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length
+  options[index]?.focus()
 }
 
 function toggleOpen() {
@@ -70,10 +102,10 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 </script>
 
 <template>
-  <div ref="root" class="select-field" :class="[`is-${direction}`, { 'is-wide': wide, 'is-open': isOpen }]">
+  <div ref="root" @keydown="handleKeydown" class="select-field" :class="[`is-${direction}`, { 'is-wide': wide, 'is-open': isOpen }]">
     <span class="select-label">{{ label }}</span>
     <div class="select-anchor">
-      <button class="select-trigger" :class="{ 'has-icon': icon, 'has-status': selectedOption?.status }" type="button" @click="toggleOpen">
+      <button class="select-trigger" :class="{ 'has-icon': icon, 'has-status': selectedOption?.status }" type="button" :aria-label="`${label}：${selectedOption?.label ?? value}`" aria-haspopup="listbox" :aria-expanded="isOpen" :aria-controls="menuId" @click="toggleOpen">
         <BoxIcon v-if="icon" :name="icon" size="14" />
         <span class="select-value">{{ selectedOption?.label ?? value }}</span>
         <span
@@ -87,10 +119,12 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
       </button>
 
       <Transition name="menu-pop">
-        <div v-if="isOpen" class="select-menu">
+        <div v-if="isOpen" :id="menuId" class="select-menu" role="listbox" :aria-label="label">
           <button
             v-for="option in options"
             :key="option.value"
+            role="option"
+            :aria-selected="option.value === value"
             type="button"
             :class="{ selected: option.value === value, 'has-option-icon': option.icon, 'has-option-status': option.status }"
             @click="selectOption(option.value)"

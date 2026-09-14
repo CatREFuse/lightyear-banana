@@ -138,6 +138,7 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
   await expect(page.getByText('跟随当前画布', { exact: true })).toHaveCount(0)
 
   await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: /自定义 API/ }).click()
   await page.getByRole('button', { name: /Browser Runtime Boundary/ }).click()
   const detail = page.getByLabel('配置详情')
   await expect(detail.getByText('画布比例', { exact: true })).toHaveCount(0)
@@ -145,6 +146,7 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
 
 test('browser exposes the complete shared Provider catalog', async ({ page }) => {
   await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: /自定义 API/ }).click()
   await page.getByRole('button', { name: '新建配置' }).click()
   const providerField = page.getByLabel('配置详情').locator('.select-field').filter({ hasText: '供应商' })
   await providerField.locator('.select-trigger').click()
@@ -210,9 +212,10 @@ test('browser creates and reloads APIMart config, then completes the network flo
   expect(await page.evaluate(() => Boolean(window.uxpHost))).toBe(false)
 
   await page.getByRole('button', { name: '设置' }).click()
-  await expect(page.getByText('v0.2.3', { exact: true })).toBeVisible()
+  await expect(page.getByText('WebUI 0.2.3', { exact: true })).toBeVisible()
   await expect(page.getByText(/0\.3\.19/)).toHaveCount(0)
   await expect(page.getByText(/Build/)).toHaveCount(0)
+  await page.getByRole('button', { name: /自定义 API/ }).click()
   await page.getByRole('button', { name: '新建配置' }).click()
   const detail = page.getByLabel('配置详情')
   await detail.getByLabel('配置名称').fill('APIMart Browser')
@@ -239,7 +242,9 @@ test('browser creates and reloads APIMart config, then completes the network flo
   await page.reload()
   await expect(page.getByRole('status', { name: '浏览器模式' })).toBeVisible()
   await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: /自定义 API/ }).click()
   await expect(page.getByRole('button', { name: /APIMart Browser/ })).toBeVisible()
+  await page.getByRole('button', { name: '返回' }).click()
   await page.getByRole('button', { name: '返回' }).click()
 
   const configField = page.locator('.composer .select-field').filter({ hasText: '接口' })
@@ -329,6 +334,7 @@ test('browser tests an official iMini config through the same-origin proxy', asy
   await page.reload()
 
   await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: /自定义 API/ }).click()
   await page.getByRole('button', { name: /iMini Browser/ }).click()
   const detail = page.getByLabel('配置详情')
   await detail.getByRole('button', { name: '测试 API' }).click()
