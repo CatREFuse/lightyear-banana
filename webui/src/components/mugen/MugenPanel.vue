@@ -329,15 +329,6 @@ function handleManageModels() {
           @upscale="upscaleImage"
         />
 
-        <div class="toast-anchor">
-          <Transition name="toast-pop">
-            <div v-if="floatingToastMessage" class="toast" aria-live="polite" role="status">
-              <AppIcon name="shining-fill" size="14" />
-              <span>{{ floatingToastMessage }}</span>
-            </div>
-          </Transition>
-        </div>
-
         <ComposerDock
           :active-menu-owner="activeWorkspaceMenu"
           :active-capability="activeCapability"
@@ -400,6 +391,14 @@ function handleManageModels() {
           </section>
         </Transition>
       </section>
+    </div>
+    <div class="toast-anchor">
+      <Transition name="toast-pop">
+        <div v-if="floatingToastMessage" class="toast" aria-live="polite" role="status">
+          <AppIcon name="shining-fill" size="14" />
+          <span>{{ floatingToastMessage }}</span>
+        </div>
+      </Transition>
     </div>
   </main>
 </template>

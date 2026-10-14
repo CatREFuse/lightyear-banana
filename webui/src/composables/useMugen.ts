@@ -559,10 +559,7 @@ function readStoredSettings(): StoredSettings {
 }
 
 function writeStoredSettings(settings: StoredSettings) {
-  try {
-    localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
-  } catch {
-  }
+  localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
 }
 
 export function useMugen(runtime: DirectRuntimeName) {
@@ -658,17 +655,24 @@ export function useMugen(runtime: DirectRuntimeName) {
     (Boolean(prompt.value.trim()) || references.value.length > 0)
   ))
 
+  let applyingSavedConfig = false
   function writeCurrentStoredSettings() {
-    writeStoredSettings({
-      activeConfigId: activeConfigId.value,
-      configs: configs.value.map(cloneModelConfig),
-      generationHistory: cloneTurnsForStorage(turns.value, historyLimit.value),
-      historyLimit: historyLimit.value,
-      promptPresets: normalizePromptPresets(promptPresets.value)
-    })
+    if (applyingSavedConfig) return
+    try {
+      writeStoredSettings({
+        activeConfigId: activeConfigId.value,
+        configs: configs.value.map(cloneModelConfig),
+        generationHistory: cloneTurnsForStorage(turns.value, historyLimit.value),
+        historyLimit: historyLimit.value,
+        promptPresets: normalizePromptPresets(promptPresets.value)
+      })
+    } catch (error) {
+      console.error('[Mugen] 设置未保存', error)
+      showToast('设置未保存，请检查浏览器存储空间')
+    }
   }
 
-  watch([configs, activeConfigId, turns, historyLimit, promptPresets], writeCurrentStoredSettings, { deep: true })
+  watch([configs, activeConfigId, turns, historyLimit, promptPresets], writeCurrentStoredSettings, { deep: true, flush: 'sync' })
 
   function writeCurrentGenerationPreferences() {
     writeGenerationPreferences(activeConfigId.value, {
@@ -1856,14 +1860,25 @@ function readHighestQuality(options: string[]): string {
   }
 
   function saveConfig() {
-    if (settingsDraftIsNew.value) {
-      configs.value = [...configs.value, cloneModelConfig({ ...settingsDraft, id: editingConfigId.value })]
-      settingsDraftIsNew.value = false
-    } else {
-      configs.value = configs.value.map((config) =>
-        config.id === editingConfigId.value ? cloneModelConfig({ ...settingsDraft, id: editingConfigId.value }) : config
-      )
+    const next = cloneModelConfig({ ...settingsDraft, id: editingConfigId.value })
+    const nextConfigs = settingsDraftIsNew.value
+      ? [...configs.value, next]
+      : configs.value.map((config) => config.id === next.id ? next : config)
+    try {
+      writeStoredSettings({
+        activeConfigId: activeConfigId.value,
+        configs: nextConfigs,
+        generationHistory: cloneTurnsForStorage(turns.value, historyLimit.value),
+        historyLimit: historyLimit.value,
+        promptPresets: normalizePromptPresets(promptPresets.value)
+      })
+    } catch {
+      showToast('保存失败，请检查浏览器存储空间后重试')
+      return
     }
+    applyingSavedConfig = true
+    try { configs.value = nextConfigs } finally { applyingSavedConfig = false }
+    settingsDraftIsNew.value = false
     settingsView.value = settingsDetailReturnView.value
     status.value = '保存成功'
     showToast('保存成功')
@@ -1989,11 +2004,6 @@ function readHighestQuality(options: string[]): string {
     Object.assign(settingsDraft, patch)
     setSettingsTestState({ status: 'idle', message: '' })
 
-    if (!settingsDraftIsNew.value) {
-      configs.value = configs.value.map((config) =>
-        config.id === editingConfigId.value ? cloneModelConfig({ ...settingsDraft, id: editingConfigId.value }) : config
-      )
-    }
   }
 
   refreshDocument()
