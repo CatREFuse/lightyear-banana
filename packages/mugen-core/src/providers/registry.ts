@@ -6,6 +6,7 @@ import type {
   ProviderConfigValidationResult
 } from './contracts'
 import { isImageProviderId, validateProviderConfig } from './definitions'
+import { capabilityUsesCustomModel } from '../../../inner-protocol/src/providerCapabilityData'
 import {
   generateImagesWithLegacyRuntime,
   ImageApiError,
@@ -71,7 +72,29 @@ export async function generateImagesWithProvider(params: ImageGenerationParams):
   assertRegisteredProviderConfig(params.config)
   const adapter = readProviderAdapter(params.config.provider)
   assertRegisteredProviderConfig(params.config, adapter.id)
-  return adapter.generate(params)
+  if (params.count <= 1 || !capabilityUsesCustomModel(params.config)) return adapter.generate(params)
+
+  let images: NormalizedImageResult[]
+  try {
+    images = await adapter.generate(params)
+  } catch (error) {
+    const unsupportedCount = error instanceof ImageApiError && [400, 422].includes(error.status) &&
+      /\b(n|count|num_images|num_outputs|image_count|batch_size|candidateCount|candidate_count)\b|batch size|number of images|multiple images|only.*(?:one|1|single) image|数量|多图|多张/i.test(error.message)
+    if (!unsupportedCount || params.signal?.aborted) throw error
+    images = []
+  }
+
+  while (images.length < params.count) {
+    if (params.signal?.aborted) throw new ImageApiError('请求已取消', 499)
+    try {
+      const next = await adapter.generate({ ...params, count: 1 })
+      images.push(...next)
+    } catch (error) {
+      if (images.length && error instanceof ImageApiError) error.retryable = false
+      throw error
+    }
+  }
+  return images.slice(0, params.count)
 }
 
 export async function testImageConfig(config: ModelConfig): Promise<void> {

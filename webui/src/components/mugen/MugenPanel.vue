@@ -342,11 +342,6 @@ function handleManageModels() {
           @upscale="upscaleImage"
         />
 
-        <div v-if="toastMessage" class="operation-status" aria-live="polite" role="status">
-          <span>[STATUS]</span>
-          <strong>{{ toastMessage }}</strong>
-        </div>
-
         <ComposerDock
           :active-menu-owner="activeWorkspaceMenu"
           :active-capability="activeCapability"
@@ -409,6 +404,9 @@ function handleManageModels() {
           </section>
         </Transition>
       </section>
+    </div>
+    <div v-if="toastMessage" class="operation-status" aria-live="polite" role="status">
+      <strong>{{ toastMessage }}</strong>
     </div>
   </main>
 </template>

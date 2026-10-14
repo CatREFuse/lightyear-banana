@@ -647,7 +647,9 @@ export function useMugen(runtime: DirectRuntimeName) {
     (Boolean(prompt.value.trim()) || references.value.length > 0)
   ))
 
+  let applyingSavedConfig = false
   function writeCurrentStoredSettings() {
+    if (applyingSavedConfig) return
     try {
       writeStoredSettings({
         activeConfigId: activeConfigId.value,
@@ -1820,14 +1822,25 @@ function readHighestQuality(options: string[]): string {
   }
 
   function saveConfig() {
-    if (settingsDraftIsNew.value) {
-      configs.value = [...configs.value, cloneModelConfig({ ...settingsDraft, id: editingConfigId.value })]
-      settingsDraftIsNew.value = false
-    } else {
-      configs.value = configs.value.map((config) =>
-        config.id === editingConfigId.value ? cloneModelConfig({ ...settingsDraft, id: editingConfigId.value }) : config
-      )
+    const next = cloneModelConfig({ ...settingsDraft, id: editingConfigId.value })
+    const nextConfigs = settingsDraftIsNew.value
+      ? [...configs.value, next]
+      : configs.value.map((config) => config.id === next.id ? next : config)
+    try {
+      writeStoredSettings({
+        activeConfigId: activeConfigId.value,
+        configs: nextConfigs,
+        generationHistory: [],
+        historyLimit: historyLimit.value,
+        promptPresets: normalizePromptPresets(promptPresets.value)
+      })
+    } catch {
+      showToast('保存失败，请检查浏览器存储空间后重试')
+      return
     }
+    applyingSavedConfig = true
+    try { configs.value = nextConfigs } finally { applyingSavedConfig = false }
+    settingsDraftIsNew.value = false
     settingsView.value = 'list'
     status.value = '保存成功'
     showToast('保存成功')

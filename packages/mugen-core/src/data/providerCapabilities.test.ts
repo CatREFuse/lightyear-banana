@@ -192,7 +192,7 @@ describe('shared provider capability declarations', () => {
     expect(readWebUiCapability({ provider: 'apimart', model: 'gpt-image-2' })).toMatchObject({ qualities: [], counts: [1] })
     expect(readWebUiCapability({ provider: 'apimart', model: 'gpt-image-2-official' })).toMatchObject({ qualities: ['auto', 'high', 'medium', 'low'], counts: [1, 2, 3, 4] })
     expect(readWebUiCapability({ provider: 'apimart', model: 'doubao-seedream-5-0-lite' })).toMatchObject({ referenceLimit: 14, counts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] })
-    expect(readWebUiCapability({ provider: 'custom-openai', model: 'custom', customFormat: 'openai-chat' })).toMatchObject({ sizes: ['由模型决定'], qualities: [], counts: [1], ratios: ['由模型决定'], supportsCustomSize: false })
+    expect(readWebUiCapability({ provider: 'custom-openai', model: 'custom', customFormat: 'openai-chat' })).toMatchObject({ sizes: ['由模型决定'], qualities: [], counts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], ratios: ['由模型决定'], supportsCustomSize: false })
   })
 })
 

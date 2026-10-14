@@ -478,7 +478,23 @@ function readIMiniCapability(config: ProviderCapabilityConfig, base: Serializabl
   return base
 }
 
+export function capabilityUsesCustomModel(config: ProviderCapabilityConfig): boolean {
+  return config.provider === 'custom-openai' || (
+    config.provider !== 'comfyui' && Boolean(config.model.trim()) &&
+    !providerCapabilityData[config.provider].modelOptions.includes(config.model)
+  )
+}
+
 export function resolveProviderCapabilityData(config?: ProviderCapabilityConfig): SerializableProviderCapability {
+  const capability = resolveNativeProviderCapabilityData(config)
+  if (!config || !capabilityUsesCustomModel(config)) return capability
+  return {
+    ...capability,
+    countOptions: [...new Set([...capability.countOptions, ...providerCapabilityData['custom-openai'].countOptions])].sort((a, b) => a - b)
+  }
+}
+
+function resolveNativeProviderCapabilityData(config?: ProviderCapabilityConfig): SerializableProviderCapability {
   if (!config) return cloneCapability(providerCapabilityData.openai)
   const base = cloneCapability(providerCapabilityData[config.provider] ?? providerCapabilityData.openai)
 
