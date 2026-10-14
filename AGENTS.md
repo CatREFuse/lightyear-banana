@@ -150,3 +150,5 @@ WebUI 部署:
 ## Photoshop 图层读写冻结
 
 用户于 2026-09-10 明确要求恢复两次更新前的方案。读取与置入以 CCX 1.2.0（2608250001，提交 7294ba2）为冻结基线；未经用户再次明确要求不得改造。用户随后明确要求缩略图和参考图压缩使用内部逻辑：这些中间操作必须使用已读取的 previewUrl 或文件字节，禁止调用 Photoshop、打开/关闭文档或将完整高分辨率 RGBA 序列化传给 WebView。规格见 `docs/spec.md`，发行记录见 `docs/ps-stable-io-release.md`。
+
+本次自定义模型与配置保存发行记录：`docs/custom-model-save-release.md`。
