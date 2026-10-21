@@ -33,7 +33,7 @@
     "test:ccx-host": "npm --workspace @mugen/plug-in run test:unit",
     "test:imini-provider": "node utils/imini-provider-smoke.mjs",
     "test:mock-image-api": "node --test utils/mock-image-api-server.test.mjs utils/apimart-smoke-server.test.mjs",
-    "test:release-policy:utils": "node --test utils/production-origin-policy.test.mjs utils/deploy-inner-webui-release-policy.test.mjs utils/nginx-security-policy.test.mjs utils/retired-dependency-policy.test.mjs",
+    "test:release-policy:utils": "node --test utils/deploy/release-retention.test.mjs utils/production-origin-policy.test.mjs utils/deploy-inner-webui-release-policy.test.mjs utils/nginx-security-policy.test.mjs utils/retired-dependency-policy.test.mjs",
     "test:release-policy": "npm run test:release-policy:utils && npm --workspace @mugen/plug-in run test:policies && npm --workspace @mugen/homesite run test:deploy",
     "test:site-optics": "npm --workspace @mugen/homesite run test:optics",
     "test:site-deploy": "npm --workspace @mugen/homesite run test:deploy",
