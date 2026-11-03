@@ -18,7 +18,7 @@
 ## dev 测试发布线
 
 - dev worktree 位于 `/Users/tanshow/Developer/lightyear-banana-dev`，分支为 `codex/dev`。
-- CCX WebView 和 WebUI 发布脚本固定使用 `https://imini-test.catrefuse.com/`，Manifest 只授权该 Origin。
+- CCX WebView 和 WebUI 发布脚本固定使用 `https://mugen.catrefuse.com/webui/`，Manifest 只授权该 Origin。
 - WebUI 视觉以 Figma `Mugen Design System` 的 `2061:14306` 节点为基线，覆盖主工作台、生成设置二级面板与设置页。
 - 主界面使用 56px 顶栏、暖灰工作区、白色浮动输入面、天蓝主动作和 16px 主要圆角；深色模式保持相同层级和对比度。视口达到 515px 后，主界面与设置页共用 482px 固定宽度的应用容器。
 - 界面图标直接使用 `@remixicon/vue` 与 `@boxicons/vue`，组件键与 Figma 标注一致；不得在业务组件中维护手绘 SVG path 表。
@@ -260,7 +260,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 - 当前 dev 发布线只生成 `imini-ps-<version>-<build>.ccx` 测试包，不执行官网或正式 WebUI 部署；正式站点发布仍按独立生产门禁处理。
 - 官方发行统一执行 `docs/release-sop.md`。CCX 本地打包不构成正式发布，官网原子切换和公网版本化 CCX 逐字节回读通过后才能确认发行完成。
 - 旧官网、Electron 桌面端与 Inner WebUI 0.1 只保留历史记录；独立 UXP 原型代码已删除，均不进入新首页、WebUI 入口或活动发布说明。
-- CCX WebView 固定加载 `https://imini-test.catrefuse.com/`，CCX 包不包含 WebUI HTML、JavaScript、CSS 或其他 `webui/` 静态目录。
+- CCX WebView 固定加载 `https://mugen.catrefuse.com/webui/`，CCX 包不包含 WebUI HTML、JavaScript、CSS 或其他 `webui/` 静态目录。
 - CCX 接收 WebView 消息时，将 UXP 提供的内容 URL 解析后按协议、主机和端口校验同源，并继续要求消息 `source` 为当前 WebView；不得把包含 `/webui/` 路径的合法内容 URL 当作非可信来源，也不得放宽到其他 Origin。
 - WebUI 与 CCX 独立构建、部署和更新；两者通过 `inner-host/v1` 协议和兼容元数据维持兼容，只有协议不兼容时才需要协同升级。
 - 云端 WebUI 不可达、加载超时或消息桥握手失败时，CCX Host 壳显示重试与启动日志入口。
@@ -312,3 +312,7 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 基于生产 CCX 1.2.5 发行启动修复与新日志，工作台继续使用 `https://imini-test.catrefuse.com/`，WebUI 保持线上 0.2.6，不改 Photoshop 读写与内部图像处理。原始现场 JSONL 未获得，尚未证明用户首次超时的根因；实机验收状态随发行记录如实记录。
 
 - 发行保留继承旧下载清单时，同一对象含 url 与 filename，以 url 解析文件路径；filename 作为描述字段，不重复解释为 releases 根目录路径。没有 url 的 filename 继续作为独立引用校验。
+
+### CCX 1.2.6+2611030002 正式工作台地址更正
+
+用户明确要求新版使用正式地址。CCX 构建常量、Manifest 单一 origin、打包与产物校验统一使用 `https://mugen.catrefuse.com/webui/` 与 `https://mugen.catrefuse.com`，替代 2611030001 中错误保留的测试地址。WebUI 保持当前 0.2.6，无需重新部署。新日志和重试修复保留，严禁通过打包环境变量重新覆盖为测试站。

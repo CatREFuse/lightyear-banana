@@ -94,7 +94,7 @@ Photoshop 细节放进 `canvasPrimitives.ts`，文件、资产、历史、诊断
 
 ### 4.1 WebView 启动与握手
 
-1. CCX panel 创建 WebView，入口固定为 `https://imini-test.catrefuse.com/`。
+1. CCX panel 创建 WebView，入口固定为 `https://mugen.catrefuse.com/webui/`。
 2. WebUI 发送 `host.handshake`，携带协议版本、WebUI 版本和 nonce。
 3. Host 校验来源、消息信封、协议兼容和会话 ID。
 4. 握手完成后才开放普通命令。
@@ -476,3 +476,5 @@ dev CCX 的 `webviewOrigin` 可以指向 `imini-test.catrefuse.com`，但官网�
 用户确认恢复后读取成功，但报告缩略图压缩导致画布闪动。旧版 `createBridgeThumbnailFromFile` 调用 `app.open`，并在 finally 关闭文档，确实会切换画布；此路径已移除。缩略图与参考图压缩统一将已读取的 `previewUrl` 交给内部图片处理服务，本地附件只读取文件字节。无需再次访问源图层，也不序列化完整高分辨率 RGBA。读取端的 Imaging 内存编码与置入端保持稳定。
 
 测试对 Photoshop 模块访问和 RGBA getter 均设为抛错，验证三种压缩入口仍然成功；附件入口只允许 UXP 文件读取。此补充取代上一段对缩略图和参考图压缩使用旧方案的决定。
+
+2026-11-03 地址更正：CCX 1.2.6+2611030002 使用正式 WebUI URL 与精确 origin，构建、Manifest、打包器和产物校验同时更新；以公网安装包的 bundle 和 Manifest 为最终验收证据。2611030001 的测试站地址已被本次构建替代。

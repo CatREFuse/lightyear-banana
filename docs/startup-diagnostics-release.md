@@ -18,3 +18,7 @@
 - 服务器官网 current 已指向本次快照，releases 仅保留 current，previous 已移除；旧 releases/latest.json 及其真正引用的版本目录文件随快照保留。
 - Ego Lite 检查官网 1280px / 390px：版本和下载地址正确，移动端无横向溢出，两个主要按钮均在首屏可见；截图位于 `/private/tmp/mugen-release-2611030001-*.png`。Ego Lite 提示有可用更新，本次未升级浏览器。
 - 代码保存在隔离分支 `codex/startup-release-20261103`；原主目录工作树不变，尚未执行 git push。
+
+## 2611030002 地址更正
+
+用户明确要求正式地址，2611030001 错误保留的 imini-test 已纠正：工作台使用 https://mugen.catrefuse.com/webui/，Manifest 仅授权 https://mugen.catrefuse.com。构建器、测试常量、打包器、产物校验和默认环境示例一致更新。当前构建正在验证与重新发行，最终公网包核验结果随后补充。

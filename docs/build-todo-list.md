@@ -8,7 +8,7 @@
 
 ## 2026-11-03 启动诊断与重试隔离
 
-目标 CCX `1.2.6+2611030001`，保留生产基线 `1.2.5` 的工作台地址、图层读写和图像处理。引入按 attempt 记录的启动日志、重试实例隔离和旧握手结果丢弃。WebUI 保持线上 `0.2.6`，本次不部署 WebUI。Windows 安装与真实 PS 业务闭环尚未验证，不能宣称现场超时已解决。CCX 与官网已发布并通过 16 个公网文件回读及独立安装包字节/哈希校验，详见 `docs/startup-diagnostics-release.md`。
+目标 CCX `1.2.6+2611030002`，工作台切换到正式地址 `https://mugen.catrefuse.com/webui/`，保留生产基线 `1.2.5` 的图层读写和图像处理。引入按 attempt 记录的启动日志、重试实例隔离和旧握手结果丢弃。WebUI 保持线上 `0.2.6`，本次不部署 WebUI。Windows 安装与真实 PS 业务闭环尚未验证，不能宣称现场超时已解决。CCX 与官网已发布并通过 16 个公网文件回读及独立安装包字节/哈希校验，详见 `docs/startup-diagnostics-release.md`。
 
 ## 2026-10-14 自定义模型与配置保存
 
@@ -32,11 +32,11 @@
 - 每次正式 CCX 构建都必须运行 `npm run bump:ccx-build`、提交新的 build 号，再从该干净提交执行 `package:ccx`。dev 测试发布线生成 `imini-ps-<version>-<build>.ccx`，同一语义版本重新构建也必须产生新的 build 号。
 - Electron 桌面端源码已删除（2026-08-12），不得恢复桌面入口、electron 依赖或桌面发行脚本。
 - 修改 Inner WebUI 版本时，确认 `webui/package.json`、兼容信息和构建元数据一致；兼容 `inner-host/v1` 的 WebUI 可以独立发布，无需重新打包 CCX。
-- 本地 `verify:ccx` 接受干净或脏工作树，必须确认 Host 只注入 `https://imini-test.catrefuse.com/`、Manifest 只授权该 Origin，且 `dist/ccx-host/` 不包含 `webui/` 静态目录。
+- 本地 `verify:ccx` 接受干净或脏工作树，必须确认 Host 只注入 `https://mugen.catrefuse.com/webui/`、Manifest 只授权该 Origin，且 `dist/ccx-host/` 不包含 `webui/` 静态目录。
 - 正式 `package:ccx` 只接受干净工作树。归档生成后必须逐文件回验归档与最终 staging 目录，`dist/ccx-release.json` 的 `sourceCommit` 绑定 CCX Host 的干净提交。
 - Inner WebUI `0.1.x` 已废弃。vNext 正式发布不得继续声明为 `0.1.x`，也不得把旧 0.1 构建当作通过证据。
 - 修改 CCX 版本或 build 号时，确认 `plug-in/manifest.json`、`plug-in/package.json`、构建后的 `dist/ccx-host/manifest.json`、`dist/ccx-host/ccx-build.json`、CCX 文件名、`.sha256` 与 `dist/ccx-release.json` 一致。
-- CCX 发布前确认 `https://imini-test.catrefuse.com/` 和 `compatibility.json` 可访问，并兼容 `inner-host/v1`；该检查不要求云端文件与当前 CCX 仓库提交一致。
+- CCX 发布前确认 `https://mugen.catrefuse.com/webui/` 和 `compatibility.json` 可访问，并兼容 `inner-host/v1`；该检查不要求云端文件与当前 CCX 仓库提交一致。
 - 每次 CCX 发布必须依次完成当前版本打包、官网首页与两份 LLM 文本的版本化下载信息更新、`npm run build:site` 和公网读回。官网 `下载 CCX` 必须指向本次 `dist/ccx-release.json` 的文件名；仍指向任一旧版本时停止站点构建和部署。
 - `npm run package:ccx` 完成只代表本地发行物可用。`npm run deploy:site` 完成原子切换且公网版本化 CCX 的逐字节回读通过后，才允许记录为 CCX 正式发布。
 - Windows CCX 由仓库打包脚本生成，归档格式必须对齐 Adobe UXP Developer Tools 的 `Package` 产物特征；不得使用 PowerShell `Compress-Archive` 或系统右键压缩直接充当发行包。资源管理器双击安装及 Photoshop 可用性由分发验收确认，命令行安装不能代替该结果。

@@ -22,7 +22,7 @@
     },
     "webview": {
       "allow": "yes",
-      "domains": ["https://imini-test.catrefuse.com"],
+      "domains": ["https://mugen.catrefuse.com"],
       "enableMessageBridge": "localAndRemote"
     }
   },
