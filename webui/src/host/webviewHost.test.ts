@@ -231,3 +231,31 @@ describe('WebViewHostClient', () => {
     harness.client.dispose()
   })
 })
+
+
+describe('WebViewHostClient startup ordering', () => {
+  it('retains host.ready received before handshake starts and tolerates duplicates', async () => {
+    const harness = createHarness()
+    const ready = envelope({ kind: 'event', command: 'host.ready', payload: { protocolVersion: PROTOCOL_VERSION, hostNonce: 'host-1' } })
+    harness.dispatch(ready)
+    const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.2.0', clientNonce: 'client-1' })
+    await vi.waitFor(() => expect(harness.sent).toHaveLength(1))
+    harness.dispatch(ready)
+    expect(harness.sent).toHaveLength(1)
+    const request = harness.sent[0]
+    harness.dispatch(envelope({ kind: 'response', command: 'host.handshake', messageId: request.messageId, payload: { sessionId: 'session-1', protocolVersion: PROTOCOL_VERSION, clientNonce: 'client-1', hostNonce: 'host-1', context } }))
+    await expect(pending).resolves.toMatchObject({ sessionId: 'session-1' })
+    harness.client.dispose()
+  })
+
+  it('reports a ready timeout when no message reaches the registered client', async () => {
+    vi.useFakeTimers()
+    const harness = createHarness()
+    const pending = harness.client.handshake({ protocolVersion: PROTOCOL_VERSION, webVersion: '0.2.0', clientNonce: 'client-1' })
+    const assertion = expect(pending).rejects.toMatchObject({ code: 'HOST_READY_TIMEOUT' })
+    await vi.advanceTimersByTimeAsync(12_000)
+    await assertion
+    expect(harness.sent).toHaveLength(0)
+    harness.client.dispose()
+  })
+})

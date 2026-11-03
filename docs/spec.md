@@ -113,6 +113,9 @@ CCX 与浏览器运行时使用同一套生产 WebUI 和应用状态，保留原
 - 生产 bundle 不自动启用 Mock Server，不包含自动注入的 Mock Host。
 - CCX 每次面板启动建立一份仅覆盖启动阶段的内存日志。WebView 资源加载失败、20 秒加载超时或页面加载后 15 秒未完成 Host 握手时，原生失败页显示可读错误、`重试` 与 `下载启动日志`。
 - 启动日志按时间记录 Photoshop、CCX、WebUI 三端的消息方向、命令、消息 ID、响应与错误；完成 Host 握手后停止采集。导出为 JSONL 前必须移除 API Key、Authorization、Cookie、Token、完整提示词、图片正文、URL 查询参数和本地路径。
+- 启动诊断按同一 `sessionId` 下的 `attempt` 关联加载、消息和重试，记录插件/宿主版本、构建期目标 URL、规范化 origin、监听器就绪、UXP `loadstart` / `loadstop` / `loaderror`（含原生 `code`）、消息类型与拒绝原因。桥日志只保留消息元数据，不记录业务 payload/result 或 nonce。
+- 每次重试创建独立 WebView，移除旧实例的导航监听器并清除两类计时器；旧实例的消息及异步命令结果不得响应到新实例或完成新实例握手。来源检查同时保留规范化 origin 和当前 WebView 对象身份，WebUI 继续校验精确 `window.uxpHost` 对象。
+- 20 秒导航等待与 15 秒握手等待保持原值。导航完成事件只能证明容器报告完成；若随后没有可信握手请求，仍需真实 WebView 控制台确定页面脚本或桥接故障，不能将其直接归因于代理、域名或 JavaScript 异常。
 
 ### 任务、记录与图片结果
 
