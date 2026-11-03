@@ -21,6 +21,8 @@
 
 ## 2611030002 地址更正
 
-用户明确要求正式地址，2611030001 错误保留的 imini-test 已纠正：工作台使用 https://mugen.catrefuse.com/webui/，Manifest 仅授权 https://mugen.catrefuse.com。构建器、测试常量、打包器、产物校验和默认环境示例一致更新。当前构建正在验证与重新发行，最终公网包核验结果随后补充。
+用户明确要求正式地址，2611030001 错误保留的 imini-test 已纠正：工作台使用 https://mugen.catrefuse.com/webui/，Manifest 仅授权 https://mugen.catrefuse.com。构建器、测试常量、打包器、产物校验和默认环境示例一致更新。更正版已完成验证与正式发行。
 
-- 地址更正包已通过完整 package:ccx 门禁：`imini-ps-1.2.6-2611030002.ccx`，63084 字节，SHA256 `b2e32212af8cea4beb87f008bc055fb54ca756a858f627aa80652148a974d54f`，来源 `14d0a3ead14e99c5bb56a8fbdb296f7894bf308b`，dirty=false。解包检查确认实际 JS 包含正式工作台 URL，不包含 imini-test 域名，Manifest 仅允许正式 origin。公网替换待完成。
+- 地址更正包已通过完整 package:ccx 门禁：`imini-ps-1.2.6-2611030002.ccx`，63084 字节，SHA256 `b2e32212af8cea4beb87f008bc055fb54ca756a858f627aa80652148a974d54f`，来源 `14d0a3ead14e99c5bb56a8fbdb296f7894bf308b`，dirty=false。解包检查确认实际 JS 包含正式工作台 URL，不包含 imini-test 域名，Manifest 仅允许正式 origin。公网替换已完成。
+
+- 更正版已正式发布：快照 `20261103T154815Z-1372a5d53c70-c7ebab50`，官网来源 `59e1a7f`。部署器完成 16 个公网文件回读。独立从公网下载 63084 字节 CCX，逐字节与本地一致，解包确认 build=2611030002、JS 仅含正式工作台地址且不含 imini-test 域名、Manifest 单一 origin 为正式域名；官网已指向 0002。SHA256 `b2e32212af8cea4beb87f008bc055fb54ca756a858f627aa80652148a974d54f`。
