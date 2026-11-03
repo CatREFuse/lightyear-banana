@@ -237,11 +237,11 @@ describe('createWebViewShell startup failure UI', () => {
     const nextWebview = created.filter(element => element.tagName === 'webview').at(-1)!
     expect(nextWebview).not.toBe(oldWebview)
     const fakeWindow = window as unknown as FakeWindow
-    fakeWindow.dispatch('message', { origin: 'https://mugen.catrefuse.com', source: oldWebview, data: { command: 'host.handshake' } })
-    oldWebview.dispatch('loadstop', { url: 'https://mugen.catrefuse.com/webui/' })
+    fakeWindow.dispatch('message', { origin: 'https://imini-test.catrefuse.com', source: oldWebview, data: { command: 'host.handshake' } })
+    oldWebview.dispatch('loadstop', { url: 'https://imini-test.catrefuse.com/' })
     expect(onMessage).not.toHaveBeenCalled()
     expect(nextWebview.postMessage).not.toHaveBeenCalled()
-    nextWebview.dispatch('loadstop', { url: 'https://mugen.catrefuse.com/webui/' })
+    nextWebview.dispatch('loadstop', { url: 'https://imini-test.catrefuse.com/' })
     expect(nextWebview.postMessage).toHaveBeenCalledOnce()
     shell.markReady()
     await vi.advanceTimersByTimeAsync(20_000)
@@ -259,7 +259,7 @@ describe('createWebViewShell startup failure UI', () => {
       startupLog: log as unknown as StartupLog, onMessage
     })
     const webview = created.find(element => element.tagName === 'webview')!
-    webview.dispatch('loadstart', { url: 'https://mugen.catrefuse.com/webui/' })
+    webview.dispatch('loadstart', { url: 'https://imini-test.catrefuse.com/' })
     expect(log.record).toHaveBeenCalledWith('webui', 'ccx', 'webview.load.navigation', expect.objectContaining({ attempt: 1, phase: 'navigation' }))
     ;(window as unknown as FakeWindow).dispatch('message', {
       origin: 'https://unrelated.example', source: webview,
@@ -268,7 +268,7 @@ describe('createWebViewShell startup failure UI', () => {
     expect(log.record).toHaveBeenCalledWith('webui', 'ccx', 'bridge.receive', expect.objectContaining({ rejectedReason: 'origin-mismatch' }))
     expect(JSON.stringify(log.record.mock.calls)).not.toContain('do-not-log')
     expect(onMessage).not.toHaveBeenCalled()
-    webview.dispatch('loaderror', { url: 'https://mugen.catrefuse.com/webui/', code: -105, message: 'ERR_NAME_NOT_RESOLVED' })
+    webview.dispatch('loaderror', { url: 'https://imini-test.catrefuse.com/', code: -105, message: 'ERR_NAME_NOT_RESOLVED' })
     expect(log.record).toHaveBeenCalledWith('ccx', 'ccx', 'webview.load.error', expect.objectContaining({ phase: 'navigation', details: expect.objectContaining({ code: -105 }) }))
     expect(vi.getTimerCount()).toBe(0)
     shell.destroy()
@@ -282,9 +282,9 @@ describe('createWebViewShell startup failure UI', () => {
       startupLog: log as unknown as StartupLog, onMessage: vi.fn()
     })
     const webview = created.find(element => element.tagName === 'webview')!
-    webview.dispatch('loadstart', { url: 'https://mugen.catrefuse.com/webui/redirected/' })
-    webview.dispatch('loadstop', { url: 'https://mugen.catrefuse.com/webui/redirected/' })
-    webview.dispatch('loadstop', { url: 'https://mugen.catrefuse.com/webui/redirected/' })
+    webview.dispatch('loadstart', { url: 'https://imini-test.catrefuse.com/redirected/' })
+    webview.dispatch('loadstop', { url: 'https://imini-test.catrefuse.com/redirected/' })
+    webview.dispatch('loadstop', { url: 'https://imini-test.catrefuse.com/redirected/' })
     expect(webview.postMessage).toHaveBeenCalledOnce()
     shell.markReady()
     shell.markReady()
@@ -302,7 +302,7 @@ describe('createWebViewShell startup failure UI', () => {
       startupLog: log as unknown as StartupLog, onMessage: vi.fn()
     })
     const webview = created.find(element => element.tagName === 'webview')!
-    webview.dispatch('loadstop', { url: 'https://imini-test.catrefuse.com/' })
+    webview.dispatch('loadstop', { url: 'https://cross-origin.example/' })
     expect(webview.postMessage).not.toHaveBeenCalled()
     expect(log.record).toHaveBeenCalledWith('ccx', 'ccx', 'webview.load.untrusted', expect.anything())
     shell.destroy()

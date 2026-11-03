@@ -67,6 +67,7 @@ describe('StartupLog', () => {
       'ccx->webui',
       'ccx->ccx'
     ])
+    expect(lines[0]).toMatchObject({ details: { runtime: { photoshopVersion: '27.0.0', uxpVersion: '9.0.0' } } })
     const serialized = JSON.stringify(lines)
     expect(serialized).toContain('message-1')
     expect(serialized).toContain('canvas.captureVisible')

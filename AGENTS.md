@@ -154,3 +154,5 @@ WebUI 部署:
 本次自定义模型与配置保存发行记录：`docs/custom-model-save-release.md`。
 
 服务器发行保留与自动清理策略（官网/WebUI）：`docs/spec.md`、`docs/release-sop.md` 的“服务器发行保留策略（2026-10-21）”；实现 `utils/deploy/release-retention.py`，成功验收后只保留 current。
+
+启动诊断与重试隔离发行记录：`docs/startup-diagnostics-release.md`。
