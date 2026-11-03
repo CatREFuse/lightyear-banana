@@ -90,14 +90,20 @@ function mountPanel(rootNode?: unknown) {
         session.validate(request)
         startupLog.record('ccx', 'photoshop', 'host.command.start', {
           command: request.command,
-          messageId: request.messageId,
-          payload: request.payload
+          messageId: request.messageId
         })
         const result = await registry.invoke(request)
+        if (!shell.isTrustedMessage(event)) {
+          startupLog.record('ccx', 'ccx', 'host.command.discarded', {
+            command: request.command,
+            messageId: request.messageId,
+            reason: 'inactive-webview'
+          })
+          return
+        }
         startupLog.record('photoshop', 'ccx', 'host.command.success', {
           command: request.command,
-          messageId: request.messageId,
-          result
+          messageId: request.messageId
         })
         shell.postMessage(createResponse(request, session.sessionId, result))
         if (request.command === 'host.handshake') shell.markReady()
@@ -107,6 +113,7 @@ function mountPanel(rootNode?: unknown) {
           messageId: request?.messageId,
           error: toStartupErrorDetails(error)
         })
+        if (!shell.isTrustedMessage(event)) return
         if (error instanceof BridgeValidationError) {
           registry.recordBridgeValidationFailure(error, request?.command)
         }

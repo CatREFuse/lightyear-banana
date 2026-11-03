@@ -13,6 +13,7 @@ type WebViewLoadEvent = Event & {
   message?: unknown
   description?: unknown
   status?: unknown
+  code?: number
 }
 
 export type WebViewMessageEvent = Event & {
@@ -93,10 +94,13 @@ export function createWebViewShell(options: {
   const webUiUrl = new URL(INNER_WEBUI_URL)
   const expectedOrigin = webUiUrl.origin
   const root = options.mountNode
-  const webview = document.createElement('webview') as WebViewElement
+  let webview = document.createElement('webview') as WebViewElement
   let destroyed = false
   let attempt = 0
   let waitingForLoad = false
+  let phase: 'navigation' | 'handshake' | 'ready' | 'failed' = 'navigation'
+  let lastNavigationUrl: string | undefined
+  let removeWebViewListeners: (() => void) | undefined
   let loadTimer: ReturnType<typeof setTimeout> | undefined
   let handshakeTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -126,15 +130,15 @@ export function createWebViewShell(options: {
 
   const showFailure = (message: string, event: string, details?: unknown) => {
     if (destroyed) return
+    const failedPhase = phase
     waitingForLoad = false
+    phase = 'failed'
     clearLoadTimer()
     clearHandshakeTimer()
-    options.startupLog.record('ccx', 'ccx', event, { attempt, message, details })
+    removeWebViewListeners?.()
+    options.startupLog.record('ccx', 'ccx', event, { attempt, phase: failedPhase, lastNavigationUrl, message, details })
     replaceRoot(createStatus(message, load, () => options.startupLog.export()))
   }
-
-  webview.setAttribute('data-mugen-fill-panel', 'true')
-  webview.style.cssText = 'display:block;flex:1 1 auto;min-width:0;min-height:0;border:0;background:var(--uxp-host-background-color,#11161f);'
 
   const syncWebViewSize = () => {
     const width = Math.max(1, Math.floor(root.clientWidth || window.innerWidth || 1))
@@ -148,9 +152,19 @@ export function createWebViewShell(options: {
   }
 
   const postMessage = (message: BridgeEnvelope) => {
-    if (destroyed) return
-    options.startupLog.record('ccx', 'webui', 'bridge.send', message)
-    webview.postMessage?.(message, expectedOrigin)
+    if (destroyed || phase === 'failed') return
+    options.startupLog.record('ccx', 'webui', 'bridge.send', {
+      attempt, phase, protocol: message.protocol, kind: message.kind,
+      command: message.command, messageId: message.messageId,
+      bridgeAvailable: typeof webview.postMessage === 'function'
+    })
+    try {
+      if (!webview.postMessage) throw new Error('WebView postMessage is unavailable')
+      webview.postMessage(message, expectedOrigin)
+    } catch (error) {
+      if (phase === 'ready') throw error
+      showFailure('无法连接工作台', 'bridge.send.error', toStartupErrorDetails(error))
+    }
   }
   const postReady = () => {
     postMessage({
@@ -171,27 +185,63 @@ export function createWebViewShell(options: {
     if (destroyed) return
     clearLoadTimer()
     clearHandshakeTimer()
+    if (attempt > 0) {
+      removeWebViewListeners?.()
+      options.startupLog.record('ccx', 'ccx', 'webview.retry.cleanup', { attempt, timersCleared: true, listenersRemoved: true })
+      webview = document.createElement('webview') as WebViewElement
+    }
     attempt += 1
     waitingForLoad = true
+    phase = 'navigation'
+    lastNavigationUrl = undefined
+    webview.setAttribute('data-mugen-fill-panel', 'true')
+    webview.style.cssText = 'display:block;flex:1 1 auto;min-width:0;min-height:0;border:0;background:var(--uxp-host-background-color,#11161f);'
+    const instance = webview
+    const onLoadStart = (event: Event) => {
+      if (destroyed || instance !== webview || phase === 'failed') return
+      lastNavigationUrl = (event as WebViewLoadEvent).url
+      options.startupLog.record('webui', 'ccx', 'webview.load.navigation', { attempt, phase, url: lastNavigationUrl })
+    }
+    const onLoadStop = (event: Event) => {
+      if (!destroyed && instance === webview) handleLoadStop(event)
+    }
+    const onLoadError = (event: Event) => {
+      if (!destroyed && instance === webview) handleLoadError(event)
+    }
+    webview.addEventListener('loadstart', onLoadStart)
+    webview.addEventListener('loadstop', onLoadStop)
+    webview.addEventListener('loaderror', onLoadError)
+    removeWebViewListeners = () => {
+      instance.removeEventListener('loadstart', onLoadStart)
+      instance.removeEventListener('loadstop', onLoadStop)
+      instance.removeEventListener('loaderror', onLoadError)
+    }
+    options.startupLog.record('ccx', 'ccx', 'webview.listeners.registered', { attempt, events: ['loadstart', 'loadstop', 'loaderror', 'message'] })
     options.startupLog.record('ccx', 'webui', 'webview.load.start', {
       attempt,
       url: webUiUrl.href,
-      expectedOrigin
+      expectedOrigin,
+      hostVersion: options.hostVersion,
+      protocolVersion: PROTOCOL_VERSION,
+      configurationSource: 'build-time INNER_WEBUI_URL'
     })
     syncWebViewSize()
     replaceRoot(webview)
+    loadTimer = setTimeout(() => {
+      showFailure('工作台加载超时（20 秒）', 'webview.load.timeout')
+    }, 20_000)
     try {
       webview.setAttribute('src', webUiUrl.href)
     } catch (error) {
       showFailure('工作台地址无法打开', 'webview.load.exception', toStartupErrorDetails(error))
       return
     }
-    loadTimer = setTimeout(() => {
-      showFailure('工作台加载超时（20 秒）', 'webview.load.timeout')
-    }, 20_000)
   }
   const handleLoadStop = (event: Event) => {
-    if (!waitingForLoad) return
+    if (!waitingForLoad) {
+      options.startupLog.record('webui', 'ccx', 'webview.load.stop.ignored', { attempt, phase })
+      return
+    }
     const loadedUrl = (event as WebViewLoadEvent).url
     if (loadedUrl) {
       try {
@@ -206,53 +256,62 @@ export function createWebViewShell(options: {
       }
     }
     waitingForLoad = false
+    phase = 'handshake'
+    lastNavigationUrl = loadedUrl ?? lastNavigationUrl
     clearLoadTimer()
     options.startupLog.record('webui', 'ccx', 'webview.load.stop', { attempt, loadedUrl })
     if (!root.contains(webview)) replaceRoot(webview)
-    postReady()
     clearHandshakeTimer()
     handshakeTimer = setTimeout(() => {
       showFailure('工作台与 Photoshop 连接超时（15 秒）', 'bridge.handshake.timeout')
     }, 15_000)
+    postReady()
   }
   const handleLoadError = (event: Event) => {
-    if (!waitingForLoad) return
+    if (phase === 'failed' || phase === 'ready') return
     const loadEvent = event as WebViewLoadEvent
     showFailure(readableLoadError(event), 'webview.load.error', {
       url: loadEvent.url,
       error: loadEvent.error,
       message: loadEvent.message,
       description: loadEvent.description,
-      status: loadEvent.status
+      status: loadEvent.status,
+      code: loadEvent.code
     })
   }
   const handleWindowMessage = (event: Event) => {
     const messageEvent = event as WebViewMessageEvent
     const trustedOrigin = isTrustedMessageOrigin(messageEvent.origin, expectedOrigin)
+    const sourceMatches = messageEvent.source === webview
+    const rejectedReason = !trustedOrigin ? 'origin-mismatch'
+      : !sourceMatches ? 'source-mismatch'
+        : phase === 'failed' || destroyed ? 'inactive-attempt' : undefined
+    const envelope = messageEvent.data as Partial<BridgeEnvelope> | null | undefined
     options.startupLog.record('webui', 'ccx', 'bridge.receive', {
-      trusted: trustedOrigin && messageEvent.source === webview,
-      origin: messageEvent.origin,
-      envelope: messageEvent.data
+      attempt, phase, trusted: !rejectedReason, rejectedReason,
+      origin: messageEvent.origin, sourceMatches,
+      dataType: typeof messageEvent.data,
+      protocol: envelope?.protocol, kind: envelope?.kind, command: envelope?.command, messageId: envelope?.messageId
     })
-    if (!trustedOrigin || messageEvent.source !== webview) return
+    if (rejectedReason) return
     options.onMessage(messageEvent)
   }
 
-  webview.addEventListener('loadstop', handleLoadStop)
-  webview.addEventListener('loaderror', handleLoadError)
   window.addEventListener('resize', syncWebViewSize)
   window.addEventListener('message', handleWindowMessage)
-  syncWebViewSize()
   load()
 
   return {
     postMessage,
     isTrustedMessage(event) {
       const trustedOrigin = isTrustedMessageOrigin(event.origin, expectedOrigin)
-      return trustedOrigin && event.source === webview
+      return !destroyed && phase !== 'failed' && trustedOrigin && event.source === webview
     },
     markReady() {
-      if (destroyed) return
+      if (destroyed || phase === 'failed' || phase === 'ready') return
+      phase = 'ready'
+      waitingForLoad = false
+      clearLoadTimer()
       clearHandshakeTimer()
       options.startupLog.finish({ attempt })
     },
@@ -264,8 +323,7 @@ export function createWebViewShell(options: {
       options.startupLog.record('ccx', 'ccx', 'startup.destroy', { attempt })
       window.removeEventListener('resize', syncWebViewSize)
       window.removeEventListener('message', handleWindowMessage)
-      webview.removeEventListener('loadstop', handleLoadStop)
-      webview.removeEventListener('loaderror', handleLoadError)
+      removeWebViewListeners?.()
       replaceRoot()
     }
   }

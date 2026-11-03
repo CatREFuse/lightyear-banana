@@ -102,6 +102,26 @@ Photoshop 细节放进 `canvasPrimitives.ts`，文件、资产、历史、诊断
 
 排查启动失败时按顺序查看：Manifest entrypoint、Host bundle、WebView URL、bridge 权限、握手日志、协议版本。启动诊断文件应覆盖 Photoshop、CCX Host、message bridge 与 WebUI 的同一次会话。
 
+### 4.1.1 启动超时诊断与重试隔离（2026-11-03）
+
+已通过 Fake WebView 单元测试复现：旧实现重试时复用同一 WebView，对旧页面消息的 `event.source` 校验无法区分新旧尝试。现在重试创建新实例，移除旧导航监听器并清除加载/握手计时器；Host 命令 `await` 返回后再次检查消息来源，丢弃过期实例的响应。此项是已验证的代码缺陷，尚未证明是现场 1.2.4 启动超时的原因。
+
+`expectedOrigin` 来自 `new URL(INNER_WEBUI_URL).origin`，收到的来源也按 `.origin` 规范化；末尾斜杠不会导致比较失败。日志脱敏使用 URL 序列化，可能将纯 origin 显示为带 `/` 的字符串，不能据此推断运行时值。1.2.4 发行提交 `8c00a6e` 的壳代码也已包含来源规范化。UXP 的 Host 消息监听位于 `window`，WebUI 消息发送方为精确 `window.uxpHost`；不能替换为普通 iframe 的 `contentWindow` 或通配符来源。
+
+诊断事件按 `startup.begin.sessionId`、`attempt`、sequence 和 elapsedMs 对齐：
+
+- `webview.listeners.registered` 在设置 `src` 前出现；`webview.load.start` 记录构建期地址及预期 origin，没有本地存储覆盖入口 URL 的路径。
+- `webview.load.navigation` 来自 UXP `loadstart`，记录可获取的导航地址；`webview.load.stop` 对最终地址执行来源校验，同源路径变化允许，跨域跳转被拒绝。
+- `webview.load.error` 记录 UXP 原生 `code`、message 和 URL；`webview.load.timeout` 表示未收到完成事件，不等同于已确认网络故障。
+- `bridge.send` 记录命令、消息 ID、协议及 `bridgeAvailable`；发送 API 缺失或抛错记录为 `bridge.send.error`。
+- `bridge.receive` 只记录元数据，区分 `origin-mismatch`、`source-mismatch`、`inactive-attempt`；协议/会话/nonce 校验失败见 `host.command.error`。
+- `bridge.handshake.timeout` 表示加载已报告完成，但未完成握手。若没有入站握手请求，尚不能仅靠 Host 日志区分页面脚本异常、单次 ready 消息错过接收器和桥未建立；应同时获取 WebView 调试控制台的脚本加载/运行异常与桥对象状态。
+- `webview.retry.cleanup`、后续新 attempt 及 `host.command.discarded` 可验证重试隔离；`startup.ready` 只由当前实例成功握手结束。
+
+定时器在发起导航和发送 ready 前启动，避免立即完成的回调被之后才创建的计时器误判超时；重复 loadstop/markReady 不重复启动握手或完成日志。测试涵盖 origin 斜杠、同源/跨域导航、就绪消息在客户端构造后且 handshake 调用前到达、无关来源、重复 ready、导航超时后的重试及旧实例消息/异步握手结果。
+
+现场原始 JSONL 未提供，未核实两次 20 秒超时的原始序列；未进行真实 Photoshop 验收，未变更地址、Manifest、超时或线上环境。工作台源码在 `webui/`，当前版本与现场线上 0.2.6 不同，当前源码测试不能替代现场安装包验收。
+
 ### 4.2 交互命令的等待时间
 
 普通命令可使用短超时；文件选择、保存、原图分片读取等等待用户操作的命令使用交互超时。文件选择器打开后长时间停留属于正常用户操作，不能被 12 秒通用超时截断。
