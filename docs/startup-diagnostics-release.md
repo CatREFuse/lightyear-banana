@@ -7,7 +7,14 @@
 - 范围：保留现有 Photoshop 稳定读写、内部缩略图与压缩、自定义模型及配置保存行为；WebUI 维持线上 0.2.6，本次不部署 WebUI。
 - 原始现场 JSONL 未获得，尚未确定用户首次超时根因。origin 末尾斜杠已在源码与测试中排除；不将域名、代理或页面脚本异常推断为根因。
 - 自动验证：Host 113、协议 19、WebUI 29 + 4 策略检查、共享核心 73、Mock API 6 均通过；完整 package:ccx（发行策略、站点部署测试、类型检查、Host 构建及归档检查）通过，平台不适用项按原规则跳过。
-- 本地 CCX：`imini-ps-1.2.6-2611030001.ccx`，63096 字节，SHA256 `7f5c4105d27da25d3a2118c609fb05c0305ca96b2604aed0cc2212d3db382046`，来源 `e266f86bc903fe0e8e66805621f8449db8af0ce6`，dirty=false；公网部署待完成。
+- 本地 CCX：`imini-ps-1.2.6-2611030001.ccx`，63096 字节，SHA256 `7f5c4105d27da25d3a2118c609fb05c0305ca96b2604aed0cc2212d3db382046`，来源 `e266f86bc903fe0e8e66805621f8449db8af0ce6`，dirty=false。
 - Windows 双击安装及真实 Photoshop 业务闭环尚未验证；本机 Photoshop 应用启动调用超时，自动测试不能替代实机验收。
 
 - 首次部署未切换：旧 latest.json 中同一下载同时含 filename 与版本目录 URL，保留工具误把 filename 当作根目录独立引用。实际历史文件存在；已通过失败测试复现，修正为有 url 时以 URL 路径为准。独立 filename、路径穿越和真实缺失引用仍校验。保留模块 18 项测试通过，未修改旧清单或补造文件。
+
+- 官网与 CCX 已正式部署：快照 `20261103T154214Z-50624f57c86f-9f6814c1`，官网来源 `4af8d57f15f8be3ef0d68782a028d96bf9ce0a45`、dirty=false；部署器确认 16 个公网文件验证通过。
+- 独立公网下载核验：HTTP 200，63096 字节，与本地 CCX 逐字节相同，SHA256 `7f5c4105d27da25d3a2118c609fb05c0305ca96b2604aed0cc2212d3db382046`；MIME application/octet-stream、HSTS 与 nosniff 正常，包内版本与单一 WebView origin 符合预期。
+- WebUI 未重新部署，正式与测试入口仍为 `0.2.6-1be424d45523`，协议兼容。
+- 服务器官网 current 已指向本次快照，releases 仅保留 current，previous 已移除；旧 releases/latest.json 及其真正引用的版本目录文件随快照保留。
+- Ego Lite 检查官网 1280px / 390px：版本和下载地址正确，移动端无横向溢出，两个主要按钮均在首屏可见；截图位于 `/private/tmp/mugen-release-2611030001-*.png`。Ego Lite 提示有可用更新，本次未升级浏览器。
+- 代码保存在隔离分支 `codex/startup-release-20261103`；原主目录工作树不变，尚未执行 git push。
