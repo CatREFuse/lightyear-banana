@@ -9,3 +9,5 @@
 - 自动验证：Host 113、协议 19、WebUI 29 + 4 策略检查、共享核心 73、Mock API 6 均通过；完整 package:ccx（发行策略、站点部署测试、类型检查、Host 构建及归档检查）通过，平台不适用项按原规则跳过。
 - 本地 CCX：`imini-ps-1.2.6-2611030001.ccx`，63096 字节，SHA256 `7f5c4105d27da25d3a2118c609fb05c0305ca96b2604aed0cc2212d3db382046`，来源 `e266f86bc903fe0e8e66805621f8449db8af0ce6`，dirty=false；公网部署待完成。
 - Windows 双击安装及真实 Photoshop 业务闭环尚未验证；本机 Photoshop 应用启动调用超时，自动测试不能替代实机验收。
+
+- 首次部署未切换：旧 latest.json 中同一下载同时含 filename 与版本目录 URL，保留工具误把 filename 当作根目录独立引用。实际历史文件存在；已通过失败测试复现，修正为有 url 时以 URL 路径为准。独立 filename、路径穿越和真实缺失引用仍校验。保留模块 18 项测试通过，未修改旧清单或补造文件。

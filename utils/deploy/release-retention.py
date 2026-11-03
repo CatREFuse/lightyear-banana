@@ -34,6 +34,8 @@ def copy_downloads(source, destination):
             def references(value, key=''):
                 if isinstance(value, dict):
                     for child_key, child in value.items():
+                        if child_key.lower() == 'filename' and isinstance(value.get('url'), str):
+                            continue
                         references(child, child_key)
                 elif isinstance(value, list):
                     for child in value:

@@ -310,3 +310,5 @@ CCX 测试必须在真实 Photoshop 中完成一个完整闭环：
 ### CCX 1.2.6 启动诊断发行（2026-11-03）
 
 基于生产 CCX 1.2.5 发行启动修复与新日志，工作台继续使用 `https://imini-test.catrefuse.com/`，WebUI 保持线上 0.2.6，不改 Photoshop 读写与内部图像处理。原始现场 JSONL 未获得，尚未证明用户首次超时的根因；实机验收状态随发行记录如实记录。
+
+- 发行保留继承旧下载清单时，同一对象含 url 与 filename，以 url 解析文件路径；filename 作为描述字段，不重复解释为 releases 根目录路径。没有 url 的 filename 继续作为独立引用校验。

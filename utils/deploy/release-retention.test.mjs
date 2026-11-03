@@ -28,6 +28,28 @@ function run(...args) {
   return execFileSync('sh', ['-c', retentionCommand(...args)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
+test('uses a download URL path when filename is descriptive metadata', t => {
+  const { root } = fixture(t)
+  const source = `${root}/downloads`, target = `${root}/new-downloads`
+  mkdirSync(`${source}/0.3.17`, { recursive: true }); mkdirSync(target)
+  writeFileSync(`${source}/latest.json`, JSON.stringify({ downloads: {
+    ccx: { filename: 'old.ccx', url: 'https://mugen.catrefuse.com/releases/0.3.17/old.ccx' }
+  } }))
+  writeFileSync(`${source}/0.3.17/old.ccx`, 'original verified package')
+  run('copy-downloads', source, target)
+  assert.equal(readFileSync(`${target}/0.3.17/old.ccx`, 'utf8'), 'original verified package')
+  assert.deepEqual(readdirSync(target).sort(), ['0.3.17', 'latest.json'])
+})
+
+test('still rejects a missing standalone filename reference', t => {
+  const { root } = fixture(t)
+  const source = `${root}/downloads`, target = `${root}/new-downloads`
+  mkdirSync(source); mkdirSync(target)
+  writeFileSync(`${source}/latest.json`, JSON.stringify({ filename: 'missing.ccx' }))
+  assert.throws(() => run('copy-downloads', source, target))
+  assert.deepEqual(readdirSync(target), [])
+})
+
 test('successful cleanup retains current bytes/downloads, removes history and only this incoming package', t => {
   const { root, current } = fixture(t)
   mkdirSync(`${current}/download`)
