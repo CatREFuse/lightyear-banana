@@ -122,7 +122,7 @@ function sanitizeImageFileName(value: string) {
     .replace(/^\.+|\.+$/g, '')
     .trim()
 
-  return clean || 'imini-ps-image'
+  return clean || 'mugen-image'
 }
 
 function readGeneratedImageFileName(image: CapturedCanvasImage, extension?: string) {
@@ -575,7 +575,7 @@ export function useMugen(runtime: DirectRuntimeName) {
   const settingsView = shallowRef<SettingsView>('list')
   const settingsDetailReturnView = shallowRef<Extract<SettingsView, 'list' | 'apis'>>('list')
   const settingsDraftIsNew = shallowRef(false)
-  const status = shallowRef('iMini PS WebUI')
+  const status = shallowRef('Mugen WebUI')
   const connectionStatus = shallowRef('浏览器模式')
   const documentLabel = shallowRef(connectionStatus.value)
   const busy = shallowRef(false)
@@ -938,7 +938,7 @@ function readHighestQuality(options: string[]): string {
     } catch (error) {
       status.value = readErrorMessage(error, '操作失败').replace(/^Error invoking remote method '[^']+': Error: /, '')
     } finally {
-      console.debug(`[iMini PS] ${operation.label || operation.type} ${Math.round(performance.now() - startedAt)}ms`)
+      console.debug(`[Mugen] ${operation.label || operation.type} ${Math.round(performance.now() - startedAt)}ms`)
       canvasOperation.value = { type: 'idle', label: '' }
       busy.value = false
     }

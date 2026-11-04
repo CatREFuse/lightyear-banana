@@ -15,7 +15,7 @@ test('CCX processes pixels, uploaded files and corrupt images through WebView wi
   })
   await installTestHost(page)
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => (window as any).__MUGEN_E2E_TRACE__?.commands?.some((item: any) => item.command === 'settings.get') ?? false)).toBe(true)
   await page.evaluate(() => {
     const original = window.postMessage.bind(window)

@@ -43,7 +43,6 @@ const emit = defineEmits<{
   openPromptPresets: []
   openCustomApis: []
   save: []
-  configureIMini: [apiKey: string]
   test: []
   toggleEnabled: [enabled: boolean]
   updateDraft: [patch: Partial<ModelConfig>]
@@ -52,8 +51,6 @@ const emit = defineEmits<{
 }>()
 
 const activeConfig = computed(() => props.configs.find((config) => config.id === props.editingConfigId))
-const iMiniConfig = computed(() => props.configs.find((config) => config.provider === 'iMini'))
-const iMiniApiKey = shallowRef('')
 const clearConversationArmed = shallowRef(false)
 const transitionName = shallowRef('settings-forward')
 let clearConversationTimer: ReturnType<typeof setTimeout> | undefined
@@ -95,16 +92,6 @@ function requestClearConversationData() {
 
 function adjustHistoryLimit(delta: number) {
   emit('updateHistoryLimit', normalizeHistoryLimit(props.historyLimit + delta))
-}
-
-function submitIMiniQuickAccess() {
-  const apiKey = iMiniApiKey.value.trim()
-  if (!apiKey) {
-    return
-  }
-
-  emit('configureIMini', apiKey)
-  iMiniApiKey.value = ''
 }
 
 onUnmounted(() => {
@@ -177,42 +164,6 @@ onUnmounted(() => {
         <section class="settings-group" aria-labelledby="api-settings-title">
           <h2 id="api-settings-title">生图 API</h2>
           <section class="api-card" aria-label="生图 API 配置">
-            <section class="imini-quick-card" aria-labelledby="imini-api-key-title">
-              <AppIcon class="imini-quick-icon" name="shining-fill" size="16" />
-              <div class="imini-quick-body">
-                <div class="imini-quick-heading">
-                  <strong id="imini-api-key-title">iMini API Key</strong>
-                  <span>推荐</span>
-                </div>
-                <form class="imini-quick-form" @submit.prevent="submitIMiniQuickAccess">
-                  <input
-                    v-model="iMiniApiKey"
-                    data-imini-quick-access
-                    type="password"
-                    autocomplete="new-password"
-                    spellcheck="false"
-                    :placeholder="iMiniConfig ? '输入新 Key 可替换' : '输入 iMini API Key'"
-                    aria-label="iMini API Key"
-                  />
-                  <button
-                    type="submit"
-                    :disabled="!iMiniApiKey.trim()"
-                  >
-                    继续
-                  </button>
-                </form>
-                <div class="imini-quick-footer">
-                  <a href="https://imini.ai/pricing" target="_blank" rel="noopener noreferrer">
-                    订阅 iMini，享受 7.9 折起折扣
-                    <AppIcon name="arrow-right-s-line" size="16" />
-                  </a>
-                  <small v-if="iMiniConfig" class="is-success" role="status">
-                    已配置
-                  </small>
-                </div>
-              </div>
-            </section>
-
             <button
               class="custom-api-entry settings-card-row"
               type="button"
@@ -229,7 +180,7 @@ onUnmounted(() => {
         </section>
 
         <footer class="settings-meta" aria-label="版本信息">
-          <span>iMini PS · WebUI {{ version }}</span>
+          <span>Mugen · WebUI {{ version }}</span>
         </footer>
       </section>
 
@@ -507,129 +458,6 @@ onUnmounted(() => {
   border: 1px solid var(--mugen-border);
   border-radius: 16px;
   background: var(--mugen-card);
-}
-
-.imini-quick-card {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  align-items: start;
-  gap: 12px;
-  min-width: 0;
-}
-
-.imini-quick-icon {
-  color: var(--mugen-accent);
-}
-
-.imini-quick-body {
-  display: grid;
-  gap: 4px;
-  width: 100%;
-  min-width: 0;
-}
-
-.imini-quick-heading {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  gap: 2px;
-  color: var(--mugen-text);
-}
-
-.imini-quick-heading strong {
-  min-width: 0;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 16px;
-}
-
-.imini-quick-heading > span {
-  padding: 2px 4px;
-  border-radius: 4px;
-  background: var(--mugen-accent-soft);
-  color: var(--mugen-accent);
-  font-size: 10px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.imini-quick-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px;
-}
-
-.imini-quick-form:has(button:disabled) {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-}
-
-.imini-quick-form input {
-  min-width: 0;
-  height: 35px;
-  padding: 8px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--mugen-field);
-  color: var(--mugen-text);
-  font-family: inherit;
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.imini-quick-form input::placeholder {
-  color: var(--mugen-muted);
-}
-
-.imini-quick-form button {
-  min-width: 54px;
-  height: 35px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  background: var(--mugen-accent);
-  color: var(--mugen-on-accent);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.imini-quick-form button:disabled {
-  display: none;
-}
-
-.imini-quick-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-}
-
-.imini-quick-footer a {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  color: var(--mugen-accent);
-  font-size: 12px;
-  line-height: 16px;
-  text-decoration: none;
-}
-
-.imini-quick-footer a:hover {
-  color: var(--mugen-text);
-}
-
-.imini-quick-footer small {
-  flex: 0 0 auto;
-  font-size: 10px;
-}
-
-.imini-quick-footer small.is-success {
-  color: var(--mugen-success);
-}
-
-.imini-quick-footer small.is-error {
-  color: var(--mugen-danger-muted);
 }
 
 .custom-api-entry {

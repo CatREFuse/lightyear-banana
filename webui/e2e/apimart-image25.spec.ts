@@ -5,7 +5,7 @@ for (const model of ['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst']) {
   test(`APIMart ${model} exposes its generation settings`, async ({ page }, testInfo) => {
     await installTestHost(page, { configuredModel: { name: 'APIMart', provider: 'apimart', model } })
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
     await page.getByRole('button', { name: '生成设置', exact: true }).click()
     const menu = page.getByRole('region', { name: '生成设置' })
     await expect(menu.getByRole('button', { name: 'xhigh', exact: true })).toBeVisible()

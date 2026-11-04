@@ -31,7 +31,7 @@ test.afterAll(async () => {
 test.beforeEach(async ({ page }) => {
   apimartFixture.reset()
   await page.goto('/?host=uxp')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
 })
 
 async function useApimartBrowserConfig(page: Page, name: string) {
@@ -54,7 +54,7 @@ async function useApimartBrowserConfig(page: Page, name: string) {
     }))
   }, { apiKey: expectedApiKey, baseUrl: apimartBaseUrl, configName: name })
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   const menu = page.getByRole('region', { name: '生成设置' })
   await expect(menu.locator('[data-route="config"]')).toContainText(name)
@@ -138,7 +138,7 @@ test('URL parameters cannot enable CCX and browser capabilities omit the canvas 
     }))
   })
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
 
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   const menu = page.getByRole('region', { name: '生成设置' })
@@ -167,7 +167,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   expect(await page.evaluate(() => Boolean(window.uxpHost))).toBe(false)
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await expect(page.getByText('iMini PS · WebUI 0.2.6', { exact: true })).toBeVisible()
+  await expect(page.getByText('Mugen · WebUI 0.2.7', { exact: true })).toBeVisible()
   await expect(page.getByText(/0\.3\.19/)).toHaveCount(0)
   await expect(page.getByText(/Build/)).toHaveCount(0)
   await openCustomApiConfigs(page)
@@ -195,7 +195,7 @@ test('browser creates and reloads APIMart config, then completes the network flo
   })).toBe(true)
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
   await page.getByRole('button', { name: '设置', exact: true }).click()
   await openCustomApiConfigs(page)
   await expect(page.getByRole('button', { name: /APIMart Browser/ })).toBeVisible()
@@ -373,36 +373,17 @@ test('browser tests an official iMini config through the same-origin proxy', asy
   ])
 })
 
-test('iMini shortcut opens the legacy configuration draft without changing browser defaults', async ({ page }) => {
+test('Mugen settings remove promotion and keep generic API drafts unsaved', async ({ page }) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await page.getByRole('textbox', { name: 'iMini API Key' }).fill('draft-imini-token')
-  await page.getByRole('button', { name: '继续', exact: true }).click()
-
-  const detail = page.getByLabel('配置详情')
-  await expect(detail).toBeVisible()
-  await expect(detail.getByLabel('Base URL')).toHaveValue('https://openapi.imini.ai/imini/router')
-  await expect(detail.getByLabel('API Key', { exact: true })).toHaveValue('draft-imini-token')
-
-  const beforeSave = await page.evaluate(() => JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}'))
-  expect(beforeSave.configs ?? []).toEqual([])
-  expect(beforeSave.activeConfigId ?? '').toBe('')
-
-  await detail.getByRole('button', { name: '保存', exact: true }).click()
-  await expect.poll(async () => page.evaluate(() => {
-    const stored = JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}')
-    return stored.configs?.[0]
-  })).toMatchObject({
-    provider: 'iMini',
-    model: 'google/nano-banana',
-    baseUrl: 'https://openapi.imini.ai/imini/router',
-    enabled: true
-  })
-
-  expect(await page.evaluate(() => {
-    const stored = JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}')
-    return stored.activeConfigId ?? ''
-  })).toBe('')
-  await expect(page.locator('.parameter-summary-model')).toHaveText('nano-banana')
+  await expect(page.getByRole('textbox', { name: 'iMini API Key' })).toHaveCount(0)
+  await expect(page.locator('a[href*="imini.ai"]')).toHaveCount(0)
+  await openCustomApiConfigs(page)
+  await page.getByRole('button', { name: '添加', exact: true }).click()
+  await expect(page.getByLabel('配置详情')).toBeVisible()
+  await page.getByLabel('配置详情').getByLabel('API Key', { exact: true }).fill('browser-draft-token')
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('mugen.settings.v1') || '{}'))
+  expect(stored.configs ?? []).toEqual([])
+  expect(stored.activeConfigId ?? '').toBe('')
 })
 
 test('history stepper persists the browser retention limit', async ({ page }) => {

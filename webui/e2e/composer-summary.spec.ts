@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
     }
   })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
 })
 
 test('matches the Figma input surface in light and dark themes', async ({ page }, testInfo) => {

@@ -4,7 +4,7 @@ import { installTestHost } from './hostFixture'
 test.beforeEach(async ({ page }) => {
   await installTestHost(page)
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
   await page.getByRole('button', { name: '外观' }).click()
   await page.getByRole('button', { name: '浅色', exact: true }).click()
 })
@@ -22,7 +22,7 @@ test('controls generation resolution with the Figma discrete slider', async ({ p
   await expect(slider).toHaveAttribute('step', '1')
   await expect(slider).toHaveValue('1')
   await expect(slider).toHaveAttribute('aria-valuetext', '1K')
-  const responsiveGeometry = await sliderTrack.evaluate((element) => {
+  const readResponsiveGeometry = () => sliderTrack.evaluate((element) => {
     const bounds = element.getBoundingClientRect()
     const container = element.closest('.parameter-resolution-block')?.getBoundingClientRect()
     return {
@@ -31,6 +31,8 @@ test('controls generation resolution with the Figma discrete slider', async ({ p
       containerWidth: Math.round(container?.width ?? 0)
     }
   })
+  await expect.poll(async () => (await readResponsiveGeometry()).height).toBe(26)
+  const responsiveGeometry = await readResponsiveGeometry()
   expect(responsiveGeometry.height).toBe(26)
   expect(responsiveGeometry.width).toBe(responsiveGeometry.containerWidth)
   if (testInfo.project.name === 'panel-wide') expect(responsiveGeometry.width).toBeGreaterThan(221)

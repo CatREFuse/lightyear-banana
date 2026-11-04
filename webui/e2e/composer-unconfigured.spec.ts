@@ -4,7 +4,7 @@ import { installTestHost } from './hostFixture'
 test.beforeEach(async ({ page }) => {
   await installTestHost(page, { configured: false })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
 })
 
 test('uses the preset icon and pending configuration summary', async ({ page }, testInfo) => {

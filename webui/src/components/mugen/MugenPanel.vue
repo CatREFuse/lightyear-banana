@@ -119,7 +119,7 @@ const photoshopIntegrationAvailable = computed(() => (
 const activeVersion = computed(() => props.version)
 const navigationTitle = computed(() => {
   if (activeView.value !== 'settings') {
-    return 'iMini PS'
+    return 'Mugen'
   }
 
   if (settingsView.value === 'list') {
@@ -143,18 +143,6 @@ const navigationTitle = computed(() => {
 
 function setWorkspaceMenu(owner: string) {
   activeWorkspaceMenu.value = owner
-}
-
-function configureIMini(apiKey: string) {
-  const existing = configs.value.find((config) => config.provider === 'iMini')
-  if (existing) {
-    editConfig(existing.id)
-  } else {
-    createConfig()
-  }
-
-  updateSettingsDraft({ provider: 'iMini' })
-  updateSettingsDraft({ apiKey })
 }
 
 async function openPreview(image: CapturedCanvasImage) {
@@ -185,7 +173,7 @@ function readPreviewFileName(image: CapturedCanvasImage) {
   const cleanLabel = image.label
     .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
     .replace(/\s+/g, ' ')
-    .trim() || 'imini-ps-image'
+    .trim() || 'mugen-image'
 
   return `${cleanLabel}-${image.width}x${image.height}.png`
 }
@@ -293,7 +281,6 @@ function handleManageModels() {
         @open-prompt-presets="openPromptPresets"
         @open-custom-apis="openCustomApis"
         @save="saveConfig"
-        @configure-i-mini="configureIMini"
         @test="testConfig"
         @toggle-enabled="toggleConfigEnabled"
         @update-draft="updateSettingsDraft"

@@ -14,7 +14,7 @@ export function createCcxReleaseMetadata({
 }) {
   if (!/^\d+\.\d+\.\d+$/.test(ccxVersion || '')) throw new Error('CCX release metadata has an invalid version.')
   if (!/^\d{6}(?!0000)\d{4}$/.test(buildNumber || '')) throw new Error('CCX release metadata has an invalid build number.')
-  const expectedFilename = `imini-ps-${ccxVersion}-${buildNumber}.ccx`
+  const expectedFilename = `mugen-${ccxVersion}-${buildNumber}.ccx`
   if (
     typeof filename !== 'string'
     || filename !== path.basename(filename)

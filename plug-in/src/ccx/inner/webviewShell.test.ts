@@ -208,7 +208,7 @@ describe('createWebViewShell startup failure UI', () => {
     })
     const webview = created.find((element) => element.tagName === 'webview')!
 
-    webview.dispatch('loadstop', { url: 'file:///C:/Program Files/Adobe/iMini PS/webui/index.html' })
+    webview.dispatch('loadstop', { url: 'file:///C:/Program Files/Adobe/Mugen/webui/index.html' })
 
     expect(flatten(root).map((element) => element.textContent)).toContain('工作台加载地址未获授权')
     expect(log.record).toHaveBeenCalledWith(

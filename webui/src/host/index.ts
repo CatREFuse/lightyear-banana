@@ -10,7 +10,7 @@ export function resolveWebUiRuntime(value: Window = window): WebUiRuntime {
 
 class UnavailableHostClient implements HostClient {
   readonly mode = 'unavailable' as const
-  private reject<T>(): Promise<T> { return Promise.reject(new HostClientError({ code: 'HOST_UNAVAILABLE', message: '请在 Photoshop 的 iMini PS 插件中打开', recoverable: false })) }
+  private reject<T>(): Promise<T> { return Promise.reject(new HostClientError({ code: 'HOST_UNAVAILABLE', message: '请在 Photoshop 的 Mugen 插件中打开', recoverable: false })) }
   handshake(_payload: Handshake): Promise<HandshakeResult> { return this.reject() }
   invoke<TCommand extends HostCommand>(_command: TCommand, _payload: HostCommandPayload<TCommand>, _options?: HostRequestOptions): Promise<HostCommandResult<TCommand>> { return this.reject() }
   on<TEvent extends HostEventName>(_event: TEvent, _listener: (payload: HostEventPayload<TEvent>) => void) { return () => undefined }

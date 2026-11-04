@@ -762,7 +762,7 @@ watch(
             @pointermove="updateLoadingParticleFocus"
             @pointerleave="resetLoadingParticleFocus"
           >
-            <img src="/imini-loading-placeholder.png" alt="" />
+            <img src="/mugen-loading-placeholder.png" alt="" />
           </div>
         </div>
         <section v-if="visibleRequestLogs[task.id]" class="request-log-stack loading-log-stack" aria-label="请求日志">
@@ -1000,7 +1000,7 @@ watch(
 .loading-placeholder::after {
   position: absolute;
   inset: -5%;
-  background: url('/imini-loading-placeholder.png') center / cover;
+  background: url('/mugen-loading-placeholder.png') center / cover;
   content: '';
   opacity: 0;
   pointer-events: none;

@@ -7,7 +7,7 @@ Current build: 2611030002
 Packaged at: 2026-11-03T15:47:39.240Z
 
 Adobe Photoshop plugin:
-__MUGEN_RELEASE_ORIGIN__/download/imini-ps-1.2.6-2611030002.ccx
+__MUGEN_RELEASE_ORIGIN__/download/mugen-1.2.6-2611030002.ccx
 sha256: b2e32212af8cea4beb87f008bc055fb54ca756a858f627aa80652148a974d54f
 size: 63084 bytes
 

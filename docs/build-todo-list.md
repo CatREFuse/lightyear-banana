@@ -6,6 +6,10 @@
 
 统一执行顺序与完成标准见 `docs/release-sop.md`。本清单是强制门禁，SOP 是正式操作流程；两者都必须满足。
 
+## 2026-11-04 Mugen 品牌发行
+
+目标 WebUI `0.2.7`、CCX `1.2.7`。活动产品名称统一为 Mugen，移除 iMini 快捷配置和订阅推广；当前 CCX 文件名统一为 `mugen-<version>-<build>.ccx`。插件 ID、协议、存储键和 Photoshop 读写实现保持兼容。本机完整门禁、浏览器检查和公网部署完成后补充证据。
+
 ## 2026-11-03 启动诊断与重试隔离
 
 目标 CCX `1.2.6+2611030002`，工作台切换到正式地址 `https://mugen.catrefuse.com/webui/`，保留生产基线 `1.2.5` 的图层读写和图像处理。引入按 attempt 记录的启动日志、重试实例隔离和旧握手结果丢弃。WebUI 保持线上 `0.2.6`，本次不部署 WebUI。Windows 安装与真实 PS 业务闭环尚未验证，不能宣称现场超时已解决。CCX 与官网已发布并通过 16 个公网文件回读及独立安装包字节/哈希校验，详见 `docs/startup-diagnostics-release.md`。

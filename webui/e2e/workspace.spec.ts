@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
   apimartFixture.reset()
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
 })
 
 test('keeps image previews inside the fixed-width workspace', async ({ page }, testInfo) => {
@@ -232,7 +232,7 @@ test('CCX bridge completes canvas capture, APIMart generation, context-menu down
     assetId: 'e2e-result-1',
     target: { type: 'full-canvas' },
     previewUrl: `${apimartBaseUrl}/fixtures/cat.jpg`,
-    layerName: 'iMini PS 生成结果'
+    layerName: 'Mugen 生成结果'
   })])
 
   const smokeState = await (await fetch(`${apimartBaseUrl}/__smoke/state`)).json()
@@ -291,29 +291,8 @@ test('matches the Figma history stepper and saves the Host retention limit', asy
     const titleRect = title.getBoundingClientRect()
     return Math.abs((iconRect.top + iconRect.height / 2) - (titleRect.top + titleRect.height / 2))
   })).toBeLessThanOrEqual(0.5)
-  await expect(page.getByText('在 iMini → 个人设置 → API 中可找到', { exact: true })).toHaveCount(0)
-  await expect.poll(() => page.locator('.imini-quick-body').evaluate((element) => {
-    const heading = element.querySelector<HTMLElement>('.imini-quick-heading')!
-    const form = element.querySelector<HTMLElement>('.imini-quick-form')!
-    return Math.round(form.getBoundingClientRect().top - heading.getBoundingClientRect().bottom)
-  })).toBe(4)
-  await expect.poll(() => page.locator('.imini-quick-card').evaluate((element) => {
-    const body = element.querySelector<HTMLElement>('.imini-quick-body')!
-    const form = element.querySelector<HTMLElement>('.imini-quick-form')!
-    const input = form.querySelector<HTMLInputElement>('input')!
-    const icon = element.querySelector<HTMLElement>('.imini-quick-icon')!
-    const cardBounds = element.getBoundingClientRect()
-    const bodyBounds = body.getBoundingClientRect()
-    const formBounds = form.getBoundingClientRect()
-    const inputBounds = input.getBoundingClientRect()
-    const iconBounds = icon.getBoundingClientRect()
-    return {
-      bodyRightGap: Math.round(cardBounds.right - bodyBounds.right),
-      bodyWidthDelta: Math.round(bodyBounds.width - (cardBounds.width - iconBounds.width - 12)),
-      formWidthDelta: Math.round(formBounds.width - bodyBounds.width),
-      inputWidthDelta: Math.round(inputBounds.width - formBounds.width)
-    }
-  })).toEqual({ bodyRightGap: 0, bodyWidthDelta: 0, formWidthDelta: 0, inputWidthDelta: 0 })
+  await expect(page.getByRole('textbox', { name: 'iMini API Key' })).toHaveCount(0)
+  await expect(page.locator('a[href*="imini.ai"]')).toHaveCount(0)
 
   const stepper = page.getByRole('group', { name: '生成记录保存条数' })
   await expect(page.getByText('超过设定上限的生成记录会被删除')).toBeVisible()
@@ -342,23 +321,17 @@ test('matches the Figma history stepper and saves the Host retention limit', asy
 
 })
 
-test('iMini shortcut keeps Host settings unchanged until the legacy save action', async ({ page }) => {
+test('Mugen settings use the generic API flow without saving an unfinished draft', async ({ page }) => {
   await page.getByRole('button', { name: '设置', exact: true }).click()
-  await page.getByRole('textbox', { name: 'iMini API Key' }).fill('host-draft-imini-token')
-  await page.getByRole('button', { name: '继续', exact: true }).click()
-
+  await expect(page.getByRole('textbox', { name: 'iMini API Key' })).toHaveCount(0)
+  await openCustomApiConfigs(page)
+  await page.getByRole('button', { name: '添加', exact: true }).click()
   const detail = page.getByLabel('配置详情')
-  await expect(detail.getByLabel('Base URL')).toHaveValue('https://openapi.imini.ai/imini/router')
-  await expect(detail.getByLabel('API Key', { exact: true })).toHaveValue('host-draft-imini-token')
-
+  await expect(detail).toBeVisible()
+  await detail.getByLabel('API Key', { exact: true }).fill('host-draft-token')
   const commands = (await readTestHostTrace(page)).commands.map((entry) => entry.command)
   expect(commands).not.toContain('settings.save')
   expect(commands).not.toContain('credential.set')
-
-  await detail.getByRole('button', { name: '保存', exact: true }).click()
-  await expect.poll(async () => (await readTestHostTrace(page)).commands.map((entry) => entry.command)).toEqual(
-    expect.arrayContaining(['credential.set', 'settings.save'])
-  )
 })
 
 test('restores prompt editing after the CCX WebView regains window focus', async ({ page }) => {
@@ -684,7 +657,7 @@ test('shows the original image when the generated preview is unavailable', async
       thumbnailUnavailable: failure === 'host-unavailable'
     })
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
 
     await page.getByRole('textbox', { name: '描述你想生成的画面，输入 / 调用常用提示词' }).fill('异常缩略图验证')
     await page.getByRole('button', { name: '发送', exact: true }).click()

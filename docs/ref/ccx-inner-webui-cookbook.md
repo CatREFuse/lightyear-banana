@@ -478,3 +478,7 @@ dev CCX 的 `webviewOrigin` 可以指向 `imini-test.catrefuse.com`，但官网�
 测试对 Photoshop 模块访问和 RGBA getter 均设为抛错，验证三种压缩入口仍然成功；附件入口只允许 UXP 文件读取。此补充取代上一段对缩略图和参考图压缩使用旧方案的决定。
 
 2026-11-03 地址更正：CCX 1.2.6+2611030002 使用正式 WebUI URL 与精确 origin，构建、Manifest、打包器和产物校验同时更新；以公网安装包的 bundle 和 Manifest 为最终验收证据。2611030001 的测试站地址已被本次构建替代。
+
+## Mugen 品牌与发行文件名（2026-11-04）
+
+插件显示名称来自 Manifest 的 name 与 entrypoints.panel.label，工作台名称来自 MugenPanel 和 HTML title；只改其中一处会使浏览器与 Photoshop 显示不一致。当前发行文件名由根 package.json 的 name、Manifest 版本和 CCX build 组成，元数据与官网部署的匹配规则必须同步。当前统一为 `mugen-<version>-<build>.ccx`，插件 ID 与存储键保持不变。已通过 Host 113 项测试、verify:ccx 以及工作台品牌检查；真实 Photoshop 安装和业务闭环仍需实机验收，不能由这些结果替代。

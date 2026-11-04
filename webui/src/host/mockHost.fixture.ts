@@ -234,7 +234,7 @@ export class MockHostClient implements HostClient {
       case 'canvas.placeAsset': {
         const request = payload as HostCommandPayload<'canvas.placeAsset'>
         this.requireAsset(request.assetId)
-        return { layerName: 'iMini PS 生成图', target: request.target } as HostCommandResult<TCommand>
+        return { layerName: 'Mugen 生成图', target: request.target } as HostCommandResult<TCommand>
       }
       case 'asset.save': {
         const request = payload as HostCommandPayload<'asset.save'>
@@ -255,7 +255,7 @@ export class MockHostClient implements HostClient {
         const request = payload as HostCommandPayload<'asset.release'>
         return { assetId: request.assetId, released: true } as HostCommandResult<TCommand>
       }
-      case 'diagnostics.export': return { saved: true, fileName: 'imini-ps-diagnostics.jsonl' } as HostCommandResult<TCommand>
+      case 'diagnostics.export': return { saved: true, fileName: 'mugen-diagnostics.jsonl' } as HostCommandResult<TCommand>
       case 'storage.clearAll':
         for (const taskId of [...this.timers.keys()]) this.stopTimers(taskId)
         this.taskSnapshots.clear()

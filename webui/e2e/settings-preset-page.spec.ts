@@ -4,7 +4,7 @@ import { installTestHost } from './hostFixture'
 test.beforeEach(async ({ page }) => {
   await installTestHost(page)
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
   await page.getByRole('button', { name: '外观' }).click()
   await page.getByRole('button', { name: '浅色', exact: true }).click()
 })

@@ -3,6 +3,6 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import './styles/fonts.css'
 import './style.css'
-import './styles/imini-theme.css'
+import './styles/mugen-theme.css'
 
 createApp(App).use(createPinia()).mount('#app')

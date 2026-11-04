@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
     }
   })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
 })
 
 test('restores the last generation settings after reopening WebUI', async ({ page }) => {
@@ -40,7 +40,7 @@ test('restores the last generation settings after reopening WebUI', async ({ pag
   })
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'iMini PS' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mugen' })).toBeVisible()
   await page.getByRole('button', { name: '生成设置', exact: true }).click()
   menu = page.getByRole('region', { name: '生成设置' })
 

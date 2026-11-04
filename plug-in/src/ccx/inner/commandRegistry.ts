@@ -307,7 +307,7 @@ export class CommandRegistry {
         : { width: Math.min(image.width, canvas.width), height: Math.min(image.height, canvas.height) }
       await canvasPrimitiveService.insertImageFromPreview(image, { left: 0, top: 0, ...size })
     }
-    return { layerName: `iMini PS 插入 ${image.label}`, target: resolvedTarget }
+    return { layerName: `Mugen 插入 ${image.label}`, target: resolvedTarget }
   }
 
 }

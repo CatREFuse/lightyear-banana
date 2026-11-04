@@ -1,7 +1,7 @@
 {
   "name": "@mugen/plug-in",
-  "version": "1.2.6",
-  "buildNumber": "2611030002",
+  "version": "1.2.7",
+  "buildNumber": "2611040001",
   "private": true,
   "type": "module",
   "scripts": {
