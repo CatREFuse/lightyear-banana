@@ -2,14 +2,14 @@
 
 Mugen connects Adobe Photoshop to cloud-based AI image generation through the CCX plugin and WebUI.
 
-Current version: 1.2.6
-Current build: 2611030002
-Packaged at: 2026-11-03T15:47:39.240Z
+Current version: 1.2.7
+Current build: 2611040001
+Packaged at: 2026-11-04T05:19:48.407Z
 
 Adobe Photoshop plugin:
-__MUGEN_RELEASE_ORIGIN__/download/mugen-1.2.6-2611030002.ccx
-sha256: b2e32212af8cea4beb87f008bc055fb54ca756a858f627aa80652148a974d54f
-size: 63084 bytes
+__MUGEN_RELEASE_ORIGIN__/download/mugen-1.2.7-2611040001.ccx
+sha256: dd9d2e22535965d7321b91dfd437951aa96f066cb9a11ba90893e6432db74a3b
+size: 63498 bytes
 
 WebUI:
 __MUGEN_RELEASE_ORIGIN__/webui/
