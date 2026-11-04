@@ -156,3 +156,5 @@ WebUI 部署:
 服务器发行保留与自动清理策略（官网/WebUI）：`docs/spec.md`、`docs/release-sop.md` 的“服务器发行保留策略（2026-10-21）”；实现 `utils/deploy/release-retention.py`，成功验收后只保留 current。
 
 启动诊断与重试隔离发行记录：`docs/startup-diagnostics-release.md`。
+
+2026-11-04 生产交接入口：`HANDOFF.md`；源端未提交文件清单：`docs/handoff/uncommitted-inventory-20261104.txt`。

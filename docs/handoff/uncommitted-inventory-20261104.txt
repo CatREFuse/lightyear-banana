@@ -1,0 +1,62 @@
+ M AGENTS.md
+ M docs/inner-webui-deployment.md
+ M docs/inner-webui-prd.md
+ M docs/mugen-interaction-spec.md
+ M docs/ref/ccx-inner-webui-cookbook.md
+ M docs/release-sop.md
+ M docs/site-deployment.md
+ M docs/spec.md
+ M homesite/package.json
+ M homesite/scripts/build-site.mjs
+ M homesite/scripts/deploy-site.mjs
+ M homesite/scripts/deploy-site.test.mjs
+ D homesite/scripts/prism-optics.test.mjs
+ M homesite/scripts/prism-scene.test.mjs
+ M homesite/scripts/site-app.test.mjs
+ M homesite/site/app.js
+ M homesite/site/index.html
+ D homesite/site/prism-optics.js
+ M homesite/site/prism-scene.js
+ M homesite/site/styles.css
+ D homesite/site/vendor/RoomEnvironment.js
+ D homesite/site/vendor/THREE-LICENSE.txt
+ D homesite/site/vendor/three.core.min.js
+ D homesite/site/vendor/three.module.min.js
+ M package-lock.json
+ M package.json
+ M packages/inner-protocol/src/index.test.ts
+ M packages/inner-protocol/src/index.ts
+ M plug-in/src/ccx/inner/assetStore.test.ts
+ M plug-in/src/ccx/inner/assetStore.ts
+ M plug-in/src/ccx/inner/commandRegistry.ts
+ M plug-in/src/ccx/inner/providerRuntime.ts
+ M plug-in/src/ccx/inner/storage.test.ts
+ M plug-in/src/ccx/inner/storage.ts
+ M utils/deploy-inner-webui.mjs
+ M webui/e2e/hostFixture.ts
+ M webui/e2e/standalone.spec.ts
+ M webui/e2e/workspace.spec.ts
+ M webui/src/components/mugen/ConfigEditorForm.vue
+ M webui/src/components/mugen/MessageThread.vue
+ M webui/src/components/mugen/MugenPanel.vue
+ M webui/src/components/mugen/RatioPicker.vue
+ M webui/src/composables/useInnerMugen.ts
+ M webui/src/composables/useMugen.ts
+ M webui/src/host/mockHost.fixture.ts
+ M webui/src/host/webviewHost.test.ts
+ M webui/src/host/webviewHost.ts
+ M webui/src/stores/workspace.test.ts
+ M webui/src/stores/workspace.ts
+ M webui/src/types/mugenController.ts
+?? .agents/
+?? homesite/site/prism.wgsl
+?? output/
+?? plug-in/src/ccx/inner/providerRuntime.configTest.test.ts
+?? skills-lock.json
+?? utils/deploy/release-retention.mjs
+?? utils/deploy/release-retention.py
+?? utils/deploy/release-retention.test.mjs
+?? webui/e2e/controls-audit.spec.ts
+?? webui/e2e/preview-audit.spec.ts
+?? webui/e2e/settings-audit.spec.ts
+?? webui/src/composables/useInnerMugen.settings.test.ts
