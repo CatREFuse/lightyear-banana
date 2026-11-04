@@ -8,7 +8,7 @@
 
 ## 2026-11-04 Mugen 品牌发行
 
-目标 WebUI `0.2.7`、CCX `1.2.7`。活动产品名称统一为 Mugen，移除 iMini 快捷配置和订阅推广；当前 CCX 文件名统一为 `mugen-<version>-<build>.ccx`。插件 ID、协议、存储键和 Photoshop 读写实现保持兼容。本机完整门禁、浏览器检查和公网部署完成后补充证据。
+目标 WebUI `0.2.7`、CCX `1.2.7`。活动产品名称统一为 Mugen，移除 iMini 快捷配置和订阅推广；当前 CCX 文件名统一为 `mugen-<version>-<build>.ccx`。插件 ID、协议、存储键和 Photoshop 读写实现保持兼容。本机完整门禁与浏览器检查完成，WebUI、CCX 和官网已发布并通过公网回读；证据及实机验收边界见 `docs/mugen-brand-release.md`。
 
 ## 2026-11-03 启动诊断与重试隔离
 

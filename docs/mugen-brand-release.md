@@ -23,8 +23,14 @@
 
 ## 发布状态
 
-正式 CCX 已从干净提交 `8540a32ea058d03a8565aa953b75e30cc5e59932` 完成 package:ccx 全门禁，文件 `mugen-1.2.7-2611040001.ccx`、63498 字节，SHA256 `dd9d2e22535965d7321b91dfd437951aa96f066cb9a11ba90893e6432db74a3b`。WebUI 0.2.7（buildId `0.2.7-0a0a32c92f44`）已原子发布并通过公网逐字节回读。官网与 CCX 公网分发待完成。
+正式 CCX 已从干净提交 `8540a32ea058d03a8565aa953b75e30cc5e59932` 完成 package:ccx 全门禁，文件 `mugen-1.2.7-2611040001.ccx`、63498 字节，SHA256 `dd9d2e22535965d7321b91dfd437951aa96f066cb9a11ba90893e6432db74a3b`。WebUI 0.2.7（buildId `0.2.7-0a0a32c92f44`）已原子发布并通过公网逐字节回读。官网与 CCX 已正式发布，快照 `20261104T052141Z-4537e050caea-7debc7a8`（来源 `86771fc4d13e0e64f87946a7e46ec6af85517c2e`），部署器 16 个公网文件全部校验通过。独立下载 CCX 与本地逐字节一致，解包确认 Manifest 名称和面板标签为 Mugen、插件 ID 不变、JS 使用正式工作台 URL 且无旧产品名和测试域名。公网浏览器标题/工作台标题为 Mugen，版本 0.2.7，快捷输入和订阅推广链接数量均为零。
 
 ## 验证边界
 
 浏览器 CCX Host fixture 和本地 Mock 网络用例不代表真实 Photoshop、真实供应商生图或 Windows 双击安装验收。真实 Photoshop 完整闭环及 Windows 安装未执行。生产 Nginx 预检通过，已有重复域名警告；本次未修改 Nginx 配置。
+
+## 本机开发入口与收尾
+
+本机项目内运行时由 `source .runtime.local/env.sh` 加载；随后可运行 `npm run dev`、各模块测试和 SOP 发行命令。该文件与运行时目录被 Git 忽略。
+
+发布回查发现 macOS tar 自动携带 AppleDouble 元数据，使用 `COPYFILE_DISABLE=1` 对同一 WebUI 构建重新执行原子部署及公网验证，最终 WebUI 快照的 `._*` 文件数量为零；已将该环境设置写入本机开发环境与 SOP。原始代码提交与内容哈希未变。

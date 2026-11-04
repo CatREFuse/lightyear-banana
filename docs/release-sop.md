@@ -18,7 +18,7 @@ WebUI 与 CCX 独立构建，CCX 固定加载云端 WebUI。一次同时包含 W
 - 版本号、build 号、协议兼容信息、Spec 和 `docs/build-todo-list.md` 已同步。
 - 代码与官网发行元数据均已提交，工作树干净。
 - `key.env` 提供正式 URL、部署目录和 SSH 公钥身份；密码字段必须为空，部署脚本不接受密码认证。
-- macOS 使用规范物理临时目录：`TMPDIR=/private/tmp`。
+- macOS 使用规范物理临时目录：`TMPDIR=/private/tmp`；归档/部署时设置 `COPYFILE_DISABLE=1`，并检查快照不含 `._*` AppleDouble 文件。
 - Windows 资源管理器双击安装和真实 Photoshop 业务闭环已形成验收证据；未完成时必须在发行报告中明确标注。
 
 ## 1. WebUI 正式发布
