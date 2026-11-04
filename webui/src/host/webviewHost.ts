@@ -17,6 +17,7 @@ import type {
 } from '@mugen/inner-protocol'
 import {
   BridgeValidationError,
+  DRAFT_CONFIG_TEST_CAPABILITY,
   HostClientError,
   PROTOCOL_VERSION,
   assertMessageSize,
@@ -355,8 +356,24 @@ export class WebViewHostClient implements HostClient {
     await this.invoke('credential.remove', { configId })
   }
   async testConfig(config: ModelConfig, apiKey?: string) {
-    const saved = await this.saveConfig({ ...config, id: config.id || createMessageId('config') }, apiKey)
-    return this.invoke('generation.testConfig', { configId: saved.id }, { timeoutMs: CONFIG_TEST_TIMEOUT_MS })
+    const context = await this.getContext()
+    if (!context.capabilities.includes(DRAFT_CONFIG_TEST_CAPABILITY)) {
+      throw clientError('HOST_UPDATE_REQUIRED', '请更新插件后测试未保存的配置', false)
+    }
+    const draftConfig: PublicModelConfig = {
+      id: config.id || createMessageId('config'),
+      name: config.name,
+      provider: config.provider,
+      model: config.model,
+      models: config.models ?? [config.model],
+      baseUrl: config.baseUrl,
+      enabled: config.enabled,
+      credentialState: config.hasCredential ? 'stored' : 'missing',
+      ...(config.customFormat ? { customFormat: config.customFormat } : {}),
+      ...(config.workflow ? { workflow: config.workflow } : {}),
+      ...(config.comfyUi ? { comfyUi: config.comfyUi } : {})
+    }
+    return this.invoke('generation.testConfig', { draftConfig, ...(apiKey?.trim() ? { apiKey: apiKey.trim() } : {}) }, { timeoutMs: CONFIG_TEST_TIMEOUT_MS })
   }
   async clearHistory() { await this.invoke('history.clear', undefined) }
   exportDiagnostics() { return this.invoke('diagnostics.export', undefined) }

@@ -8,7 +8,6 @@ type Asset = {
   ref: HostAssetRef
   createdAt: number
   lastAccessedAt: number
-  bytes: number
   persistent: boolean
   owners: Set<string>
 }
@@ -49,8 +48,6 @@ type AdobeUxpStorage = {
 }
 
 const ASSET_TTL_MS = 60 * 60 * 1000
-const MAX_ASSET_COUNT = 64
-const MAX_ASSET_BYTES = 512 * 1024 * 1024
 const MAX_THUMBNAIL_BYTES = 16 * 1024
 const ORIGINAL_CHUNK_LENGTH = 192 * 1024
 const MAX_PERSISTENT_ASSET_COUNT = 256
@@ -64,7 +61,7 @@ function hasActiveMemoryOwner(asset: Asset) {
   return [...asset.owners].some((owner) => !owner.startsWith('history:'))
 }
 
-type AssetInvalidationReason = 'expired' | 'capacity'
+type AssetInvalidationReason = 'expired'
 type AssetInvalidationListener = (assetId: string, reason: AssetInvalidationReason) => void
 
 const assetSources = new Set<HostAssetRef['source']>(['visible', 'selection', 'layer', 'upload', 'clipboard', 'generated'])
@@ -207,9 +204,6 @@ export class AssetStore {
       previewError = '缩略图超过传输限制'
     }
 
-    const assetBytes = image.rgba.byteLength + serializedBytes(image.previewUrl)
-    if (assetBytes > MAX_ASSET_BYTES) throw new Error('图片过大，无法在 Photoshop 中暂存')
-
     const ref: HostAssetRef = {
       assetId,
       label: image.label,
@@ -232,16 +226,9 @@ export class AssetStore {
       ref,
       createdAt: now,
       lastAccessedAt: now,
-      bytes: assetBytes,
       persistent: false,
       owners: new Set(options.owner ? [options.owner] : (source === 'generated' ? [] : [WORKSPACE_OWNER]))
     })
-    try {
-      this.enforceCapacity()
-    } catch (error) {
-      this.assets.delete(assetId)
-      throw error
-    }
     return ref
   }
 
@@ -532,21 +519,6 @@ export class AssetStore {
     }
   }
 
-  private enforceCapacity() {
-    let totalBytes = Array.from(this.assets.values()).reduce((total, asset) => total + asset.bytes, 0)
-    const oldestFirst = () => Array.from(this.assets.entries()).sort((left, right) => left[1].lastAccessedAt - right[1].lastAccessedAt)
-    for (const [assetId, asset] of oldestFirst()) {
-      if (this.assets.size <= MAX_ASSET_COUNT && totalBytes <= MAX_ASSET_BYTES) break
-      if (asset.persistent && !hasActiveMemoryOwner(asset)) this.assets.delete(assetId)
-      else if (!asset.persistent && !hasActiveMemoryOwner(asset)) this.invalidate(assetId, 'capacity')
-      else continue
-      totalBytes -= asset.bytes
-    }
-    if (this.assets.size > MAX_ASSET_COUNT || totalBytes > MAX_ASSET_BYTES) {
-      throw new Error('当前任务和参考图超过 Photoshop 暂存容量，请减少图片数量或尺寸')
-    }
-  }
-
   private invalidate(assetId: string, reason: AssetInvalidationReason) {
     if (!this.assets.delete(assetId)) return
     this.onInvalidated?.(assetId, reason)
@@ -700,12 +672,10 @@ export class AssetStore {
         ref,
         createdAt: record.createdAt,
         lastAccessedAt: now,
-        bytes: serializedBytes(previewUrl),
         persistent: true,
         owners: new Set()
       }
       this.assets.set(assetId, asset)
-      this.enforceCapacity()
       return asset
     } catch (error) {
       index.delete(assetId)

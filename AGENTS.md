@@ -105,6 +105,7 @@ WebUI 部署:
 - 改 manifest、entrypoint、icon、权限后运行 `npm run verify:ccx`，再在 Adobe UXP Developer Tools 中 `Unload` / `Load`。
 - 完成 CCX 相关改动后至少运行 `npm run verify:ccx`。
 - 共享业务改动进 `packages/mugen-core`，改完运行 `npm run test:capabilities`；不要在 webui/plug-in 之间互相引用对方源码。
+- 未经用户明确确认且未写入产品规格，不得新增图片数量、文件大小、分辨率、任务时长、内存容量或其他隐式功能门禁。真实外部约束必须注明来源，在 Spec、测试和用户提示中保持一致；内部保护不得擅自缩减用户已经要求的能力。
 - 每次修复问题后，必须把本次开发中经过复现与验证的 CCX 插件经验同步到 `docs/ref/ccx-inner-webui-cookbook.md`，覆盖 CCX Host、Photoshop/UXP 宿主环境以及 CCX WebView 内 Inner WebUI 的新踩坑、成因、正确做法、验证方式与可复用最佳实践；不得写入未经验证的猜测，也不得遗漏本次修复形成的新经验。
 
 ## 拒绝 Comment 内容直接出现在最终产物文案中
@@ -137,3 +138,7 @@ WebUI 部署:
 - 创意写作时严禁使用 markdown 列表（有序无序）
 - 所有的句子、过渡词和连接词替换为最基础、最常用的词语。尽量使用简单、直接的表达方式，避免使用复杂或生僻的词汇，确保句子之间的逻辑关系清晰，删掉文末总结的部分。
 - 有参考的情况下，请通过重构句子和段落的逻辑，确保思想的流畅性并且与原文有所区别
+
+服务器发行保留与自动清理策略（官网/WebUI）：`docs/spec.md`、`docs/release-sop.md` 的“服务器发行保留策略（2026-10-21）”；实现 `utils/deploy/release-retention.py`，成功验收后只保留 current。
+
+2026-11-04 未验证源码快照交接：`HANDOFF-WIP.md`。本分支禁止被误认为生产发行分支。

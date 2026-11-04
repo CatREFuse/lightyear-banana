@@ -227,8 +227,8 @@ export class MockHostClient implements HostClient {
       }
       case 'generation.testConfig': {
         const request = payload as HostCommandPayload<'generation.testConfig'>
-        const config = this.configs.find(item => item.id === request.configId)
-        const configured = Boolean(config?.name && config.model && (config.provider === 'comfyui' || config.hasCredential || this.credentials.has(config.id)))
+        const config = 'draftConfig' in request ? request.draftConfig : this.configs.find(item => item.id === request.configId)
+        const configured = Boolean(config?.name && config.model && (config.provider === 'comfyui' || ('apiKey' in request && request.apiKey) || config.hasCredential || this.credentials.has(config.id)))
         return { ok: configured, message: configured ? '连接成功' : '请填写 API Key' } as HostCommandResult<TCommand>
       }
       case 'canvas.placeAsset': {

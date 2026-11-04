@@ -28,7 +28,6 @@ const emit = defineEmits<{
   place: [image: GeneratedImage, target: PlacementTarget]
   preview: [image: CapturedCanvasImage]
   reference: [image: GeneratedImage]
-  retry: [turnId: string]
   save: [image: GeneratedImage]
   thumbnailLowResolution: [image: GeneratedImage]
   upscale: [image: GeneratedImage]
@@ -83,9 +82,6 @@ function handleResultImageLoad(event: Event, image: GeneratedImage) {
     ...renderedImageRatios.value,
     [image.id]: `${width} / ${height}`
   }
-  image.width = width
-  image.height = height
-  image.sourceBounds = { left: 0, top: 0, right: width, bottom: height }
 }
 
 function closePlacementMenu() {
@@ -481,9 +477,6 @@ watch(
               </button>
               <button v-if="turn.results.length" class="append-button" type="button" @click="emit('append', turn.id)">
                 追加
-              </button>
-              <button v-else class="append-button" type="button" @click="emit('retry', turn.id)">
-                重试
               </button>
             </div>
             <section v-if="visibleRequestLogs[turn.id]" class="request-log-stack" aria-label="请求日志">

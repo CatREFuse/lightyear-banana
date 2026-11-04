@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef, useTemplateRef } from 'vue'
+import { computed, nextTick, shallowRef, useId, useTemplateRef } from 'vue'
 import { useOutsidePointerDown } from '../../composables/useOutsidePointerDown'
 import BoxIcon from './BoxIcon.vue'
 
@@ -16,6 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const localOpen = shallowRef(false)
+const menuId = useId()
 const rootRef = useTemplateRef<HTMLElement>('root')
 
 const displayValue = computed(() => {
@@ -72,6 +73,35 @@ function readRatioMeta(option: string) {
 function selectRatio(option: string) {
   emit('change', option)
   closeOpen()
+  rootRef.value?.querySelector<HTMLButtonElement>('.ratio-trigger')?.focus()
+}
+
+async function handleKeydown(event: KeyboardEvent) {
+  if ((event.key === 'Escape' || event.key === 'Tab') && isOpen.value) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    closeOpen()
+    rootRef.value?.querySelector<HTMLButtonElement>('.ratio-trigger')?.focus()
+    return
+  }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  const wasOpen = isOpen.value
+  if (!wasOpen) {
+    toggleOpen()
+    await nextTick()
+  }
+  const options = Array.from(rootRef.value?.querySelectorAll<HTMLButtonElement>('[role=option]') ?? [])
+  if (!options.length) return
+  const current = options.indexOf(document.activeElement as HTMLButtonElement)
+  let index = current
+  if (event.key === 'Home') index = 0
+  else if (event.key === 'End') index = options.length - 1
+  else if (!wasOpen || current < 0) index = Math.max(0, props.options.indexOf(props.value))
+  else index = (current + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length
+  options[index]?.focus()
 }
 
 function toggleOpen() {
@@ -87,22 +117,25 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
 </script>
 
 <template>
-  <div ref="root" class="ratio-picker" :class="{ 'is-open': isOpen }">
+  <div ref="root" class="ratio-picker" :class="{ 'is-open': isOpen }" @keydown="handleKeydown">
     <span class="ratio-label">比例</span>
     <div class="ratio-anchor">
-      <button class="ratio-trigger" type="button" @click="toggleOpen">
+      <button class="ratio-trigger" type="button" :aria-label="`比例：${value}`" aria-haspopup="listbox" :aria-expanded="isOpen" :aria-controls="menuId" @click="toggleOpen">
         <BoxIcon name="crop" size="14" />
         <span>{{ displayValue }}</span>
         <BoxIcon class="ratio-chevron" name="chevron-down" size="16" />
       </button>
 
       <Transition name="menu-pop">
-        <div v-if="isOpen" class="ratio-menu">
+        <div v-if="isOpen" :id="menuId" class="ratio-menu" role="listbox" aria-label="比例" tabindex="-1">
           <button
             v-for="option in options"
             :key="option"
             class="ratio-option"
             :class="{ selected: option === value }"
+            role="option"
+            :aria-selected="option === value"
+            tabindex="-1"
             type="button"
             @click="selectRatio(option)"
           >
@@ -173,15 +206,16 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   position: absolute;
   z-index: 30;
   bottom: calc(100% + 2px);
-  left: 0;
+  left: 50%;
   display: grid;
-  width: 230px;
+  width: min(230px, calc(100vw - 24px));
   max-height: 230px;
   overflow-y: auto;
   border: 1px solid var(--mugen-border-strong);
   border-radius: 8px;
   background: var(--mugen-overlay);
   box-shadow: 0 12px 32px var(--mugen-shadow);
+  transform: translateX(-50%);
 }
 
 .ratio-option {
@@ -243,13 +277,13 @@ useOutsidePointerDown(rootRef, closeOpen, () => isOpen.value)
   transition:
     opacity 130ms ease,
     transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform-origin: bottom left;
+  transform-origin: bottom center;
 }
 
 .menu-pop-enter-from,
 .menu-pop-leave-to {
   opacity: 0;
-  transform: translateY(5px) scale(0.98);
+  transform: translate(-50%, 5px) scale(0.98);
 }
 
 @media (prefers-reduced-motion: reduce) {

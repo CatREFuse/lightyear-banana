@@ -12,8 +12,8 @@ import { canUseDevelopmentApimartBaseUrl } from '@mugen/core'
 import { getHostRequire } from '../photoshopHost'
 import { createProviderReferencePreview, type CapturedCanvasImage } from '../canvasPrimitives'
 import { AssetStore } from './assetStore'
-import { getCredential, getSettings } from './storage'
-import { toHostAssetPointer, type GenerationSnapshot, type HistoryUpsertEntry, type RequestLog, type TaskPhase } from '@mugen/inner-protocol'
+import { getCredential, getSettings, validateConfig } from './storage'
+import { toHostAssetPointer, type GenerationSnapshot, type HistoryUpsertEntry, type HostCommandPayload, type RequestLog, type TaskPhase } from '@mugen/inner-protocol'
 import { validateProviderGenerationParameters } from '@mugen/inner-protocol'
 
 type RuntimeEvent = 'generation.progress' | 'generation.completed' | 'generation.failed'
@@ -480,14 +480,21 @@ export class ProviderRuntime {
     if (!this.destroyed) this.accepting = true
   }
 
-  async testConfig(configId: string) {
+  async testConfig(input: string | HostCommandPayload<'generation.testConfig'>) {
     let config: ModelConfig | undefined
+    let apiKey = typeof input === 'object' && 'draftConfig' in input ? input.apiKey?.trim() ?? '' : ''
     try {
-      config = await readConfig(configId)
+      if (typeof input === 'string' || 'configId' in input) {
+        config = await readConfig(typeof input === 'string' ? input : input.configId)
+      } else {
+        const draft = validateConfig(input.draftConfig)
+        if (!apiKey) apiKey = await getCredential(draft, true)
+        config = { ...draft, models: draft.models ?? [draft.model], apiKey, baseUrl: sanitizeBaseUrl(draft.baseUrl), comfyUi: draft.comfyUi as ModelConfig['comfyUi'] }
+      }
       await testImageConfig(config)
       return { ok: true, message: '连接成功' }
     } catch (error) {
-      return { ok: false, message: messageFromError(error, config?.apiKey) }
+      return { ok: false, message: messageFromError(error, config?.apiKey || apiKey) }
     }
   }
 
@@ -576,11 +583,7 @@ export class ProviderRuntime {
       }
 
       if (running.controller.signal.aborted) throw abortError()
-      try {
-        for (const assetId of materializedAssetIds) this.options.assets.get(assetId)
-      } catch {
-        throw new Error('生成结果超过 Photoshop 暂存容量，请减少图片数量或尺寸')
-      }
+      for (const assetId of materializedAssetIds) this.options.assets.get(assetId)
       await this.options.persistHistory({
         id: taskId,
         updatedAt: new Date().toISOString(),

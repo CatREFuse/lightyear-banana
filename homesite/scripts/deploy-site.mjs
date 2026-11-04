@@ -1,3 +1,4 @@
+import { retentionCommand, verifyThenRetainCurrent } from '../../utils/deploy/release-retention.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import {
@@ -318,10 +319,9 @@ export function validateSiteBuild(directory = defaultSiteDirectory) {
     'index.html',
     'styles.css',
     'app.js',
-    'prism-optics.js',
     'prism-scene.js',
+    'prism.wgsl',
     'assets/mugen-wordmark-imagegen-v2-4k.png',
-    'vendor/three.module.min.js',
     siteReleaseFileName,
     siteManifestFileName
   ]) {
@@ -573,6 +573,7 @@ export function createPrepareCommand({ incoming, markerName, remoteRoot = defaul
     `current_target=$(readlink ${shellQuote(current)})`,
     assertReleaseTargetShell('current_target', remoteRoot, 'current target'),
     `previous_target=${shellQuote('__MUGEN_NONE__')}`,
+    `if test -L ${shellQuote(previous)} && test ! -e ${shellQuote(previous)}; then dangling_previous=$(readlink ${shellQuote(previous)}); case "$dangling_previous" in ${shellQuote(`${remoteRoot}/releases/`)}*) rm -- ${shellQuote(previous)} ;; *) echo "previous is outside releases" >&2; exit 77 ;; esac; fi`,
     `if test -e ${shellQuote(previous)} || test -L ${shellQuote(previous)}; then test -L ${shellQuote(previous)} || { echo "previous is not a symlink" >&2; exit 73; }; previous_target=$(readlink ${shellQuote(previous)}); ${assertReleaseTargetShell('previous_target', remoteRoot, 'previous target')}; fi`,
     'current_releases="$current_target/releases"',
     assertDynamicDirectoryShell('current_releases', 'current release downloads directory'),
@@ -785,8 +786,8 @@ export function createActivationCommand({
     `(cd "$current_target" && find releases -type f -exec sha256sum {} + | LC_ALL=C sort > ${shellQuote(inheritedManifest)})`,
     `test -s ${shellQuote(inheritedManifest)}`,
     `mkdir ${shellQuote(`${stage}/releases`)}`,
-    `cp -a "$current_target/releases/." ${shellQuote(`${stage}/releases/`)}`,
-    `(cd ${shellQuote(stage)} && sha256sum -c ${shellQuote(inheritedManifest)} >/dev/null)`,
+    retentionCommand('copy-downloads', `${expectedCurrent}/releases`, `${stage}/releases`),
+    `(cd ${shellQuote(stage)} && sha256sum -c --ignore-missing ${shellQuote(inheritedManifest)} >/dev/null)`,
     `printf ${shellQuote(`${expectedLatestSha}  ${stage}/releases/latest.json\n`)} | sha256sum -c - >/dev/null`
   ]
   if (ccx) {
@@ -1549,6 +1550,7 @@ async function main() {
     }
     const result = transition.result
     await verifyPublicRollback(publicUrl, result)
+    captureSsh(configuration, withRemoteLock(remoteRoot, retentionCommand('prune', remoteRoot, result.current, 'site')))
     console.log(`Official site rolled back to ${result.current}.`)
     return
   }
@@ -1583,7 +1585,7 @@ async function main() {
     console.log(`Official site deployment target: ${configuration.target}:${remoteRoot}/releases/${siteId}`)
     console.log(`Public URL: ${publicUrl.href}`)
     console.log(`Snapshot: ${snapshot.records.length} files, sha256:${snapshot.snapshotHash}`)
-    console.log('Legacy releases data is inherited only for rollback compatibility; the active download is bundled in download/.')
+    console.log('Only downloads referenced by the legacy index are inherited; verified deployments retain only current.')
     if (ccx) console.log(`Optional CCX: ${ccx.destination} (${ccx.size} bytes, ${ccx.sha256})`)
     if (dryRun) return
 
@@ -1650,15 +1652,16 @@ async function main() {
       const activated = activation.result
       cleanupAllowed = false
       try {
-        const verification = await verifyPublicSite({
+        const verification = await verifyThenRetainCurrent(() => verifyPublicSite({
           baseUrl: publicUrl,
           ccx,
           expectedLatestSha: prepared.latestSha,
           records: snapshot.records,
           snapshotDirectory
-        })
+        }), () => captureSsh(configuration, withRemoteLock(remoteRoot, retentionCommand('prune', remoteRoot, activated.current, 'site', incoming))))
         console.log(`Official site ${siteId} verified (${verification.verifiedFiles} public files).`)
       } catch (error) {
+        if (error?.code === 'RELEASE_RETENTION_FAILED') throw error
         console.error('Public site verification failed; restoring the previous immutable release.')
         try {
           const automaticProofName = `site-rollback-${token}-verify.latest.json`
@@ -1691,6 +1694,7 @@ async function main() {
           }
           const restored = rollbackTransition.result
           await verifyPublicRollback(publicUrl, restored)
+          captureSsh(configuration, withRemoteLock(remoteRoot, retentionCommand('prune', remoteRoot, restored.current, 'site', incoming)))
           cleanupAllowed = true
           console.error(`Previous site release restored: ${restored.current}`)
         } catch (rollbackError) {
@@ -1700,6 +1704,7 @@ async function main() {
         throw error
       }
     } catch (error) {
+      if (error?.code === 'RELEASE_RETENTION_FAILED') throw error
       if (cleanupAllowed) {
         try {
           captureSsh(configuration, createCleanupCommand({

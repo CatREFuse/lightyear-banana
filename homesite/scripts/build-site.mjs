@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { build } from "esbuild"
 import { verifyReleaseSite } from "./verify-release-bundle.mjs"
 import {
   createSiteManifest,
@@ -22,6 +23,17 @@ await mkdir(outDir, { recursive: true })
 await cp(siteDir, outDir, {
   recursive: true,
   filter: (source) => !source.endsWith(".DS_Store")
+})
+
+await build({
+  bundle: true,
+  entryPoints: [join(siteDir, "prism-scene.js")],
+  format: "esm",
+  legalComments: "eof",
+  minify: true,
+  outfile: join(outDir, "prism-scene.js"),
+  platform: "browser",
+  target: ["es2022"]
 })
 
 const releaseOrigin = new URL(bundle.ccxMetadata.webviewOrigin).origin

@@ -62,6 +62,17 @@ describe('inner-host/v1 envelope', () => {
     expect(() => validateCommandPayload('generation.testConfig', { config: {}, apiKey: 'secret' })).toThrow('配置测试')
   })
 
+  it('accepts a transient configuration test without a saved config ID', () => {
+    const draftConfig = {
+      id: 'config-draft', name: '测试配置', provider: 'custom-openai', model: 'image-model',
+      baseUrl: 'https://api.vendor.dev', enabled: true, credentialState: 'missing'
+    }
+    expect(() => validateCommandPayload('generation.testConfig', { draftConfig, apiKey: 'draft-secret' })).not.toThrow()
+    expect(() => validateCommandPayload('generation.testConfig', { draftConfig, apiKey: 123 })).toThrow('配置测试')
+    expect(() => validateCommandPayload('generation.testConfig', { draftConfig, configId: 'saved-config' })).toThrow('配置测试')
+    expect(() => validateCommandPayload('generation.testConfig', { draftConfig: { ...draftConfig, provider: 'invalid' } })).toThrow('配置测试')
+  })
+
   it('accepts only supported persisted theme preferences', () => {
     const config = {
       id: 'config-1', name: '配置', provider: 'apimart', model: 'gpt-image-1',

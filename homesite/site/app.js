@@ -17,11 +17,11 @@ export function createPrismLifecycle({ stage, loadScene }) {
   let unavailable = false
 
   function showFallback() {
-    stage.classList.add('webgl-unavailable')
+    stage.classList.add('webgpu-unavailable')
   }
 
   function hideFallback() {
-    stage.classList.remove('webgl-unavailable')
+    stage.classList.remove('webgpu-unavailable')
   }
 
   function handleSceneFatal(token) {
@@ -187,8 +187,8 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') {
     const lifecycle = createPrismLifecycle({
       stage,
       loadScene: async (onFatal) => {
-        const { createPrismScene } = await import('./prism-scene.js')
-        prismScene = createPrismScene(canvas, stage, {
+        const { createPrismScene } = await import('./prism-scene.js?v=20260901-ltr')
+        prismScene = await createPrismScene(canvas, stage, {
           initialParams: panelController?.params,
           onFatal,
           onPrismClick: panelUnlock.trigger

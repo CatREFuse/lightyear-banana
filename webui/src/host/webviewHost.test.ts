@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BridgeEnvelope, HostContext } from '@mugen/inner-protocol'
-import { INNER_HOST_PROTOCOL, PROTOCOL_VERSION } from '@mugen/inner-protocol'
+import { DRAFT_CONFIG_TEST_CAPABILITY, INNER_HOST_PROTOCOL, PROTOCOL_VERSION } from '@mugen/inner-protocol'
 import { WebViewHostClient, type CcxHostBridge } from './webviewHost'
 
 const context: HostContext = {
@@ -179,27 +179,23 @@ describe('WebViewHostClient', () => {
     }
 
     vi.useFakeTimers()
-    const pending = harness.client.testConfig(config)
-    const settingsRequest = harness.sent.at(-1)!
+    const pending = harness.client.testConfig(config, 'temporary-test-key')
+    const contextRequest = harness.sent.at(-1)!
+    expect(contextRequest.command).toBe('host.getContext')
     harness.dispatch(envelope({
       kind: 'response',
-      command: settingsRequest.command,
-      messageId: settingsRequest.messageId,
-      payload: { activeConfigId: config.id, configs: [] }
-    }))
-    await vi.waitFor(() => expect(harness.sent.at(-1)?.command).toBe('settings.save'))
-    const saveRequest = harness.sent.at(-1)!
-    const savePayload = saveRequest.payload as { configs: unknown[] }
-    harness.dispatch(envelope({
-      kind: 'response',
-      command: saveRequest.command,
-      messageId: saveRequest.messageId,
-      payload: { activeConfigId: config.id, configs: [savePayload.configs[0]] }
+      command: contextRequest.command,
+      messageId: contextRequest.messageId,
+      payload: { ...context, capabilities: [...context.capabilities, DRAFT_CONFIG_TEST_CAPABILITY] }
     }))
     await vi.waitFor(() => expect(harness.sent.at(-1)?.command).toBe('generation.testConfig'))
 
     await vi.advanceTimersByTimeAsync(13_000)
     const testRequest = harness.sent.at(-1)!
+    expect(testRequest.payload).toMatchObject({ draftConfig: { id: config.id, model: config.model }, apiKey: 'temporary-test-key' })
+    expect(testRequest.payload).not.toHaveProperty('configId')
+    expect(testRequest.payload).not.toHaveProperty('draftConfig.apiKey')
+    expect(harness.sent.some((request) => ['settings.save', 'credential.set'].includes(request.command))).toBe(false)
     harness.dispatch(envelope({
       kind: 'response',
       command: testRequest.command,
@@ -208,6 +204,22 @@ describe('WebViewHostClient', () => {
     }))
 
     await expect(pending).resolves.toEqual({ ok: true, message: '连接成功' })
+    harness.client.dispose()
+  })
+
+  it('requires a Host update before testing a draft on an older plugin without changing saved settings', async () => {
+    const harness = createHarness()
+    await connect(harness)
+    const pending = harness.client.testConfig({
+      id: 'config-1', name: '测试配置', provider: 'openai', model: 'gpt-image-2',
+      baseUrl: 'https://api.openai.com', enabled: true, hasCredential: false
+    }, 'temporary-test-key')
+    const assertion = expect(pending).rejects.toMatchObject({ code: 'HOST_UPDATE_REQUIRED' })
+    const request = harness.sent.at(-1)!
+    harness.dispatch(envelope({ kind: 'response', command: request.command, messageId: request.messageId, payload: context }))
+    await assertion
+    expect(harness.sent.map((item) => item.command)).toEqual(['host.handshake', 'host.getContext'])
+    expect(JSON.stringify(harness.sent)).not.toContain('temporary-test-key')
     harness.client.dispose()
   })
 

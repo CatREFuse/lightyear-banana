@@ -1,4 +1,5 @@
 export const PROTOCOL_VERSION = 1 as const
+export const DRAFT_CONFIG_TEST_CAPABILITY = 'generation.testConfig.draft' as const
 export const INNER_HOST_PROTOCOL = 'inner-host/v1' as const
 // These wire identifiers stay stable so a Mugen host can load an already deployed v1 WebUI.
 export const LOCATION_BRIDGE_QUERY = '__lightyear_bridge' as const
@@ -237,7 +238,7 @@ export interface HostCommandMap {
   'reference.importImageChunk': { payload: { importId: string; name: string; mimeType: string; source: 'upload' | 'clipboard'; width: number; height: number; index: number; total: number; chunk: string; thumbnailUrl?: string }; result: HostAssetRef | null }
   'generation.start': { payload: GenerationSnapshot; result: { taskId: string } }
   'generation.cancel': { payload: { taskId: string }; result: { taskId?: string; cancelled?: boolean } | undefined }
-  'generation.testConfig': { payload: { configId: string }; result: { ok: boolean; message: string } }
+  'generation.testConfig': { payload: { configId: string } | { draftConfig: PublicModelConfig; apiKey?: string }; result: { ok: boolean; message: string } }
   'canvas.placeAsset': { payload: { assetId: string; target: PlacementTarget }; result: PlacementResult }
   'asset.save': { payload: { assetId: string }; result: { saved: boolean; fileName?: string } }
   'asset.readOriginal': { payload: { assetId: string; offset: number }; result: AssetOriginalChunk }
@@ -651,6 +652,10 @@ export function validateCommandPayload<TCommand extends HostCommand>(command: TC
     }
     case 'generation.testConfig': {
       const value = requireRecord(payload, command)
+      if (value.draftConfig !== undefined) {
+        if (value.configId !== undefined || !isPublicModelConfig(value.draftConfig) || (value.apiKey !== undefined && !nonEmptyText(value.apiKey, 8192))) throw new BridgeValidationError('INVALID_PAYLOAD', '配置测试参数无效')
+        return
+      }
       if (!nonEmptyText(value.configId)) throw new BridgeValidationError('INVALID_PAYLOAD', '配置测试参数无效')
       return
     }

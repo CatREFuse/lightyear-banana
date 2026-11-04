@@ -72,12 +72,10 @@ function createSiteFixture(context) {
     'index.html',
     'styles.css',
     'app.js',
-    'prism-optics.js',
     'prism-scene.js',
+    'prism.wgsl',
     'assets/mugen-wordmark-imagegen-v2-4k.png',
-    'vendor/three.module.min.js'
   ]) write(root, file, `fixture:${file}`)
-  write(root, 'vendor/THREE-LICENSE.txt', 'license')
   write(root, 'download/mugen-1.0.2-2608140002.ccx', 'current download')
   const release = createSiteReleaseMetadata({
     builtAt: '2026-08-12T03:04:05.000Z',
@@ -295,7 +293,8 @@ test('activation preserves current releases, verifies every file, records previo
   assert.match(command, /current_target_release_id=/)
   assert.match(command, /not one immutable release directory/)
   assert.match(command, /find releases -type f -exec sha256sum \{\} \+/)
-  assert.match(command, /cp -a .*current_target\/releases\/\./)
+  assert.match(command, /copy-downloads/)
+  assert.doesNotMatch(command, /cp -a .*current_target\/releases\/\./)
   assert.match(command, /inherited-releases\.sha256/)
   assert.match(command, /mugen-1\.0\.1\.ccx/)
   assert.match(command, /SHA256SUMS\.txt/)

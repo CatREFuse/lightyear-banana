@@ -56,7 +56,7 @@ npm run package:ccx
 
 发布构建必须来自已提交的干净 Git 工作区。`release.json` 会记录提交、构建时间和内容哈希，部署脚本拒绝 `dirty` 构建。
 
-部署脚本先复制稳定快照并逐文件校验上传内容，再按 WebUI 内容哈希创建不可变版本目录。服务器文件锁会串行激活，通过临时符号链接原子切换 `current`，并保留上一个目标为 `previous`。哈希资源累积保存在共享 `assets` 目录，已经打开的旧页面仍可完成懒加载。切换完成后，脚本会精确比对公网与本地 `release.json`、`compatibility.json`、入口 HTML 和入口资源字节，同时检查安全响应头与静态资源 MIME。公网校验失败时只会在 `current` 仍指向本次发布的情况下尝试恢复，避免回滚覆盖并发发布。
+部署脚本先复制稳定快照并逐文件校验上传内容，再按 WebUI 内容哈希创建不可变版本目录。服务器文件锁会串行激活，通过临时符号链接原子切换 `current`，并保留上一个目标为 `previous`。共享 `assets` 在验收期间保留新旧资源，验收成功后只保留当前快照拥有的资源，旧页面可能需要刷新。切换完成后，脚本会精确比对公网与本地 `release.json`、`compatibility.json`、入口 HTML 和入口资源字节，同时检查安全响应头与静态资源 MIME。公网校验失败时只会在 `current` 仍指向本次发布的情况下尝试恢复，避免回滚覆盖并发发布。
 
 首次配置路由时可以先上传静态文件。该参数只允许服务器尚无 `current` 版本时使用：
 
@@ -72,7 +72,7 @@ Nginx 生效后必须重新执行不带跳过参数的正式部署，完成公�
 npm run deploy:inner-webui -- --rollback
 ```
 
-回滚会交换 `current` 与 `previous`，然后再次执行公网版本检查。部署脚本不会自动删除历史版本目录。
+回滚会交换 `current` 与 `previous`，然后再次执行公网版本检查。恢复后的公网检查通过后自动删除非 current 目录及 previous 链接。成功发行后没有 previous；恢复旧版需从对应源码重新构建发布。
 
 ## 发布顺序
 
@@ -83,3 +83,13 @@ WebUI 与 CCX 使用独立发布链。WebUI 部署会校验公网文件与本次
 安装 CCX 后，在真实 Photoshop 中验证握手、画布抓取、参考图、生成、取消、落图、保存、历史和诊断导出。完成这些验证后，才能按 `docs/build-todo-list.md` 门禁进入正式发布。
 
 正式 Manifest 的 Provider 网络权限使用 `all`，用于用户自定义 HTTPS Base URL 和 loopback 本地服务。Host 会拒绝带凭据的 URL、非 loopback HTTP 和无效 Provider；WebView 权限只允许 `INNER_WEBUI_URL` 的精确 HTTPS Origin，并使用 `localAndRemote` 消息桥。该权限决策需要随每次 CCX 安全审查复核。
+
+## 服务器发行保留策略（2026-10-21）
+
+- 官网和 WebUI 均只长期保留 `current` 指向的一份发行快照。上传、切换和公网校验期间保留旧版本以便失败恢复；校验成功后重新获取发布锁，确认 `current` 仍为已验证目标，再删除其他发行目录及 `previous` 链接。
+- 官网不再复制整份旧安装包目录；只继承旧 `releases/latest.json` 及其引用的本地下载与 JSON 索引。当前官网 `download/` 随本次构建保留。缺失文件、路径穿越和软链接均中止处理，不能静默遗漏引用。
+- WebUI 共享 `assets/` 只保留当前快照拥有的文件；旧页面可能需要刷新，HTTP/浏览器缓存响应头保持原样。
+- 本次 incoming 上传包在确认安全后清除；不清理其他正在上传任务的目录，也不扫描业务数据目录。未完成公网验证、跳过验证、恢复失败或远端状态不明时不执行历史裁剪；恢复完成且公网校验通过后，使用同一规则只保留恢复后的 current。
+- 清理失败会单独报错，不将它当作公网验证失败，也不回滚到可能已经删除的历史版本。所有删除目标在动手前完成边界和元数据检查；非预期目录导致停止。
+- `previous` 只在尚未完成验收的发布事务中存在。成功发行后不再支持直接切回服务器历史副本；需要恢复旧版本时，从对应 Git 提交重新构建并正常发布。
+- 远端依赖 Python 3.8+、现有 `flock`、GNU `sha256sum` 和原子重命名能力。公共实现为 `utils/deploy/release-retention.py` / `.mjs`，回归已纳入 `npm run test:release-policy`。

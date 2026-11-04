@@ -143,8 +143,10 @@ function assetToReference(asset: HostAssetRef): ReferenceImage {
 }
 
 function assetToGenerated(asset: HostAssetRef, snapshot: GenerationSnapshot, modelName: string, previewUrl?: string): GeneratedImage {
+  const image = assetToCanvasImage(asset, previewUrl)
   return {
-    ...assetToCanvasImage(asset, previewUrl),
+    ...image,
+    ...(previewUrl ? { previewStatus: 'ready' as const, previewError: undefined } : {}),
     modelConfigId: snapshot.configId,
     modelName
   }
@@ -220,6 +222,11 @@ export function useInnerMugen(): MugenController {
   const diagnosticExportState = shallowRef<DiagnosticExportState>({ status: 'idle', message: '最近 24 小时' })
   const generatedThumbnails = shallowReactive<Record<string, string>>({})
   const settingsDraft = reactive<ModelConfig>(makeEmptyConfig())
+  let settingsTestRequest = 0
+  watch([settingsDraft, settingsView, activeView], () => {
+    settingsTestRequest += 1
+    settingsTestState.value = { status: 'idle', message: '' }
+  }, { deep: true, flush: 'sync' })
   const requestedGeneratedThumbnails = new Set<string>()
   let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -256,6 +263,9 @@ export function useInnerMugen(): MugenController {
   const turns = computed<ChatTurn[]>(() => store.turns
     .filter((turn) => turn.status !== 'running')
     .map((turn) => hostTurnToUi(turn)))
+  const unavailableGeneratedAssets = computed(() => store.turns
+    .flatMap((turn) => turn.results)
+    .filter((asset) => asset.previewStatus === 'unavailable' && asset.originalAvailable !== false))
 
   function hostTurnToUi(turn: HostTurn): ChatTurn {
     const config = configs.value.find((item) => item.id === turn.snapshot.configId)
@@ -304,6 +314,9 @@ export function useInnerMugen(): MugenController {
   }
 
   watch(activeCapability, syncRequestDefaults, { immediate: true })
+  watch(unavailableGeneratedAssets, (assets) => {
+    for (const asset of assets) void recoverGeneratedThumbnail(asset.assetId, asset.originalAvailable)
+  }, { immediate: true })
   watch(() => store.status, (status) => {
     if (status !== 'ready') return
     const config = activeConfig.value
@@ -379,13 +392,6 @@ export function useInnerMugen(): MugenController {
     showToast('正在追加生成')
   }
 
-  async function retryGeneration(turnId: string) {
-    const turn = store.turns.find((item) => item.id === turnId)
-    if (!turn) return
-    await store.retry(turn)
-    showToast('正在重试生成')
-  }
-
   async function editGenerationRequest(turnId: string) {
     const turn = store.turns.find((item) => item.id === turnId)
     if (!turn) return
@@ -443,16 +449,20 @@ export function useInnerMugen(): MugenController {
     return { ...image, previewUrl, previewStatus: 'ready' as const, previewError: undefined }
   }
 
-  async function upgradeGeneratedThumbnail(image: GeneratedImage) {
-    if (generatedThumbnails[image.id] || requestedGeneratedThumbnails.has(image.id) || image.originalAvailable === false) return
-    requestedGeneratedThumbnails.add(image.id)
+  async function recoverGeneratedThumbnail(assetId: string, originalAvailable?: boolean) {
+    if (generatedThumbnails[assetId] || requestedGeneratedThumbnails.has(assetId) || originalAvailable === false) return
+    requestedGeneratedThumbnails.add(assetId)
     try {
-      const originalUrl = await store.host.readOriginalAsset(image.id)
+      const originalUrl = await store.host.readOriginalAsset(assetId)
       const thumbnail = await createConversationThumbnail(originalUrl)
-      generatedThumbnails[image.id] = thumbnail.previewUrl
+      generatedThumbnails[assetId] = thumbnail.previewUrl
     } catch (reason) {
       showToast(reason instanceof Error ? `缩略图升级失败：${reason.message}` : '缩略图升级失败，请点击查看原图')
     }
+  }
+
+  async function upgradeGeneratedThumbnail(image: GeneratedImage) {
+    await recoverGeneratedThumbnail(image.id, image.originalAvailable)
   }
 
   async function useResultAsReference(image: GeneratedImage) {
@@ -571,9 +581,14 @@ export function useInnerMugen(): MugenController {
   async function toggleConfigEnabled(enabled: boolean) {
     settingsDraft.enabled = enabled
     if (settingsDraftIsNew.value) return
-    await saveConfig()
-    editConfig(settingsDraft.id)
-    showToast(enabled ? '已启用配置' : '已停用配置')
+    const savedConfig = store.configs.find((config) => config.id === settingsDraft.id)!
+    try {
+      await store.saveConfig({ ...savedConfig, enabled })
+      showToast(enabled ? '已启用配置' : '已停用配置')
+    } catch (reason) {
+      if (settingsDraft.id === savedConfig.id) settingsDraft.enabled = savedConfig.enabled
+      showToast(reason instanceof Error ? reason.message : '保存失败')
+    }
   }
 
   async function deleteConfig() {
@@ -591,12 +606,15 @@ export function useInnerMugen(): MugenController {
   }
 
   async function testConfig() {
+    const request = ++settingsTestRequest
     settingsTestState.value = { status: 'testing', message: '正在测试连接' }
     const apiKey = settingsDraft.apiKey && settingsDraft.apiKey !== storedCredentialPlaceholder ? settingsDraft.apiKey : undefined
     try {
       const result = await store.host.testConfig(uiConfigToHost(settingsDraft, storedCredentialFor(settingsDraft.id)), apiKey)
+      if (request !== settingsTestRequest) return
       settingsTestState.value = { status: result.ok ? 'success' : 'error', message: result.message }
     } catch (reason) {
+      if (request !== settingsTestRequest) return
       settingsTestState.value = { status: 'error', message: reason instanceof Error ? reason.message : '连接测试失败' }
     }
   }
@@ -674,7 +692,6 @@ export function useInnerMugen(): MugenController {
     references,
     refreshDocument,
     removeReference,
-    retryGeneration,
     resolutionMode,
     saveConfig,
     saveGeneratedImage,

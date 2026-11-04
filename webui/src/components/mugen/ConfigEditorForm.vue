@@ -427,7 +427,7 @@ function parseNodeIds(value: string) {
                 :value="node.nodeIds.join(', ')"
                 type="text"
                 placeholder="留空则不写入"
-                @input="updateComfyUiNode(index, { nodeIds: parseNodeIds(($event.target as HTMLInputElement).value) })"
+                @change="updateComfyUiNode(index, { nodeIds: parseNodeIds(($event.target as HTMLInputElement).value) })"
               />
             </label>
             <label>

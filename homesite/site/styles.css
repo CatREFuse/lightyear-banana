@@ -123,6 +123,7 @@ a {
   width: 100%;
   height: 100%;
   outline: none;
+  animation: prism-reveal 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 .parameter-panel {
@@ -238,11 +239,11 @@ a {
   filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
 }
 
-.webgl-unavailable .prism-fallback {
+.webgpu-unavailable .prism-fallback {
   display: block;
 }
 
-.webgl-unavailable .prism-canvas {
+.webgpu-unavailable .prism-canvas {
   display: none;
 }
 
@@ -379,6 +380,19 @@ a {
   100% { transform: translate3d(-2%, -3%, 0); }
 }
 
+@keyframes prism-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
 @media (max-width: 720px) {
   .hero {
     grid-template-rows: minmax(112px, 23vh) minmax(230px, 1fr) auto auto;
@@ -442,8 +456,37 @@ a {
   }
 }
 
+@media (max-height: 560px) {
+  .hero {
+    grid-template-rows: minmax(0, 30%) minmax(0, 1fr) auto auto;
+    padding-block: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-bottom));
+  }
+
+  .brand {
+    width: min(72vw, 48vh);
+    min-width: 0;
+  }
+
+  .liquid-button {
+    min-height: 48px;
+  }
+
+  .specimen {
+    margin-top: 12px;
+  }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .release-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(760px, calc(100vw - 36px));
+    gap: 12px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .grain {
+  .grain,
+  .prism-canvas {
     animation: none;
   }
 

@@ -86,9 +86,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const currentCapability = computed(() => readProviderCapability(currentConfig.value))
   const canAddReference = computed(() => references.value.length < currentCapability.value.referenceLimit)
   const resolvedTheme = computed(() => colorMode.value === 'system' ? (context.value?.theme || 'dark') : colorMode.value)
-  let activeConfigSave: Promise<void> = Promise.resolve()
+  let settingsMutation: Promise<void> = Promise.resolve()
   let referenceMutation: Promise<void> = Promise.resolve()
-  let themeSave: Promise<void> = Promise.resolve()
   let elapsedTimer: ReturnType<typeof setInterval> | undefined
   const pendingTaskEvents = new Map<string, HostEvent[]>()
 
@@ -123,6 +122,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function mutateReferences<T>(operation: () => Promise<T>) {
     const run = referenceMutation.then(operation, operation)
     referenceMutation = run.then(() => undefined, () => undefined)
+    return run
+  }
+
+  function mutateSettings<T>(operation: () => Promise<T>) {
+    const run = settingsMutation.then(operation, operation)
+    settingsMutation = run.then(() => undefined, () => undefined)
     return run
   }
 
@@ -177,7 +182,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   function selectConfig(configId: string) {
-    if (!enabledConfigs.value.some((config) => config.id === configId)) return activeConfigSave
+    if (!enabledConfigs.value.some((config) => config.id === configId)) return settingsMutation
     selectedConfigId.value = configId
     const persist = async () => {
       try {
@@ -187,8 +192,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         error.value = reason instanceof Error ? `当前模型未保存：${reason.message}` : '当前模型暂时无法保存'
       }
     }
-    activeConfigSave = activeConfigSave.then(persist, persist)
-    return activeConfigSave
+    return mutateSettings(persist)
   }
 
   function addReference(source: 'visible' | 'selection' | 'layer' | 'upload' | 'clipboard') {
@@ -376,7 +380,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
   }
   function clearLocalData() {
-    return mutateReferences(async () => {
+    return mutateReferences(() => mutateSettings(async () => {
       const result = await host.clearLocalData()
       try { localStorage.clear() } catch {}
       try { sessionStorage.clear() } catch {}
@@ -388,21 +392,25 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       colorMode.value = 'dark'
       error.value = ''
       return result
+    }))
+  }
+  function saveConfig(config: ModelConfig, apiKey?: string) {
+    return mutateSettings(async () => {
+      const saved = await host.saveConfig(config, apiKey)
+      const index = configs.value.findIndex((item) => item.id === saved.id)
+      if (index >= 0) configs.value.splice(index, 1, saved)
+      else configs.value.push(saved)
+      selectedConfigId.value = isConfigUsable(saved) ? saved.id : (enabledConfigs.value[0]?.id || '')
+      return saved
     })
   }
-  async function saveConfig(config: ModelConfig, apiKey?: string) {
-    const saved = await host.saveConfig(config, apiKey)
-    const index = configs.value.findIndex((item) => item.id === saved.id)
-    if (index >= 0) configs.value.splice(index, 1, saved)
-    else configs.value.push(saved)
-    selectedConfigId.value = isConfigUsable(saved) ? saved.id : (enabledConfigs.value[0]?.id || '')
-    return saved
-  }
-  async function deleteConfig(configId: string) {
-    if (configs.value.length <= 1) throw new Error('至少保留一个模型配置')
-    await host.deleteConfig(configId)
-    configs.value = configs.value.filter((config) => config.id !== configId)
-    selectedConfigId.value = enabledConfigs.value[0]?.id || ''
+  function deleteConfig(configId: string) {
+    return mutateSettings(async () => {
+      if (configs.value.length <= 1) throw new Error('至少保留一个模型配置')
+      await host.deleteConfig(configId)
+      configs.value = configs.value.filter((config) => config.id !== configId)
+      selectedConfigId.value = enabledConfigs.value[0]?.id || ''
+    })
   }
   function persistThemePreferences() {
     const persist = async () => {
@@ -416,8 +424,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         error.value = reason instanceof Error ? `主题未保存：${reason.message}` : '主题暂时无法保存'
       }
     }
-    themeSave = themeSave.then(persist, persist)
-    return themeSave
+    return mutateSettings(persist)
   }
   function setColorMode(value: 'dark' | 'light' | 'system') {
     colorMode.value = value
@@ -429,10 +436,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
   const theme = colorMode
   const setTheme = setColorMode
-  async function savePromptPresets(next: PromptPreset[]) {
-    const settings = await host.invoke('settings.get', undefined)
-    const saved = await host.invoke('settings.save', { ...settings, promptPresets: next })
-    promptPresets.value = saved.promptPresets ?? []
+  function savePromptPresets(next: PromptPreset[]) {
+    return mutateSettings(async () => {
+      const settings = await host.invoke('settings.get', undefined)
+      const saved = await host.invoke('settings.save', { ...settings, promptPresets: next })
+      promptPresets.value = saved.promptPresets ?? []
+    })
   }
 
   function queueTaskEvent(taskId: string, event: HostEvent) {

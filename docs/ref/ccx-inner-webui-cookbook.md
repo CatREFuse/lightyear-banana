@@ -176,7 +176,8 @@ UXP DOM 的 `<img>` 对 File Entry URL 和 Blob URL 的解码在部分 Photoshop
 
 缩略图用于消息流和参考区；原图用于大图预览、下载、置入和 Provider 上传。两者必须有独立状态：
 
-- 缩略图失败时显示明确异常状态，不返回装饰性占位图。
+- Host 缩略图失败但原图仍可用时，WebUI 自动通过 `asset.readOriginal` 分片读取原图并生成最长边 1024px 的对话缩略图。
+- 原图读取或 WebUI 压缩仍失败时显示明确异常状态，不返回装饰性占位图。
 - 原图仍可用时，点击结果继续通过 `asset.readOriginal` 分片加载原图。
 - 下载由 Host 的文件保存器完成，WebView 不使用会触发退出的临时 Blob 链接。
 - 历史记录只保存资产指针和必要元数据，不把大 data URL 写进对话 JSON。
@@ -300,6 +301,18 @@ UXP Host 剪贴板 API 可能存在但读取立即失败，也可能无法返回
 
 组件中的异步预处理、HostClient、协议、Host 服务和 Photoshop 原子操作都可能失败。每层补上下文后继续抛出，最终由 composable/store 转为用户状态；禁止空 catch、只写 console 或用占位图遮盖错误。
 
+### 9.7 对话重试不能只保存可变配置 ID
+
+CCX WebUI 的生成记录曾只保存 `configId` 与请求尺寸。用户在同一配置中切换模型后，旧记录重试会由 Host 读取新模型，同时继续发送旧尺寸；新模型不支持该尺寸时，Host 参数校验返回“请选择当前模型支持的尺寸”。WebUI 已移除失败对话的直接重试入口，保留“修改请求”，让用户重新确认模型和参数后发送。回归测试需覆盖失败消息不显示“重试”，并能通过“修改请求”恢复原输入。
+
+### 9.8 Host 缩略图失败不能阻断 WebUI 预览
+
+Host 的 bridge 缩略图受消息体积限制，生成图片纹理复杂时可能返回 `previewStatus: unavailable`，但资产原图仍可读取、置入和保存。WebUI 若只在 `<img>` 成功加载后检测低分辨率，失败状态不会产生 `load` 事件，原图升级链路因此无法启动。正确做法是在 composable 中派生原图仍有效的不可用结果，通过 watcher 调用 `asset.readOriginal`，压缩为最长边 1024px 的对话缩略图，并在生成成功后把展示状态恢复为 `ready`。回归验证需同时确认缩略图达到 1K、错误状态消失、原图读取命令发生且大图预览仍可打开。
+
+### 9.9 经验阈值不能成为隐式产品门禁
+
+首版 AssetStore 曾把 64 个内存资产和 512 MiB 累计计量写成固定上限，并把 RGBA 与完整 `previewUrl` 同时计入；这些数字没有 Adobe UXP 约束或产品规格依据，结果是在任务和参考图仍有效时主动拒绝生成。修复后，内存资产仅按 TTL 与 owner 生命周期释放，不再按经验数量或累计字节淘汰、拒绝或改写错误。回归测试需创建同一活动任务持有的 65 个生成结果和超过 64 个会话参考，确认最早与最新资产在当前会话中都可读取；`verify:ccx` 需确认 Host 类型、单测、构建和产物边界继续通过。
+
 ### 9.10 异步 Provider 不应各自维护轮询节奏
 
 APIMart、iMini、Kling、FLUX 与 ComfyUI 的任务状态和失败结构各不相同，查询时机属于共享运行时能力。各 Provider 在提交后把任务查询与状态解析交给共享轮询器，任务开始后的前 180 秒每 5 秒查询一次，180 秒后每 10 秒查询一次；Provider 仅保留任务超时、终态映射和错误详情。ComfyUI 的旧 `pollIntervalMs` 字段继续用于协议和存储兼容，WebUI 不再展示无效的轮询间隔输入。回归测试需覆盖 180 秒边界、超时末段等待裁剪、Provider 冒烟、双视口 WebUI 和取消路径。
@@ -307,6 +320,15 @@ APIMart、iMini、Kling、FLUX 与 ComfyUI 的任务状态和失败结构各不�
 ### 9.11 浏览器历史不能依赖延迟批量写入
 
 浏览器 WebUI 的生成记录若与模型设置共用一个 LocalStorage JSON，并由默认调度的 Vue watcher 写入，生成完成后立刻关闭页面或 WebView 异常退出时，watcher 可能尚未执行；图片正文还可能触发 LocalStorage 容量错误，空 `catch` 会让界面显示成功但磁盘仍停留在旧版本。修复方式是把生成记录拆成独立 key，使用同步 watcher 在状态变更时立即写入，启动时兼容读取旧设置对象中的历史并完成迁移。写入前按设置数量裁剪，容量不足时逐条淘汰最早记录并优先保留最新记录，非容量错误必须显示给用户。回归测试需覆盖旧数据迁移、重启恢复、设置降低后的即时裁剪和容量不足时的最新记录保留。
+
+### 9.12 设置首页、配置草稿与键盘操作（2026-09-14）
+
+- 复现：设置首页把预设入口套入危险按钮样式，配置管理直接展开；浏览器 `updateSettingsDraft` 同时回写配置，导致未点击保存就改变持久化数据。
+- 修正：设置首页按 Figma `2162:8762` 分组，API 列表保留在二级页面；字段更新只修改草稿，保存才替换配置，返回重置草稿。配置启停保留原有即时生效行为。
+- iMini 首页 Key 使用现有 `createConfig` / `editConfig`、`updateSettingsDraft` 和 `saveConfig`；CCX 仍通过 Host 的 `credential.set` 保存，不新增 WebView 本地凭据副本。保存失败保留输入，由现有保存流程显示错误。
+- `ControlSelect` 为触发按钮和列表补充名称、展开状态、选中状态；方向键定位选项，Enter 选择，Escape 关闭并归还焦点。外部点击仍由 `useOutsidePointerDown` 关闭。
+- 验证：`npm run test:inner-webui` 通过 28 项单元与 5 项隔离检查，完整 Playwright E2E 38 项通过；包含浏览器配置保存/重载、CCX 凭据桥接、生成及清空流程。260/402/960px、经典/Nothing、深浅色截图均完成检查。
+- 验证边界：Host 桥接使用浏览器测试夹具，本次未执行真实 Photoshop UXP Reload，也未部署线上 WebUI；不能把这些测试作为真实宿主发行验收。
 
 ### 9.13 自定义数量回退和保存反馈（2026-10-14）
 
@@ -328,15 +350,6 @@ APIMart、iMini、Kling、FLUX 与 ComfyUI 的任务状态和失败结构各不�
 | 真实 Photoshop | picker、paste、drop、画布抓取、原图预览、保存、置入、重启恢复 |
 | Windows 安装 | CCX 双击安装、Creative Cloud 提示、Photoshop 打开、官网下载安装 |
 | 生产回读 | WebUI release、CCX hash、官网最新版链接、关键响应头 |
-### 9.12 设置首页、配置草稿与键盘操作（2026-09-14）
-
-- 复现：设置首页把预设入口套入危险按钮样式，配置管理直接展开；浏览器 `updateSettingsDraft` 同时回写配置，导致未点击保存就改变持久化数据。
-- 修正：设置首页按 Figma `2162:8762` 分组，API 列表保留在二级页面；字段更新只修改草稿，保存才替换配置，返回重置草稿。配置启停保留原有即时生效行为。
-- iMini 首页 Key 使用现有 `createConfig` / `editConfig`、`updateSettingsDraft` 和 `saveConfig`；CCX 仍通过 Host 的 `credential.set` 保存，不新增 WebView 本地凭据副本。保存失败保留输入，由现有保存流程显示错误。
-- `ControlSelect` 为触发按钮和列表补充名称、展开状态、选中状态；方向键定位选项，Enter 选择，Escape 关闭并归还焦点。外部点击仍由 `useOutsidePointerDown` 关闭。
-- 验证：`npm run test:inner-webui` 通过 28 项单元与 5 项隔离检查，完整 Playwright E2E 38 项通过；包含浏览器配置保存/重载、CCX 凭据桥接、生成及清空流程。260/402/960px、经典/Nothing、深浅色截图均完成检查。
-- 验证边界：Host 桥接使用浏览器测试夹具，本次未执行真实 Photoshop UXP Reload，也未部署线上 WebUI；不能把这些测试作为真实宿主发行验收。
-
 
 真实验证要保存界面截图和对应 Host trace。自动化构造 ClipboardEvent 可覆盖代码路径，仍需真实系统剪贴板与键盘粘贴通过后才能宣布用户问题已修复。
 

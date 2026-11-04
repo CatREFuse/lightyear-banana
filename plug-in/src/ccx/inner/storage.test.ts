@@ -109,6 +109,20 @@ describe('BYOK credential binding', () => {
     expect(runtime.credentials.size).toBe(0)
   })
 
+  it('reuses a test credential only for the same Provider and origin without removing the saved secret', async () => {
+    await save(config())
+    await setCredential({ configId: 'config-1', apiKey: 'saved-secret' })
+    const originalSettings = runtime.settings
+    const originalCredential = new Uint8Array([...runtime.credentials.values()][0]!)
+
+    await expect(getCredential(config({ baseUrl: 'https://api.first-provider.dev/another/path' }), true)).resolves.toBe('saved-secret')
+    await expect(getCredential(config({ baseUrl: 'https://api.other-provider.dev' }), true)).resolves.toBe('')
+    await expect(getCredential(config({ provider: 'iMini' }), true)).resolves.toBe('')
+
+    expect(runtime.settings).toBe(originalSettings)
+    expect([...runtime.credentials.values()]).toEqual([originalCredential])
+  })
+
   it('keeps the old endpoint active when secure storage cannot invalidate its credential', async () => {
     await save(config())
     await setCredential({ configId: 'config-1', apiKey: 'old-secret' })

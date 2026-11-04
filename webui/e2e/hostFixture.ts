@@ -26,7 +26,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
         'host.getContext', 'settings.get', 'settings.save', 'history.list', 'history.upsert', 'history.clear',
         'credential.set', 'credential.remove', 'canvas.captureVisible', 'canvas.captureSelection',
         'canvas.captureLayer', 'canvas.readSize', 'reference.pickFile', 'reference.readClipboard', 'reference.importImageChunk',
-        'generation.start', 'generation.cancel', 'generation.testConfig', 'canvas.placeAsset',
+        'generation.start', 'generation.cancel', 'generation.testConfig', 'generation.testConfig.draft', 'canvas.placeAsset',
         'asset.save', 'asset.readOriginal', 'asset.retain', 'asset.release', 'diagnostics.export', 'storage.clearAll'
       ]
     }
@@ -88,6 +88,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
     function safePayload(request: Record<string, any>) {
       if (request.payload === undefined) return null
       if (request.command === 'credential.set') return { configId: request.payload.configId, apiKey: '[redacted]' }
+      if (request.command === 'generation.testConfig' && request.payload.apiKey) return { ...request.payload, apiKey: '[redacted]' }
       return JSON.parse(JSON.stringify(request.payload))
     }
     async function requestJson(phase: string, url: string, init: RequestInit) {
@@ -186,7 +187,7 @@ export async function installTestHost(page: Page, options: { apimartBaseUrl?: st
 
       const highResolutionResult = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221600%22 height=%221200%22 viewBox=%220 0 1600 1200%22%3E%3Crect width=%221600%22 height=%221200%22 fill=%22%23181818%22/%3E%3Ccircle cx=%22800%22 cy=%22600%22 r=%22480%22 fill=%22%23f3ead7%22/%3E%3C/svg%3E'
       const lowResolutionResult = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22256%22 height=%22192%22 viewBox=%220 0 256 192%22%3E%3Crect width=%22256%22 height=%22192%22 fill=%22%23181818%22/%3E%3Ccircle cx=%22128%22 cy=%2296%22 r=%2276%22 fill=%22%23f3ead7%22/%3E%3C/svg%3E'
-      const result = lowResolutionResultThumbnail
+      const result = lowResolutionResultThumbnail || thumbnailUnavailable
         ? asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', lowResolutionResult, highResolutionResult, { width: 1600, height: 1200 })
         : asset(`e2e-result-${taskSequence}`, 'generated', '生成结果 1', catUrl)
       const logs = trace.network.map((entry) => ({

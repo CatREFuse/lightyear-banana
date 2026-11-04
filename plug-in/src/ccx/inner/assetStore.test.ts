@@ -253,26 +253,24 @@ describe('persistent Host assets', () => {
     expect((await assets.resolvePointer(pointer)).status).toBe('missing')
   })
 
-  it('unloads persisted history results from memory without losing disk recovery', async () => {
+  it('keeps more than 64 generated results owned by one active task', async () => {
     const assets = new AssetStore()
-    const history = new HistoryStore(assets)
     const assetIds: string[] = []
 
     for (let index = 0; index < 65; index += 1) {
-      const asset = await assets.add('generated', { ...image, id: `generated-${index}`, label: `生成结果 ${index + 1}` })
+      const asset = await assets.add(
+        'generated',
+        { ...image, id: `generated-${index}`, label: `生成结果 ${index + 1}` },
+        { owner: 'task:bulk-generation' }
+      )
       assetIds.push(asset.assetId)
-      await history.upsert({
-        ...historyEntry(`turn-capacity-${index}`),
-        assets: [{ assetId: asset.assetId, label: asset.label, source: asset.source, width: asset.width, height: asset.height }]
-      })
     }
 
-    expect((await assets.resolvePointer({ assetId: assetIds[0]!, label: '生成结果 1', source: 'generated', width: 16, height: 16 })).status).toBe('missing')
+    expect((await assets.getOrRestore(assetIds[0]!)).ref.status).toBe('available')
     expect((await assets.getOrRestore(assetIds[64]!)).ref.status).toBe('available')
-    expect((await history.list(undefined, 50)).items).toHaveLength(30)
   })
 
-  it('treats session-history references as soft owners under the memory limit', async () => {
+  it('keeps more than 64 session-history references without an implicit count gate', async () => {
     const assets = new AssetStore()
     const assetIds: string[] = []
 
@@ -283,7 +281,7 @@ describe('persistent Host assets', () => {
       assets.release(reference.assetId)
     }
 
-    expect((await assets.resolvePointer({ assetId: assetIds[0]!, label: '画布参考 1', source: 'visible', width: 16, height: 16 })).status).toBe('missing')
+    expect((await assets.getOrRestore(assetIds[0]!)).ref.status).toBe('available')
     expect((await assets.getOrRestore(assetIds[64]!)).ref.status).toBe('available')
   })
 

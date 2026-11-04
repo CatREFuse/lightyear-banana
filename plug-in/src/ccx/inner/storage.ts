@@ -176,7 +176,7 @@ async function clearStoredCredential(configId: string, strict: boolean) {
   }
 }
 
-function validateConfig(value: unknown): StoredModelConfig {
+export function validateConfig(value: unknown): StoredModelConfig {
   const config = value as Record<string, unknown>
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('配置无效')
   const id = readText(config, 'id', '', 96)
@@ -330,7 +330,7 @@ export async function saveSettings(payload: Record<string, unknown>): Promise<Se
   return getSettings()
 }
 
-export async function getCredential(config: CredentialBindingConfig) {
+export async function getCredential(config: CredentialBindingConfig, readOnly = false) {
   if (!/^[a-zA-Z0-9_-]{1,96}$/.test(config.id)) throw new Error('配置 ID 无效')
   if (!providerRequiresApiKey(config.provider)) return ''
   if (__MUGEN_APP_ENV__ !== 'production' && isDevelopmentApimartFixture(config)) return 'mock-apimart-good'
@@ -342,7 +342,7 @@ export async function getCredential(config: CredentialBindingConfig) {
   if (!record || !sameCredentialBinding(record, expectedBinding)) {
     // Unbound legacy values and mismatched records are never returned. Removal
     // is best-effort here; settings.save performs strict invalidation on change.
-    await clearStoredCredential(config.id, false)
+    if (!readOnly) await clearStoredCredential(config.id, false)
     return ''
   }
   return record.apiKey

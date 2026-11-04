@@ -1,4 +1,4 @@
-import { HOST_COMMANDS, PROTOCOL_VERSION, type BridgeError, type HistoryUpsertEntry, type HostCommand, type HostEventName, type PlacementTarget } from '@mugen/inner-protocol'
+import { DRAFT_CONFIG_TEST_CAPABILITY, HOST_COMMANDS, PROTOCOL_VERSION, type BridgeError, type HistoryUpsertEntry, type HostCommand, type HostCommandPayload, type HostEventName, type PlacementTarget } from '@mugen/inner-protocol'
 import { canvasPrimitiveService } from '../canvasPrimitiveService'
 import { readCanvasDiagnosticContext } from '../canvasPrimitives'
 import { readActiveDocumentLabel } from '../photoshopHost'
@@ -92,7 +92,7 @@ function getDocumentContext(hostVersion: string) {
         width: Number(context.document.width) || 1,
         height: Number(context.document.height) || 1
       },
-      capabilities: [...HOST_COMMANDS]
+      capabilities: [...HOST_COMMANDS, DRAFT_CONFIG_TEST_CAPABILITY]
     }
   } catch {
     return {
@@ -102,7 +102,7 @@ function getDocumentContext(hostVersion: string) {
       uxpVersion: adobeUxpRuntime?.versions?.uxp ?? adobeUxpRuntime?.version ?? '',
       platform: getPlatform(),
       theme: getTheme(),
-      capabilities: [...HOST_COMMANDS]
+      capabilities: [...HOST_COMMANDS, DRAFT_CONFIG_TEST_CAPABILITY]
     }
   }
 }
@@ -202,7 +202,7 @@ export class CommandRegistry {
       'reference.importImageChunk': async (payload) => this.files.importImageChunk(payload as never),
       'generation.start': async (payload) => this.provider.start(payload as never),
       'generation.cancel': async (payload) => this.provider.cancel(String(payload?.taskId ?? '')),
-      'generation.testConfig': async (payload) => this.provider.testConfig(String(payload?.configId ?? '')),
+      'generation.testConfig': async (payload) => this.provider.testConfig(payload as HostCommandPayload<'generation.testConfig'>),
       'canvas.placeAsset': async (payload) => this.placeAsset(String(payload?.assetId ?? ''), payload?.target as PlacementTarget),
       'asset.save': async (payload) => this.confirmations.run(
         'asset.save',

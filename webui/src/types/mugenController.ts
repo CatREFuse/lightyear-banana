@@ -65,7 +65,6 @@ export type MugenController = {
   ratio: Ref<string>
   references: ReadonlyState<ReferenceImage[]>
   removeReference: (id: string) => ControllerResult
-  retryGeneration: (turnId: string) => ControllerResult
   resolutionMode: Ref<ResolutionInputMode>
   saveConfig: () => ControllerResult
   saveGeneratedImage: (image: CapturedCanvasImage) => ControllerResult

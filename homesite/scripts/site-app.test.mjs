@@ -77,7 +77,7 @@ test('pauses and resumes one scene across repeated BFCache visits', async () => 
 
   assert.equal(loads, 1)
   assert.deepEqual(scene.calls, { dispose: 0, pause: 2, resume: 2 })
-  assert.equal(stage.classes.has('webgl-unavailable'), false)
+  assert.equal(stage.classes.has('webgpu-unavailable'), false)
 })
 
 test('disposes a scene that finishes loading after a terminal pagehide', async () => {
@@ -117,7 +117,7 @@ test('keeps a fatal scene in the static fallback across BFCache restoration', as
   lifecycle.handlePageHide({ persisted: true })
   lifecycle.handlePageShow({ persisted: true })
 
-  assert.equal(stage.classes.has('webgl-unavailable'), true)
+  assert.equal(stage.classes.has('webgpu-unavailable'), true)
   assert.equal(loads, 1)
   assert.deepEqual(scene.calls, { dispose: 0, pause: 0, resume: 0 })
 })
@@ -126,11 +126,11 @@ test('uses the static fallback when scene construction fails', async () => {
   const stage = fakeStage()
   const lifecycle = createPrismLifecycle({
     stage,
-    loadScene: async () => { throw new Error('WebGL unavailable') }
+    loadScene: async () => { throw new Error('WebGPU unavailable') }
   })
 
   await assert.doesNotReject(lifecycle.initialize())
-  assert.equal(stage.classes.has('webgl-unavailable'), true)
+  assert.equal(stage.classes.has('webgpu-unavailable'), true)
 })
 
 test('unlocks the prism controls on five consecutive prism clicks', () => {

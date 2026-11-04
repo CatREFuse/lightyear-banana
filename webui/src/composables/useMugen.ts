@@ -630,6 +630,11 @@ export function useMugen(runtime: DirectRuntimeName) {
   const settingsDraft = reactive<ModelConfig>({
     ...cloneModelConfig(initialConfig)
   })
+  let settingsTestRequest = 0
+  watch([settingsDraft, settingsView, activeView], () => {
+    settingsTestRequest += 1
+    setSettingsTestState({ status: 'idle', message: '' })
+  }, { deep: true, flush: 'sync' })
 
   const canUsePhotoshop = computed(() => false)
   const activeConfig = computed(
@@ -1529,97 +1534,6 @@ function readHighestQuality(options: string[]): string {
     })()
   }
 
-  async function retryGeneration(turnId: string) {
-    const sourceTurn = turns.value.find((turn) => turn.id === turnId)
-    if (!sourceTurn?.repeatRequest) {
-      status.value = '没有可重试的生成请求'
-      return
-    }
-
-    const requestSnapshot = normalizeGenerationSnapshotForRequest(cloneGenerationRequestSnapshot(sourceTurn.repeatRequest))
-    const startedAt = Date.now()
-    const taskId = startGenerationLoading(requestSnapshot.prompt, requestSnapshot.references)
-    const abortController = new AbortController()
-    const requestLogs: ImageRequestLogEntry[] = []
-    generationControllers.set(taskId, abortController)
-    status.value = '正在重试生成'
-
-    void (async () => {
-      try {
-        const generated = await buildGeneratedImagesWithRetries(
-          {
-            config: requestSnapshot.config,
-            count: readRequestCountForSnapshot(requestSnapshot),
-            canvasSize: requestSnapshot.canvasSize,
-            prompt: requestSnapshot.prompt,
-            quality: requestSnapshot.quality,
-            loadingTaskId: taskId,
-            ratio: requestSnapshot.ratio,
-            references: requestSnapshot.references,
-            selectedSize: requestSnapshot.selectedSize,
-            onTiming: (entry) => recordGenerationRequestLog(taskId, requestLogs, entry),
-            signal: abortController.signal,
-            size: readRequestSizeForSnapshot(requestSnapshot)
-          },
-          requestSnapshot.config.id
-        )
-        const finalSnapshot = finalizeGenerationSnapshot(requestSnapshot, generated.resolvedSize)
-
-        turns.value = turns.value.map((turn) => {
-          if (turn.id !== turnId) {
-            return turn
-          }
-
-          return {
-            ...turn,
-            elapsedLabel: `耗费 ${readGenerationElapsed(taskId, startedAt)}s`,
-            responseText: buildGenerationResponseText(finalSnapshot, generated.images.length),
-            repeatRequest: cloneGenerationRequestSnapshot(finalSnapshot),
-            requestLogs: cloneRequestLogs(requestLogs),
-            results: generated.images,
-            tone: 'normal'
-          }
-        })
-        status.value = '重试生成完成'
-      } catch (error) {
-        if (abortController.signal.aborted) {
-          turns.value = turns.value.map((turn) => {
-            if (turn.id !== turnId) {
-              return turn
-            }
-
-            return {
-              ...turn,
-              responseText: '已取消生成',
-              elapsedLabel: `${readGenerationElapsed(taskId, startedAt)}s`,
-              repeatRequest: cloneGenerationRequestSnapshot(requestSnapshot),
-              requestLogs: cloneRequestLogs(requestLogs),
-              results: [],
-              tone: 'canceled'
-            }
-          })
-          return
-        }
-
-        const message = `API 请求失败：${readErrorMessage(error, '请检查配置后重试')}`
-        turns.value = turns.value.map((turn) => {
-          if (turn.id !== turnId) {
-            return turn
-          }
-
-          return {
-            ...buildFailedGenerationTurn(requestSnapshot, message, readGenerationElapsed(taskId, startedAt), requestLogs),
-            id: turn.id
-          }
-        })
-        status.value = message
-        showToast(message)
-      } finally {
-        stopGenerationLoading(taskId)
-      }
-    })()
-  }
-
   function selectRequestConfig(config: ModelConfig) {
     const existing = configs.value.find((item) => item.id === config.id)
     if (existing) {
@@ -1887,6 +1801,7 @@ function readHighestQuality(options: string[]): string {
   }
 
   async function testConfig() {
+    const request = ++settingsTestRequest
     if (settingsDraft.provider === 'codex-image-server') {
       setSettingsTestState({ status: 'testing', message: '正在测试本机服务' })
       status.value = '正在测试本机服务'
@@ -1894,6 +1809,7 @@ function readHighestQuality(options: string[]): string {
       try {
         await testImageConfig(resolveBrowserProviderConfig({ ...settingsDraft }))
       } catch (error) {
+        if (request !== settingsTestRequest) return
         const rawMessage = error instanceof Error ? error.message : ''
         const message = /api key|token|unauthorized|401/i.test(rawMessage)
           ? '本机服务 Key 校验失败'
@@ -1903,6 +1819,7 @@ function readHighestQuality(options: string[]): string {
         return
       }
 
+      if (request !== settingsTestRequest) return
       setSettingsTestState({ status: 'success', message: '本机服务可用' }, { resetAfterMs: 3000 })
       status.value = '本机服务可用'
       return
@@ -1922,12 +1839,14 @@ function readHighestQuality(options: string[]): string {
     try {
       await testImageConfig(resolveBrowserProviderConfig({ ...settingsDraft }))
     } catch (error) {
+      if (request !== settingsTestRequest) return
       const message = error instanceof Error ? error.message : 'API 配置不可用'
       setSettingsTestState({ status: 'error', message }, { resetAfterMs: 3000 })
       status.value = message
       return
     }
 
+    if (request !== settingsTestRequest) return
     setSettingsTestState({ status: 'success', message: 'API 配置可用' }, { resetAfterMs: 3000 })
     status.value = 'API 配置可用'
   }
@@ -2025,7 +1944,6 @@ function readHighestQuality(options: string[]): string {
     references,
     refreshDocument,
     removeReference,
-    retryGeneration,
     resolutionMode,
     saveConfig,
     saveGeneratedImage,

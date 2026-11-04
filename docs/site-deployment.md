@@ -6,10 +6,10 @@
 /etc/nginx/static/mugen-site/
 ├── releases/<site-id>/
 ├── current -> releases/<active-site-id>
-└── previous -> releases/<previous-site-id>
+└── previous -> releases/<previous-site-id>  # 仅验收期间存在
 ```
 
-Nginx 从 `current` 提供首页。当前 CCX 固定放在 `current/download/mugen-<version>-<build>.ccx`，与 HTML、JavaScript 和图片一起进入站点清单、内容哈希、原子切换和回滚。首页不读取版本清单，`releases/latest.json` 已退出构建与用户下载链。部署器在迁移期仍会原字节保留旧快照中的 `releases/`，只用于既有回滚兼容，不作为当前版本来源。
+Nginx 从 `current` 提供首页。当前 CCX 固定放在 `current/download/mugen-<version>-<build>.ccx`，与 HTML、JavaScript 和图片一起进入站点清单、内容哈希、原子切换和回滚。首页不读取版本清单，`releases/latest.json` 已退出构建与用户下载链。部署器只继承旧 `releases/latest.json` 及其引用的本地文件，不再复制整份历史安装包目录。
 
 ## 环境
 
@@ -148,7 +148,7 @@ npm run deploy:site
 2. 在旧 `current` 写入本次唯一的只读回滚清单，从公网逐项读回后才继续。旧站没有发布 marker 时也可形成完整回滚证据。
 3. 使用 `tar` 生成本地归档，通过 `scp` 上传到唯一 incoming 目录。
 4. 在 `flock` 内确认 `current` 未被并发部署切换，解包到唯一 stage 并校验所有站点文件。
-5. 迁移期原字节复制旧快照中的 `releases/` 兼容数据，不把它合入新站内容哈希或下载入口。
+5. 解析旧 `releases/latest.json`，只复制该索引及其仍引用的本地下载、JSON 索引，并与旧版本 SHA256 清单核对。
 6. 校验 stage 中 `download/` CCX 与全站清单一致。
 7. 在同一文件系统把 stage 移入 `releases/<site-id>`。prepare 会先记录发布前的 `previous` 目标或其不存在状态；activation 在切换前再次确认该状态未变，先更新 `previous`，最后用单次 `mv -T` 原子切换 `current`。
 8. 从公网逐字节读回全部站点文件和 `download/` CCX，同时检查 MIME 与安全响应头；迁移期额外确认旧回滚证明未被修改。
@@ -165,4 +165,14 @@ npm run deploy:site
 npm run deploy:site -- --rollback
 ```
 
-回滚先在锁内记录并验证预期 `current`、`previous` 与相同的 `releases/latest.json` SHA256，生成或复用恢复版本的唯一全站清单，并在切换前校验清单中的每个静态资产。脚本先更新 `previous`，最后用单次重命名原子切换公网使用的 `current`；如果最后一次重命名失败，会在退出前把 `previous` 补偿恢复为原回滚目标，使状态仍可重试。两个链接不宣称成对原子交换。公网会逐字节读回清单、其中每个静态资产、活动 `latest.json` 和唯一 latest 证明，并校验 SHA256、MIME、HSTS、`nosniff` 与受约束缓存策略。历史快照不会自动删除。
+回滚先在锁内记录并验证预期 `current`、`previous` 与相同的 `releases/latest.json` SHA256，生成或复用恢复版本的唯一全站清单，并在切换前校验清单中的每个静态资产。脚本先更新 `previous`，最后用单次重命名原子切换公网使用的 `current`；如果最后一次重命名失败，会在退出前把 `previous` 补偿恢复为原回滚目标，使状态仍可重试。两个链接不宣称成对原子交换。公网会逐字节读回清单、其中每个静态资产、活动 `latest.json` 和唯一 latest 证明，并校验 SHA256、MIME、HSTS、`nosniff` 与受约束缓存策略。恢复后公网校验通过即自动删除非 current 历史快照；成功发行后 previous 已清除，不能再以此命令恢复历史版本。
+
+## 服务器发行保留策略（2026-10-21）
+
+- 官网和 WebUI 均只长期保留 `current` 指向的一份发行快照。上传、切换和公网校验期间保留旧版本以便失败恢复；校验成功后重新获取发布锁，确认 `current` 仍为已验证目标，再删除其他发行目录及 `previous` 链接。
+- 官网不再复制整份旧安装包目录；只继承旧 `releases/latest.json` 及其引用的本地下载与 JSON 索引。当前官网 `download/` 随本次构建保留。缺失文件、路径穿越和软链接均中止处理，不能静默遗漏引用。
+- WebUI 共享 `assets/` 只保留当前快照拥有的文件；旧页面可能需要刷新，HTTP/浏览器缓存响应头保持原样。
+- 本次 incoming 上传包在确认安全后清除；不清理其他正在上传任务的目录，也不扫描业务数据目录。未完成公网验证、跳过验证、恢复失败或远端状态不明时不执行历史裁剪；恢复完成且公网校验通过后，使用同一规则只保留恢复后的 current。
+- 清理失败会单独报错，不将它当作公网验证失败，也不回滚到可能已经删除的历史版本。所有删除目标在动手前完成边界和元数据检查；非预期目录导致停止。
+- `previous` 只在尚未完成验收的发布事务中存在。成功发行后不再支持直接切回服务器历史副本；需要恢复旧版本时，从对应 Git 提交重新构建并正常发布。
+- 远端依赖 Python 3.8+、现有 `flock`、GNU `sha256sum` 和原子重命名能力。公共实现为 `utils/deploy/release-retention.py` / `.mjs`，回归已纳入 `npm run test:release-policy`。

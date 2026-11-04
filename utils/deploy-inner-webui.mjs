@@ -1,3 +1,4 @@
+import { retentionCommand, verifyThenRetainCurrent } from './deploy/release-retention.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import {
@@ -625,8 +626,10 @@ if (rollback) {
         'Rollback restoration'
       )
       await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, restored.release)
+      runSsh(configuration, withRemoteLock(remoteRoot, retentionCommand('prune', remoteRoot, restored.target, 'webui')))
       throw error
     }
+    runSsh(configuration, withRemoteLock(remoteRoot, retentionCommand('prune', remoteRoot, rolledBack.target, 'webui')))
   }
   return
 }
@@ -694,8 +697,12 @@ try {
   const previousTarget = captureSsh(configuration, withRemoteLock(remoteRoot, activateCommand), archivePath)
   if (!skipPublicVerify) {
     try {
-      await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, localRelease, snapshotRoot)
+      await verifyThenRetainCurrent(
+        () => verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, localRelease, snapshotRoot),
+        () => runSsh(configuration, withRemoteLock(remoteRoot, retentionCommand('prune', remoteRoot, remoteRelease, 'webui')))
+      )
     } catch (error) {
+      if (error?.code === 'RELEASE_RETENTION_FAILED') throw error
       console.error('Public verification failed; restoring the previous WebUI release.')
       try {
         if (previousTarget) {
@@ -704,6 +711,7 @@ try {
             'Automatic rollback'
           )
           await verifyPublicDeployment(innerWebUiUrl, innerReleaseUrl, rolledBack.release)
+          runSsh(configuration, withRemoteLock(remoteRoot, retentionCommand('prune', remoteRoot, rolledBack.target, 'webui')))
         } else {
           runSsh(configuration, createRemoveCurrentCommand(remoteRoot, remoteRelease))
           console.error('The failed first deployment was deactivated; no previous release existed.')

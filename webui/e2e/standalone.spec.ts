@@ -399,7 +399,7 @@ test('browser compresses combined inline references below the request-body budge
   expect(sizes.after).toBeLessThanOrEqual(22 * 1024 * 1024)
 })
 
-test('browser surfaces a recoverable APIMart network error and retries it from the keyboard-submitted turn', async ({ page }) => {
+test('browser surfaces an APIMart network error without a direct retry action', async ({ page }) => {
   await useApimartBrowserConfig(page, 'APIMart Recovery')
 
   const focusOrder = await walkCompleteFocusOrder(page)
@@ -417,19 +417,19 @@ test('browser surfaces a recoverable APIMart network error and retries it from t
 
   const failedTurn = page.locator('.assistant-message.is-error').filter({ hasText: 'Fixture generation rejected' })
   await expect(failedTurn).toBeVisible()
-  await expect(failedTurn.getByRole('button', { name: '重试' })).toBeVisible()
+  await expect(failedTurn.getByRole('button', { name: '重试' })).toHaveCount(0)
+  await expect(failedTurn.getByRole('button', { name: '修改请求' })).toBeVisible()
   await expect(page.getByRole('img', { name: /^生成图/ })).toHaveCount(0)
   expect(apimartFixture.state.requests).toEqual(expect.arrayContaining([
     expect.objectContaining({ phase: 'generation.submit', status: 422, result: 'fixture-error' })
   ]))
 
-  await failedTurn.getByRole('button', { name: '重试' }).click()
-  await expect(page.getByRole('img', { name: '生成图 1' })).toBeVisible({ timeout: 10_000 })
+  await failedTurn.getByRole('button', { name: '修改请求' }).click()
+  await expect(prompt).toHaveValue('验证浏览器可恢复网络错误')
   expect(apimartFixture.state.requests.filter((entry: { phase: string }) => entry.phase === 'generation.submit')).toEqual([
-    expect.objectContaining({ status: 422, result: 'fixture-error' }),
-    expect.objectContaining({ status: 200 })
+    expect.objectContaining({ status: 422, result: 'fixture-error' })
   ])
-  expect(apimartFixture.state.imageDownloads).toBeGreaterThanOrEqual(1)
+  expect(apimartFixture.state.imageDownloads).toBe(0)
 })
 
 test('browser cancellation aborts the active APIMart poll and leaves no generated result', async ({ page }) => {

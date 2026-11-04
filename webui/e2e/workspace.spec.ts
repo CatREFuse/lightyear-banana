@@ -261,7 +261,7 @@ test('adds uploaded, pasted, and dropped images as references through the CCX ho
   expect(commands).not.toContain('reference.readClipboard')
 })
 
-test('shows a thumbnail error, advances the timer, and opens the original image', async ({ browser }, testInfo) => {
+test('recovers an unavailable thumbnail at 1K and opens the original image', async ({ browser }, testInfo) => {
   const context = await browser.newContext({ viewport: { width: 480, height: 760 } })
   const page = await context.newPage()
   await installTestHost(page, { apimartBaseUrl, apiKey: expectedApiKey, generationDelayMs: 3_500, thumbnailUnavailable: true })
@@ -274,9 +274,12 @@ test('shows a thumbnail error, advances the timer, and opens the original image'
   await expect(loading).toBeVisible()
   await expect.poll(async () => Number((await loading.textContent())?.match(/(\d+)s/)?.[1] ?? 0), { timeout: 3_500 }).toBeGreaterThan(0)
 
-  const unavailable = page.getByRole('status').filter({ hasText: '预览不可用' })
-  await expect(unavailable).toBeVisible({ timeout: 10_000 })
-  await page.screenshot({ path: testInfo.outputPath('thumbnail-unavailable.png') })
+  const thumbnail = page.getByRole('img', { name: '生成结果 1' })
+  await expect(thumbnail).toBeVisible({ timeout: 10_000 })
+  await expect.poll(() => thumbnail.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(1024)
+  await expect(page.getByRole('status').filter({ hasText: '预览不可用' })).toHaveCount(0)
+  await expect.poll(async () => (await readTestHostTrace(page)).commands.some((entry) => entry.command === 'asset.readOriginal')).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('thumbnail-recovered.png') })
   await page.locator('.thumbnail-button').click()
   const previewRegion = page.getByRole('region', { name: '图片预览' })
   await expect(previewRegion.getByRole('img', { name: '生成结果 1' })).toBeVisible()

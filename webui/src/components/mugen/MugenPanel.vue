@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
 import type { MugenController } from '../../types/mugenController'
 import { useThemePreferences, type ThemePreferencesController } from '../../composables/useThemePreferences'
 import type { DesktopPlatform, RuntimeName } from '@mugen/core'
@@ -64,7 +64,6 @@ const {
   ratio,
   references,
   removeReference,
-  retryGeneration,
   resolutionMode,
   saveConfig,
   saveGeneratedImage,
@@ -97,12 +96,15 @@ const {
   setVisualTheme,
   visualTheme
 } = props.themeController ?? localThemeController!
+const activeWorkspaceMenu = shallowRef('')
 const apiListOpen = shallowRef(false)
 const iminiSaving = shallowRef(false)
-const activeWorkspaceMenu = shallowRef('')
 const previewImage = shallowRef<CapturedCanvasImage | null>(null)
 const previewLoading = shallowRef(false)
 const previewError = shallowRef('')
+const previewDialog = useTemplateRef<HTMLElement>('previewDialog')
+const previewCloseButton = useTemplateRef<HTMLButtonElement>('previewCloseButton')
+let previewOpener: HTMLElement | null = null
 let previewRequest = 0
 const photoshopIntegrationAvailable = computed(() => (
   props.photoshopIntegrationAvailable ?? props.runtime !== 'browser'
@@ -151,9 +153,13 @@ function setWorkspaceMenu(owner: string) {
 
 async function openPreview(image: CapturedCanvasImage) {
   const request = ++previewRequest
+  previewOpener = document.activeElement as HTMLElement | null
   activeWorkspaceMenu.value = ''
   previewImage.value = image
   previewError.value = ''
+  await nextTick()
+  if (request !== previewRequest) return
+  previewCloseButton.value?.focus()
   if (!props.controller.loadOriginalImage) return
   previewLoading.value = true
   try {
@@ -171,6 +177,27 @@ function closePreview() {
   previewImage.value = null
   previewError.value = ''
   previewLoading.value = false
+  const opener = previewOpener
+  void nextTick(() => opener?.focus())
+}
+
+function handlePreviewKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closePreview()
+  } else if (event.key === 'Tab') {
+    const buttons = previewDialog.value?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')
+    if (!buttons?.length) return
+    const first = buttons[0]
+    const last = buttons[buttons.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 }
 
 function readPreviewFileName(image: CapturedCanvasImage) {
@@ -209,13 +236,14 @@ function handleHeaderBack() {
     closeSettingsDetail()
     return
   }
+
   if (apiListOpen.value) {
     apiListOpen.value = false
     return
   }
-
   closeSettings()
 }
+
 async function saveIminiKey(key: string) {
   iminiSaving.value = true
   try {
@@ -234,9 +262,8 @@ async function saveIminiKey(key: string) {
   }
 }
 
-
-  apiListOpen.value = false
 function handleOpenSettings() {
+  apiListOpen.value = false
   activeWorkspaceMenu.value = ''
   openSettings()
 }
@@ -258,6 +285,7 @@ function handleManageModels() {
     ]"
   >
     <PanelHeader
+      :inert="Boolean(previewImage) || undefined"
       :active-menu-owner="activeWorkspaceMenu"
       :in-settings="activeView === 'settings'"
       :install-plugin-url="installPluginUrl"
@@ -281,10 +309,10 @@ function handleManageModels() {
         class="route-page settings-route"
         :class="{ 'is-active': activeView === 'settings' }"
         :aria-hidden="activeView !== 'settings'"
+        :inert="activeView !== 'settings' || Boolean(previewImage) || undefined"
         :active="activeView === 'settings'"
         :api-list-open="apiListOpen"
         :imini-saving="iminiSaving"
-        :inert="activeView !== 'settings' || undefined"
         :configs="configs"
         :editing-capability="editingCapability"
         :editing-config-id="editingConfigId"
@@ -297,9 +325,9 @@ function handleManageModels() {
         :settings-draft="settingsDraft"
         :settings-test-state="settingsTestState"
         :settings-view="settingsView"
+        :version="activeVersion"
         @open-api-list="apiListOpen = true"
         @save-imini-key="saveIminiKey"
-        :version="activeVersion"
         @close-detail="closeSettingsDetail"
         @clear-conversation-data="clearConversationData"
         @create="createConfig"
@@ -324,6 +352,7 @@ function handleManageModels() {
         aria-label="生成工作区"
       >
         <MessageThread
+          :inert="Boolean(previewImage) || undefined"
           :active-menu-owner="activeWorkspaceMenu"
           :canvas-operation="canvasOperation"
           :loading="generationLoading"
@@ -336,13 +365,13 @@ function handleManageModels() {
           @place="placeImage"
           @preview="openPreview"
           @reference="useResultAsReference"
-          @retry="retryGeneration"
           @save="saveGeneratedImage"
           @thumbnail-low-resolution="upgradeGeneratedThumbnail?.($event)"
           @upscale="upscaleImage"
         />
 
         <ComposerDock
+          :inert="Boolean(previewImage) || undefined"
           :active-menu-owner="activeWorkspaceMenu"
           :active-capability="activeCapability"
           :active-config-id="activeConfigId"
@@ -384,13 +413,13 @@ function handleManageModels() {
 
         <Transition name="preview-fade">
           <section v-if="previewImage" class="preview-window" aria-label="图片预览" @click="closePreview">
-            <div class="preview-dialog" :style="previewDialogStyle" role="dialog" aria-modal="true" @click.stop>
+            <div ref="previewDialog" class="preview-dialog" :style="previewDialogStyle" role="dialog" aria-label="图片预览" aria-modal="true" @click.stop @keydown="handlePreviewKeydown">
               <header class="preview-header">
                 <span>{{ previewImage.label }} · {{ previewImage.width }} × {{ previewImage.height }}</span>
                 <div class="preview-actions">
                   <button v-if="props.runtime === 'browser'" type="button" @click="downloadPreviewImage">下载</button>
                   <button v-else type="button" @click="downloadPreviewImage">下载</button>
-                  <button type="button" aria-label="关闭预览" @click="closePreview">
+                  <button ref="previewCloseButton" type="button" aria-label="关闭预览" @click="closePreview">
                     <BoxIcon name="x" size="16" />
                   </button>
                 </div>
@@ -779,6 +808,8 @@ function handleManageModels() {
     transition: none;
   }
 
+}
+
 .mugen-shell.theme-light:not(.design-nothing) :deep(.settings-panel) {
   --mugen-workspace: #f4f4f5;
   --mugen-text: #18181b;
@@ -792,7 +823,5 @@ function handleManageModels() {
 }
 .mugen-shell.design-nothing :deep(.imini-key-content input) {
   background: var(--mugen-surface);
-}
-
 }
 </style>
